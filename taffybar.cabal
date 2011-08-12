@@ -8,6 +8,7 @@ maintainer: travitch@cs.wisc.edu
 category: System
 build-type: Simple
 cabal-version: >=1.10
+homepage: http://github.com/travitch/taffybar
 extra-source-files: README.md,
                     taffybar.hs.example
 
