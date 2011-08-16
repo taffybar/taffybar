@@ -1,5 +1,5 @@
 name: taffybar
-version: 0.1.1
+version: 0.1.2
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
@@ -13,9 +13,18 @@ data-files: taffybar.rc
 extra-source-files: README.md,
                     taffybar.hs.example
 
-description: A somewhat fancier desktop bar than xmobar.  This bar is based on
-             gtk2hs and provides several widgets (including a few graphical ones).
-             It also sports an optional snazzy system tray.
+description:
+  A somewhat fancier desktop bar than xmobar.  This bar is based on
+  gtk2hs and provides several widgets (including a few graphical ones).
+  It also sports an optional snazzy system tray.
+  .
+  Changes in v0.1.2:
+  .
+    * Readable widget for freedesktop notifications
+  .
+    * Fixed a few potential deadlocks on startup
+  .
+    * Use the GTK+ rc-file styling system for colors instead of hard coding them
 
 
 library
