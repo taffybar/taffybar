@@ -4,5 +4,10 @@ style "default" {
   text[NORMAL] = "#FFFFFF"
 }
 
-class "GtkWidget" style "default"
+style "notification-button" = "default" {
+  text[NORMAL] = "#FF0000"
+  fg[NORMAL] = "#FF0000"
+}
 
+class "GtkWidget" style "default"
+widget "*NotificationCloseButton" style "notification-button"

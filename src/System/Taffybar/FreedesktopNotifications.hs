@@ -16,6 +16,7 @@ module System.Taffybar.FreedesktopNotifications (
   ) where
 
 import Control.Concurrent
+import Control.Monad.Trans ( liftIO )
 import Data.Int ( Int32 )
 import Data.IORef
 import Data.Map ( Map )
@@ -48,13 +49,13 @@ data NotifyState = NotifyState { noteQueue :: MVar (Seq Notification)
                                , noteIdSource :: MVar Word32
                                , noteWorkerChan :: Chan WorkType
                                , noteWidget :: Label
-                               , noteContainer :: InfoBar
+                               , noteContainer :: Widget
                                , noteTimerThread :: MVar (Maybe ThreadId)
                                , noteConfig :: NotificationConfig
                                }
 
-initialNoteState :: InfoBar -> Label -> NotificationConfig -> IO NotifyState
-initialNoteState ib l cfg = do
+initialNoteState :: Widget -> Label -> NotificationConfig -> IO NotifyState
+initialNoteState wrapper l cfg = do
   c <- newChan
   m <- newMVar 1
   q <- newMVar S.empty
@@ -63,7 +64,7 @@ initialNoteState ib l cfg = do
                      , noteIdSource = m
                      , noteWorkerChan = c
                      , noteWidget = l
-                     , noteContainer = ib
+                     , noteContainer = wrapper
                      , noteTimerThread = t
                      , noteConfig = cfg
                      }
@@ -262,7 +263,9 @@ setExpireTimeout c nid seconds = do
   threadDelay (fromIntegral seconds * 1000000)
   writeChan c (ExpireNote nid)
 
-userCancel s _ = writeChan (noteWorkerChan s) (CancelNote Nothing)
+userCancel s = do
+  liftIO $ writeChan (noteWorkerChan s) (CancelNote Nothing)
+  return True
 
 data NotificationConfig =
   NotificationConfig { notificationMaxTimeout :: Int -- ^ Maximum time that a notification will be displayed (in seconds).  Default: 10
@@ -275,7 +278,8 @@ defaultFormatter note = msg
   where
     msg = case T.null (noteBody note) of
       True -> T.unpack $ noteSummary note
-      False -> T.unpack $ mconcat [ noteSummary note, ": ", noteBody note ]
+      False -> T.unpack $ mconcat [ "<span fgcolor='yellow'>Note:</span>"
+                                  , noteSummary note, ": ", noteBody note ]
 
 -- | The default formatter is one of
 --
@@ -294,21 +298,32 @@ defaultNotificationConfig =
 -- | Create a new notification area with the given configuration.
 notifyAreaNew :: NotificationConfig -> IO Widget
 notifyAreaNew cfg = do
-  ib <- infoBarNew
-  l <- labelNew Nothing
-  button <- buttonNew -- FromStock stockClose
-  img <- imageNewFromStock stockClose (IconSizeUser 16)
-  ca <- infoBarGetContentArea ib
-  let container = castToContainer ca
-  containerAdd container l
-  containerAdd button img
-  infoBarAddActionWidget ib button 0
-  widgetHideAll ib
+  frame <- frameNew
+  box <- hBoxNew False 3
+  textArea <- labelNew Nothing
+  button <- eventBoxNew
+  sep <- vSeparatorNew
 
+  buttonLabel <- labelNew Nothing
+  widgetSetName buttonLabel "NotificationCloseButton"
+  buttonStyle <- rcGetStyle buttonLabel
+  buttonTextColor <- styleGetText buttonStyle StateNormal
+  labelSetMarkup buttonLabel "×"
 
+  labelSetMaxWidthChars textArea (notificationMaxLength cfg)
+  labelSetEllipsize textArea EllipsizeEnd
 
-  istate <- initialNoteState ib l cfg
-  _ <- on ib infoBarResponse (userCancel istate)
+  containerAdd button buttonLabel
+  boxPackStart box textArea PackGrow 0
+  boxPackStart box sep PackNatural 0
+  boxPackStart box button PackNatural 0
+
+  containerAdd frame box
+
+  widgetHideAll frame
+
+  istate <- initialNoteState (toWidget frame) textArea cfg
+  _ <- on button buttonReleaseEvent (userCancel istate)
   _ <- forkIO (workerThread istate)
 
   -- This is only available to the notify handler, so it doesn't need
@@ -316,7 +331,11 @@ notifyAreaNew cfg = do
   -- notifiation handler threads, though (not sure), so keep it safe
   -- and use an mvar.
   idSrc <- newMVar 1
-  notificationDaemon (notify idSrc istate) (closeNotification istate)
+
+  realizableWrapper <- hBoxNew False 0
+  boxPackStart realizableWrapper frame PackNatural 0
+  widgetShow realizableWrapper
+  on realizableWrapper realize $ notificationDaemon (notify idSrc istate) (closeNotification istate)
 
   -- Don't show ib by default - it will appear when needed
-  return (toWidget ib)
+  return (toWidget realizableWrapper)
