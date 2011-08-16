@@ -196,6 +196,7 @@ taffybarMain cfg = do
     True -> screenGetMonitorGeometry screen (monitorNumber cfg)
 
   window <- windowNew
+  widgetSetName window "Taffybar"
   let Rectangle x y w _ = monitorSize
   windowSetTypeHint window WindowTypeHintDock
   windowSetScreen window screen

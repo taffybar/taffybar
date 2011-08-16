@@ -9,5 +9,5 @@ style "notification-button" = "default" {
   fg[NORMAL] = "#FF0000"
 }
 
-class "GtkWidget" style "default"
+widget "Taffybar*" style "default"
 widget "*NotificationCloseButton" style "notification-button"
