@@ -22,9 +22,11 @@ pollingGraphNew :: GraphConfig
 pollingGraphNew cfg pollSeconds action = do
   (da, h) <- graphNew cfg
 
-  _ <- forkIO $ forever $ do
-    sample <- action
-    graphAddSample h sample
-    threadDelay $ floor (pollSeconds * 1000000)
+  _ <- on da realize $ do
+       _ <- forkIO $ forever $ do
+         sample <- action
+         graphAddSample h sample
+         threadDelay $ floor (pollSeconds * 1000000)
+       return ()
 
   return da

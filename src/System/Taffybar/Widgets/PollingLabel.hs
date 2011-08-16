@@ -24,9 +24,11 @@ pollingLabelNew initialString interval cmd = do
   l <- labelNew Nothing
   labelSetMarkup l initialString
 
-  _ <- forkIO $ forever $ do
-    str <- cmd
-    postGUIAsync $ labelSetMarkup l str
-    threadDelay $ floor (interval * 1000000)
+  _ <- on l realize $ do
+    _ <- forkIO $ forever $ do
+      str <- cmd
+      postGUIAsync $ labelSetMarkup l str
+      threadDelay $ floor (interval * 1000000)
+    return ()
 
   return (toWidget l)

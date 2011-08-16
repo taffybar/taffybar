@@ -19,9 +19,11 @@ pollingBarNew :: BarConfig -> Double -> IO Double -> IO Widget
 pollingBarNew cfg pollSeconds action = do
   (drawArea, h) <- verticalBarNew cfg
 
-  _ <- forkIO $ forever $ do
-    sample <- action
-    verticalBarSetPercent h sample
-    threadDelay $ floor (pollSeconds * 1000000)
+  _ <- on drawArea realize $ do
+    _ <- forkIO $ forever $ do
+      sample <- action
+      verticalBarSetPercent h sample
+      threadDelay $ floor (pollSeconds * 1000000)
+    return ()
 
   return drawArea
