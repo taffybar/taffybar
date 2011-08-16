@@ -335,6 +335,11 @@ notifyAreaNew cfg = do
   realizableWrapper <- hBoxNew False 0
   boxPackStart realizableWrapper frame PackNatural 0
   widgetShow realizableWrapper
+
+  -- We can't start the dbus listener thread until we are in the GTK
+  -- main loop, otherwise things are prone to lock up and block
+  -- infinitely on an mvar.  Bad stuff - only start the dbus thread
+  -- after the fake invisible wrapper widget is realized.
   on realizableWrapper realize $ notificationDaemon (notify idSrc istate) (closeNotification istate)
 
   -- Don't show ib by default - it will appear when needed

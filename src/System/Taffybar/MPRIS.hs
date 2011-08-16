@@ -80,6 +80,6 @@ mprisNew :: IO Widget
 mprisNew = do
   l <- labelNew Nothing
 
-  setupDBus l
+  _ <- on l realize $ setupDBus l
   widgetShowAll l
   return (toWidget l)
