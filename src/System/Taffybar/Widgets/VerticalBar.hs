@@ -57,10 +57,6 @@ renderFrame :: BarConfig -> Int -> Int -> Render ()
 renderFrame cfg width height = do
   let fwidth = fromIntegral width
       fheight = fromIntegral height
-  -- Make a full black background for the whole widget
-  setSourceRGB 0 0 0
-  rectangle 0 0 fwidth fheight
-  fill
 
   -- Now draw the user's requested background, respecting padding
   let (bgR, bgG, bgB) = barBackgroundColor cfg
@@ -119,8 +115,6 @@ verticalBarNew cfg = do
                                  , barCanvas = drawArea
                                  , barConfig = cfg
                                  }
-
-  widgetModifyBg drawArea StateNormal (Color 0 0 0)
 
   widgetSetSizeRequest drawArea (barWidth cfg) (-1)
   _ <- on drawArea exposeEvent $ tryEvent $ liftIO (drawBar mv drawArea)

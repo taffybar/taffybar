@@ -1,0 +1,8 @@
+style "default" {
+  bg[NORMAL] = "#000000"
+  fg[NORMAL] = "#FFFFFF"
+  text[NORMAL] = "#FFFFFF"
+}
+
+class "GtkWidget" style "default"
+

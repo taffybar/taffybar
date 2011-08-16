@@ -9,6 +9,7 @@ category: System
 build-type: Simple
 cabal-version: >=1.10
 homepage: http://github.com/travitch/taffybar
+data-files: taffybar.rc
 extra-source-files: README.md,
                     taffybar.hs.example
 
@@ -22,7 +23,8 @@ library
   build-depends: base > 3 && < 5, time, old-locale, containers, text, HTTP,
                  parsec >= 3.1, mtl >= 2, network, web-encodings, cairo,
                  dbus-core >= 0.9.1 && < 1.0, gtk >= 0.12, dyre >= 0.8.6,
-                 HStringTemplate, gtk-traymanager, xmonad-contrib, xmonad
+                 HStringTemplate, gtk-traymanager, xmonad-contrib, xmonad,
+                 xdg-basedir, filepath
   hs-source-dirs: src
   pkgconfig-depends: gtk+-2.0
   exposed-modules: System.Taffybar,
@@ -41,7 +43,8 @@ library
                    System.Information.Battery,
                    System.Information.Memory,
                    System.Information.CPU
-  other-modules: System.Taffybar.StrutProperties
+  other-modules: System.Taffybar.StrutProperties,
+                 Paths_taffybar
 
   c-sources: src/gdk_property_change_wrapper.c
 
@@ -51,7 +54,8 @@ library
 
 executable taffybar
   default-language: Haskell2010
-  build-depends: base > 3 && < 5, dyre >= 0.8.6, gtk >= 0.12
+  build-depends: base > 3 && < 5, dyre >= 0.8.6, gtk >= 0.12,
+                 xdg-basedir, filepath
   hs-source-dirs: src
   main-is: Main.hs
   pkgconfig-depends: gtk+-2.0

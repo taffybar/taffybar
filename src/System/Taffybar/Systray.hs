@@ -8,14 +8,12 @@ import Graphics.UI.Gtk.Misc.TrayManager
 systrayNew :: IO Widget
 systrayNew = do
   box <- hBoxNew False 5
-  widgetModifyBg box StateNormal (Color 0 0 0)
 
   trayManager <- trayManagerNew
   Just screen <- screenGetDefault
   _ <- trayManagerManageScreen trayManager screen
 
   _ <- on trayManager trayIconAdded $ \w -> do
-    widgetModifyBg w StateNormal (Color 0 0 0)
     widgetShowAll w
     boxPackStart box w PackNatural 0
 

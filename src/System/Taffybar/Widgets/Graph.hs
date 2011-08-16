@@ -94,11 +94,6 @@ renderFrameAndBackground cfg w h = do
       fw = fromIntegral w
       fh = fromIntegral h
 
-  -- Clear the background to match the bar
-  setSourceRGB 0 0 0
-  rectangle 0 0 fw fh
-  fill
-
   -- Draw the requested background
   setSourceRGB backR backG backB
   rectangle fpad fpad (fw - 2 * fpad) (fh - 2 * fpad)
