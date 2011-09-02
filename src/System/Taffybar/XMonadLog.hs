@@ -12,6 +12,7 @@
 -- top-level module.
 module System.Taffybar.XMonadLog ( xmonadLogNew, dbusLog ) where
 
+import Codec.Binary.UTF8.String ( decodeString )
 import DBus.Client.Simple ( connectSession, emit, Client )
 import DBus.Client ( listen, MatchRule(..) )
 import DBus.Types
@@ -28,8 +29,13 @@ dbusLog client pp = do
   dynamicLogWithPP pp { ppOutput = outputThroughDBus client }
 
 outputThroughDBus :: Client -> String -> IO ()
-outputThroughDBus client str =
-  emit client "/org/xmonad/Log" "org.xmonad.Log" "Update" [ toVariant str ]
+outputThroughDBus client str = do
+  -- The string that we get from XMonad here isn't quite a normal
+  -- string - each character is actually a byte in a utf8 encoding.
+  -- We need to decode the string back into a real String before we
+  -- send it over dbus.
+  let str' = decodeString str
+  emit client "/org/xmonad/Log" "org.xmonad.Log" "Update" [ toVariant str' ]
 
 setupDbus :: Label -> IO ()
 setupDbus w = do

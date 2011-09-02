@@ -33,7 +33,7 @@ library
                  parsec >= 3.1, mtl >= 2, network, web-encodings, cairo,
                  dbus-core >= 0.9.1 && < 1.0, gtk >= 0.12, dyre >= 0.8.6,
                  HStringTemplate, gtk-traymanager, xmonad-contrib, xmonad,
-                 xdg-basedir, filepath
+                 xdg-basedir, filepath, utf8-string
   hs-source-dirs: src
   pkgconfig-depends: gtk+-2.0
   exposed-modules: System.Taffybar,
