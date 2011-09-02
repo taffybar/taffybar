@@ -291,7 +291,7 @@ defaultFormatter note = msg
 defaultNotificationConfig :: NotificationConfig
 defaultNotificationConfig =
   NotificationConfig { notificationMaxTimeout = 10
-                     , notificationMaxLength = 50
+                     , notificationMaxLength = 100
                      , notificationFormatter = defaultFormatter
                      }
 

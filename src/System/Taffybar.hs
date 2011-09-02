@@ -218,6 +218,9 @@ taffybarMain cfg = do
             wid <- io
             widgetSetSizeRequest wid (-1) (barHeight cfg)
             boxPackEnd box wid PackNatural 0) (endWidgets cfg)
+
+  _ <- on box sizeRequest $ return (Requisition w (barHeight cfg))
+
   widgetShow window
   widgetShow box
   mainGUI
