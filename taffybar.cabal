@@ -20,6 +20,8 @@ description:
   .
   Changes in v0.1.3:
   .
+    * Depend on gtk 0.12.1+ to be able to build under ghc 7.2
+  .
     * Fix the background colors in the calendar so that it follows the GTK theme instead
       of the bar-specific color settings
   .
@@ -40,8 +42,8 @@ library
   default-language: Haskell2010
   build-depends: base > 3 && < 5, time, old-locale, containers, text, HTTP,
                  parsec >= 3.1, mtl >= 2, network, web-encodings, cairo,
-                 dbus-core >= 0.9.1 && < 1.0, gtk >= 0.12, dyre >= 0.8.6,
-                 HStringTemplate, gtk-traymanager, xmonad-contrib, xmonad,
+                 dbus-core >= 0.9.1 && < 1.0, gtk >= 0.12.1, dyre >= 0.8.6,
+                 HStringTemplate, gtk-traymanager >= 0.1.2 && < 0.2, xmonad-contrib, xmonad,
                  xdg-basedir, filepath, utf8-string
   hs-source-dirs: src
   pkgconfig-depends: gtk+-2.0
