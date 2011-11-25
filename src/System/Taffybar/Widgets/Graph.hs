@@ -182,18 +182,15 @@ graphNew cfg = do
   widgetSetSizeRequest drawArea (graphWidth cfg) (-1)
   _ <- on drawArea exposeEvent $ tryEvent $ liftIO (drawGraph mv drawArea)
   _ <- on drawArea realize $ liftIO (drawBorder mv drawArea)
+  box <- hBoxNew False 1
 
   case graphLabel cfg of
-    Nothing -> do
-      widgetShowAll drawArea
-      return (toWidget drawArea, GH mv)
+    Nothing  -> return ()
     Just lbl -> do
       l <- labelNew Nothing
-      box <- hBoxNew False 1
       labelSetMarkup l lbl
       boxPackStart box l PackNatural 0
-      boxPackStart box drawArea PackGrow 0
 
-      widgetShowAll box
-
-      return (toWidget box, GH mv)
+  boxPackStart box drawArea PackGrow 0
+  widgetShowAll box
+  return (toWidget box, GH mv)
