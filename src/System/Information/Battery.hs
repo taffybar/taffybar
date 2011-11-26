@@ -16,6 +16,7 @@ module System.Information.Battery (
 
 import Data.Map ( Map )
 import qualified Data.Map as M
+import Data.Maybe
 import Data.Word
 import Data.Int
 import DBus.Client.Simple
@@ -107,6 +108,22 @@ readDict dict key dflt = val
     Just val = fromVariant variant
     variant = M.findWithDefault (toVariant dflt) key dict
 
+-- | Read the variant contents of a dict which is of an unknown integral type.
+readDictIntegral :: Map Text Variant -> Text -> Int32 -> Int
+readDictIntegral dict key dflt = case variantType variant of
+    TypeWord8   -> fromIntegral (f variant :: Word8)
+    TypeWord16  -> fromIntegral (f variant :: Word16)
+    TypeWord32  -> fromIntegral (f variant :: Word32)
+    TypeWord64  -> fromIntegral (f variant :: Word64)
+    TypeInt16   -> fromIntegral (f variant :: Int16)
+    TypeInt32   -> fromIntegral (f variant :: Int32)
+    TypeInt64   -> fromIntegral (f variant :: Int64)
+    t           -> error $ "readDictIntegral " ++ show key ++ ": got type " ++ show t
+  where
+    variant = M.findWithDefault (toVariant dflt) key dict
+    f :: IsVariant a => Variant -> a
+    f = fromJust . fromVariant
+
 -- | Query the UPower daemon about information on a specific battery.
 -- If some fields are not actually present, they may have bogus values
 -- here.  Don't bet anything critical on it.
@@ -125,7 +142,7 @@ getBatteryInfo (BC batteryProxy) = do
                      , batteryVendor = readDict dict "Vendor" ""
                      , batteryModel = readDict dict "Model" ""
                      , batterySerial = readDict dict "Serial" ""
-                     , batteryType = toEnum $ fromIntegral $ readDict dict "Type" (0 :: Word64)
+                     , batteryType = toEnum $ fromIntegral $ readDictIntegral dict "Type" 0
                      , batteryPowerSupply = readDict dict "PowerSupply" False
                      , batteryHasHistory = readDict dict "HasHistory" False
                      , batteryHasStatistics = readDict dict "HasStatistics" False
@@ -140,11 +157,11 @@ getBatteryInfo (BC batteryProxy) = do
                      , batteryTimeToFull = readDict dict "TimeToFull" 0
                      , batteryPercentage = readDict dict "Percentage" 0.0
                      , batteryIsPresent = readDict dict "IsPresent" False
-                     , batteryState = toEnum $ fromIntegral $ readDict dict "State" (0 :: Word64)
+                     , batteryState = toEnum $ readDictIntegral dict "State" 0
                      , batteryIsRechargable = readDict dict "IsRechargable" True
                      , batteryCapacity = readDict dict "Capacity" 0.0
                      , batteryTechnology =
-                       toEnum $ fromIntegral $ readDict dict "Technology" (0 :: Word64)
+                       toEnum $ fromIntegral $ readDictIntegral dict "Technology" 0
                      }
 
 -- | Construct a battery context if possible.  This could fail if the
