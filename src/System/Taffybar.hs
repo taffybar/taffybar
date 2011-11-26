@@ -113,7 +113,8 @@ module System.Taffybar (
   -- see <https://live.gnome.org/GnomeArt/Tutorials/GtkThemes>.
   TaffybarConfig(..),
   defaultTaffybar,
-  defaultTaffybarConfig
+  defaultTaffybarConfig,
+  Position(..)
   ) where
 
 import qualified Config.Dyre as Dyre
@@ -125,10 +126,23 @@ import Text.Printf
 import Paths_taffybar ( getDataDir )
 import System.Taffybar.StrutProperties
 
+data Position = Top | Bottom
+  deriving (Show, Eq)
+
+strutProperties :: Position  -- ^ Bar position
+                -> Int       -- ^ Bar height
+                -> Rectangle -- ^ Monitor rectangle
+                -> StrutProperties
+strutProperties pos bh (Rectangle x _ w _) = case pos of
+    Top    -> (0, 0, bh, 0, 0, 0, 0, 0, x, x2, 0, 0)
+    Bottom -> (0, 0, 0, bh, 0, 0, 0, 0, 0, 0, x, x2)
+  where x2 = x + w - 10
+
 data TaffybarConfig =
   TaffybarConfig { screenNumber :: Int -- ^ The screen number to run the bar on (default is almost always fine)
                  , monitorNumber :: Int -- ^ The xinerama/xrandr monitor number to put the bar on (default: 0)
                  , barHeight :: Int -- ^ Number of pixels to reserve for the bar (default: 25 pixels)
+                 , barPosition :: Position -- ^ The position of the bar on the screen (default: Top)
                  , errorMsg :: Maybe String -- ^ Used by the application
                  , startWidgets :: [IO Widget] -- ^ Widgets that are packed in order at the left end of the bar
                  , endWidgets :: [IO Widget] -- ^ Widgets that are packed from right-to-left in the bar
@@ -140,6 +154,7 @@ defaultTaffybarConfig =
   TaffybarConfig { screenNumber = 0
                  , monitorNumber = 0
                  , barHeight = 25
+                 , barPosition = Top
                  , errorMsg = Nothing
                  , startWidgets = []
                  , endWidgets = []
@@ -197,16 +212,17 @@ taffybarMain cfg = do
 
   window <- windowNew
   widgetSetName window "Taffybar"
-  let Rectangle x y w _ = monitorSize
+  let Rectangle x y w h = monitorSize
   windowSetTypeHint window WindowTypeHintDock
   windowSetScreen window screen
   windowSetDefaultSize window w (barHeight cfg)
-  windowMove window x y
-  _ <- onRealize window $ setStrutProperties window (0, 0, barHeight cfg, 0,
-                             0, 0,
-                             0, 0,
-                             x, x + w - 10,
-                             0, 0)
+  windowMove window x (y + case barPosition cfg of
+                             Top    -> 0
+                             Bottom -> h - barHeight cfg)
+  _ <- onRealize window $ setStrutProperties window
+                            $ strutProperties (barPosition cfg)
+                                              (barHeight cfg)
+                                              monitorSize
   box <- hBoxNew False 10
   containerAdd window box
 
