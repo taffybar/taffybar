@@ -9,7 +9,7 @@ import Graphics.UI.Gtk
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
 --
--- > updatingLabelNew initialString cmd interval
+-- > pollingLabelNew initialString cmd interval
 --
 -- returns a widget with initial text @initialString@.  The widget
 -- forks a thread to update its contents every @interval@ seconds.
