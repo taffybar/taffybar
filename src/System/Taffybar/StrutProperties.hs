@@ -1,10 +1,13 @@
-module System.Taffybar.StrutProperties ( setStrutProperties ) where
+module System.Taffybar.StrutProperties ( setStrutProperties
+                                       , StrutProperties ) where
 
 import Graphics.UI.Gtk
 
 import Foreign
 import Foreign.C.Types
 import Unsafe.Coerce ( unsafeCoerce )
+
+type StrutProperties = (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)
 
 foreign import ccall "set_strut_properties"
     c_set_strut_properties :: Ptr Window -> CLong -> CLong -> CLong -> CLong
@@ -15,7 +18,7 @@ foreign import ccall "set_strut_properties"
                                             -> ()
 
 -- | Reserve EWMH struts
-setStrutProperties :: Window -> (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int) -> IO ()
+setStrutProperties :: Window -> StrutProperties -> IO ()
 setStrutProperties gtkWindow (left, right, top, bottom,
                                 left_start_y, left_end_y,
                                 right_start_y, right_end_y,

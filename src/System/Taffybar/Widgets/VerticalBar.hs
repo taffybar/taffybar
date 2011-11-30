@@ -119,5 +119,8 @@ verticalBarNew cfg = do
   widgetSetSizeRequest drawArea (barWidth cfg) (-1)
   _ <- on drawArea exposeEvent $ tryEvent $ liftIO (drawBar mv drawArea)
 
-  widgetShowAll drawArea
-  return (toWidget drawArea, VBH mv)
+  box <- hBoxNew False 1
+  boxPackStart box drawArea PackGrow 0
+  widgetShowAll box
+
+  return (toWidget box, VBH mv)
