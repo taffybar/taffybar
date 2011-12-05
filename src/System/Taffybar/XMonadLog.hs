@@ -18,6 +18,7 @@ import DBus.Client ( listen, MatchRule(..) )
 import DBus.Types
 import DBus.Message
 import Graphics.UI.Gtk hiding ( Signal )
+import Web.Encodings ( encodeHtml, decodeHtml )
 
 import XMonad
 import XMonad.Hooks.DynamicLog
@@ -54,7 +55,7 @@ callback :: Label -> BusName -> Signal -> IO ()
 callback w _ sig = do
   let [bdy] = signalBody sig
       Just status = fromVariant bdy
-  postGUIAsync $ labelSetMarkup w status
+  postGUIAsync $ labelSetMarkup w $ encodeHtml $ decodeHtml status
 
 xmonadLogNew :: IO Widget
 xmonadLogNew = do
