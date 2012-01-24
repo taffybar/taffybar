@@ -10,7 +10,7 @@
 --
 -- There is a more complete example of xmonad integration in the
 -- top-level module.
-module System.Taffybar.XMonadLog ( xmonadLogNew, dbusLog ) where
+module System.Taffybar.XMonadLog ( xmonadLogNew, dbusLog, dbusLogWithPP, taffybarPP, taffybarColor, taffybarEscape ) where
 
 import Codec.Binary.UTF8.String ( decodeString )
 import DBus.Client.Simple ( connectSession, emit, Client )
@@ -22,11 +22,43 @@ import Graphics.UI.Gtk hiding ( Signal )
 import XMonad
 import XMonad.Hooks.DynamicLog
 
+import Web.Encodings ( decodeHtml, encodeHtml )
+
 -- | This is a DBus-based logger that can be used from XMonad to log
 -- to this widget.
-dbusLog :: Client -> PP -> X ()
-dbusLog client pp = do
-  dynamicLogWithPP pp { ppOutput = outputThroughDBus client }
+
+dbusLogWithPP :: Client -> PP -> X ()
+dbusLogWithPP client pp = dynamicLogWithPP pp { ppOutput = outputThroughDBus client }
+
+dbusLog :: Client -> X ()
+dbusLog client = dbusLogWithPP client taffybarDefaultPP
+
+taffybarColor :: String -> String -> String -> String
+taffybarColor fg bg = wrap t "</span>" . taffybarEscape
+  where t = concat ["<span fgcolor=\"", fg, if null bg then "" else "\" bgcolor=\"" ++ bg , "\">"]
+
+taffybarEscape :: String -> String
+taffybarEscape = encodeHtml . decodeHtml
+
+-- same as defaultPP
+taffybarDefaultPP :: PP
+taffybarDefaultPP = defaultPP { ppCurrent         = taffybarEscape . wrap "[" "]"
+                              , ppVisible         = taffybarEscape . wrap "<" ">"
+			      , ppHidden          = taffybarEscape
+			      , ppHiddenNoWindows = taffybarEscape
+			      , ppUrgent          = taffybarEscape
+                              , ppTitle           = taffybarEscape . shorten 80
+			      , ppLayout          = taffybarEscape
+			      }
+-- Same as xmobarPP
+taffybarPP :: PP
+taffybarPP = taffybarDefaultPP { ppCurrent = taffybarColor "yellow" "" . wrap "[" "]"
+                               , ppTitle   = taffybarColor "green"  "" . shorten 40
+                               , ppVisible = wrap "(" ")"
+                               , ppUrgent  = taffybarColor "red" "yellow"
+                               }
+
+
 
 outputThroughDBus :: Client -> String -> IO ()
 outputThroughDBus client str = do
