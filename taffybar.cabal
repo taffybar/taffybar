@@ -1,5 +1,5 @@
 name: taffybar
-version: 0.1.3
+version: 0.2.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
@@ -17,6 +17,13 @@ description:
   A somewhat fancier desktop bar than xmobar.  This bar is based on
   gtk2hs and provides several widgets (including a few graphical ones).
   It also sports an optional snazzy system tray.
+  .
+  Changes in v0.2.0:
+  .
+    * Add some more flexible formatting options for the XMonadLog widget (contributed by
+      cnervi).
+  .
+    * Added more documentation for a few widgets
   .
   Changes in v0.1.3:
   .
