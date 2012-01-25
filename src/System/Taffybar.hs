@@ -79,15 +79,22 @@ module System.Taffybar (
   -- package, which is installed as a dependency of Taffybar.
   --
   -- > import XMonad.Hooks.DynamicLog
+  -- > import XMonad.Hooks.ManageDocks
   -- > import DBus.Client.Simple
   -- > import System.Taffybar.XMonadLog ( dbusLog )
   -- >
   -- > main = do
   -- >   client <- connectSession
   -- >   let pp = defaultPP
-  -- >   xmonad defaultConfig { logHook = dbusLog client pp }
+  -- >   xmonad defaultConfig { logHook = dbusLog client pp
+  -- >                        , manageHook = manageDocks
+  -- >                        }
   --
-  -- The complexity is handled in the System.Tafftbar.XMonadLog module.
+  -- The complexity is handled in the System.Tafftbar.XMonadLog
+  -- module.  Note that manageDocks is required to have XMonad put
+  -- taffybar in the strut space that it reserves.  If you have
+  -- problems with taffybar appearing almost fullscreen, check to
+  -- see if you have manageDocks in your manageHook.
 
   -- ** A note about DBus:
   -- |
