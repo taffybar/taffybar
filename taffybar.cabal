@@ -23,6 +23,8 @@ description:
     * Add some more flexible formatting options for the XMonadLog widget (contributed by
       cnervi).
   .
+    * Make the PollingLabel more robust with an exception handler for IOExceptions
+  .
     * Added more documentation for a few widgets
   .
   Changes in v0.1.3:
