@@ -10,6 +10,14 @@
 -- a _template_ that is filled in with the current information.  The
 -- template is just a 'String' with variables between dollar signs.
 -- The variables will be substituted with real data by the widget.
+-- Example:
+--
+-- > let wcfg = (defaultWeatherConfig "KMSN") { weatherTemplate = "$tempC$ C @ $humidity$" }
+-- >     weatherWidget = weatherNew wcfg 10
+--
+-- This example makes a new weather widget that checks the weather at
+-- KMSN (Madison, WI) every 10 minutes, and displays the results in
+-- Celcius.
 --
 -- Available variables:
 --
@@ -56,6 +64,7 @@ module System.Taffybar.Weather (
   -- * Types
   WeatherConfig(..),
   WeatherInfo(..),
+  WeatherFormatter(WeatherFormatter),
   -- * Constructor
   weatherNew,
   defaultWeatherConfig
@@ -241,9 +250,13 @@ baseUrl = "http://weather.noaa.gov/pub/data/observations/metar/decoded"
 -- | A wrapper to allow users to specify a custom weather formatter.
 -- The default interpolates variables into a string as described
 -- above.  Custom formatters can do basically anything.
-data WeatherFormatter = WeatherFormatter (WeatherInfo -> String)
-                      | DefaultWeatherFormatter
+data WeatherFormatter = WeatherFormatter (WeatherInfo -> String) -- ^ Specify a custom formatter for 'WeatherInfo'
+                      | DefaultWeatherFormatter -- ^ Use the default StringTemplate formatter
 
+-- | The configuration for the weather widget.  You can provide a custom
+-- format string through 'weatherTemplate' as described above, or you can
+-- provide a custom function to turn a 'WeatherInfo' into a String via the
+-- 'weatherFormatter' field.
 data WeatherConfig =
   WeatherConfig { weatherStation :: String   -- ^ The weather station to poll. No default
                 , weatherTemplate :: String  -- ^ Template string, as described above.  Default: $tempF$ °F
