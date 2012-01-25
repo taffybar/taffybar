@@ -10,7 +10,18 @@
 --
 -- There is a more complete example of xmonad integration in the
 -- top-level module.
-module System.Taffybar.XMonadLog ( xmonadLogNew, dbusLog, dbusLogWithPP, taffybarPP, taffybarColor, taffybarEscape ) where
+module System.Taffybar.XMonadLog (
+  -- * Constructor
+  xmonadLogNew,
+  -- * Log hooks for xmonad.hs
+  dbusLog,
+  dbusLogWithPP,
+  -- * Styles
+  taffybarPP,
+  taffybarDefaultPP,
+  taffybarColor,
+  taffybarEscape
+  ) where
 
 import Codec.Binary.UTF8.String ( decodeString )
 import DBus.Client.Simple ( connectSession, emit, Client )
@@ -25,11 +36,12 @@ import XMonad.Hooks.DynamicLog
 import Web.Encodings ( decodeHtml, encodeHtml )
 
 -- | This is a DBus-based logger that can be used from XMonad to log
--- to this widget.
-
+-- to this widget.  This version lets you specify the format for the
+-- log using a pretty printer (e.g., 'taffybarPP').
 dbusLogWithPP :: Client -> PP -> X ()
 dbusLogWithPP client pp = dynamicLogWithPP pp { ppOutput = outputThroughDBus client }
 
+-- | A DBus-based logger with a default pretty-print configuration
 dbusLog :: Client -> X ()
 dbusLog client = dbusLogWithPP client taffybarDefaultPP
 
@@ -37,10 +49,12 @@ taffybarColor :: String -> String -> String -> String
 taffybarColor fg bg = wrap t "</span>" . taffybarEscape
   where t = concat ["<span fgcolor=\"", fg, if null bg then "" else "\" bgcolor=\"" ++ bg , "\">"]
 
+-- | Escape strings so that they can be safely displayed by Pango in
+-- the bar widget
 taffybarEscape :: String -> String
 taffybarEscape = encodeHtml . decodeHtml
 
--- same as defaultPP
+-- | The same as defaultPP in XMonad.Hooks.DynamicLog
 taffybarDefaultPP :: PP
 taffybarDefaultPP = defaultPP { ppCurrent         = taffybarEscape . wrap "[" "]"
                               , ppVisible         = taffybarEscape . wrap "<" ">"
@@ -50,7 +64,7 @@ taffybarDefaultPP = defaultPP { ppCurrent         = taffybarEscape . wrap "[" "]
                               , ppTitle           = taffybarEscape . shorten 80
 			      , ppLayout          = taffybarEscape
 			      }
--- Same as xmobarPP
+-- | The same as xmobarPP in XMonad.Hooks.DynamicLog
 taffybarPP :: PP
 taffybarPP = taffybarDefaultPP { ppCurrent = taffybarColor "yellow" "" . wrap "[" "]"
                                , ppTitle   = taffybarColor "green"  "" . shorten 40
@@ -88,6 +102,7 @@ callback w _ sig = do
       Just status = fromVariant bdy
   postGUIAsync $ labelSetMarkup w status
 
+-- | Return a new XMonad log widget
 xmonadLogNew :: IO Widget
 xmonadLogNew = do
   l <- labelNew Nothing
