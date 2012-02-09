@@ -136,14 +136,23 @@ import System.Taffybar.StrutProperties
 data Position = Top | Bottom
   deriving (Show, Eq)
 
+
 strutProperties :: Position  -- ^ Bar position
                 -> Int       -- ^ Bar height
-                -> Rectangle -- ^ Monitor rectangle
+                -> Rectangle -- ^ Current monitor rectangle
+                -> [Rectangle] -- ^ All monitors
                 -> StrutProperties
-strutProperties pos bh (Rectangle x _ w _) = case pos of
-    Top    -> (0, 0, bh, 0, 0, 0, 0, 0, x, x2, 0, 0)
-    Bottom -> (0, 0, 0, bh, 0, 0, 0, 0, 0, 0, x, x2)
-  where x2 = x + w - 10
+strutProperties pos bh (Rectangle mX mY mW mH) monitors =
+    propertize pos sX sW sH
+    where sX = mX
+          sW = mW - 1
+          sH = case pos of Top    -> bh + mY
+                           Bottom -> bh + totalH - mY - mH
+          totalH = maximum $ map bottomY monitors
+          bottomY (Rectangle _ y _ h) = y + h
+          propertize p x w h = case p of
+              Top    -> (0, 0, h, 0, 0, 0, 0, 0, x, x+w, 0,   0)
+              Bottom -> (0, 0, 0, h, 0, 0, 0, 0, 0,   0, x, x+w)
 
 data TaffybarConfig =
   TaffybarConfig { screenNumber :: Int -- ^ The screen number to run the bar on (default is almost always fine)
@@ -213,9 +222,10 @@ taffybarMain cfg = do
     False -> error $ printf "Screen %d is not available in the default display" (screenNumber cfg)
     True -> displayGetScreen disp (screenNumber cfg)
   nmonitors <- screenGetNMonitors screen
+  allMonitorSizes <- mapM (screenGetMonitorGeometry screen) [0 .. (nmonitors - 1)]
   monitorSize <- case monitorNumber cfg < nmonitors of
     False -> error $ printf "Monitor %d is not available in the selected screen" (monitorNumber cfg)
-    True -> screenGetMonitorGeometry screen (monitorNumber cfg)
+    True -> return $ allMonitorSizes !! monitorNumber cfg
 
   window <- windowNew
   widgetSetName window "Taffybar"
@@ -230,6 +240,7 @@ taffybarMain cfg = do
                             $ strutProperties (barPosition cfg)
                                               (barHeight cfg)
                                               monitorSize
+                                              allMonitorSizes
   box <- hBoxNew False 10
   containerAdd window box
 
