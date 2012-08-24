@@ -4,6 +4,7 @@ module System.Taffybar.Widgets.PollingBar (
   -- * Types
   VerticalBarHandle,
   BarConfig(..),
+  BarDirection(..),
   -- * Constructors and accessors
   pollingBarNew,
   defaultBarConfig
