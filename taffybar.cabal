@@ -74,7 +74,8 @@ library
                    System.Information.Battery,
                    System.Information.Memory,
                    System.Information.Network,
-                   System.Information.CPU
+                   System.Information.CPU,
+                   System.Information.CPU2
   other-modules: System.Taffybar.StrutProperties,
                  Paths_taffybar
 
