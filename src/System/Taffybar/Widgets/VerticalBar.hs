@@ -4,6 +4,7 @@ module System.Taffybar.Widgets.VerticalBar (
   -- * Types
   VerticalBarHandle,
   BarConfig(..),
+  BarDirection(..),
   -- * Accessors/Constructors
   verticalBarNew,
   verticalBarSetPercent,
@@ -22,12 +23,15 @@ data VerticalBarState =
                    , barConfig :: BarConfig
                    }
 
+data BarDirection = HORIZONTAL | VERTICAL
+
 data BarConfig =
   BarConfig { barBorderColor :: (Double, Double, Double) -- ^ Color of the border drawn around the widget
             , barBackgroundColor :: (Double, Double, Double) -- ^ The background color of the widget
             , barColor :: Double -> (Double, Double, Double) -- ^ A function to determine the color of the widget for the current data point
             , barPadding :: Int -- ^ Number of pixels of padding around the widget
             , barWidth :: Int
+            , barDirection :: BarDirection
             }
 
 -- | A default bar configuration.  The color of the active portion of
@@ -38,6 +42,7 @@ defaultBarConfig c = BarConfig { barBorderColor = (0.5, 0.5, 0.5)
                                , barColor = c
                                , barPadding = 2
                                , barWidth = 15
+                               , barDirection = VERTICAL
                                }
 
 verticalBarSetPercent :: VerticalBarHandle -> Double -> IO ()
@@ -77,9 +82,16 @@ renderFrame cfg width height = do
 renderBar :: Double -> BarConfig -> Int -> Int -> Render ()
 renderBar pct cfg width height = do
 -- renderBar pct (r, g, b) width height = do
-  let activeHeight = pct * (fromIntegral height)
-      activeWidth = fromIntegral width
-      newOrigin = fromIntegral height - activeHeight
+  let direction = barDirection cfg
+      activeHeight = case direction of
+                       VERTICAL   -> pct * (fromIntegral height)
+                       HORIZONTAL -> fromIntegral height
+      activeWidth  = case direction of
+                       VERTICAL   -> fromIntegral width
+                       HORIZONTAL -> pct * (fromIntegral width)
+      newOrigin    = case direction of
+                       VERTICAL -> fromIntegral height - activeHeight
+                       HORIZONTAL -> 0
       pad = barPadding cfg
 
   renderFrame cfg width height
