@@ -69,6 +69,7 @@ library
                    System.Taffybar.Widgets.PollingGraph,
                    System.Taffybar.Widgets.PollingLabel,
                    System.Taffybar.Widgets.VerticalBar,
+                   System.Information.StreamInfo,
                    System.Information.Battery,
                    System.Information.Memory,
                    System.Information.CPU
