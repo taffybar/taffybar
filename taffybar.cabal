@@ -64,6 +64,7 @@ library
                    System.Taffybar.Weather,
                    System.Taffybar.MPRIS,
                    System.Taffybar.Battery,
+                   System.Taffybar.NetMonitor
                    System.Taffybar.Widgets.Graph,
                    System.Taffybar.Widgets.PollingBar,
                    System.Taffybar.Widgets.PollingGraph,
@@ -72,6 +73,7 @@ library
                    System.Information.StreamInfo,
                    System.Information.Battery,
                    System.Information.Memory,
+                   System.Information.Network,
                    System.Information.CPU
   other-modules: System.Taffybar.StrutProperties,
                  Paths_taffybar
