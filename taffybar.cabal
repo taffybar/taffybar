@@ -1,5 +1,5 @@
 name: taffybar
-version: 0.2.0
+version: 0.2.1
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
@@ -17,6 +17,14 @@ description:
   A somewhat fancier desktop bar than xmobar.  This bar is based on
   gtk2hs and provides several widgets (including a few graphical ones).
   It also sports an optional snazzy system tray.
+  .
+  Changes in v0.2.1:
+  .
+    * More robust strut handling for multiple monitors of different sizes (contributed by Morgan Gibson)
+  .
+    * New widgets from José A. Romero (network monitor, fs monitor, another CPU monitor)
+  .
+    * Allow the bar widget to grow vertically (also contributed by José A. Romero)
   .
   Changes in v0.2.0:
   .
