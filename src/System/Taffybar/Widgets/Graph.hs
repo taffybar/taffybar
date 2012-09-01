@@ -118,12 +118,13 @@ renderGraph hists cfg w h xStep = do
 
   setLineWidth 0.1
 
-
-  let pad = graphPadding cfg
-
-  if (graphDirection cfg == RIGHT_TO_LEFT)
+  -- If right-to-left direction is requested, apply an horizontal inversion
+  -- transformation with an offset to the right equal to the width of the widget.
+  if graphDirection cfg == RIGHT_TO_LEFT
       then transform $ Matrix (-1) 0 0 1 (fromIntegral w) 0
       else return ()
+
+  let pad = graphPadding cfg
 
   -- Make the new origin be inside the frame and then scale the
   -- drawing area so that all operations in terms of width and height
