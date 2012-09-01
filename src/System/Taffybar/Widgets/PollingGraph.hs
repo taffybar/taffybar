@@ -4,6 +4,7 @@ module System.Taffybar.Widgets.PollingGraph (
   -- * Types
   GraphHandle,
   GraphConfig(..),
+  GraphDirection(..),
   -- * Constructors and accessors
   pollingGraphNew,
   defaultGraphConfig
