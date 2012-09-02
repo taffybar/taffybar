@@ -66,6 +66,7 @@ library
                    System.Taffybar.Battery,
                    System.Taffybar.FSMonitor,
                    System.Taffybar.NetMonitor,
+                   System.Taffybar.CPUMonitor,
                    System.Taffybar.DiskIOMonitor,
                    System.Taffybar.Widgets.Graph,
                    System.Taffybar.Widgets.PollingBar,
