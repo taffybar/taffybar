@@ -118,12 +118,6 @@ renderGraph hists cfg w h xStep = do
 
   setLineWidth 0.1
 
-  -- If right-to-left direction is requested, apply an horizontal inversion
-  -- transformation with an offset to the right equal to the width of the widget.
-  if graphDirection cfg == RIGHT_TO_LEFT
-      then transform $ Matrix (-1) 0 0 1 (fromIntegral w) 0
-      else return ()
-
   let pad = graphPadding cfg
 
   -- Make the new origin be inside the frame and then scale the
@@ -133,6 +127,12 @@ renderGraph hists cfg w h xStep = do
   let xS = fromIntegral (w - 2 * pad - 2) / fromIntegral w
       yS = fromIntegral (h - 2 * pad - 2) / fromIntegral h
   scale xS yS
+
+  -- If right-to-left direction is requested, apply an horizontal inversion
+  -- transformation with an offset to the right equal to the width of the widget.
+  if graphDirection cfg == RIGHT_TO_LEFT
+      then transform $ Matrix (-1) 0 0 1 (fromIntegral w) 0
+      else return ()
 
   let pctToY pct = fromIntegral h * (1 - pct)
       histsAndColors = zip hists (graphDataColors cfg)
