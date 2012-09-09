@@ -13,6 +13,7 @@ module System.Taffybar.Widgets.Graph (
   -- * Types
   GraphHandle,
   GraphConfig(..),
+  GraphDirection(..),
   -- * Functions
   graphNew,
   graphAddSample,
@@ -25,6 +26,7 @@ import Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import Data.Foldable ( mapM_ )
 import qualified Data.Sequence as S
 import Graphics.Rendering.Cairo
+import Graphics.Rendering.Cairo.Matrix hiding (scale, translate)
 import Graphics.UI.Gtk
 
 newtype GraphHandle = GH (MVar GraphState)
@@ -34,6 +36,8 @@ data GraphState =
              , graphCanvas :: DrawingArea
              , graphConfig :: GraphConfig
              }
+
+data GraphDirection = LEFT_TO_RIGHT | RIGHT_TO_LEFT deriving (Eq)
 
 -- | The configuration options for the graph.  The padding is the
 -- number of pixels reserved as blank space around the widget in each
@@ -46,6 +50,7 @@ data GraphConfig =
               , graphHistorySize :: Int -- ^ The number of data points to retain for each data set (default 20)
               , graphLabel :: Maybe String -- ^ May contain Pango markup (default Nothing)
               , graphWidth :: Int -- ^ The width (in pixels) of the graph widget (default 50)
+              , graphDirection :: GraphDirection
               }
 
 defaultGraphConfig :: GraphConfig
@@ -56,6 +61,7 @@ defaultGraphConfig = GraphConfig { graphPadding = 2
                                  , graphHistorySize = 20
                                  , graphLabel = Nothing
                                  , graphWidth = 50
+                                 , graphDirection = LEFT_TO_RIGHT
                                  }
 
 -- | Add a data point to the graph for each of the tracked data sets.
@@ -112,7 +118,6 @@ renderGraph hists cfg w h xStep = do
 
   setLineWidth 0.1
 
-
   let pad = graphPadding cfg
 
   -- Make the new origin be inside the frame and then scale the
@@ -122,6 +127,12 @@ renderGraph hists cfg w h xStep = do
   let xS = fromIntegral (w - 2 * pad - 2) / fromIntegral w
       yS = fromIntegral (h - 2 * pad - 2) / fromIntegral h
   scale xS yS
+
+  -- If right-to-left direction is requested, apply an horizontal inversion
+  -- transformation with an offset to the right equal to the width of the widget.
+  if graphDirection cfg == RIGHT_TO_LEFT
+      then transform $ Matrix (-1) 0 0 1 (fromIntegral w) 0
+      else return ()
 
   let pctToY pct = fromIntegral h * (1 - pct)
       histsAndColors = zip hists (graphDataColors cfg)

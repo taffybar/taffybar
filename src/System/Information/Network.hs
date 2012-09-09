@@ -10,4 +10,4 @@ parse = map tuplize . map words . drop 2 . lines
 
 tuplize :: [String] -> (String, [Integer])
 tuplize s = (init $ head s, map read [s!!1, s!!out])
-    where out = (length s) - 7
+    where out = (length s) - 8
