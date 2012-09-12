@@ -72,8 +72,10 @@ library
                    System.Taffybar.Weather,
                    System.Taffybar.MPRIS,
                    System.Taffybar.Battery,
-                   System.Taffybar.FSMonitor
-                   System.Taffybar.NetMonitor
+                   System.Taffybar.FSMonitor,
+                   System.Taffybar.NetMonitor,
+                   System.Taffybar.CPUMonitor,
+                   System.Taffybar.DiskIOMonitor,
                    System.Taffybar.Widgets.Graph,
                    System.Taffybar.Widgets.PollingBar,
                    System.Taffybar.Widgets.PollingGraph,
@@ -84,7 +86,8 @@ library
                    System.Information.Memory,
                    System.Information.Network,
                    System.Information.CPU,
-                   System.Information.CPU2
+                   System.Information.CPU2,
+                   System.Information.DiskIO
   other-modules: System.Taffybar.StrutProperties,
                  Paths_taffybar
 

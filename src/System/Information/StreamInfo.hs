@@ -5,9 +5,11 @@
 module System.Information.StreamInfo
     ( getParsedInfo
     , getLoad
+    , getAccLoad
     , getTransfer) where
 
 import Control.Concurrent (threadDelay)
+import Data.IORef
 import Data.Maybe (fromJust)
 
 -- | Apply the given parser function to the file under the given path to produce
@@ -24,6 +26,13 @@ truncVal v
   | isNaN v || v < 0.0 = 0.0
   | otherwise = v
 
+-- | Convert the given list of Integer to a list of the ratios of each of its
+-- elements against their sum.
+toRatioList :: [Integer] -> [Double]
+toRatioList deltas = map truncVal ratios
+    where total = fromIntegral $ foldr (+) 0 deltas
+          ratios = map ((/total) . fromIntegral) deltas
+
 -- | Execute the given action twice with the given delay in-between and return
 -- the difference between the two samples.
 probe :: IO [Integer] -> Double -> IO [Integer]
@@ -31,6 +40,15 @@ probe action delay = do
     a <- action
     threadDelay $ round (delay * 1e6)
     b <- action
+    return $ zipWith (-) b a
+
+-- | Execute the given action once and return the difference between the
+-- obtained sample and the one contained in the given IORef.
+accProbe :: IO [Integer] -> IORef [Integer] -> IO [Integer]
+accProbe action sample = do
+    a <- readIORef sample
+    b <- action
+    writeIORef sample b
     return $ zipWith (-) b a
 
 -- | Probe the given action and, interpreting the result as a variation in time,
@@ -46,7 +64,13 @@ getTransfer interval action = do
 getLoad :: Double -> IO [Integer] -> IO [Double] 
 getLoad interval action = do
     deltas <- probe action interval
-    let total  = fromIntegral $ foldr (+) 0 deltas
-        ratios = map ((/total) . fromIntegral) deltas
-    return $ map truncVal ratios
+    return $ toRatioList deltas
+
+-- | Similar to getLoad, but execute the given action only once and use the
+-- given IORef to calculate the result and to save the current value, so it
+-- can be reused in the next call.
+getAccLoad :: IORef [Integer] -> IO [Integer] -> IO [Double]
+getAccLoad sample action = do
+     deltas <- accProbe action sample
+     return $ toRatioList deltas
 
