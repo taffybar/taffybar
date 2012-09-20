@@ -1,5 +1,5 @@
 name: taffybar
-version: 0.2.0
+version: 0.2.1
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
@@ -17,6 +17,14 @@ description:
   A somewhat fancier desktop bar than xmobar.  This bar is based on
   gtk2hs and provides several widgets (including a few graphical ones).
   It also sports an optional snazzy system tray.
+  .
+  Changes in v0.2.1:
+  .
+    * More robust strut handling for multiple monitors of different sizes (contributed by Morgan Gibson)
+  .
+    * New widgets from José A. Romero (network monitor, fs monitor, another CPU monitor)
+  .
+    * Allow the bar widget to grow vertically (also contributed by José A. Romero)
   .
   Changes in v0.2.0:
   .
@@ -53,7 +61,7 @@ library
                  parsec >= 3.1, mtl >= 2, network, web-encodings, cairo,
                  dbus-core >= 0.9.1 && < 1.0, gtk >= 0.12.1, dyre >= 0.8.6,
                  HStringTemplate, gtk-traymanager >= 0.1.2 && < 0.2, xmonad-contrib, xmonad,
-                 xdg-basedir, filepath, utf8-string
+                 xdg-basedir, filepath, utf8-string, process
   hs-source-dirs: src
   pkgconfig-depends: gtk+-2.0
   exposed-modules: System.Taffybar,
@@ -64,14 +72,22 @@ library
                    System.Taffybar.Weather,
                    System.Taffybar.MPRIS,
                    System.Taffybar.Battery,
+                   System.Taffybar.FSMonitor,
+                   System.Taffybar.NetMonitor,
+                   System.Taffybar.CPUMonitor,
+                   System.Taffybar.DiskIOMonitor,
                    System.Taffybar.Widgets.Graph,
                    System.Taffybar.Widgets.PollingBar,
                    System.Taffybar.Widgets.PollingGraph,
                    System.Taffybar.Widgets.PollingLabel,
                    System.Taffybar.Widgets.VerticalBar,
+                   System.Information.StreamInfo,
                    System.Information.Battery,
                    System.Information.Memory,
-                   System.Information.CPU
+                   System.Information.Network,
+                   System.Information.CPU,
+                   System.Information.CPU2,
+                   System.Information.DiskIO
   other-modules: System.Taffybar.StrutProperties,
                  Paths_taffybar
 
