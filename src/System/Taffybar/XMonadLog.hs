@@ -33,8 +33,6 @@ import Graphics.UI.Gtk hiding ( Signal )
 import XMonad
 import XMonad.Hooks.DynamicLog
 
-import Web.Encodings ( decodeHtml, encodeHtml )
-
 -- | This is a DBus-based logger that can be used from XMonad to log
 -- to this widget.  This version lets you specify the format for the
 -- log using a pretty printer (e.g., 'taffybarPP').
@@ -52,7 +50,7 @@ taffybarColor fg bg = wrap t "</span>" . taffybarEscape
 -- | Escape strings so that they can be safely displayed by Pango in
 -- the bar widget
 taffybarEscape :: String -> String
-taffybarEscape = encodeHtml . decodeHtml
+taffybarEscape = escapeMarkup
 
 -- | The same as defaultPP in XMonad.Hooks.DynamicLog
 taffybarDefaultPP :: PP

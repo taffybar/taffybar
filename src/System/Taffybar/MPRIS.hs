@@ -18,7 +18,6 @@ import DBus.Client
 import DBus.Types
 import DBus.Message
 import Graphics.UI.Gtk hiding ( Signal, Variant )
-import Web.Encodings ( encodeHtml, decodeHtml )
 import Text.Printf
 
 setupDBus :: Label -> IO ()
@@ -53,7 +52,7 @@ trackCallback w _ Signal { signalBody = [variant] } = do
     Just m -> do
       let artist = maybe "[unknown]" id (variantDictLookup "artist" m)
           track = maybe "[unknown]" id (variantDictLookup "title" m)
-          msg = encodeHtml $ decodeHtml $ printf "%s - %s" (T.unpack artist) (T.unpack track)
+          msg = escapeMarkup $ printf "%s - %s" (T.unpack artist) (T.unpack track)
           txt = "<span fgcolor='yellow'>Now Playing:</span> " ++ msg
       postGUIAsync $ do
         -- In case the widget was hidden due to a stop/pause, forcibly

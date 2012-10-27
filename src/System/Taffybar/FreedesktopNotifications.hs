@@ -28,7 +28,6 @@ import qualified Data.Text as T
 import Data.Word ( Word32 )
 import DBus.Client.Simple
 import Graphics.UI.Gtk hiding ( Variant )
-import Web.Encodings ( decodeHtml, encodeHtml )
 
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification { noteAppName :: Text
@@ -116,8 +115,8 @@ notify idSrc istate appName replaceId icon summary body actions hints timeout = 
       nid <- modifyMVar idSrc (\x -> return (x+1, x))
       let n = Notification { noteAppName = appName
                            , noteReplaceId = 0
-                           , noteSummary = encodeHtml $ decodeHtml summary
-                           , noteBody = encodeHtml $ decodeHtml body
+                           , noteSummary = T.pack $ escapeMarkup $ T.unpack summary
+                           , noteBody = T.pack $ escapeMarkup $ T.unpack body
                            , noteExpireTimeout = tout
                            , noteId = fromIntegral nid
                            }
