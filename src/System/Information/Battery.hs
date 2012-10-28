@@ -19,12 +19,14 @@ import qualified Data.Map as M
 import Data.Maybe
 import Data.Word
 import Data.Int
-import DBus.Client.Simple
-import Data.List ( find )
-import Data.Text ( isInfixOf, Text )
+import DBus
+import DBus.Client
+import Data.List ( find, isInfixOf )
+import Data.Text ( Text )
+import qualified Data.Text as T
 
 -- | An opaque wrapper around some internal library state
-newtype BatteryContext = BC Proxy
+data BatteryContext = BC Client ObjectPath
 
 data BatteryType = BatteryTypeUnknown
                  | BatteryTypeLinePower
@@ -90,7 +92,7 @@ data BatteryInfo = BatteryInfo { batteryNativePath :: Text
 -- | Find the first power source that is a battery in the list.  The
 -- simple heuristic is a substring search on 'BAT'
 firstBattery :: [ObjectPath] -> Maybe ObjectPath
-firstBattery = find (isInfixOf "BAT" . objectPathText)
+firstBattery = find (isInfixOf "BAT" . formatObjectPath)
 
 -- | The name of the power daemon bus
 powerBusName :: BusName
@@ -128,16 +130,16 @@ readDictIntegral dict key dflt = case variantType variant of
 -- If some fields are not actually present, they may have bogus values
 -- here.  Don't bet anything critical on it.
 getBatteryInfo :: BatteryContext -> IO BatteryInfo
-getBatteryInfo (BC batteryProxy) = do
+getBatteryInfo (BC systemConn battPath) = do
   -- Grab all of the properties of the battery each call with one
   -- message.
-  let iface :: Variant
-      iface = toVariant ("org.freedesktop.UPower.Device" :: Text)
-
-  [val] <- call batteryProxy "org.freedesktop.DBus.Properties" "GetAll" [iface]
+  reply <- call_ systemConn (methodCall battPath "org.freedesktop.DBus.Properties" "GetAll")
+                             { methodCallDestination = Just "org.freedesktop.UPower"
+                             , methodCallBody = [toVariant $ T.pack "org.freedesktop.UPower.Device"]
+                             }
 
   let dict :: Map Text Variant
-      Just dict = fromVariant val
+      Just dict = fromVariant (methodReturnBody reply !! 0)
   return BatteryInfo { batteryNativePath = readDict dict "NativePath" ""
                      , batteryVendor = readDict dict "Vendor" ""
                      , batteryModel = readDict dict "Model" ""
@@ -173,11 +175,12 @@ batteryContextNew = do
 
   -- First, get the list of devices.  For now, we just get the stats
   -- for the first battery
-  powerProxy <- proxy systemConn powerBusName powerBaseObjectPath
-  [ powerDevicesV ] <- call powerProxy "org.freedesktop.UPower" "EnumerateDevices" []
-  let Just powerDevices = fromVariant powerDevicesV
+  reply <- call_ systemConn (methodCall powerBaseObjectPath "org.freedesktop.UPower" "EnumerateDevices")
+        { methodCallDestination = Just powerBusName
+        }
+  let Just powerDevices = fromVariant (methodReturnBody reply !! 0)
+
   case firstBattery powerDevices of
     Nothing -> return Nothing
     Just battPath ->
-      proxy systemConn powerBusName battPath >>= (return . Just . BC)
-
+      return . Just $ BC systemConn battPath

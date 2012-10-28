@@ -24,16 +24,12 @@ module System.Taffybar.XMonadLog (
   ) where
 
 import Codec.Binary.UTF8.String ( decodeString )
-import DBus.Client.Simple ( connectSession, emit, Client )
-import DBus.Client ( listen, MatchRule(..) )
-import DBus.Types
-import DBus.Message
+import DBus ( toVariant, fromVariant, Signal(..), signal )
+import DBus.Client ( listen, matchAny, MatchRule(..), connectSession, emit, Client )
 import Graphics.UI.Gtk hiding ( Signal )
 
 import XMonad
 import XMonad.Hooks.DynamicLog
-
-import Web.Encodings ( decodeHtml, encodeHtml )
 
 -- | This is a DBus-based logger that can be used from XMonad to log
 -- to this widget.  This version lets you specify the format for the
@@ -52,7 +48,7 @@ taffybarColor fg bg = wrap t "</span>" . taffybarEscape
 -- | Escape strings so that they can be safely displayed by Pango in
 -- the bar widget
 taffybarEscape :: String -> String
-taffybarEscape = encodeHtml . decodeHtml
+taffybarEscape = escapeMarkup
 
 -- | The same as defaultPP in XMonad.Hooks.DynamicLog
 taffybarDefaultPP :: PP
@@ -81,11 +77,11 @@ outputThroughDBus client str = do
   -- We need to decode the string back into a real String before we
   -- send it over dbus.
   let str' = decodeString str
-  emit client "/org/xmonad/Log" "org.xmonad.Log" "Update" [ toVariant str' ]
+  emit client (signal "/org/xmonad/Log" "org.xmonad.Log" "Update") { signalBody = [ toVariant str' ] }
 
 setupDbus :: Label -> IO ()
 setupDbus w = do
-  let matcher = MatchRule { matchSender = Nothing
+  let matcher = matchAny { matchSender = Nothing
                           , matchDestination = Nothing
                           , matchPath = Just "/org/xmonad/Log"
                           , matchInterface = Just "org.xmonad.Log"
@@ -96,8 +92,8 @@ setupDbus w = do
 
   listen client matcher (callback w)
 
-callback :: Label -> BusName -> Signal -> IO ()
-callback w _ sig = do
+callback :: Label -> Signal -> IO ()
+callback w sig = do
   let [bdy] = signalBody sig
       Just status = fromVariant bdy
   postGUIAsync $ labelSetMarkup w status

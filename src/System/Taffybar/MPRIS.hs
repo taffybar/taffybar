@@ -13,23 +13,20 @@ import Data.Int ( Int32 )
 import qualified Data.Map as M
 import Data.Text ( Text )
 import qualified Data.Text as T
-import DBus.Client.Simple ( connectSession )
+import DBus
 import DBus.Client
-import DBus.Types
-import DBus.Message
 import Graphics.UI.Gtk hiding ( Signal, Variant )
-import Web.Encodings ( encodeHtml, decodeHtml )
 import Text.Printf
 
 setupDBus :: Label -> IO ()
 setupDBus w = do
-  let trackMatcher = MatchRule { matchSender = Nothing
+  let trackMatcher = matchAny { matchSender = Nothing
                                , matchDestination = Nothing
                                , matchPath = Just "/Player"
                                , matchInterface = Just "org.freedesktop.MediaPlayer"
                                , matchMember = Just "TrackChange"
                                }
-      stateMatcher = MatchRule { matchSender = Nothing
+      stateMatcher = matchAny { matchSender = Nothing
                                , matchDestination = Nothing
                                , matchPath = Just "/Player"
                                , matchInterface = Just "org.freedesktop.MediaPlayer"
@@ -45,15 +42,16 @@ variantDictLookup k m = do
   fromVariant val
 
 
-trackCallback :: Label -> BusName -> Signal -> IO ()
-trackCallback w _ Signal { signalBody = [variant] } = do
+trackCallback :: Label -> Signal -> IO ()
+trackCallback w s = do
   let v :: Maybe (M.Map Text Variant)
       v = fromVariant variant
+      [variant] = signalBody s
   case v of
     Just m -> do
       let artist = maybe "[unknown]" id (variantDictLookup "artist" m)
           track = maybe "[unknown]" id (variantDictLookup "title" m)
-          msg = encodeHtml $ decodeHtml $ printf "%s - %s" (T.unpack artist) (T.unpack track)
+          msg = escapeMarkup $ printf "%s - %s" (T.unpack artist) (T.unpack track)
           txt = "<span fgcolor='yellow'>Now Playing:</span> " ++ msg
       postGUIAsync $ do
         -- In case the widget was hidden due to a stop/pause, forcibly
@@ -61,11 +59,10 @@ trackCallback w _ Signal { signalBody = [variant] } = do
         labelSetMarkup w txt
         widgetShowAll w
     _ -> return ()
-trackCallback _ _ _ = return ()
 
-stateCallback :: Label -> BusName -> Signal -> IO ()
-stateCallback w _ Signal { signalBody = [bdy] } =
-  case fromVariant bdy of
+stateCallback :: Label -> Signal -> IO ()
+stateCallback w s =
+  case fromVariant (signalBody s !! 0) of
     Just st -> case structureItems st of
       (pstate:_) -> case (fromVariant pstate) :: Maybe Int32 of
         Just 2 -> postGUIAsync $ widgetHideAll w
@@ -74,7 +71,6 @@ stateCallback w _ Signal { signalBody = [bdy] } =
         _ -> return ()
       _ -> return ()
     _ -> return ()
-stateCallback _ _ _ = return ()
 
 mprisNew :: IO Widget
 mprisNew = do
