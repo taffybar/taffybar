@@ -38,7 +38,13 @@ toggleCalendar w c = liftIO $ do
       let topLevelWindow = castToWindow topLevel
       windowSetTransientFor c topLevelWindow
 
+      windowSetPosition c WinPosMouse
+      (x,  y) <- windowGetPosition c
+      (_, y') <- widgetGetSize w
       widgetShowAll c
+      if y > y'
+          then windowMove c x (y - y')
+          else windowMove c x y'
 
   return True
 
