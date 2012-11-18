@@ -13,31 +13,29 @@ import Data.Int ( Int32 )
 import qualified Data.Map as M
 import Data.Text ( Text )
 import qualified Data.Text as T
-import DBus.Client.Simple ( connectSession )
+import DBus
 import DBus.Client
-import DBus.Types
-import DBus.Message
 import Graphics.UI.Gtk hiding ( Signal, Variant )
 import Web.Encodings ( encodeHtml, decodeHtml )
 import Text.Printf
 
 setupDBus :: Label -> IO ()
 setupDBus w = do
-  let trackMatcher = MatchRule { matchSender = Nothing
-                               , matchDestination = Nothing
-                               , matchPath = Just "/Player"
-                               , matchInterface = Just "org.freedesktop.MediaPlayer"
-                               , matchMember = Just "TrackChange"
-                               }
-      stateMatcher = MatchRule { matchSender = Nothing
-                               , matchDestination = Nothing
-                               , matchPath = Just "/Player"
-                               , matchInterface = Just "org.freedesktop.MediaPlayer"
-                               , matchMember = Just "StatusChange"
-                               }
+  let trackMatcher = matchAny { matchSender = Nothing
+                              , matchDestination = Nothing
+                              , matchPath = Just "/Player"
+                              , matchInterface = Just "org.freedesktop.MediaPlayer"
+                              , matchMember = Just "TrackChange"
+                              }
+      stateMatcher = matchAny { matchSender = Nothing
+                              , matchDestination = Nothing
+                              , matchPath = Just "/Player"
+                              , matchInterface = Just "org.freedesktop.MediaPlayer"
+                              , matchMember = Just "StatusChange"
+                              }
   client <- connectSession
-  listen client trackMatcher (trackCallback w)
-  listen client stateMatcher (stateCallback w)
+  listen client trackMatcher (trackCallback w "org.freedesktop.MediaPlayer")
+  listen client stateMatcher (stateCallback w "org.freedesktop.MediaPlayer")
 
 variantDictLookup :: (IsVariant b, Ord k) => k -> M.Map k Variant -> Maybe b
 variantDictLookup k m = do
@@ -46,8 +44,9 @@ variantDictLookup k m = do
 
 
 trackCallback :: Label -> BusName -> Signal -> IO ()
-trackCallback w _ Signal { signalBody = [variant] } = do
-  let v :: Maybe (M.Map Text Variant)
+trackCallback w _ msg = do
+  let variant = signalBody msg !! 0
+      v :: Maybe (M.Map Text Variant)
       v = fromVariant variant
   case v of
     Just m -> do
@@ -64,16 +63,17 @@ trackCallback w _ Signal { signalBody = [variant] } = do
 trackCallback _ _ _ = return ()
 
 stateCallback :: Label -> BusName -> Signal -> IO ()
-stateCallback w _ Signal { signalBody = [bdy] } =
-  case fromVariant bdy of
-    Just st -> case structureItems st of
-      (pstate:_) -> case (fromVariant pstate) :: Maybe Int32 of
-        Just 2 -> postGUIAsync $ widgetHideAll w
-        Just 1 -> postGUIAsync $ widgetHideAll w
-        Just 0 -> postGUIAsync $ widgetShowAll w
+stateCallback w _ msg =
+  let bdy = signalBody msg !! 0 in
+    case fromVariant bdy of
+      Just st -> case structureItems st of
+        (pstate:_) -> case (fromVariant pstate) :: Maybe Int32 of
+          Just 2 -> postGUIAsync $ widgetHideAll w
+          Just 1 -> postGUIAsync $ widgetHideAll w
+          Just 0 -> postGUIAsync $ widgetShowAll w
+          _ -> return ()
         _ -> return ()
       _ -> return ()
-    _ -> return ()
 stateCallback _ _ _ = return ()
 
 mprisNew :: IO Widget

@@ -24,10 +24,8 @@ module System.Taffybar.XMonadLog (
   ) where
 
 import Codec.Binary.UTF8.String ( decodeString )
-import DBus.Client.Simple ( connectSession, emit, Client )
-import DBus.Client ( listen, MatchRule(..) )
-import DBus.Types
-import DBus.Message
+import DBus
+import DBus.Client
 import Graphics.UI.Gtk hiding ( Signal )
 
 import XMonad
@@ -81,20 +79,21 @@ outputThroughDBus client str = do
   -- We need to decode the string back into a real String before we
   -- send it over dbus.
   let str' = decodeString str
-  emit client "/org/xmonad/Log" "org.xmonad.Log" "Update" [ toVariant str' ]
+      sign = signal "/org/xmonad/Log" "org.xmonad.Log" "Update"
+  emit client sign { signalBody = [ toVariant str' ] }
 
 setupDbus :: Label -> IO ()
 setupDbus w = do
-  let matcher = MatchRule { matchSender = Nothing
-                          , matchDestination = Nothing
-                          , matchPath = Just "/org/xmonad/Log"
-                          , matchInterface = Just "org.xmonad.Log"
-                          , matchMember = Just "Update"
-                          }
+  let matcher = matchAny { matchSender = Nothing
+                         , matchDestination = Nothing
+                         , matchPath = Just "/org/xmonad/Log"
+                         , matchInterface = Just "org.xmonad.Log"
+                         , matchMember = Just "Update"
+                         }
 
   client <- connectSession
 
-  listen client matcher (callback w)
+  listen client matcher (callback w "org.xmonad.Log")
 
 callback :: Label -> BusName -> Signal -> IO ()
 callback w _ sig = do
