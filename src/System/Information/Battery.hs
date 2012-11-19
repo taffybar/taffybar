@@ -24,13 +24,8 @@ import DBus.Client
 import Data.List ( find )
 import Data.Text ( isInfixOf, pack, Text )
 
-data Proxy = Proxy Client BusName ObjectPath
-
-proxy :: Client -> BusName -> ObjectPath -> IO Proxy
-proxy client dest path = return (Proxy client dest path)
-
 -- | An opaque wrapper around some internal library state
-newtype BatteryContext = BC Proxy
+data BatteryContext = BC Client BusName ObjectPath
 
 data BatteryType = BatteryTypeUnknown
                  | BatteryTypeLinePower
@@ -134,7 +129,7 @@ readDictIntegral dict key dflt = case variantType variant of
 -- If some fields are not actually present, they may have bogus values
 -- here.  Don't bet anything critical on it.
 getBatteryInfo :: BatteryContext -> IO BatteryInfo
-getBatteryInfo (BC (Proxy client _ path)) = do
+getBatteryInfo (BC client _ path) = do
   -- Grab all of the properties of the battery each call with one
   -- message.
   reply <- call_ client (methodCall path "org.freedesktop.DBus.Properties" "GetAll")
@@ -189,6 +184,5 @@ batteryContextNew = do
 
   case firstBattery powerDevices of
     Nothing -> return Nothing
-    Just battPath ->
-      proxy systemConn powerBusName battPath >>= (return . Just . BC)
+    Just battPath -> return $ Just (BC systemConn powerBusName battPath)
 
