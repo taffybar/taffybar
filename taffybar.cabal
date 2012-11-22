@@ -71,6 +71,7 @@ library
                    System.Taffybar.FreedesktopNotifications,
                    System.Taffybar.Weather,
                    System.Taffybar.MPRIS,
+                   System.Taffybar.MPRIS2,
                    System.Taffybar.Battery,
                    System.Taffybar.FSMonitor,
                    System.Taffybar.NetMonitor,
