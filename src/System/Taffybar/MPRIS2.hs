@@ -6,6 +6,7 @@
 --
 module System.Taffybar.MPRIS2 ( mpris2New ) where
 
+import Data.Maybe ( listToMaybe )
 import DBus
 import DBus.Client
 import Data.List (isPrefixOf)
@@ -93,12 +94,18 @@ updatePlaybackStatus w items = do
       return ()
 
 updateSongInfo :: Label -> [(Variant, Variant)] -> IO ()
-updateSongInfo w items = do
-  let Just aLookup = lookup (toVariant ("xesam:artist" :: String)) items
-      artists = (unpack . unpack) aLookup :: [String]
-      Just tLookup = lookup (toVariant ("xesam:title" :: String)) items
-      title  = (unpack . unpack) tLookup :: String
-  setSongInfo w (artists !! 0) title
+updateSongInfo w items =
+  case parseArtistAndTitle of
+    Just (artist, title) -> setSongInfo w artist title
+    Nothing -> return ()
+  where
+    parseArtistAndTitle = do
+      aLookup <- lookup (toVariant ("xesam:artist" :: String)) items
+      tLookup <- lookup (toVariant ("xesam:title" :: String)) items
+      let artists = (unpack . unpack) aLookup :: [String]
+          title = (unpack . unpack) tLookup :: String
+      artist <- listToMaybe artists
+      return (artist, title)
 
 updateMetadata :: Label -> [(Variant, Variant)] -> IO ()
 updateMetadata w items = do
@@ -107,4 +114,3 @@ updateMetadata w items = do
       let metaItems = dictionaryItems $ (unpack . unpack) meta
       updateSongInfo w metaItems
     Nothing -> return ()
-
