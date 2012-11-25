@@ -22,7 +22,7 @@ There are also several more specialized widgets:
  * Battery widget
  * Textual clock
  * Freedesktop.org notifications (via dbus)
- * MPRIS widget (currently only supports MPRIS1)
+ * MPRIS1 and MPRIS2 widgets
  * Weather widget
  * XMonad log widget (listens on dbus instead of stdin)
  * System tray
@@ -33,6 +33,5 @@ TODO
 An incomplete list of things that would be cool to have:
 
  * xrandr widget (for dealing changing clone/extend mode and orientation)
- * MPRIS2 widget
  * Better behavior when adding/removing monitors (never tried it)
  * Make MPRIS more configurable
