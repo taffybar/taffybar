@@ -80,7 +80,7 @@ module System.Taffybar (
   --
   -- > import XMonad.Hooks.DynamicLog
   -- > import XMonad.Hooks.ManageDocks
-  -- > import DBus.Client.Simple
+  -- > import DBus.Client
   -- > import System.Taffybar.XMonadLog ( dbusLog )
   -- >
   -- > main = do

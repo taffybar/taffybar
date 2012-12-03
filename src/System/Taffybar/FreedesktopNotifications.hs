@@ -26,9 +26,9 @@ import Data.Sequence ( Seq, (|>), viewl, ViewL(..) )
 import Data.Text ( Text )
 import qualified Data.Text as T
 import Data.Word ( Word32 )
-import DBus.Client.Simple
+import DBus
+import DBus.Client
 import Graphics.UI.Gtk hiding ( Variant )
-import Web.Encodings ( decodeHtml, encodeHtml )
 
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification { noteAppName :: Text
@@ -116,8 +116,8 @@ notify idSrc istate appName replaceId icon summary body actions hints timeout = 
       nid <- modifyMVar idSrc (\x -> return (x+1, x))
       let n = Notification { noteAppName = appName
                            , noteReplaceId = 0
-                           , noteSummary = encodeHtml $ decodeHtml summary
-                           , noteBody = encodeHtml $ decodeHtml body
+                           , noteSummary = T.pack $ escapeMarkup $ T.unpack summary
+                           , noteBody = T.pack $ escapeMarkup $ T.unpack body
                            , noteExpireTimeout = tout
                            , noteId = fromIntegral nid
                            }
@@ -147,12 +147,12 @@ replaceNote nid newNote curNote =
 
 notificationDaemon onNote onCloseNote = do
   client <- connectSession
-  _ <- requestName client "org.freedesktop.Notifications" [AllowReplacement, ReplaceExisting]
+  _ <- requestName client "org.freedesktop.Notifications" [nameAllowReplacement, nameReplaceExisting]
   export client "/org/freedesktop/Notifications"
-    [ method "org.freedesktop.Notifications" "GetServerInformation" getServerInformation
-    , method "org.freedesktop.Notifications" "GetCapabilities" getCapabilities
-    , method "org.freedesktop.Notifications" "CloseNotification" onCloseNote
-    , method "org.freedesktop.Notifications" "Notify" onNote
+    [ autoMethod "org.freedesktop.Notifications" "GetServerInformation" getServerInformation
+    , autoMethod "org.freedesktop.Notifications" "GetCapabilities" getCapabilities
+    , autoMethod "org.freedesktop.Notifications" "CloseNotification" onCloseNote
+    , autoMethod "org.freedesktop.Notifications" "Notify" onNote
     ]
 
 -- When a notification is received, add it to the queue.  Post a token to the channel that the
