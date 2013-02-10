@@ -1,12 +1,21 @@
--- | Provides information about used CPU times, obtained from parsing the
--- /proc/stat file.
+-----------------------------------------------------------------------------
+-- |
+-- Module     : System.Information.CPU2
+-- Maintainer : José A. Romero L. <escherdragon@gmail.com>
+--
+-- Provides information about used CPU times, obtained from parsing the
+-- @\/proc\/stat@ file using some of the facilities included in the
+-- "System.Information.StreamInfo" module.
+--
+-----------------------------------------------------------------------------
+
 module System.Information.CPU2 (getCPULoad, getCPUInfo) where
 
 import System.Information.StreamInfo (getLoad, getParsedInfo)
 
 -- | Returns a two-element list containing relative system and user times
--- calculated using two almost simultaneous samples of the /proc/stat file
--- for the given core (or all of them aggregated, if "cpu" is passed).
+-- calculated using two almost simultaneous samples of the @\/proc\/stat@ file
+-- for the given core (or all of them aggregated, if \"cpu\" is passed).
 getCPULoad :: String -> IO [Double]
 getCPULoad cpu = do
     load <- getLoad 0.05 $ getCPUInfo cpu
