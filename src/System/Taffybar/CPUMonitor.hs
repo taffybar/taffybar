@@ -13,7 +13,7 @@ import System.Taffybar.Widgets.PollingGraph
 -- last call to this function.
 cpuMonitorNew :: GraphConfig -- ^ Configuration data for the Graph.
               -> Double      -- ^ Polling period (in seconds).
-              -> String      -- ^ Name of the core to watch (e.g. "cpu", "cpu0").
+              -> String      -- ^ Name of the core to watch (e.g. \"cpu\", \"cpu0\").
               -> IO Widget
 cpuMonitorNew cfg interval cpu = do
     info <- getCPUInfo cpu
