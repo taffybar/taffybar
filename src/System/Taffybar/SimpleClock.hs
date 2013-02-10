@@ -21,6 +21,10 @@ makeCalendar = do
   container <- windowNew
   cal <- calendarNew
   containerAdd container cal
+  -- prevent calendar from being destroyed, it can be only hidden:
+  _ <- on container deleteEvent $ do
+    liftIO (widgetHideAll container)
+    return True
   return container
 
 toggleCalendar w c = liftIO $ do
