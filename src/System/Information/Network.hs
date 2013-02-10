@@ -1,7 +1,21 @@
+-----------------------------------------------------------------------------
+-- |
+-- Module     : System.Information.Network
+-- Maintainer : José A. Romero L. <escherdragon@gmail.com>
+--
+-- Provides information about network traffic over selected interfaces,
+-- obtained from parsing the @\/proc\/net\/dev@ file using some of the
+-- facilities provided by the "System.Information.StreamInfo" module.
+--
+-----------------------------------------------------------------------------
+
 module System.Information.Network (getNetInfo) where
 
 import System.Information.StreamInfo (getParsedInfo)
 
+-- | Returns a two-element list containing the current number of bytes
+-- received and transmitted via the given network interface (e.g. \"wlan0\"),
+-- according to the contents of the @\/proc\/dev\/net@ file.
 getNetInfo :: String -> IO [Integer]
 getNetInfo = getParsedInfo "/proc/net/dev" parse
 

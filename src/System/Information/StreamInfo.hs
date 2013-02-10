@@ -1,12 +1,20 @@
--- | Generic code to poll any of the many data files maintained by the kernel in
+--------------------------------------------------------------------------------
+-- |
+-- Module     : System.Information.StreamInfo
+-- Maintainer : José A. Romero L. <escherdragon@gmail.com>
+--
+-- Generic code to poll any of the many data files maintained by the kernel in
 -- POSIX systems. Provides methods for applying a custom parsing function to the
 -- contents of the file and to calculate differentials across one or more values
 -- provided via the file.
+--------------------------------------------------------------------------------
+
 module System.Information.StreamInfo
     ( getParsedInfo
     , getLoad
     , getAccLoad
-    , getTransfer) where
+    , getTransfer
+    ) where
 
 import Control.Concurrent (threadDelay)
 import Data.IORef

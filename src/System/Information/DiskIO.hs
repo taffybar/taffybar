@@ -1,16 +1,25 @@
--- | Provides information about read/write operations in a given disk or
--- partition, obtained from parsing the /proc/diskstats file.
+-----------------------------------------------------------------------------
+-- |
+-- Module     : System.Information.DiskIO
+-- Maintainer : José A. Romero L. <escherdragon@gmail.com>
+--
+-- Provides information about read/write operations in a given disk or
+-- partition, obtained from parsing the @\/proc\/diskstats@ file with some
+-- of the facilities included in the "System.Information.StreamInfo" module.
+-----------------------------------------------------------------------------
+
 module System.Information.DiskIO (getDiskTransfer) where
 
 import System.Information.StreamInfo (getParsedInfo, getTransfer)
 
 -- | Returns a two-element list containing the speed of transfer for read and
--- write operations performed in the given disk/partition (e.g. "sda", "sda1").
+-- write operations performed in the given disk\/partition (e.g. \"sda\",
+-- \"sda1\").
 getDiskTransfer :: String -> IO [Double]
 getDiskTransfer disk = getTransfer 0.05 $ getDiskInfo disk
 
--- | Returns the list of all the values available in /proc/diskstats for the
--- given disk or partition.
+-- | Returns the list of all the values available in @\/proc\/diskstats@
+-- for the given disk or partition.
 getDiskInfo :: String -> IO [Integer]
 getDiskInfo = getParsedInfo "/proc/diskstats" parse
 
