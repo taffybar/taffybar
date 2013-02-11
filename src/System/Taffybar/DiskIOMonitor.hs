@@ -8,7 +8,7 @@
 --
 --------------------------------------------------------------------------------
 
-module System.Taffybar.DiskIOMonitor where
+module System.Taffybar.DiskIOMonitor ( dioMonitorNew ) where
 
 import Graphics.UI.Gtk
 import System.Information.DiskIO (getDiskTransfer)
@@ -22,11 +22,11 @@ dioMonitorNew :: GraphConfig -- ^ Configuration data for the Graph.
               -> Double      -- ^ Polling period (in seconds).
               -> String      -- ^ Name of the disk or partition to watch (e.g. \"sda\", \"sdb1\").
               -> IO Widget
-dioMonitorNew cfg pollSeconds disk = do
-    pollingGraphNew cfg pollSeconds $ probe disk
-    where
-        probe :: String -> IO [Double]
-        probe disk = do
-            transfer <- getDiskTransfer disk
-            let top = foldr max 1.0 transfer
-            return $ map (/top) transfer
+dioMonitorNew cfg pollSeconds =
+  pollingGraphNew cfg pollSeconds . probeDisk
+
+probeDisk :: String -> IO [Double]
+probeDisk disk = do
+  transfer <- getDiskTransfer disk
+  let top = foldr max 1.0 transfer
+  return $ map (/top) transfer
