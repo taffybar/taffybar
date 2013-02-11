@@ -6,10 +6,10 @@
 -- Simple text widget that monitors the current usage of selected disk
 -- partitions by regularly parsing the output of the df command in Linux
 -- systems.
--- 
+--
 -----------------------------------------------------------------------------
 
-module System.Taffybar.FSMonitor where
+module System.Taffybar.FSMonitor ( fsMonitorNew ) where
 
 import Graphics.UI.Gtk
 import System.Process (readProcess)
