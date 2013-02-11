@@ -69,7 +69,6 @@ textClockNew userLocale fmt updateSeconds = do
   -- actually receive events.
   l <- pollingLabelNew "" updateSeconds (getCurrentTime timeLocale fmt)
 
---  l <- labelNew Nothing
   ebox <- eventBoxNew
   containerAdd ebox l
   eventBoxSetVisibleWindow ebox False
