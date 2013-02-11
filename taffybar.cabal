@@ -26,6 +26,8 @@ description:
   .
     * Finally have the calendar widget pop up over the date/time widget (contributed by José A. Romero)
   .
+    * GHC 7.6 compatibility
+  .
   Changes in v0.2.1:
   .
     * More robust strut handling for multiple monitors of different sizes (contributed by Morgan Gibson)
