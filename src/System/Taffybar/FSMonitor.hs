@@ -14,7 +14,6 @@ module System.Taffybar.FSMonitor where
 import Graphics.UI.Gtk
 import System.Process (readProcess)
 import System.Taffybar.Widgets.PollingLabel
-import Text.Printf (printf)
 
 -- | Creates a new filesystem monitor widget. It contains one 'PollingLabel'
 -- that displays the data returned by the df command. The usage level of all
