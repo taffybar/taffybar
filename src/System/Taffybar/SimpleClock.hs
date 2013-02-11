@@ -27,6 +27,8 @@ makeCalendar = do
     return True
   return container
 
+toggleCalendar :: (MonadIO m, WindowClass self, WidgetClass widget)
+                  => widget -> self -> m Bool
 toggleCalendar w c = liftIO $ do
   isVis <- get c widgetVisible
   case isVis of
