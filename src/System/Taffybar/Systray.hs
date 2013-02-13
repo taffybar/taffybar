@@ -17,7 +17,7 @@ systrayNew = do
     widgetShowAll w
     boxPackStart box w PackNatural 0
 
-  _ <- on trayManager trayIconRemoved $ \w -> do
+  _ <- on trayManager trayIconRemoved $ \_ -> do
     putStrLn "Tray icon removed"
 
   widgetShowAll box

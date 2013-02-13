@@ -16,9 +16,10 @@ module System.Taffybar.FreedesktopNotifications (
   ) where
 
 import Control.Concurrent
+import Control.Concurrent.STM
+import Control.Monad ( forever )
 import Control.Monad.Trans ( liftIO )
 import Data.Int ( Int32 )
-import Data.IORef
 import Data.Map ( Map )
 import Data.Monoid ( mconcat )
 import qualified Data.Sequence as S
@@ -40,33 +41,33 @@ data Notification = Notification { noteAppName :: Text
                                  }
                     deriving (Show, Eq)
 
-data WorkType = CancelNote (Maybe Word32)
-              | ReplaceNote Word32 Notification
-              | NewNote
-              | ExpireNote Word32
-
-data NotifyState = NotifyState { noteQueue :: MVar (Seq Notification)
-                               , noteIdSource :: MVar Word32
-                               , noteWorkerChan :: Chan WorkType
-                               , noteWidget :: Label
+data NotifyState = NotifyState { noteWidget :: Label
                                , noteContainer :: Widget
-                               , noteTimerThread :: MVar (Maybe ThreadId)
                                , noteConfig :: NotificationConfig
+                               , noteQueue :: TVar (Seq Notification)
+                                 -- ^ The queue of active (but not yet
+                                 -- displayed) notifications
+                               , noteIdSource :: TVar Word32
+                                 -- ^ A source of new notification ids
+                               , noteCurrent :: TVar (Maybe Notification)
+                                 -- ^ The current note being displayed
+                               , noteChan :: Chan ()
+                                 -- ^ Wakes up the GUI update thread
                                }
 
 initialNoteState :: Widget -> Label -> NotificationConfig -> IO NotifyState
 initialNoteState wrapper l cfg = do
-  c <- newChan
-  m <- newMVar 1
-  q <- newMVar S.empty
-  t <- newMVar Nothing
+  m <- newTVarIO 1
+  q <- newTVarIO S.empty
+  c <- newTVarIO Nothing
+  ch <- newChan
   return NotifyState { noteQueue = q
                      , noteIdSource = m
-                     , noteWorkerChan = c
                      , noteWidget = l
                      , noteContainer = wrapper
-                     , noteTimerThread = t
+                     , noteCurrent = c
                      , noteConfig = cfg
+                     , noteChan = ch
                      }
 
 getServerInformation :: IO (Text, Text, Text, Text)
@@ -79,12 +80,34 @@ getServerInformation =
 getCapabilities :: IO [Text]
 getCapabilities = return ["body", "body-markup"]
 
+nextNotification :: NotifyState -> STM ()
+nextNotification s = do
+  q <- readTVar (noteQueue s)
+  case viewl q of
+    EmptyL -> do
+      writeTVar (noteCurrent s) Nothing
+    next :< rest -> do
+      writeTVar (noteQueue s) rest
+      writeTVar (noteCurrent s) (Just next)
+
+-- | Filter any notifications with this id from the current queue.  If
+-- it is the current notification, replace it with the next, if any.
 closeNotification :: NotifyState -> Word32 -> IO ()
 closeNotification istate nid = do
-  -- FIXME: filter anything with this nid out of the queue before
-  -- posting to the queue so that the worker doesn't need to scan the
-  -- queue
-  writeChan (noteWorkerChan istate) (CancelNote (Just nid))
+  atomically $ do
+    modifyTVar' (noteQueue istate) removeNote
+    curNote <- readTVar (noteCurrent istate)
+    case curNote of
+      Nothing -> return ()
+      Just cnote
+        | noteId cnote /= nid -> return ()
+        | otherwise ->
+          -- in this case, the note was current so we take the next,
+          -- if any
+          nextNotification istate
+  wakeupDisplayThread istate
+  where
+    removeNote = S.filter (\n -> noteId n /= nid)
 
 -- | Apply the user's formatter and truncate the result with the
 -- specified maxlen.
@@ -94,8 +117,7 @@ formatMessage s = take maxlen . fmt
     maxlen = notificationMaxLength $ noteConfig s
     fmt = notificationFormatter $ noteConfig s
 
-notify :: MVar Int
-          -> NotifyState
+notify :: NotifyState
           -> Text -- ^ Application name
           -> Word32 -- ^ Replaces id
           -> Text -- ^ App icon
@@ -105,46 +127,56 @@ notify :: MVar Int
           -> Map Text Variant -- ^ Hints
           -> Int32 -- ^ Expires timeout (milliseconds)
           -> IO Word32
-notify idSrc istate appName replaceId icon summary body actions hints timeout = do
-  let maxtout = fromIntegral $ notificationMaxTimeout (noteConfig istate)
-      tout = case timeout of
-        0 -> maxtout
-        (-1) -> maxtout
-        _ -> min maxtout timeout
-  case replaceId of
-    0 -> do
-      nid <- modifyMVar idSrc (\x -> return (x+1, x))
-      let n = Notification { noteAppName = appName
-                           , noteReplaceId = 0
-                           , noteSummary = T.pack $ escapeMarkup $ T.unpack summary
-                           , noteBody = T.pack $ escapeMarkup $ T.unpack body
-                           , noteExpireTimeout = tout
-                           , noteId = fromIntegral nid
-                           }
-      modifyMVar_ (noteQueue istate) (\x -> return (x |> n))
-      writeChan (noteWorkerChan istate) NewNote
-      return (fromIntegral nid)
-    i -> do
-      let n = Notification { noteAppName = appName
-                           , noteReplaceId = i
-                           , noteSummary = summary
-                           , noteBody = body
-                           , noteExpireTimeout = tout
-                           , noteId = i
-                           }
-      -- First, replace any notes in the note queue with this note, if
-      -- applicable.  Next, notify the worker and have it replace the
-      -- current note if that note has this id.
-      modifyMVar_ (noteQueue istate) (\q -> return $ fmap (replaceNote i n) q)
-      writeChan (noteWorkerChan istate) (ReplaceNote i n)
-      return i
+notify istate appName replaceId icon summary body actions hints timeout = do
+  nid <- atomically $ do
+    tid <- readTVar idsrc
+    modifyTVar' idsrc (+1)
+    return tid
+  let realId = if replaceId == 0 then fromIntegral nid else replaceId
+      n = Notification { noteAppName = appName
+                       , noteReplaceId = replaceId
+                       , noteSummary = escapeText summary
+                       , noteBody = escapeText body
+                       , noteExpireTimeout = tout
+                       , noteId = realId
+                       }
+  -- If we are replacing an existing note, atomically do the swap in
+  -- the note queue and then make this the new current if the queue is
+  -- empty OR if the current has this id.
+  dn <- atomically $ do
+    modifyTVar' (noteQueue istate) (replaceNote n)
+    cnote <- readTVar (noteCurrent istate)
+    case cnote of
+      Nothing -> do
+        writeTVar (noteCurrent istate) (Just n)
+        return (Just n)
+      Just curNote
+        | noteId curNote == realId -> do
+          writeTVar (noteCurrent istate) (Just n)
+          return (Just n)
+        | otherwise -> do
+          modifyTVar' (noteQueue istate) (|>n)
+          return Nothing
+  -- This is a little gross - if we added the new notification to the
+  -- queue, we can't call displayNote on it because that will
+  -- obliterate the current active notification.
+  case dn of
+    -- take no action; timeout threads will handle it
+    Nothing -> return ()
+    Just _ -> wakeupDisplayThread istate
+  return realId
+  where
+    replaceNote newNote = fmap (\n -> if noteId n == noteReplaceId newNote then newNote else n)
+    idsrc = noteIdSource istate
+    escapeText = T.pack . escapeMarkup . T.unpack
+    maxtout = fromIntegral $ notificationMaxTimeout (noteConfig istate)
+    tout = case timeout of
+      0 -> maxtout
+      (-1) -> maxtout
+      _ -> min maxtout timeout
 
-replaceNote :: Word32 -> Notification -> Notification -> Notification
-replaceNote nid newNote curNote =
-  case noteId curNote == nid of
-    False -> curNote
-    True -> newNote
-
+notificationDaemon :: (AutoMethod f1, AutoMethod f2)
+                      => f1 -> f2 -> IO ()
 notificationDaemon onNote onCloseNote = do
   client <- connectSession
   _ <- requestName client "org.freedesktop.Notifications" [nameAllowReplacement, nameReplaceExisting]
@@ -155,117 +187,40 @@ notificationDaemon onNote onCloseNote = do
     , autoMethod "org.freedesktop.Notifications" "Notify" onNote
     ]
 
--- When a notification is received, add it to the queue.  Post a token to the channel that the
--- worker blocks on.
+-- | Wakeup the display thread and have it switch out the displayed
+-- message for the new current message.
+wakeupDisplayThread :: NotifyState -> IO ()
+wakeupDisplayThread s = writeChan (noteChan s) ()
 
--- The worker thread should sit idle waiting on a chan read.  When it
--- wakes up, check to see if the current notification needs to be
--- expired (due to a cancellation) or just expired on its own.  If it
--- expired on its own, just empty it out and post the next item in the
--- queue, if any.  If posting, start a thread that just calls
--- theadDelay for the lifetime of the notification.
+-- | This thread
+displayThread :: NotifyState -> IO ()
+displayThread s = forever $ do
+  _ <- readChan (noteChan s)
+  cur <- atomically $ readTVar (noteCurrent s)
+  case cur of
+    Nothing -> postGUIAsync (widgetHideAll (noteContainer s))
+    Just n -> postGUIAsync $ do
+      labelSetMarkup (noteWidget s) (formatMessage s n)
+      widgetShowAll (noteContainer s)
+      startTimeoutThread s n
 
-workerThread :: NotifyState -> IO ()
-workerThread s = do
-  currentNote <- newIORef Nothing
-  workerThread' currentNote
-  where
-    workerThread' currentNote = do
-      work <- readChan (noteWorkerChan s)
-      case work of
-        NewNote -> onNewNote currentNote
-        ReplaceNote nid n -> onReplaceNote currentNote nid n
-        CancelNote Nothing -> userCancelNote currentNote
-        CancelNote nid -> do
-          workerThread' currentNote
-        ExpireNote nid -> expireNote currentNote nid
-    -- | The user closed the notification manually
-    userCancelNote currentNote = do
-      writeIORef currentNote Nothing
-      postGUIAsync $ widgetHideAll (noteContainer s)
-      showNextNoteIfAny currentNote
-
-    onReplaceNote currentNote nid n = do
-      cnote <- readIORef currentNote
-      case cnote of
-        Nothing -> do
-          writeIORef currentNote (Just n)
-          postGUIAsync $ do
-            labelSetMarkup (noteWidget s) (formatMessage s n)
-            widgetShowAll (noteContainer s)
-          timerThreadId <- forkIO $ setExpireTimeout (noteWorkerChan s) (noteId n) (noteExpireTimeout n)
-          modifyMVar_ (noteTimerThread s) $ const (return (Just timerThreadId))
-          workerThread' currentNote
-        Just cnote' -> case noteId cnote' == nid of
-          -- The replaced note was not current and it either does not
-          -- exist or it was already replaced in the note queue
-          False -> workerThread' currentNote
-          -- Otherwise, swap out the current note
-          True -> do
-            withMVar (noteTimerThread s) (maybe (return ()) killThread)
-            writeIORef currentNote (Just n)
-            postGUIAsync $ labelSetMarkup (noteWidget s) (formatMessage s n)
-            timerId <- forkIO $ setExpireTimeout (noteWorkerChan s) (noteId n) (noteExpireTimeout n)
-            modifyMVar_ (noteTimerThread s) $ const $ return (Just timerId)
-            workerThread' currentNote
-
-    -- | If the current note has the ID being expired, clear the
-    -- notification area and see if there is a pending note to post.
-    expireNote currentNote nid = do
-      cnote <- readIORef currentNote
-      case cnote of
-        Nothing -> showNextNoteIfAny currentNote
-        Just cnote' ->
-          case noteId cnote' == nid of
-            False -> workerThread' currentNote -- Already expired
-            True -> do
-              -- Drop the reference and clear the notification area
-              -- before trying to show a new note
-              writeIORef currentNote Nothing
-              postGUIAsync $ widgetHideAll (noteContainer s)
-              showNextNoteIfAny currentNote
-
-    onNewNote currentNote = do
-      maybeCurrent <- readIORef currentNote
-      case maybeCurrent of
-        Nothing -> showNextNoteIfAny currentNote
-          -- Grab the next note, show it, and then start a timer
-        Just note -> do
-          -- Otherwise, the current note isn't expired yet and we need
-          -- to wait for it.
-          workerThread' currentNote
-
-    -- For use when there is no current note, attempt to show the next
-    -- node and then block to wait for the next event.  This is
-    -- guarded by a postGUIAsync.
-    showNextNoteIfAny noCurrentNote = do
-      nextNote <- modifyMVar (noteQueue s) takeNote
-      case nextNote of
-        Nothing -> workerThread' noCurrentNote
-        Just nextNote' -> do
-          writeIORef noCurrentNote nextNote
-          postGUIAsync $ do
-            labelSetMarkup (noteWidget s) (formatMessage s nextNote')
-            widgetShowAll (noteContainer s)
-          timerThreadId <- forkIO $ setExpireTimeout (noteWorkerChan s) (noteId nextNote') (noteExpireTimeout nextNote')
-          modifyMVar_ (noteTimerThread s) $ const (return (Just timerThreadId))
-          workerThread' noCurrentNote
-
-
-takeNote :: Monad m => Seq a -> m (Seq a, Maybe a)
-takeNote q =
-  case viewl q of
-    EmptyL -> return (q, Nothing)
-    n :< rest -> return (rest, Just n)
-
-setExpireTimeout :: Chan WorkType -> Word32 -> Int32 -> IO ()
-setExpireTimeout c nid seconds = do
-  threadDelay (fromIntegral seconds * 1000000)
-  writeChan c (ExpireNote nid)
-
-userCancel s = do
-  liftIO $ writeChan (noteWorkerChan s) (CancelNote Nothing)
-  return True
+startTimeoutThread :: NotifyState -> Notification -> IO ()
+startTimeoutThread s n = do
+  _ <- forkIO $ do
+    let seconds = noteExpireTimeout n
+    threadDelay (fromIntegral seconds * 1000000)
+    atomically $ do
+      curNote <- readTVar (noteCurrent s)
+      case curNote of
+        Nothing -> return ()
+        Just cnote
+          | cnote /= n -> return ()
+          | otherwise ->
+            -- The note was not invalidated or changed since the timeout
+            -- began, so we replace it with the next (if any)
+            nextNotification s
+    wakeupDisplayThread s
+  return ()
 
 data NotificationConfig =
   NotificationConfig { notificationMaxTimeout :: Int -- ^ Maximum time that a notification will be displayed (in seconds).  Default: 10
@@ -304,16 +259,16 @@ notifyAreaNew cfg = do
   button <- eventBoxNew
   sep <- vSeparatorNew
 
-  buttonLabel <- labelNew Nothing
-  widgetSetName buttonLabel "NotificationCloseButton"
-  buttonStyle <- rcGetStyle buttonLabel
+  bLabel <- labelNew Nothing
+  widgetSetName bLabel "NotificationCloseButton"
+  buttonStyle <- rcGetStyle bLabel
   buttonTextColor <- styleGetText buttonStyle StateNormal
-  labelSetMarkup buttonLabel "×"
+  labelSetMarkup bLabel "×"
 
   labelSetMaxWidthChars textArea (notificationMaxLength cfg)
   labelSetEllipsize textArea EllipsizeEnd
 
-  containerAdd button buttonLabel
+  containerAdd button bLabel
   boxPackStart box textArea PackGrow 0
   boxPackStart box sep PackNatural 0
   boxPackStart box button PackNatural 0
@@ -324,13 +279,6 @@ notifyAreaNew cfg = do
 
   istate <- initialNoteState (toWidget frame) textArea cfg
   _ <- on button buttonReleaseEvent (userCancel istate)
-  _ <- forkIO (workerThread istate)
-
-  -- This is only available to the notify handler, so it doesn't need
-  -- to be protected from the worker thread.  There might be multiple
-  -- notifiation handler threads, though (not sure), so keep it safe
-  -- and use an mvar.
-  idSrc <- newMVar 1
 
   realizableWrapper <- hBoxNew False 0
   boxPackStart realizableWrapper frame PackNatural 0
@@ -340,7 +288,37 @@ notifyAreaNew cfg = do
   -- main loop, otherwise things are prone to lock up and block
   -- infinitely on an mvar.  Bad stuff - only start the dbus thread
   -- after the fake invisible wrapper widget is realized.
-  on realizableWrapper realize $ notificationDaemon (notify idSrc istate) (closeNotification istate)
+  _ <- on realizableWrapper realize $ do
+       _ <- forkIO (displayThread istate)
+       notificationDaemon (notify istate) (closeNotification istate)
 
-  -- Don't show ib by default - it will appear when needed
+  -- Don't show the widget by default - it will appear when needed
   return (toWidget realizableWrapper)
+  where
+    -- | Close the current note and pull up the next, if any
+    userCancel s = do
+      liftIO $ do
+        atomically $ nextNotification s
+        wakeupDisplayThread s
+      return True
+
+
+-- Design:
+--
+-- The notificationDaemon thread looks at the notification queue.  If
+-- the queue is empty and there is no current message, it sets the new
+-- message as the current message in a TVar (Just Notification) and
+-- displays the message itself and sets up a thread to remove the
+-- message after its timeout.
+--
+-- If there is a current message, add the new message to the queue.
+--
+-- The timeout thread just sleeps for its timeout and then atomically
+-- replaces the current message with the next one from the queue.  It
+-- then displays the new current message.  However, if the current
+-- message has changed (because of a user cancellation), the timer
+-- thread just exits.
+--
+-- User cancellation atomically reads (and replaces) the current
+-- notification (if there is another in the queue).  If it found a new
+-- notification, that node is then displayed.

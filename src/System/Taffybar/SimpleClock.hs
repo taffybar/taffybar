@@ -27,6 +27,8 @@ makeCalendar = do
     return True
   return container
 
+toggleCalendar :: (MonadIO m, WindowClass self, WidgetClass widget)
+                  => widget -> self -> m Bool
 toggleCalendar w c = liftIO $ do
   isVis <- get c widgetVisible
   case isVis of
@@ -67,7 +69,6 @@ textClockNew userLocale fmt updateSeconds = do
   -- actually receive events.
   l <- pollingLabelNew "" updateSeconds (getCurrentTime timeLocale fmt)
 
---  l <- labelNew Nothing
   ebox <- eventBoxNew
   containerAdd ebox l
   eventBoxSetVisibleWindow ebox False

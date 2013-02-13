@@ -31,9 +31,9 @@ netMonitorNew interval interface = do
 
 showInfo :: IORef [Integer] -> Double -> String -> IO String
 showInfo sample interval interface = do
-    this <- getNetInfo interface
-    last <- readIORef sample
-    writeIORef sample this
-    let deltas = map fromIntegral $ zipWith (-) this last
+    thisSample <- getNetInfo interface
+    lastSample <- readIORef sample
+    writeIORef sample thisSample
+    let deltas = map fromIntegral $ zipWith (-) thisSample lastSample
         [incoming, outgoing] = map (/(interval*1e3)) deltas
     return $ printf "▼ %.2fkb/s ▲ %.2fkb/s" incoming outgoing

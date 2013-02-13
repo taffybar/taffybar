@@ -2,10 +2,8 @@
 -- a callback at a set interval.
 module System.Taffybar.Widgets.PollingLabel ( pollingLabelNew ) where
 
-import Prelude hiding ( catch )
-
 import Control.Concurrent ( forkIO, threadDelay )
-import Control.Exception
+import Control.Exception as E
 import Control.Monad ( forever )
 import Graphics.UI.Gtk
 
@@ -35,7 +33,7 @@ pollingLabelNew initialString interval cmd = do
       let tryUpdate = do
             str <- cmd
             postGUIAsync $ labelSetMarkup l str
-      catch tryUpdate ignoreIOException
+      E.catch tryUpdate ignoreIOException
       threadDelay $ floor (interval * 1000000)
     return ()
 
