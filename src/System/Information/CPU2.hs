@@ -1,7 +1,12 @@
 -----------------------------------------------------------------------------
 -- |
--- Module     : System.Information.CPU2
--- Maintainer : José A. Romero L. <escherdragon@gmail.com>
+-- Module      : System.Information.CPU2
+-- Copyright   : (c) José A. Romero L.
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Stability   : unstable
+-- Portability : unportable
 --
 -- Provides information about used CPU times, obtained from parsing the
 -- @\/proc\/stat@ file using some of the facilities included in the
