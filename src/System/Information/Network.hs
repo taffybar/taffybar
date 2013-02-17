@@ -1,7 +1,12 @@
 -----------------------------------------------------------------------------
 -- |
--- Module     : System.Information.Network
--- Maintainer : José A. Romero L. <escherdragon@gmail.com>
+-- Module      : System.Information.Network
+-- Copyright   : (c) José A. Romero L.
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Stability   : unstable
+-- Portability : unportable
 --
 -- Provides information about network traffic over selected interfaces,
 -- obtained from parsing the @\/proc\/net\/dev@ file using some of the

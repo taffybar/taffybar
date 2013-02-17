@@ -1,7 +1,12 @@
 -----------------------------------------------------------------------------
 -- |
--- Module     : System.Information.DiskIO
--- Maintainer : José A. Romero L. <escherdragon@gmail.com>
+-- Module      : System.Information.DiskIO
+-- Copyright   : (c) José A. Romero L.
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Stability   : unstable
+-- Portability : unportable
 --
 -- Provides information about read/write operations in a given disk or
 -- partition, obtained from parsing the @\/proc\/diskstats@ file with some

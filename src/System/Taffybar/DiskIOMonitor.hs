@@ -1,7 +1,12 @@
 --------------------------------------------------------------------------------
 -- |
--- Module : System.Taffybar.DiskIOMonitor
--- Maintainer : José A. Romero L. <escherdragon@gmail.com>
+-- Module      : System.Taffybar.DiskIOMonitor
+-- Copyright   : (c) José A. Romero L.
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Stability   : unstable
+-- Portability : unportable
 --
 -- Simple Disk IO monitor that uses a PollingGraph to visualize the speed of
 -- read/write operations in one selected disk or partition.
