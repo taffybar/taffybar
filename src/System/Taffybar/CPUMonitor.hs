@@ -1,5 +1,17 @@
--- | Simple CPU monitor that uses a PollingGraph to visualize variations in the
+--------------------------------------------------------------------------------
+-- |
+-- Module      : System.Taffybar.CPUMonitor
+-- Copyright   : (c) José A. Romero L.
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Stability   : unstable
+-- Portability : unportable
+--
+-- Simple CPU monitor that uses a PollingGraph to visualize variations in the
 -- user and system CPU times in one selected core, or in all cores available.
+--
+--------------------------------------------------------------------------------
 module System.Taffybar.CPUMonitor where
 
 import Data.IORef

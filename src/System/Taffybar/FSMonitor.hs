@@ -1,7 +1,12 @@
 -----------------------------------------------------------------------------
 -- |
--- Module : System.Taffybar.FSMonitor
--- Maintainer : José A. Romero L. <escherdragon@gmail.com>
+-- Module      : System.Taffybar.FSMonitor
+-- Copyright   : (c) José A. Romero L.
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Stability   : unstable
+-- Portability : unportable
 --
 -- Simple text widget that monitors the current usage of selected disk
 -- partitions by regularly parsing the output of the df command in Linux
