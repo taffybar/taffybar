@@ -34,7 +34,7 @@ attachPopup :: (WidgetClass w) => w -- ^ The widget to set as popup.
             -> String         -- ^ The title of the popup.
             -> Window         -- ^ The window to attach the popup to.
             -> IO ()
-attachPopup widget title window = do 
+attachPopup widget title window = do
   set window [ windowTitle := title
              , windowTypeHint := WindowTypeHintTooltip
              , windowSkipTaskbarHint := True
