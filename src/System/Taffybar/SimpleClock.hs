@@ -28,6 +28,7 @@ makeCalendar = do
     return True
   return container
 
+toggleCalendar :: WidgetClass w => w -> Window -> IO Bool
 toggleCalendar w c = do
   isVis <- get c widgetVisible
   if isVis
