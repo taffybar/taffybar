@@ -71,7 +71,7 @@ library
                  parsec >= 3.1, mtl >= 2, network, cairo,
                  dbus >= 0.10.1 && < 1.0, gtk >= 0.12.1, dyre >= 0.8.6,
                  HStringTemplate, gtk-traymanager >= 0.1.2 && < 0.2, xmonad-contrib, xmonad,
-                 xdg-basedir, filepath, utf8-string, process, stm, transformers >= 0.3.0.0,
+                 xdg-basedir, filepath, utf8-string, process, transformers >= 0.3.0.0,
                  X11 >= 1.5.0.1
   hs-source-dirs: src
   pkgconfig-depends: gtk+-2.0
