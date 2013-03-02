@@ -1,7 +1,12 @@
 -----------------------------------------------------------------------------
 -- |
--- Module : System.Taffybar.NetMonitor
--- Maintainer : José A. Romero L. <escherdragon@gmail.com>
+-- Module      : System.Taffybar.NetMonitor
+-- Copyright   : (c) José A. Romero L.
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Stability   : unstable
+-- Portability : unportable
 --
 -- Simple text widget that displays incoming\/outgoing network traffic over
 -- one selected interface, as provided by the "System.Information.Network"
