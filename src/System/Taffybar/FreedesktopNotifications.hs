@@ -117,6 +117,23 @@ formatMessage s = take maxlen . fmt
     maxlen = notificationMaxLength $ noteConfig s
     fmt = notificationFormatter $ noteConfig s
 
+-- | The notificationDaemon thread looks at the notification queue.
+-- If the queue is empty and there is no current message, it sets the
+-- new message as the current message in a TVar (Just Notification)
+-- and displays the message itself and sets up a thread to remove the
+-- message after its timeout.
+--
+-- If there is a current message, add the new message to the queue.
+--
+-- The timeout thread just sleeps for its timeout and then atomically
+-- replaces the current message with the next one from the queue.  It
+-- then displays the new current message.  However, if the current
+-- message has changed (because of a user cancellation), the timer
+-- thread just exits.
+--
+-- User cancellation atomically reads (and replaces) the current
+-- notification (if there is another in the queue).  If it found a new
+-- notification, that node is then displayed.
 notify :: NotifyState
           -> Text -- ^ Application name
           -> Word32 -- ^ Replaces id
@@ -301,24 +318,3 @@ notifyAreaNew cfg = do
         atomically $ nextNotification s
         wakeupDisplayThread s
       return True
-
-
--- Design:
---
--- The notificationDaemon thread looks at the notification queue.  If
--- the queue is empty and there is no current message, it sets the new
--- message as the current message in a TVar (Just Notification) and
--- displays the message itself and sets up a thread to remove the
--- message after its timeout.
---
--- If there is a current message, add the new message to the queue.
---
--- The timeout thread just sleeps for its timeout and then atomically
--- replaces the current message with the next one from the queue.  It
--- then displays the new current message.  However, if the current
--- message has changed (because of a user cancellation), the timer
--- thread just exits.
---
--- User cancellation atomically reads (and replaces) the current
--- notification (if there is another in the queue).  If it found a new
--- notification, that node is then displayed.
