@@ -51,9 +51,9 @@ import System.Taffybar.WindowSwitcher
 -- provided in the "System.Taffybar.Hooks.PagerHints" module:
 --
 -- > import XMonad.Hooks.EwmhDesktops (ewmh)
--- > import System.Taffybar.Hooks.PagerHints (tbph)
+-- > import System.Taffybar.Hooks.PagerHints (pagerHints)
 -- > main = do
--- >   xmonad $ ewmh $ tbph $ defaultConfig
+-- >   xmonad $ ewmh $ pagerHints $ defaultConfig
 -- > ...
 --
 -- That's all: no log hooks, no urgency hooks, no DBus client. Once you've

@@ -35,7 +35,7 @@ module System.Information.EWMHDesktopInfo
   ) where
 
 import Data.List (elemIndex)
-import Data.Maybe (fromJust)
+import Data.Maybe (mapMaybe)
 import System.Information.X11DesktopInfo
 
 noFocus :: String
@@ -53,7 +53,7 @@ getVisibleWorkspaces = do
   vis <- getVisibleTags
   all <- getWorkspaceNames
   cur <- getCurrentWorkspace
-  return $ cur : (map fromJust $ map (flip elemIndex all) vis)
+  return $ cur : mapMaybe (flip elemIndex all) vis
 
 -- | Return a list with the names of all the workspaces currently
 -- available.
@@ -73,7 +73,7 @@ getWindowTitle window = do
   let w = Just window
   prop <- readAsString w "_NET_WM_NAME"
   case prop of
-    "" -> return =<< readAsString w "WM_NAME"
+    "" -> readAsString w "WM_NAME"
     _  -> return prop
 
 -- | Get the title of the currently focused window.
@@ -82,7 +82,7 @@ getActiveWindowTitle = do
   awt <- readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
   case awt of
     w:ws -> if w > 0
-              then return =<< getWindowTitle w
+              then getWindowTitle w
               else return noFocus
     _ -> return noFocus
 
@@ -92,7 +92,7 @@ getActiveWindowTitle = do
 getWindowHandles :: X11Property [(String, X11Window)]
 getWindowHandles = do
   windows <- readAsListOfWindow Nothing "_NET_CLIENT_LIST"
-  wtitles <- sequence $ map getWindowTitle windows
+  wtitles <- mapM getWindowTitle windows
   return $ zip wtitles windows
 
 -- | Return the index (starting from 0) of the workspace on which the

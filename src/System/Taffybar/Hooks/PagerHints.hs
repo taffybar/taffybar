@@ -33,7 +33,7 @@
 module System.Taffybar.Hooks.PagerHints (
   -- * Usage
   -- $usage
-  tbph
+  pagerHints
 ) where
 
 import Codec.Binary.UTF8.String (encode)
@@ -48,9 +48,9 @@ import qualified XMonad.StackSet as W
 --
 -- You can use this module with the following in your @xmonad.hs@ file:
 --
--- > import System.Taffybar.Hooks.PagerHints (tbph)
+-- > import System.Taffybar.Hooks.PagerHints (pagerHints)
 -- >
--- > main = xmonad $ ewmh $ tbph $ defaultConfig
+-- > main = xmonad $ ewmh $ pagerHints $ defaultConfig
 -- > ...
 
 -- | The \"Current Layout\" custom hint.
@@ -63,14 +63,14 @@ xVisibleProp = return =<< getAtom "_XMONAD_VISIBLE_WORKSPACES"
 
 -- | Add support for the \"Current Layout\" and \"Visible Workspaces\" custom
 -- hints to the given config.
-tbph :: XConfig a -> XConfig a
-tbph c = c { handleEventHook = handleEventHook c +++ tbphEventHook
-           , logHook = logHook c +++ tbphLogHook }
-  where x +++ y = mappend x y
+pagerHints :: XConfig a -> XConfig a
+pagerHints c = c { handleEventHook = handleEventHook c +++ pagerHintsEventHook
+           , logHook = logHook c +++ pagerHintsLogHook }
+  where x +++ y = x `mappend` y
 
 -- | Update the current values of both custom hints.
-tbphLogHook :: X ()
-tbphLogHook = do
+pagerHintsLogHook :: X ()
+pagerHintsLogHook = do
   withWindowSet
     (setCurrentLayout . description . W.layout . W.workspace . W.current)
   withWindowSet
@@ -96,8 +96,8 @@ setVisibleWorkspaces vis = withDisplay $ \dpy -> do
 
 -- | Handle all \"Current Layout\" events received from pager widgets, and
 -- set the current layout accordingly.
-tbphEventHook :: Event -> X All
-tbphEventHook (ClientMessageEvent {
+pagerHintsEventHook :: Event -> X All
+pagerHintsEventHook (ClientMessageEvent {
     ev_window = w,
     ev_message_type = mt,
     ev_data = d
@@ -105,7 +105,7 @@ tbphEventHook (ClientMessageEvent {
   a <- xLayoutProp
   when (mt == a) $ sendLayoutMessage d
   return (All True)
-tbphEventHook _ = return (All True)
+pagerHintsEventHook _ = return (All True)
 
 -- | Request a change in the current layout by sending an internal message
 -- to XMonad.

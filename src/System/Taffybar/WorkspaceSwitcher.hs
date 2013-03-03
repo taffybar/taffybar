@@ -56,9 +56,9 @@ type Workspace = (Label, String)
 -- you have more than one monitor you may want to additionally install the
 -- "System.Taffybar.Hooks.PagerHints" hook in your @xmonad.hs@:
 --
--- > import System.Taffybar.Hooks.PagerHints (tbph)
+-- > import System.Taffybar.Hooks.PagerHints (pagerHints)
 -- > main = do
--- >   xmonad $ ewmh $ tbph $ defaultConfig
+-- >   xmonad $ ewmh $ pagerHints $ defaultConfig
 -- > ...
 --
 -- Once you've properly configured @xmonad.hs@, you can use the widget in
