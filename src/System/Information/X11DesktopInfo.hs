@@ -12,9 +12,9 @@
 -- properties. One of them ('getVisibleTags') depends on the PagerHints hook
 -- being installed in your @~\/.xmonad\/xmonad.hs@ configuration:
 --
--- > import System.Taffybar.Hooks.PagerHints (tbph)
+-- > import System.Taffybar.Hooks.PagerHints (pagerHints)
 -- >
--- > main = xmonad $ ewmh $ tbph $ ...
+-- > main = xmonad $ ewmh $ pagerHints $ ...
 --
 -----------------------------------------------------------------------------
 
@@ -38,6 +38,7 @@ module System.Information.X11DesktopInfo
 import Codec.Binary.UTF8.String as UTF8
 import Control.Monad.Reader
 import Data.Bits (testBit, (.|.))
+import Data.List.Split (endBy)
 import Data.Maybe (fromMaybe)
 import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
@@ -89,17 +90,10 @@ readAsListOfString :: Maybe X11Window -- ^ window to read from. Nothing means th
 readAsListOfString window name = do
   prop <- fetch getWindowProperty8 window name
   case prop of
-    Just xs -> return $ parse xs
+    Just xs -> return (parse xs)
     _       -> return []
   where
-    dropNull ('\0':xs) = xs
-    dropNull xs        = xs
-
-    split [] = []
-    split ys = case span (/= '\0') ys of
-                 (x, xs) -> x : split (dropNull xs)
-
-    parse = split . UTF8.decode . map fromIntegral
+    parse = endBy "\0" . UTF8.decode . map fromIntegral
 
 -- | Retrieve the property of the given window (or the root window,
 -- if Nothing) with the given name as a list of X11 Window IDs. If

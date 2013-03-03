@@ -61,8 +61,7 @@ windowSwitcherNew pager = do
   let cfg = config pager
       callback = pagerCallback cfg label
   subscribe pager callback "_NET_ACTIVE_WINDOW"
-  widget <- assembleWidget label
-  return widget
+  assembleWidget label
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_ACTIVE_WINDOW" standard events. It will keep track of the

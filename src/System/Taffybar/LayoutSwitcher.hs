@@ -37,9 +37,9 @@ import System.Taffybar.Widgets.Util
 -- This widget requires that the "System.Taffybar.Hooks.PagerHints" hook be
 -- installed in your @xmonad.hs@:
 --
--- > import System.Taffybar.Hooks.PagerHints (tbph)
+-- > import System.Taffybar.Hooks.PagerHints (pagerHints)
 -- > main = do
--- >   xmonad $ ewmh $ tbph $ defaultConfig
+-- >   xmonad $ ewmh $ pagerHints $ defaultConfig
 -- > ...
 --
 -- Once you've properly configured @xmonad.hs@, you can use the widget in
@@ -65,8 +65,7 @@ layoutSwitcherNew pager = do
   let cfg = config pager
       callback = pagerCallback cfg label
   subscribe pager callback xLayoutProp
-  widget <- assembleWidget label
-  return widget
+  assembleWidget label
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_XMONAD_CURRENT_LAYOUT" custom events. These events are emitted by
