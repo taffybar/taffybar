@@ -10,6 +10,7 @@ import Graphics.UI.Gtk
 import System.Locale
 
 import System.Taffybar.Widgets.PollingLabel
+import System.Taffybar.Widgets.Util
 
 getCurrentTime :: TimeLocale -> String -> IO String
 getCurrentTime timeLocale fmt = do
@@ -27,31 +28,14 @@ makeCalendar = do
     return True
   return container
 
-toggleCalendar :: (MonadIO m, WindowClass self, WidgetClass widget)
-                  => widget -> self -> m Bool
-toggleCalendar w c = liftIO $ do
+toggleCalendar :: WidgetClass w => w -> Window -> IO Bool
+toggleCalendar w c = do
   isVis <- get c widgetVisible
-  case isVis of
-    True -> widgetHideAll c
-    False -> do
-      windowSetKeepAbove c True
-      windowStick c
-      windowSetTypeHint c WindowTypeHintTooltip
-      windowSetSkipTaskbarHint c True
-      windowSetSkipPagerHint c True
-
-      Just topLevel <- widgetGetAncestor w gTypeWindow
-      let topLevelWindow = castToWindow topLevel
-      windowSetTransientFor c topLevelWindow
-
-      windowSetPosition c WinPosMouse
-      (x,  y) <- windowGetPosition c
-      (_, y') <- widgetGetSize w
-      widgetShowAll c
-      if y > y'
-          then windowMove c x (y - y')
-          else windowMove c x y'
-
+  if isVis
+    then widgetHideAll c
+    else do
+      attachPopup w "Calendar" c
+      displayPopup w c
   return True
 
 -- | Create the widget.  I recommend passing @Nothing@ for the
@@ -76,7 +60,7 @@ textClockNew userLocale fmt updateSeconds = do
   -- Allocate a hidden calendar and just show/hide it on clicks.
   cal <- makeCalendar
 
-  _ <- on ebox buttonPressEvent (toggleCalendar l cal)
+  _ <- on ebox buttonPressEvent $ onClick [SingleClick] (toggleCalendar l cal)
   widgetShowAll ebox
 
   -- The widget in the bar is actuall the eventbox
