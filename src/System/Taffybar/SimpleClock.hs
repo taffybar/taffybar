@@ -1,9 +1,10 @@
 -- | This module implements a very simple text-based clock widget.
 -- The widget also toggles a calendar widget when clicked.  This
 -- calendar is not fancy at all and has no data backend.
-module System.Taffybar.SimpleClock ( textClockNew ) where
+module System.Taffybar.SimpleClock ( textClockNew, textClockNew' ) where
 
 import Control.Monad.Trans ( MonadIO, liftIO )
+import qualified Data.Time.Clock as Clock
 import Data.Time.Format
 import Data.Time.LocalTime
 import Graphics.UI.Gtk
@@ -81,3 +82,23 @@ textClockNew userLocale fmt updateSeconds = do
 
   -- The widget in the bar is actuall the eventbox
   return (toWidget ebox)
+
+-- alternate textClockNew that takes a specific TZ (or Nothing for default TZ)
+textClockNew' :: Maybe TimeZone -> Maybe TimeLocale -> String -> Double -> IO Widget
+textClockNew' userZone userLocale fmt updateSeconds = do
+  defaultTimeZone <- getCurrentTimeZone
+  let timeLocale = maybe defaultTimeLocale id userLocale
+      timeZone   = maybe defaultTimeZone   id userZone
+  l    <- pollingLabelNew "" updateSeconds (getCurrentTime' timeLocale fmt timeZone)
+  ebox <- eventBoxNew
+  containerAdd ebox l
+  eventBoxSetVisibleWindow ebox False
+  cal <- makeCalendar
+  _   <- on ebox buttonPressEvent (toggleCalendar l cal)
+  widgetShowAll ebox
+  return (toWidget ebox)
+  where
+    -- alternate getCurrentTime that takes a specific TZ
+    getCurrentTime' :: TimeLocale -> String -> TimeZone -> IO String
+    getCurrentTime' l f z =
+      return . formatTime l f . utcToZonedTime z =<< Clock.getCurrentTime
