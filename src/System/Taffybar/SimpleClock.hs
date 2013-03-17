@@ -9,6 +9,7 @@ module System.Taffybar.SimpleClock (
   ) where
 
 import Control.Monad.Trans ( MonadIO, liftIO )
+import Data.Maybe ( fromMaybe )
 import qualified Data.Time.Clock as Clock
 import Data.Time.Format
 import Data.Time.LocalTime
@@ -16,13 +17,6 @@ import Graphics.UI.Gtk
 import System.Locale
 
 import System.Taffybar.Widgets.PollingLabel
-
-{-
-getCurrentTime :: TimeLocale -> String -> IO String
-getCurrentTime timeLocale fmt = do
-  zt <- getZonedTime
-  return $ formatTime timeLocale fmt zt
--}
 
 makeCalendar :: IO Window
 makeCalendar = do
@@ -62,33 +56,6 @@ toggleCalendar w c = liftIO $ do
 
   return True
 
-{-
-textClockNew :: Maybe TimeLocale -- ^ An TimeLocale - if not specified, the default is used.  This can be used to customize how different aspects of time are localized
-                -> String -- ^ The time format string (see http://www.haskell.org/ghc/docs/6.12.2/html/libraries/time-1.1.4/Data-Time-Format.html)
-                -> Double -- ^ The number of seconds to wait between clock updates
-                -> IO Widget
-textClockNew userLocale fmt updateSeconds = do
-  let timeLocale = maybe defaultTimeLocale id userLocale
-
-  -- Use a label to display the time.  Since we want to be able to
-  -- click on it to show a calendar, we need an eventbox wrapper to
-  -- actually receive events.
-  l <- pollingLabelNew "" updateSeconds (getCurrentTime timeLocale fmt)
-
-  ebox <- eventBoxNew
-  containerAdd ebox l
-  eventBoxSetVisibleWindow ebox False
-
-  -- Allocate a hidden calendar and just show/hide it on clicks.
-  cal <- makeCalendar
-
-  _ <- on ebox buttonPressEvent (toggleCalendar l cal)
-  widgetShowAll ebox
-
-  -- The widget in the bar is actuall the eventbox
-  return (toWidget ebox)
--}
-
 -- | Create the widget.  I recommend passing @Nothing@ for the
 -- TimeLocale parameter.  The format string can include Pango markup
 -- (http://developer.gnome.org/pango/stable/PangoMarkupFormat.html).
@@ -114,8 +81,8 @@ defaultClockConfig = ClockConfig Nothing Nothing
 textClockNewWith :: ClockConfig -> String -> Double -> IO Widget
 textClockNewWith cfg fmt updateSeconds = do
   defaultTimeZone <- getCurrentTimeZone
-  let timeLocale = maybe defaultTimeLocale id userLocale
-      timeZone   = maybe defaultTimeZone   id userZone
+  let timeLocale = fromMaybe defaultTimeLocale userLocale
+      timeZone = fromMaybe defaultTimeZone userZone
   l    <- pollingLabelNew "" updateSeconds (getCurrentTime' timeLocale fmt timeZone)
   ebox <- eventBoxNew
   containerAdd ebox l
