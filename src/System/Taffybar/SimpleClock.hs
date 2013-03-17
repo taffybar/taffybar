@@ -1,7 +1,12 @@
 -- | This module implements a very simple text-based clock widget.
 -- The widget also toggles a calendar widget when clicked.  This
 -- calendar is not fancy at all and has no data backend.
-module System.Taffybar.SimpleClock ( textClockNew, textClockNew' ) where
+module System.Taffybar.SimpleClock (
+  textClockNew,
+  textClockNewWith,
+  defaultClockConfig,
+  ClockConfig(..)
+  ) where
 
 import Control.Monad.Trans ( MonadIO, liftIO )
 import qualified Data.Time.Clock as Clock
@@ -12,10 +17,12 @@ import System.Locale
 
 import System.Taffybar.Widgets.PollingLabel
 
+{-
 getCurrentTime :: TimeLocale -> String -> IO String
 getCurrentTime timeLocale fmt = do
   zt <- getZonedTime
   return $ formatTime timeLocale fmt zt
+-}
 
 makeCalendar :: IO Window
 makeCalendar = do
@@ -55,9 +62,7 @@ toggleCalendar w c = liftIO $ do
 
   return True
 
--- | Create the widget.  I recommend passing @Nothing@ for the
--- TimeLocale parameter.  The format string can include Pango markup
--- (http://developer.gnome.org/pango/stable/PangoMarkupFormat.html).
+{-
 textClockNew :: Maybe TimeLocale -- ^ An TimeLocale - if not specified, the default is used.  This can be used to customize how different aspects of time are localized
                 -> String -- ^ The time format string (see http://www.haskell.org/ghc/docs/6.12.2/html/libraries/time-1.1.4/Data-Time-Format.html)
                 -> Double -- ^ The number of seconds to wait between clock updates
@@ -82,10 +87,32 @@ textClockNew userLocale fmt updateSeconds = do
 
   -- The widget in the bar is actuall the eventbox
   return (toWidget ebox)
+-}
 
--- alternate textClockNew that takes a specific TZ (or Nothing for default TZ)
-textClockNew' :: Maybe TimeZone -> Maybe TimeLocale -> String -> Double -> IO Widget
-textClockNew' userZone userLocale fmt updateSeconds = do
+-- | Create the widget.  I recommend passing @Nothing@ for the
+-- TimeLocale parameter.  The format string can include Pango markup
+-- (http://developer.gnome.org/pango/stable/PangoMarkupFormat.html).
+textClockNew :: Maybe TimeLocale -> String -> Double -> IO Widget
+textClockNew userLocale fmt updateSeconds =
+  textClockNewWith cfg fmt updateSeconds
+  where
+    cfg = defaultClockConfig { clockTimeLocale = userLocale }
+
+data ClockConfig = ClockConfig { clockTimeZone :: Maybe TimeZone
+                               , clockTimeLocale :: Maybe TimeLocale
+                               }
+                               deriving (Eq, Ord, Show)
+
+-- | A clock configuration that defaults to the current locale
+defaultClockConfig :: ClockConfig
+defaultClockConfig = ClockConfig Nothing Nothing
+
+-- | A configurable text-based clock widget.  It currently allows for
+-- a configurable time zone through the 'ClockConfig'.
+--
+-- See also 'textClockNew'.
+textClockNewWith :: ClockConfig -> String -> Double -> IO Widget
+textClockNewWith cfg fmt updateSeconds = do
   defaultTimeZone <- getCurrentTimeZone
   let timeLocale = maybe defaultTimeLocale id userLocale
       timeZone   = maybe defaultTimeZone   id userZone
@@ -98,6 +125,8 @@ textClockNew' userZone userLocale fmt updateSeconds = do
   widgetShowAll ebox
   return (toWidget ebox)
   where
+    userZone = clockTimeZone cfg
+    userLocale = clockTimeLocale cfg
     -- alternate getCurrentTime that takes a specific TZ
     getCurrentTime' :: TimeLocale -> String -> TimeZone -> IO String
     getCurrentTime' l f z =
