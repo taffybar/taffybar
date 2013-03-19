@@ -43,7 +43,8 @@ dbusLog client = dbusLogWithPP client taffybarDefaultPP
 
 taffybarColor :: String -> String -> String -> String
 taffybarColor fg bg = wrap t "</span>" . taffybarEscape
-  where t = concat ["<span fgcolor=\"", fg, if null bg then "" else "\" bgcolor=\"" ++ bg , "\">"]
+  where
+    t = concat ["<span fgcolor=\"", fg, if null bg then "" else "\" bgcolor=\"" ++ bg , "\">"]
 
 -- | Escape strings so that they can be safely displayed by Pango in
 -- the bar widget
