@@ -29,6 +29,7 @@ module System.Information.EWMHDesktopInfo
   , switchToWorkspace
   , getWindowTitle
   , getActiveWindowTitle
+  , getWindows
   , getWindowHandles
   , getWorkspace
   , focusWindow
@@ -86,12 +87,16 @@ getActiveWindowTitle = do
               else return noFocus
     _ -> return noFocus
 
+-- | Return a list of all windows
+getWindows :: X11Property [X11Window]
+getWindows = readAsListOfWindow Nothing "_NET_CLIENT_LIST"
+
 -- | Return a list of two-element tuples, each containing the title
 -- and the internal ID of one window, for all the windows currently
 -- open, independently of their workspace.
 getWindowHandles :: X11Property [(String, X11Window)]
 getWindowHandles = do
-  windows <- readAsListOfWindow Nothing "_NET_CLIENT_LIST"
+  windows <- getWindows
   wtitles <- mapM getWindowTitle windows
   return $ zip wtitles windows
 
