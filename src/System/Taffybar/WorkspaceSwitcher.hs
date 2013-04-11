@@ -152,7 +152,7 @@ transition :: PagerConfig -- ^ Configuration settings.
            -> IO ()
 transition cfg desktop prev curr =
   when (curr /= prev) $ do
-    mapM_ (mark desktop id) prev
+    mapM_ (mark desktop $ hiddenWorkspace cfg) prev
     mark desktop (activeWorkspace cfg) (head curr)
     mapM_ (mark desktop $ visibleWorkspace cfg) (tail curr)
 
