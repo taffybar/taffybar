@@ -28,6 +28,7 @@ module System.Taffybar.WorkspaceSwitcher (
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.IORef
+import Data.List ((\\))
 import Graphics.UI.Gtk
 import Graphics.X11.Xlib.Extras
 
@@ -147,6 +148,15 @@ addButton hbox desktop idx = do
   _ <- on ebox buttonPressEvent (switch desktop idx)
   containerAdd ebox label
   boxPackStart hbox ebox PackNatural 0
+
+allWorkspaces :: Desktop -> [Int]
+allWorkspaces desktop = [0 .. length desktop - 1]
+
+emptyWorkspaces :: Desktop -> IO [Int]
+emptyWorkspaces desktop = withDefaultCtx $ do
+  allWindows <- getWindows
+  nonEmptyWorkspaces <- mapM getWorkspace allWindows
+  return $ allWorkspaces desktop \\ nonEmptyWorkspaces
 
 -- | Perform all changes needed whenever the active workspace changes.
 transition :: PagerConfig -- ^ Configuration settings.
