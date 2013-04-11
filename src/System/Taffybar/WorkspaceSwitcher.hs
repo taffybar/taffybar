@@ -164,11 +164,12 @@ transition :: PagerConfig -- ^ Configuration settings.
            -> [Int] -- ^ Previously visible workspaces (first was active).
            -> [Int] -- ^ Currently visible workspaces (first is active).
            -> IO ()
-transition cfg desktop prev curr =
-  when (curr /= prev) $ do
-    mapM_ (mark desktop $ hiddenWorkspace cfg) prev
-    mark desktop (activeWorkspace cfg) (head curr)
-    mapM_ (mark desktop $ visibleWorkspace cfg) (tail curr)
+transition cfg desktop prev curr = do
+  empty <- emptyWorkspaces desktop
+  mapM_ (mark desktop $ hiddenWorkspace cfg) $ allWorkspaces desktop
+  mapM_ (mark desktop $ emptyWorkspace cfg) empty
+  mark desktop (activeWorkspace cfg) (head curr)
+  mapM_ (mark desktop $ visibleWorkspace cfg) (tail curr)
 
 -- | Apply the given marking function to the Label of the workspace with
 -- the given index.
