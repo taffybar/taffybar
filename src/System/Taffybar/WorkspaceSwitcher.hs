@@ -212,6 +212,22 @@ transition cfg desktop prev curr = do
   mark desktop (activeWorkspace cfg) (head curr)
   mapM_ (mark desktop $ visibleWorkspace cfg) (tail curr)
 
+applyImages :: PagerConfig
+            -> Desktop
+            -> Int
+            -> String
+            -> String
+            -> [(Int, Maybe (String, String))]
+            -> IO ()
+applyImages cfg desktop curWs curTitle curClass summary = do
+  mapM apply summary
+  return ()
+  where getImg (ws, props) = imageSelector cfg $ if ws == curWs
+                                                 then Just (curTitle, curClass)
+                                                 else props
+        apply (ws, props) = do
+          markImg desktop (getImg (ws, props)) ws
+
 markImg :: Desktop -> Maybe Pixbuf -> Int -> IO ()
 markImg desktop image idx = do
   let ws = getWs desktop idx
