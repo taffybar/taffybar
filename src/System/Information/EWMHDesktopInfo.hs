@@ -82,15 +82,18 @@ getWindowTitle window = do
 getWindowClass :: X11Window -> X11Property String
 getWindowClass window = readAsString (Just window) "WM_CLASS"
 
--- | Get the title of the currently focused window.
-getActiveWindowTitle :: X11Property String
-getActiveWindowTitle = do
+withActiveWindow :: (X11Window -> X11Property String) -> X11Property String
+withActiveWindow getProp = do
   awt <- readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
   case awt of
     w:ws -> if w > 0
-              then getWindowTitle w
+              then getProp w
               else return noFocus
     _ -> return noFocus
+
+-- | Get the title of the currently focused window.
+getActiveWindowTitle :: X11Property String
+getActiveWindowTitle = withActiveWindow getWindowTitle
 
 -- | Return a list of all windows
 getWindows :: X11Property [X11Window]
