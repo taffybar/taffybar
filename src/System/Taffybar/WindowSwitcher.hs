@@ -111,7 +111,7 @@ createSelector ref = do
     then return Nothing
     else do
       selector <- windowNew
-      list     <- listStoreNew (map fst handles)
+      list     <- listStoreNew (map (fst.fst) handles)
       view     <- makeTreeView list
       column   <- makeColumn list
 
@@ -152,9 +152,9 @@ makeColumn list = do
   return col
 
 -- | Switch to the window selected by the user in the pop-up.
-handlePick :: M.TreeSelection -- ^ Pop-up selection.
-           -> ListStore String -- ^ List of all available windows.
-           -> [(String, X11Window)] -- ^ Window titles and their IDs.
+handlePick :: M.TreeSelection -- ^ Pop-up selection
+           -> ListStore String -- ^ List of all available windows
+           -> [((String, String), X11Window)] -- ^ window title, class and IDs
            -> IO ()
 handlePick selection list handles = do
   row <- M.treeSelectionGetSelectedRows selection
