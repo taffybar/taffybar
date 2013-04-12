@@ -152,11 +152,8 @@ addButton hbox desktop idx = do
 allWorkspaces :: Desktop -> [Int]
 allWorkspaces desktop = [0 .. length desktop - 1]
 
-emptyWorkspaces :: Desktop -> IO [Int]
-emptyWorkspaces desktop = withDefaultCtx $ do
-  allWindows <- getWindows
-  nonEmptyWorkspaces <- mapM getWorkspace allWindows
-  return $ allWorkspaces desktop \\ nonEmptyWorkspaces
+nonEmptyWorkspaces :: Desktop -> IO [Int]
+nonEmptyWorkspaces desktop = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
 -- | Perform all changes needed whenever the active workspace changes.
 transition :: PagerConfig -- ^ Configuration settings.
@@ -165,9 +162,10 @@ transition :: PagerConfig -- ^ Configuration settings.
            -> [Int] -- ^ Currently visible workspaces (first is active).
            -> IO ()
 transition cfg desktop prev curr = do
-  empty <- emptyWorkspaces desktop
-  mapM_ (mark desktop $ hiddenWorkspace cfg) $ allWorkspaces desktop
-  mapM_ (mark desktop $ emptyWorkspace cfg) empty
+  let all = allWorkspaces desktop
+  nonEmpty <- nonEmptyWorkspaces desktop
+  mapM_ (mark desktop $ hiddenWorkspace cfg) $ nonEmpty
+  mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
   mark desktop (activeWorkspace cfg) (head curr)
   mapM_ (mark desktop $ visibleWorkspace cfg) (tail curr)
 
