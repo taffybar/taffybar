@@ -38,7 +38,7 @@ module System.Information.EWMHDesktopInfo
   ) where
 
 import Data.List (elemIndex)
-import Data.Maybe (mapMaybe)
+import Data.Maybe (listToMaybe, mapMaybe)
 import System.Information.X11DesktopInfo
 
 noFocus :: String
@@ -86,11 +86,10 @@ getWindowClass window = readAsString (Just window) "WM_CLASS"
 withActiveWindow :: (X11Window -> X11Property String) -> X11Property String
 withActiveWindow getProp = do
   awt <- readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
-  case awt of
-    w:ws -> if w > 0
-              then getProp w
-              else return noFocus
-    _ -> return noFocus
+  let w = listToMaybe $ filter (>0) awt
+  case w of
+    Just w -> getProp w
+    Nothing -> return noFocus
 
 -- | Get the title of the currently focused window.
 getActiveWindowTitle :: X11Property String
