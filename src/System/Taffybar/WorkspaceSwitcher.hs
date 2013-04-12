@@ -30,15 +30,17 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.IORef
 import Data.List ((\\))
 import Graphics.UI.Gtk
+import Graphics.UI.Gtk.Gdk.Pixbuf (Pixbuf)
 import Graphics.X11.Xlib.Extras
 
 import System.Taffybar.Pager
 import System.Information.EWMHDesktopInfo
 
 type Desktop = [Workspace]
-type Workspace = (Label, String)
+type Workspace = (Label, Image, String)
 
 -- $usage
+-- Display clickable workspace labels and images based on window title/class.
 --
 -- This widget requires that the EwmhDesktops hook from the XMonadContrib
 -- project be installed in your @xmonad.hs@ file:
@@ -72,6 +74,16 @@ type Workspace = (Label, String)
 --
 -- now you can use @wss@ as any other Taffybar widget.
 
+getWs :: Desktop -> Int -> Workspace
+getWs = (!!)
+
+lbl :: Workspace -> Label
+lbl (x,_,_) = x
+img :: Workspace -> Image
+img (_,x,_) = x
+name :: Workspace -> String
+name (_,_,x) = x
+
 -- | Create a new WorkspaceSwitcher widget that will use the given Pager as
 -- its source of events.
 wspaceSwitcherNew :: Pager -> IO Widget
@@ -86,20 +98,22 @@ wspaceSwitcherNew pager = do
   subscribe pager urgentcb "WM_HINTS"
   return widget
 
--- | Return a list of two-element tuples, one for every workspace,
--- containing the Label widget used to display the name of that specific
--- workspace and a String with its default (unmarked) representation.
+-- | Return a list of workspaces, which are three-element tuples, containing:
+--   the Label widget for the name of the workspace,
+--   an Image widget for for the workspace based on window title and class,
+--   and the workspace name as a String.
 getDesktop :: Pager -> IO Desktop
 getDesktop pager = do
   names  <- withDefaultCtx getWorkspaceNames
   labels <- toLabels $ map (hiddenWorkspace $ config pager) names
-  return $ zip labels names
+  images <- toImages names
+  return $ zip3 labels images names
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: Desktop -> IO Widget
 assembleWidget desktop = do
-  hbox <- hBoxNew False 3
-  mapM_ (addButton hbox desktop) $ [0..(length desktop - 1)]
+  hbox <- hBoxNew True 3
+  mapM_ (addButton hbox desktop) $ [0 .. length desktop - 1]
   widgetShowAll hbox
   return $ toWidget hbox
 
@@ -135,19 +149,26 @@ toLabels = sequence . map labelNewMarkup
           labelSetMarkup label markup
           return label
 
+toImages :: [String] -> IO [Image]
+toImages = mapM (\_ -> imageNew)
+
 -- | Build a new clickable event box containing the Label widget that
 -- corresponds to the given index, and add it to the given container.
 addButton :: HBox    -- ^ Graphical container.
-          -> Desktop -- ^ List of all workspace Labels available.
+          -> Desktop -- ^ List of all workspaces available.
           -> Int     -- ^ Index of the workspace to use.
           -> IO ()
 addButton hbox desktop idx = do
-  let label = fst (desktop !! idx)
+  let ws = getWs desktop idx
+  wsbox <- hBoxNew False 0
+  containerAdd wsbox $ lbl ws
+  containerAdd wsbox $ img ws
+  frame <- frameNew
+  containerAdd frame wsbox
   ebox <- eventBoxNew
-  eventBoxSetVisibleWindow ebox False
-  _ <- on ebox buttonPressEvent (switch desktop idx)
-  containerAdd ebox label
-  boxPackStart hbox ebox PackNatural 0
+  on ebox buttonPressEvent $ switch idx
+  containerAdd ebox frame
+  containerAdd hbox ebox
 
 allWorkspaces :: Desktop -> [Int]
 allWorkspaces desktop = [0 .. length desktop - 1]
@@ -169,18 +190,25 @@ transition cfg desktop prev curr = do
   mark desktop (activeWorkspace cfg) (head curr)
   mapM_ (mark desktop $ visibleWorkspace cfg) (tail curr)
 
+markImg :: Desktop -> Maybe Pixbuf -> Int -> IO ()
+markImg desktop image idx = do
+  let ws = getWs desktop idx
+  postGUIAsync $ case image of
+    Just pixbuf -> imageSetFromPixbuf (img ws) pixbuf
+    Nothing -> imageClear (img ws)
+
 -- | Apply the given marking function to the Label of the workspace with
 -- the given index.
-mark :: Desktop -- ^ List of all available labels.
+mark :: Desktop -- ^ List of all available workspaces.
      -> (String -> Markup) -- ^ Marking function.
      -> Int -- ^ Index of the Label to modify.
      -> IO ()
 mark desktop decorate idx = do
-  let ws = desktop !! idx
-  postGUIAsync $ labelSetMarkup (fst ws) $ decorate (snd ws)
+  let ws = getWs desktop idx
+  postGUIAsync $ labelSetMarkup (lbl ws) $ decorate $ name ws
 
 -- | Switch to the workspace with the given index.
-switch :: (MonadIO m) => Desktop -> Int -> m Bool
-switch desktop idx = do
+switch :: (MonadIO m) => Int -> m Bool
+switch idx = do
   liftIO $ withDefaultCtx (switchToWorkspace idx)
   return True

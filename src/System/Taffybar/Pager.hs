@@ -45,6 +45,7 @@ import Control.Exception
 import Control.Monad.Reader
 import Data.IORef
 import Graphics.UI.Gtk (Markup, escapeMarkup)
+import Graphics.UI.Gtk.Gdk.Pixbuf (Pixbuf)
 import Graphics.X11.Types
 import Graphics.X11.Xlib.Extras
 import Prelude hiding (catch)
@@ -67,6 +68,7 @@ data PagerConfig = PagerConfig
   , visibleWorkspace :: String -> Markup -- ^ all other visible workspaces (Xinerama or XRandR).
   , urgentWorkspace  :: String -> Markup -- ^ workspaces containing windows with the urgency hint set.
   , widgetSep        :: Markup -- ^ separator to use between desktop widgets in 'TaffyPager'.
+  , imageSelector    :: Maybe (String, String) -> Maybe Pixbuf -- ^ given a window title and class, produce a pixbuf or not
   }
 
 -- | Structure containing the state of the Pager.
@@ -86,6 +88,7 @@ defaultPagerConfig   = PagerConfig
   , visibleWorkspace = wrap "(" ")" . escape
   , urgentWorkspace  = colorize "red" "yellow" . escape
   , widgetSep        = " : "
+  , imageSelector    = \_ -> Nothing
   }
 
 -- | Creates a new Pager component (wrapped in the IO Monad) that can be
