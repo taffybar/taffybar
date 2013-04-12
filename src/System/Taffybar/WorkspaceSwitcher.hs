@@ -163,7 +163,7 @@ transition :: PagerConfig -- ^ Configuration settings.
            -> IO ()
 transition cfg desktop prev curr = do
   let all = allWorkspaces desktop
-  nonEmpty <- nonEmptyWorkspaces desktop
+  nonEmpty <- fmap (filter (>0)) $ nonEmptyWorkspaces desktop
   mapM_ (mark desktop $ hiddenWorkspace cfg) $ nonEmpty
   mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
   mark desktop (activeWorkspace cfg) (head curr)
