@@ -28,6 +28,7 @@ module System.Information.EWMHDesktopInfo
   , getWorkspaceNames
   , switchToWorkspace
   , getWindowTitle
+  , getWindowClass
   , getActiveWindowTitle
   , getWindows
   , getWindowHandles
@@ -77,6 +78,10 @@ getWindowTitle window = do
     "" -> readAsString w "WM_NAME"
     _  -> return prop
 
+-- | Get the class of the given X11 window.
+getWindowClass :: X11Window -> X11Property String
+getWindowClass window = readAsString (Just window) "WM_CLASS"
+
 -- | Get the title of the currently focused window.
 getActiveWindowTitle :: X11Property String
 getActiveWindowTitle = do
@@ -91,14 +96,15 @@ getActiveWindowTitle = do
 getWindows :: X11Property [X11Window]
 getWindows = readAsListOfWindow Nothing "_NET_CLIENT_LIST"
 
--- | Return a list of two-element tuples, each containing the title
--- and the internal ID of one window, for all the windows currently
--- open, independently of their workspace.
-getWindowHandles :: X11Property [(String, X11Window)]
+-- | Return a list of pairs of (props, window) for all the windows open.
+-- props is a pair of (window title, window class),
+-- and window is the internal ID of one window.
+getWindowHandles :: X11Property [((String, String), X11Window)]
 getWindowHandles = do
   windows <- getWindows
   wtitles <- mapM getWindowTitle windows
-  return $ zip wtitles windows
+  wclasses <- mapM getWindowClass windows
+  return $ zip (zip wtitles wclasses) windows
 
 -- | Return the index (starting from 0) of the workspace on which the
 -- given window is being displayed.
