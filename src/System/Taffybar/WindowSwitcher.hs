@@ -104,8 +104,10 @@ toggleSelector label ref = do
         Nothing -> return ()
   return True
 
-formatWindow :: ((Int, String, String), X11Window) -> String
-formatWindow ((ws, wtitle, wclass), _) = wtitle
+formatWindow wsNames ((ws, wtitle, wclass), _) = wsName ++ ": " ++ wtitle
+  where wsName = if 0 <= ws && ws < length wsNames
+                 then wsNames !! ws
+                 else "WS#" ++ show ws
 
 -- | Build a new pop-up containing the titles of all currently open
 -- windows, and assign it as a singleton list to the given IORef.
@@ -114,7 +116,8 @@ createSelector ref = do
   handles  <- withDefaultCtx getWindowHandles
   if null handles then return Nothing else do
     selector <- windowNew
-    list     <- listStoreNew $ map formatWindow handles
+    wsNames  <- withDefaultCtx getWorkspaceNames
+    list     <- listStoreNew $ map (formatWindow wsNames) handles
     view     <- makeTreeView list
     column   <- makeColumn list
 
