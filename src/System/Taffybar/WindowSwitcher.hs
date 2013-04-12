@@ -33,6 +33,8 @@ import System.Information.EWMHDesktopInfo
 import System.Taffybar.Pager
 import System.Taffybar.Widgets.Util
 
+snd3 (_,x,_) = x
+
 -- $usage
 --
 -- This widget requires that the EwmhDesktops hook from the XMonadContrib
@@ -111,7 +113,7 @@ createSelector ref = do
     then return Nothing
     else do
       selector <- windowNew
-      list     <- listStoreNew (map (fst.fst) handles)
+      list     <- listStoreNew (map (snd3.fst) handles)
       view     <- makeTreeView list
       column   <- makeColumn list
 
@@ -154,7 +156,7 @@ makeColumn list = do
 -- | Switch to the window selected by the user in the pop-up.
 handlePick :: M.TreeSelection -- ^ Pop-up selection
            -> ListStore String -- ^ List of all available windows
-           -> [((String, String), X11Window)] -- ^ window title, class and IDs
+           -> [((Int, String, String), X11Window)] -- ^ workspace, window title, window class and window ID
            -> IO ()
 handlePick selection list handles = do
   row <- M.treeSelectionGetSelectedRows selection

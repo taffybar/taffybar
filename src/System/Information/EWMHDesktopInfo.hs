@@ -101,12 +101,13 @@ getWindows = readAsListOfWindow Nothing "_NET_CLIENT_LIST"
 -- | Return a list of pairs of (props, window) for all the windows open.
 -- props is a pair of (window title, window class),
 -- and window is the internal ID of one window.
-getWindowHandles :: X11Property [((String, String), X11Window)]
+getWindowHandles :: X11Property [((Int, String, String), X11Window)]
 getWindowHandles = do
   windows <- getWindows
+  workspaces <- mapM getWorkspace windows
   wtitles <- mapM getWindowTitle windows
   wclasses <- mapM getWindowClass windows
-  return $ zip (zip wtitles wclasses) windows
+  return $ zip (zip3 workspaces wtitles wclasses) windows
 
 -- | Return the index (starting from 0) of the workspace on which the
 -- given window is being displayed.
