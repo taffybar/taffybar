@@ -205,8 +205,15 @@ transition :: PagerConfig -- ^ Configuration settings.
            -> [Int] -- ^ Currently visible workspaces (first is active).
            -> IO ()
 transition cfg desktop prev curr = do
+  withDefaultCtx $ do
+    summary <- liftIO $ getDesktopSummary desktop
+    curTitle <- getActiveWindowTitle
+    curClass <- getActiveWindowClass
+    liftIO $ applyImages cfg desktop (head curr) curTitle curClass summary
+
   let all = allWorkspaces desktop
   nonEmpty <- fmap (filter (>0)) $ nonEmptyWorkspaces desktop
+
   mapM_ (mark desktop $ hiddenWorkspace cfg) $ nonEmpty
   mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
   mark desktop (activeWorkspace cfg) (head curr)
