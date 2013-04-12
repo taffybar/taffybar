@@ -104,30 +104,31 @@ toggleSelector label ref = do
         Nothing -> return ()
   return True
 
+formatWindow :: ((Int, String, String), X11Window) -> String
+formatWindow ((ws, wtitle, wclass), _) = wtitle
+
 -- | Build a new pop-up containing the titles of all currently open
 -- windows, and assign it as a singleton list to the given IORef.
 createSelector :: IORef [Window] -> IO (Maybe Window)
 createSelector ref = do
   handles  <- withDefaultCtx getWindowHandles
-  if length handles <= 0
-    then return Nothing
-    else do
-      selector <- windowNew
-      list     <- listStoreNew (map (snd3.fst) handles)
-      view     <- makeTreeView list
-      column   <- makeColumn list
+  if null handles then return Nothing else do
+    selector <- windowNew
+    list     <- listStoreNew $ map formatWindow handles
+    view     <- makeTreeView list
+    column   <- makeColumn list
 
-      M.treeViewAppendColumn view column
-      sel <- M.treeViewGetSelection view
-      M.onSelectionChanged sel $ do
-        handlePick sel list handles
-        killSelector selector ref
-      set selector [ containerChild := view ]
-      _ <- on selector deleteEvent $ killSelector selector ref >> return False
-      _ <- on selector focusOutEvent $ killSelector selector ref >> return False
+    M.treeViewAppendColumn view column
+    sel <- M.treeViewGetSelection view
+    M.onSelectionChanged sel $ do
+      handlePick sel list handles
+      killSelector selector ref
+    set selector [ containerChild := view ]
+    _ <- on selector deleteEvent $ killSelector selector ref >> return False
+    _ <- on selector focusOutEvent $ killSelector selector ref >> return False
 
-      writeIORef ref [selector]
-      return (Just selector)
+    writeIORef ref [selector]
+    return (Just selector)
 
 -- | Destroy given pop-up and clean-up the given IORef.
 killSelector :: (MonadIO m) => Window -> IORef[Window] -> m ()
