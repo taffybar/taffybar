@@ -29,6 +29,7 @@ import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.IORef
 import Data.List ((\\))
+import Data.Maybe (listToMaybe)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Gdk.Pixbuf (Pixbuf)
 import Graphics.X11.Xlib.Extras
@@ -169,6 +170,27 @@ addButton hbox desktop idx = do
   on ebox buttonPressEvent $ switch idx
   containerAdd ebox frame
   containerAdd hbox ebox
+
+fst3 (x,_,_) = x
+
+-- | Get the title and class of the first window in a given workspace.
+getWorkspaceWindow :: [(Int, String, String)] -- ^ full window list
+                   -> Int -- ^ Workspace
+                   -> Maybe (String, String) -- ^ (window title, window class)
+getWorkspaceWindow wins ws = case win of
+                              Just (ws, wtitle, wclass) -> Just (wtitle, wclass)
+                              Nothing -> Nothing
+  where win = listToMaybe $ filter ((==ws).fst3) wins
+
+getDesktopSummary :: Desktop -> IO ([(Int, Maybe (String, String))])
+getDesktopSummary desktop = do
+  allWins <- withDefaultCtx $ getWindowHandles
+  let allX11Wins = map snd allWins
+      allProps = map fst allWins
+  wsWins <- withDefaultCtx $ mapM getWorkspace allX11Wins
+  let allWs = allWorkspaces desktop
+      wsProps = map (getWorkspaceWindow allProps) allWs
+  return $ zip allWs wsProps
 
 allWorkspaces :: Desktop -> [Int]
 allWorkspaces desktop = [0 .. length desktop - 1]
