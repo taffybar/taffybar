@@ -212,7 +212,7 @@ transition cfg desktop prev curr = do
     liftIO $ applyImages cfg desktop (head curr) curTitle curClass summary
 
   let all = allWorkspaces desktop
-  nonEmpty <- fmap (filter (>0)) $ nonEmptyWorkspaces desktop
+  nonEmpty <- fmap (filter (>=0)) $ nonEmptyWorkspaces desktop
 
   mapM_ (mark desktop $ hiddenWorkspace cfg) $ nonEmpty
   mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
