@@ -195,8 +195,8 @@ getDesktopSummary desktop = do
 allWorkspaces :: Desktop -> [Int]
 allWorkspaces desktop = [0 .. length desktop - 1]
 
-nonEmptyWorkspaces :: Desktop -> IO [Int]
-nonEmptyWorkspaces desktop = withDefaultCtx $ mapM getWorkspace =<< getWindows
+nonEmptyWorkspaces :: IO [Int]
+nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
 -- | Perform all changes needed whenever the active workspace changes.
 transition :: PagerConfig -- ^ Configuration settings.
@@ -212,7 +212,7 @@ transition cfg desktop prev curr = do
     liftIO $ applyImages cfg desktop (head curr) curTitle curClass summary
 
   let all = allWorkspaces desktop
-  nonEmpty <- fmap (filter (>=0)) $ nonEmptyWorkspaces desktop
+  nonEmpty <- fmap (filter (>=0)) $ nonEmptyWorkspaces
 
   mapM_ (mark desktop $ hiddenWorkspace cfg) $ nonEmpty
   mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
