@@ -159,6 +159,7 @@ data TaffybarConfig =
                  , monitorNumber :: Int -- ^ The xinerama/xrandr monitor number to put the bar on (default: 0)
                  , barHeight :: Int -- ^ Number of pixels to reserve for the bar (default: 25 pixels)
                  , barPosition :: Position -- ^ The position of the bar on the screen (default: Top)
+                 , widgetSpacing :: Int -- ^ The number of pixels between widgets
                  , errorMsg :: Maybe String -- ^ Used by the application
                  , startWidgets :: [IO Widget] -- ^ Widgets that are packed in order at the left end of the bar
                  , endWidgets :: [IO Widget] -- ^ Widgets that are packed from right-to-left in the bar
@@ -171,6 +172,7 @@ defaultTaffybarConfig =
                  , monitorNumber = 0
                  , barHeight = 25
                  , barPosition = Top
+                 , widgetSpacing = 10
                  , errorMsg = Nothing
                  , startWidgets = []
                  , endWidgets = []
@@ -241,7 +243,7 @@ taffybarMain cfg = do
                                               (barHeight cfg)
                                               monitorSize
                                               allMonitorSizes
-  box <- hBoxNew False 10
+  box <- hBoxNew False $ widgetSpacing cfg
   containerAdd window box
 
   mapM_ (\io -> do
