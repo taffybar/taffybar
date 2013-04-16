@@ -67,7 +67,7 @@ data PagerConfig = PagerConfig
   , emptyWorkspace   :: String -> Markup -- ^ inactive workspace with no windows.
   , visibleWorkspace :: String -> Markup -- ^ all other visible workspaces (Xinerama or XRandR).
   , urgentWorkspace  :: String -> Markup -- ^ workspaces containing windows with the urgency hint set.
-  , widgetSep        :: Markup -- ^ separator to use between desktop widgets in 'TaffyPager'.
+  , widgetSep        :: Markup           -- ^ separator to use between desktop widgets in 'TaffyPager'.
   , imageSelector    :: Maybe (String, String) -> Maybe Pixbuf -- ^ given a window title and class, produce a pixbuf or not
   }
 
