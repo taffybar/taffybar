@@ -101,27 +101,41 @@ wspaceSwitcherNew pager = do
 
 -- | Get workspace names from EWMH, and return a list of Workspaces.
 getDesktop :: PagerConfig -> IO Desktop
-getDesktop cfg = mapM (createWorkspace cfg) =<< withDefaultCtx getWorkspaceNames
+getDesktop cfg = do
+  names <- withDefaultCtx getWorkspaceNames
+  mapM (\(name, index) -> createWorkspace cfg name index) $ zip names [0..]
+
+clickBox :: WidgetClass w => w -> IO () -> IO Container
+clickBox w act = do
+  ebox <- eventBoxNew
+  containerAdd ebox w
+  on ebox buttonPressEvent $ liftIO act >> return True
+  return $ toContainer ebox
 
 -- | Create a workspace
-createWorkspace :: PagerConfig -> String -> IO Workspace
-createWorkspace cfg name = do
+createWorkspace :: PagerConfig -> String -> Int -> IO Workspace
+createWorkspace cfg name index = do
   label <- labelNew Nothing
-  image <- imageNew
-  container <- hBoxNew False 0
   labelSetMarkup label $ hiddenWorkspace cfg name
+  image <- imageNew
+
+  hbox <- hBoxNew False 0
+  containerAdd hbox label
+  containerAdd hbox image
+
+  container <- wrapWsButton cfg =<< clickBox hbox (switch index)
+
   return $ Workspace { wsName = name
                      , wsLabel = label
                      , wsImage = image
-                     , wsContainer = toContainer container
+                     , wsContainer = container
                      }
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: PagerConfig -> Desktop -> IO Widget
 assembleWidget cfg desktop = do
   hbox <- hBoxNew False (wsButtonSpacing cfg)
-  buttons <- mapM (createWsButton desktop) [0 .. length desktop - 1]
-  mapM_ (containerAdd hbox) =<< mapM (wrapWsButton cfg) buttons
+  mapM_ (containerAdd hbox) $ map wsContainer desktop
   widgetShowAll hbox
   return $ toWidget hbox
 
@@ -148,20 +162,6 @@ urgentCallback cfg desktop event = withDefaultCtx $ do
     that <- getWorkspace window
     when (this /= that) $ do
       liftIO $ mark desktop (urgentWorkspace cfg) that
-
--- | Build a clickable box containing the Label and Image widgets for a workspace.
-createWsButton :: Desktop -- ^ List of all workspaces available.
-               -> Int     -- ^ Index of the workspace to use.
-               -> IO Container
-createWsButton desktop idx = do
-  let ws = getWs desktop idx
-      wsbox = wsContainer ws
-  containerAdd wsbox $ wsLabel ws
-  containerAdd wsbox $ wsImage ws
-  ebox <- eventBoxNew
-  on ebox buttonPressEvent $ switch idx
-  containerAdd ebox wsbox
-  return $ toContainer ebox
 
 fst3 (x,_,_) = x
 
@@ -246,7 +246,5 @@ mark desktop decorate idx = do
   postGUIAsync $ labelSetMarkup (wsLabel ws) $ decorate $ wsName ws
 
 -- | Switch to the workspace with the given index.
-switch :: (MonadIO m) => Int -> m Bool
-switch idx = do
-  liftIO $ withDefaultCtx (switchToWorkspace idx)
-  return True
+switch :: Int -> IO ()
+switch idx = liftIO $ withDefaultCtx $ switchToWorkspace idx
