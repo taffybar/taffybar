@@ -205,11 +205,14 @@ transition cfg desktop prev curr = do
 
   let all = allWorkspaces desktop
   nonEmpty <- fmap (filter (>=0)) $ nonEmptyWorkspaces
-  let empty = (all \\ nonEmpty)
+  let empty = all \\ nonEmpty
+
+  let toHide = empty \\ curr
+  let toShow = all \\ toHide
 
   when (hideEmptyWs cfg) $ do
-    mapM_ widgetHideAll $ map wsContainer $ map (getWs desktop) empty
-    mapM_ widgetShowAll $ map wsContainer $ map (getWs desktop) nonEmpty
+    mapM_ widgetHideAll $ map wsContainer $ map (getWs desktop) toHide
+    mapM_ widgetShowAll $ map wsContainer $ map (getWs desktop) toShow
 
   mapM_ (mark desktop $ hiddenWorkspace cfg) nonEmpty
   mapM_ (mark desktop $ emptyWorkspace cfg) empty
