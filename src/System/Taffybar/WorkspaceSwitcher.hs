@@ -90,7 +90,7 @@ name (_,_,x) = x
 wspaceSwitcherNew :: Pager -> IO Widget
 wspaceSwitcherNew pager = do
   desktop <- getDesktop pager
-  widget  <- assembleWidget desktop
+  widget  <- assembleWidget (config pager) desktop
   idxRef  <- newIORef []
   let cfg = config pager
       activecb = activeCallback cfg desktop idxRef
@@ -111,11 +111,11 @@ getDesktop pager = do
   return $ zip3 labels images names
 
 -- | Build the graphical representation of the widget.
-assembleWidget :: Desktop -> IO Widget
-assembleWidget desktop = do
+assembleWidget :: PagerConfig -> Desktop -> IO Widget
+assembleWidget cfg desktop = do
   hbox <- hBoxNew False 3
   buttons <- mapM (createWsButton desktop) [0 .. length desktop - 1]
-  mapM_ (containerAdd hbox) buttons
+  mapM_ (containerAdd hbox) =<< mapM (wrapWsButton cfg) buttons
   widgetShowAll hbox
   return $ toWidget hbox
 
