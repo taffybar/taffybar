@@ -88,7 +88,7 @@ defaultPagerConfig   = PagerConfig
   , visibleWorkspace = wrap "(" ")" . escape
   , urgentWorkspace  = colorize "red" "yellow" . escape
   , widgetSep        = " : "
-  , imageSelector    = \_ -> Nothing
+  , imageSelector    = const Nothing
   }
 
 -- | Creates a new Pager component (wrapped in the IO Monad) that can be
