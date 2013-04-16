@@ -41,9 +41,10 @@ type Desktop = [Workspace]
 
 -- | Workspace record with ws name and widgets
 data Workspace = Workspace
-  { wsName  :: String -- ^ Name of the workspace.
-  , wsLabel :: Label  -- ^ Text widget displaying workspace markup.
-  , wsImage :: Image  -- ^ Image widget displaying the workspace image.
+  { wsName      :: String -- ^ Name of the workspace.
+  , wsLabel     :: Label  -- ^ Text widget displaying workspace markup.
+  , wsImage     :: Image  -- ^ Image widget displaying the workspace image.
+  , wsContainer :: Container -- ^ Container holding label/image
   }
 
 -- $usage
@@ -88,7 +89,7 @@ getWs = (!!)
 -- its source of events.
 wspaceSwitcherNew :: Pager -> IO Widget
 wspaceSwitcherNew pager = do
-  desktop <- getDesktop pager
+  desktop <- getDesktop (config pager)
   widget  <- assembleWidget (config pager) desktop
   idxRef  <- newIORef []
   let cfg = config pager
@@ -98,17 +99,22 @@ wspaceSwitcherNew pager = do
   subscribe pager urgentcb "WM_HINTS"
   return widget
 
--- | Return a list of workspaces, which are three-element tuples, containing:
---   the Label widget for the name of the workspace,
---   an Image widget for for the workspace based on window title and class,
---   and the workspace name as a String.
-getDesktop :: Pager -> IO Desktop
-getDesktop pager = do
-  names  <- withDefaultCtx getWorkspaceNames
-  labels <- toLabels $ map (hiddenWorkspace $ config pager) names
-  images <- toImages names
-  return $ map ws $ zip3 names labels images
-  where ws (name, lbl, img) = Workspace {wsName=name, wsLabel=lbl, wsImage=img}
+-- | Get workspace names from EWMH, and return a list of Workspaces.
+getDesktop :: PagerConfig -> IO Desktop
+getDesktop cfg = mapM (createWorkspace cfg) =<< withDefaultCtx getWorkspaceNames
+
+-- | Create a workspace
+createWorkspace :: PagerConfig -> String -> IO Workspace
+createWorkspace cfg name = do
+  label <- labelNew Nothing
+  image <- imageNew
+  container <- hBoxNew False 0
+  labelSetMarkup label $ hiddenWorkspace cfg name
+  return $ Workspace { wsName = name
+                     , wsLabel = label
+                     , wsImage = image
+                     , wsContainer = toContainer container
+                     }
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: PagerConfig -> Desktop -> IO Widget
@@ -143,30 +149,19 @@ urgentCallback cfg desktop event = withDefaultCtx $ do
     when (this /= that) $ do
       liftIO $ mark desktop (urgentWorkspace cfg) that
 
--- | Convert the given list of Strings to a list of Label widgets.
-toLabels :: [String] -> IO [Label]
-toLabels = sequence . map labelNewMarkup
-  where labelNewMarkup markup = do
-          label <- labelNew Nothing
-          labelSetMarkup label markup
-          return label
-
-toImages :: [String] -> IO [Image]
-toImages = mapM (\_ -> imageNew)
-
 -- | Build a clickable box containing the Label and Image widgets for a workspace.
 createWsButton :: Desktop -- ^ List of all workspaces available.
                -> Int     -- ^ Index of the workspace to use.
-               -> IO Widget
+               -> IO Container
 createWsButton desktop idx = do
   let ws = getWs desktop idx
-  wsbox <- hBoxNew False 0
+      wsbox = wsContainer ws
   containerAdd wsbox $ wsLabel ws
   containerAdd wsbox $ wsImage ws
   ebox <- eventBoxNew
   on ebox buttonPressEvent $ switch idx
   containerAdd ebox wsbox
-  return $ toWidget ebox
+  return $ toContainer ebox
 
 fst3 (x,_,_) = x
 

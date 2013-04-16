@@ -44,7 +44,7 @@ import Control.Concurrent (forkIO)
 import Control.Exception
 import Control.Monad.Reader
 import Data.IORef
-import Graphics.UI.Gtk (Widget, Markup, escapeMarkup)
+import Graphics.UI.Gtk (Container, Markup, escapeMarkup)
 import Graphics.UI.Gtk.Gdk.Pixbuf (Pixbuf)
 import Graphics.X11.Types
 import Graphics.X11.Xlib.Extras
@@ -70,7 +70,7 @@ data PagerConfig = PagerConfig
   , wsButtonSpacing  :: Int              -- ^ Pixels between workspace buttons
   , widgetSep        :: Markup           -- ^ separator to use between desktop widgets in 'TaffyPager'.
   , imageSelector    :: Maybe (String, String) -> Maybe Pixbuf -- ^ given a window title and class, produce a pixbuf or not
-  , wrapWsButton     :: Widget -> IO Widget                    -- ^ takes a workspace button (label, image) and produces a widget presumably containing it.
+  , wrapWsButton     :: Container -> IO Container  -- ^ takes a workspace button (label, image) and produces a widget presumably containing it.
   }
 
 -- | Structure containing the state of the Pager.
