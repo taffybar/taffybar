@@ -67,6 +67,7 @@ data PagerConfig = PagerConfig
   , emptyWorkspace   :: String -> Markup -- ^ inactive workspace with no windows.
   , visibleWorkspace :: String -> Markup -- ^ all other visible workspaces (Xinerama or XRandR).
   , urgentWorkspace  :: String -> Markup -- ^ workspaces containing windows with the urgency hint set.
+  , hideEmptyWs      :: Bool             -- ^ If True, empty workspace buttons are set invisible
   , wsButtonSpacing  :: Int              -- ^ Pixels between workspace buttons
   , widgetSep        :: Markup           -- ^ separator to use between desktop widgets in 'TaffyPager'.
   , imageSelector    :: Maybe (String, String) -> Maybe Pixbuf -- ^ given a window title and class, produce a pixbuf or not
@@ -89,6 +90,7 @@ defaultPagerConfig   = PagerConfig
   , emptyWorkspace   = escape
   , visibleWorkspace = wrap "(" ")" . escape
   , urgentWorkspace  = colorize "red" "yellow" . escape
+  , hideEmptyWs      = False
   , wsButtonSpacing  = 3
   , widgetSep        = " : "
   , imageSelector    = const Nothing
