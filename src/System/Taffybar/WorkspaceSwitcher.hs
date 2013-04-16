@@ -113,7 +113,7 @@ getDesktop pager = do
 -- | Build the graphical representation of the widget.
 assembleWidget :: Desktop -> IO Widget
 assembleWidget desktop = do
-  hbox <- hBoxNew True 3
+  hbox <- hBoxNew False 3
   buttons <- mapM (createWsButton desktop) [0 .. length desktop - 1]
   mapM_ (containerAdd hbox) buttons
   widgetShowAll hbox
