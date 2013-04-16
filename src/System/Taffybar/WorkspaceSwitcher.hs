@@ -114,7 +114,8 @@ getDesktop pager = do
 assembleWidget :: Desktop -> IO Widget
 assembleWidget desktop = do
   hbox <- hBoxNew True 3
-  mapM_ (addButton hbox desktop) $ [0 .. length desktop - 1]
+  buttons <- mapM (createWsButton desktop) [0 .. length desktop - 1]
+  mapM_ (containerAdd hbox) buttons
   widgetShowAll hbox
   return $ toWidget hbox
 
@@ -153,23 +154,19 @@ toLabels = sequence . map labelNewMarkup
 toImages :: [String] -> IO [Image]
 toImages = mapM (\_ -> imageNew)
 
--- | Build a new clickable event box containing the Label widget that
--- corresponds to the given index, and add it to the given container.
-addButton :: HBox    -- ^ Graphical container.
-          -> Desktop -- ^ List of all workspaces available.
-          -> Int     -- ^ Index of the workspace to use.
-          -> IO ()
-addButton hbox desktop idx = do
+-- | Build a clickable box containing the Label and Image widgets for a workspace.
+createWsButton :: Desktop -- ^ List of all workspaces available.
+               -> Int     -- ^ Index of the workspace to use.
+               -> IO Widget
+createWsButton desktop idx = do
   let ws = getWs desktop idx
   wsbox <- hBoxNew False 0
   containerAdd wsbox $ lbl ws
   containerAdd wsbox $ img ws
-  frame <- frameNew
-  containerAdd frame wsbox
   ebox <- eventBoxNew
   on ebox buttonPressEvent $ switch idx
-  containerAdd ebox frame
-  containerAdd hbox ebox
+  containerAdd ebox wsbox
+  return $ toWidget ebox
 
 fst3 (x,_,_) = x
 
