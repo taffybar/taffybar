@@ -38,7 +38,13 @@ import System.Taffybar.Pager
 import System.Information.EWMHDesktopInfo
 
 type Desktop = [Workspace]
-type Workspace = (Label, Image, String)
+
+-- | Workspace record with ws name and widgets
+data Workspace = Workspace
+  { wsName  :: String -- ^ Name of the workspace.
+  , wsLabel :: Label  -- ^ Text widget displaying workspace markup.
+  , wsImage :: Image  -- ^ Image widget displaying the workspace image.
+  }
 
 -- $usage
 -- Display clickable workspace labels and images based on window title/class.
@@ -78,13 +84,6 @@ type Workspace = (Label, Image, String)
 getWs :: Desktop -> Int -> Workspace
 getWs = (!!)
 
-lbl :: Workspace -> Label
-lbl (x,_,_) = x
-img :: Workspace -> Image
-img (_,x,_) = x
-name :: Workspace -> String
-name (_,_,x) = x
-
 -- | Create a new WorkspaceSwitcher widget that will use the given Pager as
 -- its source of events.
 wspaceSwitcherNew :: Pager -> IO Widget
@@ -108,7 +107,8 @@ getDesktop pager = do
   names  <- withDefaultCtx getWorkspaceNames
   labels <- toLabels $ map (hiddenWorkspace $ config pager) names
   images <- toImages names
-  return $ zip3 labels images names
+  return $ map ws $ zip3 names labels images
+  where ws (name, lbl, img) = Workspace {wsName=name, wsLabel=lbl, wsImage=img}
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: PagerConfig -> Desktop -> IO Widget
@@ -161,8 +161,8 @@ createWsButton :: Desktop -- ^ List of all workspaces available.
 createWsButton desktop idx = do
   let ws = getWs desktop idx
   wsbox <- hBoxNew False 0
-  containerAdd wsbox $ lbl ws
-  containerAdd wsbox $ img ws
+  containerAdd wsbox $ wsLabel ws
+  containerAdd wsbox $ wsImage ws
   ebox <- eventBoxNew
   on ebox buttonPressEvent $ switch idx
   containerAdd ebox wsbox
@@ -236,8 +236,8 @@ markImg :: Desktop -> Maybe Pixbuf -> Int -> IO ()
 markImg desktop image idx = do
   let ws = getWs desktop idx
   postGUIAsync $ case image of
-    Just pixbuf -> imageSetFromPixbuf (img ws) pixbuf
-    Nothing -> imageClear (img ws)
+    Just pixbuf -> imageSetFromPixbuf (wsImage ws) pixbuf
+    Nothing -> imageClear (wsImage ws)
 
 -- | Apply the given marking function to the Label of the workspace with
 -- the given index.
@@ -247,7 +247,7 @@ mark :: Desktop -- ^ List of all available workspaces.
      -> IO ()
 mark desktop decorate idx = do
   let ws = getWs desktop idx
-  postGUIAsync $ labelSetMarkup (lbl ws) $ decorate $ name ws
+  postGUIAsync $ labelSetMarkup (wsLabel ws) $ decorate $ wsName ws
 
 -- | Switch to the workspace with the given index.
 switch :: (MonadIO m) => Int -> m Bool
