@@ -176,7 +176,7 @@ getWorkspaceWindow wins ws = case win of
 
 getDesktopSummary :: Desktop -> IO ([(Int, Maybe (String, String))])
 getDesktopSummary desktop = do
-  allWins <- withDefaultCtx $ getWindowHandles
+  allWins <- fmap reverse $ withDefaultCtx $ getWindowHandles
   let allX11Wins = map snd allWins
       allProps = map fst allWins
   wsWins <- withDefaultCtx $ mapM getWorkspace allX11Wins
