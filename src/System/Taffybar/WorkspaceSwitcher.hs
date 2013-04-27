@@ -98,7 +98,7 @@ getDesktop pager = do
 -- | Build the graphical representation of the widget.
 assembleWidget :: Desktop -> IO Widget
 assembleWidget desktop = do
-  hbox <- hBoxNew False 3
+  hbox <- hBoxNew False 0
   mapM_ (addButton hbox desktop) $ [0..(length desktop - 1)]
   widgetShowAll hbox
   return $ toWidget hbox
@@ -145,7 +145,7 @@ addButton hbox desktop idx = do
   let label = fst (desktop !! idx)
   ebox <- eventBoxNew
   eventBoxSetVisibleWindow ebox False
-  _ <- on ebox buttonPressEvent (switch desktop idx)
+  _ <- on ebox buttonPressEvent $ switch idx
   containerAdd ebox label
   boxPackStart hbox ebox PackNatural 0
 
@@ -162,12 +162,13 @@ transition :: PagerConfig -- ^ Configuration settings.
            -> [Int] -- ^ Currently visible workspaces (first is active).
            -> IO ()
 transition cfg desktop prev curr = do
-  let all = allWorkspaces desktop
-  nonEmpty <- fmap (filter (>=0)) $ nonEmptyWorkspaces
-  mapM_ (mark desktop $ hiddenWorkspace cfg) $ nonEmpty
-  mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
-  mark desktop (activeWorkspace cfg) (head curr)
-  mapM_ (mark desktop $ visibleWorkspace cfg) (tail curr)
+  when (curr /= prev) $ do
+    let all = allWorkspaces desktop
+    nonEmpty <- fmap (filter (>=0)) $ nonEmptyWorkspaces
+    mapM_ (mark desktop $ hiddenWorkspace cfg) $ nonEmpty
+    mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
+    mark desktop (activeWorkspace cfg) (head curr)
+    mapM_ (mark desktop $ visibleWorkspace cfg) (tail curr)
 
 -- | Apply the given marking function to the Label of the workspace with
 -- the given index.
@@ -177,10 +178,13 @@ mark :: Desktop -- ^ List of all available labels.
      -> IO ()
 mark desktop decorate idx = do
   let ws = desktop !! idx
-  postGUIAsync $ labelSetMarkup (fst ws) $ decorate (snd ws)
+  postGUIAsync $ labelSetMarkup (fst ws) $ decorate' (snd ws)
+  where decorate' = pad . decorate
+        pad m | m == [] = m
+              | otherwise = ' ' : m
 
 -- | Switch to the workspace with the given index.
-switch :: (MonadIO m) => Desktop -> Int -> m Bool
-switch desktop idx = do
+switch :: (MonadIO m) => Int -> m Bool
+switch idx = do
   liftIO $ withDefaultCtx (switchToWorkspace idx)
   return True
