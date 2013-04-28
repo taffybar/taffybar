@@ -99,7 +99,7 @@ getDesktop pager = do
 assembleWidget :: Desktop -> IO Widget
 assembleWidget desktop = do
   hbox <- hBoxNew False 0
-  mapM_ (addButton hbox desktop) $ [0..(length desktop - 1)]
+  mapM_ (addButton hbox desktop) [0..(length desktop - 1)]
   widgetShowAll hbox
   return $ toWidget hbox
 
@@ -124,12 +124,12 @@ urgentCallback cfg desktop event = withDefaultCtx $ do
   when isUrgent $ do
     this <- getCurrentWorkspace
     that <- getWorkspace window
-    when (this /= that) $ do
+    when (this /= that) $
       liftIO $ mark desktop (urgentWorkspace cfg) that
 
 -- | Convert the given list of Strings to a list of Label widgets.
 toLabels :: [String] -> IO [Label]
-toLabels = sequence . map labelNewMarkup
+toLabels = mapM labelNewMarkup
   where labelNewMarkup markup = do
           label <- labelNew Nothing
           labelSetMarkup label markup
@@ -162,8 +162,8 @@ transition :: PagerConfig -- ^ Configuration settings.
            -> IO ()
 transition cfg desktop wss = do
   let all = allWorkspaces desktop
-  nonEmpty <- fmap (filter (>=0)) $ nonEmptyWorkspaces
-  mapM_ (mark desktop $ hiddenWorkspace cfg) $ nonEmpty
+  nonEmpty <- fmap (filter (>=0)) nonEmptyWorkspaces
+  mapM_ (mark desktop $ hiddenWorkspace cfg) nonEmpty
   mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
   mark desktop (activeWorkspace cfg) (head wss)
   mapM_ (mark desktop $ visibleWorkspace cfg) (tail wss)
