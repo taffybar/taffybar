@@ -110,8 +110,8 @@ activeCallback :: PagerConfig -> Desktop -> IORef [Int] -> Event -> IO ()
 activeCallback cfg desktop ref _ = do
   prev <- readIORef ref
   curr <- withDefaultCtx getVisibleWorkspaces
-  transition cfg desktop prev curr
-  writeIORef ref curr
+  transition cfg desktop curr
+  when (prev /= curr) $ writeIORef ref curr
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "WM_HINTS" standard events. It will display in a different color any
@@ -155,20 +155,18 @@ allWorkspaces desktop = [0 .. length desktop - 1]
 nonEmptyWorkspaces :: IO [Int]
 nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
--- | Perform all changes needed whenever the active workspace changes.
+-- | Re-mark all workspace labels.
 transition :: PagerConfig -- ^ Configuration settings.
-           -> Desktop -- ^ All available Labels with their default values.
-           -> [Int] -- ^ Previously visible workspaces (first was active).
-           -> [Int] -- ^ Currently visible workspaces (first is active).
+           -> Desktop     -- ^ All available Labels with their default values.
+           -> [Int]       -- ^ Currently visible workspaces (first is active).
            -> IO ()
-transition cfg desktop prev curr = do
-  when (curr /= prev) $ do
-    let all = allWorkspaces desktop
-    nonEmpty <- fmap (filter (>=0)) $ nonEmptyWorkspaces
-    mapM_ (mark desktop $ hiddenWorkspace cfg) $ nonEmpty
-    mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
-    mark desktop (activeWorkspace cfg) (head curr)
-    mapM_ (mark desktop $ visibleWorkspace cfg) (tail curr)
+transition cfg desktop wss = do
+  let all = allWorkspaces desktop
+  nonEmpty <- fmap (filter (>=0)) $ nonEmptyWorkspaces
+  mapM_ (mark desktop $ hiddenWorkspace cfg) $ nonEmpty
+  mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
+  mark desktop (activeWorkspace cfg) (head wss)
+  mapM_ (mark desktop $ visibleWorkspace cfg) (tail wss)
 
 -- | Apply the given marking function to the Label of the workspace with
 -- the given index.
