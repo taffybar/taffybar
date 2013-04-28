@@ -111,7 +111,7 @@ pagerHintsEventHook _ = return (All True)
 -- to XMonad.
 sendLayoutMessage :: [CInt] -> X ()
 sendLayoutMessage evData = case evData of
-  x:xs -> if (fromIntegral x) < 0
+  x:xs -> if fromIntegral x < 0
             then sendMessage FirstLayout
             else sendMessage NextLayout
   _    -> return ()
