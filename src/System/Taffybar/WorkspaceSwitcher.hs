@@ -151,7 +151,7 @@ urgentCallback cfg desktop event = withDefaultCtx $ do
     this <- getCurrentWorkspace
     that <- getWorkspace window
     when (this /= that) $ do
-      liftIO $ mark (urgentWorkspace cfg) (getWs desktop that)
+      liftIO $ markWs (urgentWorkspace cfg) (getWs desktop that)
 
 fst3 (x,_,_) = x
 
@@ -204,10 +204,10 @@ transition cfg desktop prev curr = do
     mapM_ widgetHideAll $ map wsContainer $ map (getWs desktop) toHide
     mapM_ widgetShowAll $ map wsContainer $ map (getWs desktop) toShow
 
-  mapM_ (mark (hiddenWorkspace cfg)) $ map (getWs desktop) nonEmpty
-  mapM_ (mark (emptyWorkspace cfg)) $ map (getWs desktop) empty
-  mark (activeWorkspace cfg) $ getWs desktop (head curr)
-  mapM_ (mark (visibleWorkspace cfg)) $ map (getWs desktop) (tail curr)
+  mapM_ (markWs (hiddenWorkspace cfg)) $ map (getWs desktop) nonEmpty
+  mapM_ (markWs (emptyWorkspace cfg)) $ map (getWs desktop) empty
+  markWs (activeWorkspace cfg) $ getWs desktop (head curr)
+  mapM_ (markWs (visibleWorkspace cfg)) $ map (getWs desktop) (tail curr)
 
 applyImages :: PagerConfig
             -> Desktop
@@ -232,10 +232,10 @@ markImg image ws = do
     Nothing -> imageClear (wsImage ws)
 
 -- | Apply the given marking function to the Label of the workspace.
-mark :: (String -> Markup) -- ^ Marking function.
+markWs :: (String -> Markup) -- ^ Marking function.
      -> Workspace          -- ^ The workspace.
      -> IO ()
-mark decorate ws = do
+markWs decorate ws = do
   postGUIAsync $ labelSetMarkup (wsLabel ws) $ decorate $ wsName ws
 
 -- | Switch to the workspace with the given index.
