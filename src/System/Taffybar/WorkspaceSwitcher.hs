@@ -106,7 +106,7 @@ clickBox w act = do
 createWorkspace :: PagerConfig -> String -> Int -> IO Workspace
 createWorkspace cfg name index = do
   label <- labelNew Nothing
-  labelSetMarkup label $ hiddenWorkspace cfg name
+  labelSetMarkup label name
   image <- imageNew
 
   hbox <- hBoxNew False 0
