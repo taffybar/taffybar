@@ -151,7 +151,7 @@ urgentCallback cfg desktop event = withDefaultCtx $ do
     this <- getCurrentWorkspace
     that <- getWorkspace window
     when (this /= that) $ do
-      liftIO $ markWs (urgentWorkspace cfg) (getWs desktop that)
+      liftIO $ urgentWorkspace cfg (getWs desktop that)
 
 fst3 (x,_,_) = x
 
@@ -204,10 +204,10 @@ transition cfg desktop prev curr = do
     mapM_ widgetHideAll $ map wsContainer $ map (getWs desktop) toHide
     mapM_ widgetShowAll $ map wsContainer $ map (getWs desktop) toShow
 
-  mapM_ (markWs (hiddenWorkspace cfg)) $ map (getWs desktop) nonEmpty
-  mapM_ (markWs (emptyWorkspace cfg)) $ map (getWs desktop) empty
-  markWs (activeWorkspace cfg) $ getWs desktop (head curr)
-  mapM_ (markWs (visibleWorkspace cfg)) $ map (getWs desktop) (tail curr)
+  mapM_ (hiddenWorkspace cfg) $ map (getWs desktop) nonEmpty
+  mapM_ (emptyWorkspace cfg) $ map (getWs desktop) empty
+  activeWorkspace cfg $ getWs desktop (head curr)
+  mapM_ (visibleWorkspace cfg) $ map (getWs desktop) (tail curr)
 
 applyImages :: PagerConfig
             -> Desktop
