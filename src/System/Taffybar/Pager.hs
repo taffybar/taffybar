@@ -31,6 +31,8 @@
 module System.Taffybar.Pager
   ( Pager (config)
   , PagerConfig (..)
+  , Workspace (..)
+  , Desktop (..)
   , defaultPagerConfig
   , pagerNew
   , subscribe
@@ -44,7 +46,7 @@ import Control.Concurrent (forkIO)
 import Control.Exception
 import Control.Monad.Reader
 import Data.IORef
-import Graphics.UI.Gtk (Container, Markup, escapeMarkup)
+import Graphics.UI.Gtk (Container, Label, Image, Markup, escapeMarkup)
 import Graphics.UI.Gtk.Gdk.Pixbuf (Pixbuf)
 import Graphics.X11.Types
 import Graphics.X11.Xlib.Extras
@@ -56,6 +58,17 @@ import System.Information.X11DesktopInfo
 type Listener = Event -> IO ()
 type Filter = Atom
 type SubscriptionList = IORef [(Listener, Filter)]
+
+
+type Desktop = [Workspace]
+
+-- | Workspace record with ws name and widgets
+data Workspace = Workspace
+  { wsName      :: String -- ^ Name of the workspace.
+  , wsLabel     :: Label  -- ^ Text widget displaying workspace markup.
+  , wsImage     :: Image  -- ^ Image widget displaying the workspace image.
+  , wsContainer :: Container -- ^ Container holding label/image
+  }
 
 -- | Structure contanining functions to customize the pretty printing of
 -- different widget elements.

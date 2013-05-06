@@ -37,16 +37,6 @@ import Graphics.X11.Xlib.Extras
 import System.Taffybar.Pager
 import System.Information.EWMHDesktopInfo
 
-type Desktop = [Workspace]
-
--- | Workspace record with ws name and widgets
-data Workspace = Workspace
-  { wsName      :: String -- ^ Name of the workspace.
-  , wsLabel     :: Label  -- ^ Text widget displaying workspace markup.
-  , wsImage     :: Image  -- ^ Image widget displaying the workspace image.
-  , wsContainer :: Container -- ^ Container holding label/image
-  }
-
 -- $usage
 -- Display clickable workspace labels and images based on window title/class.
 --
