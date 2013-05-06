@@ -151,7 +151,7 @@ urgentCallback cfg desktop event = withDefaultCtx $ do
     this <- getCurrentWorkspace
     that <- getWorkspace window
     when (this /= that) $ do
-      liftIO $ mark desktop (urgentWorkspace cfg) that
+      liftIO $ mark (urgentWorkspace cfg) (getWs desktop that)
 
 fst3 (x,_,_) = x
 
@@ -204,10 +204,10 @@ transition cfg desktop prev curr = do
     mapM_ widgetHideAll $ map wsContainer $ map (getWs desktop) toHide
     mapM_ widgetShowAll $ map wsContainer $ map (getWs desktop) toShow
 
-  mapM_ (mark desktop $ hiddenWorkspace cfg) nonEmpty
-  mapM_ (mark desktop $ emptyWorkspace cfg) empty
-  mark desktop (activeWorkspace cfg) (head curr)
-  mapM_ (mark desktop $ visibleWorkspace cfg) (tail curr)
+  mapM_ (mark (hiddenWorkspace cfg)) $ map (getWs desktop) nonEmpty
+  mapM_ (mark (emptyWorkspace cfg)) $ map (getWs desktop) empty
+  mark (activeWorkspace cfg) $ getWs desktop (head curr)
+  mapM_ (mark (visibleWorkspace cfg)) $ map (getWs desktop) (tail curr)
 
 applyImages :: PagerConfig
             -> Desktop
@@ -223,23 +223,19 @@ applyImages cfg desktop curWs curTitle curClass summary = do
                                                  then Just (curTitle, curClass)
                                                  else props
         apply (ws, props) = do
-          markImg desktop (getImg (ws, props)) ws
+          markImg (getImg (ws, props)) $ getWs desktop ws
 
-markImg :: Desktop -> Maybe Pixbuf -> Int -> IO ()
-markImg desktop image idx = do
-  let ws = getWs desktop idx
+markImg :: Maybe Pixbuf -> Workspace -> IO ()
+markImg image ws = do
   postGUIAsync $ case image of
     Just pixbuf -> imageSetFromPixbuf (wsImage ws) pixbuf
     Nothing -> imageClear (wsImage ws)
 
--- | Apply the given marking function to the Label of the workspace with
--- the given index.
-mark :: Desktop -- ^ List of all available workspaces.
-     -> (String -> Markup) -- ^ Marking function.
-     -> Int -- ^ Index of the Label to modify.
+-- | Apply the given marking function to the Label of the workspace.
+mark :: (String -> Markup) -- ^ Marking function.
+     -> Workspace          -- ^ The workspace.
      -> IO ()
-mark desktop decorate idx = do
-  let ws = getWs desktop idx
+mark decorate ws = do
   postGUIAsync $ labelSetMarkup (wsLabel ws) $ decorate $ wsName ws
 
 -- | Switch to the workspace with the given index.
