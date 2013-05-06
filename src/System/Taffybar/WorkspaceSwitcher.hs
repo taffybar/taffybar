@@ -225,19 +225,6 @@ applyImages cfg desktop curWs curTitle curClass summary = do
         apply (ws, props) = do
           markImg (getImg (ws, props)) $ getWs desktop ws
 
-markImg :: Maybe Pixbuf -> Workspace -> IO ()
-markImg image ws = do
-  postGUIAsync $ case image of
-    Just pixbuf -> imageSetFromPixbuf (wsImage ws) pixbuf
-    Nothing -> imageClear (wsImage ws)
-
--- | Apply the given marking function to the Label of the workspace.
-markWs :: (String -> Markup) -- ^ Marking function.
-     -> Workspace          -- ^ The workspace.
-     -> IO ()
-markWs decorate ws = do
-  postGUIAsync $ labelSetMarkup (wsLabel ws) $ decorate $ wsName ws
-
 -- | Switch to the workspace with the given index.
 switch :: Int -> IO ()
 switch idx = liftIO $ withDefaultCtx $ switchToWorkspace idx

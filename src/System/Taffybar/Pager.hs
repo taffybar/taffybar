@@ -33,6 +33,8 @@ module System.Taffybar.Pager
   , PagerConfig (..)
   , Workspace (..)
   , Desktop (..)
+  , markWs
+  , markImg
   , defaultPagerConfig
   , pagerNew
   , subscribe
@@ -46,7 +48,9 @@ import Control.Concurrent (forkIO)
 import Control.Exception
 import Control.Monad.Reader
 import Data.IORef
-import Graphics.UI.Gtk (Container, Label, Image, Markup, escapeMarkup)
+import Graphics.UI.Gtk (
+  Container, Label, Image, Markup, escapeMarkup,
+  labelSetMarkup, postGUIAsync, imageSetFromPixbuf, imageClear)
 import Graphics.UI.Gtk.Gdk.Pixbuf (Pixbuf)
 import Graphics.X11.Types
 import Graphics.X11.Xlib.Extras
@@ -109,6 +113,20 @@ defaultPagerConfig   = PagerConfig
   , imageSelector    = const Nothing
   , wrapWsButton     = return . id
   }
+
+-- | Apply the given marking function to the Label of the workspace.
+markWs :: (String -> Markup) -- ^ Marking function.
+     -> Workspace          -- ^ The workspace.
+     -> IO ()
+markWs decorate ws = do
+  postGUIAsync $ labelSetMarkup (wsLabel ws) $ decorate $ wsName ws
+
+-- | Apply or remove Pixbuf to the Image of the workspace.
+markImg :: Maybe Pixbuf -> Workspace -> IO ()
+markImg image ws = do
+  postGUIAsync $ case image of
+    Just pixbuf -> imageSetFromPixbuf (wsImage ws) pixbuf
+    Nothing -> imageClear (wsImage ws)
 
 -- | Creates a new Pager component (wrapped in the IO Monad) that can be
 -- used by widgets for subscribing X11 events.
