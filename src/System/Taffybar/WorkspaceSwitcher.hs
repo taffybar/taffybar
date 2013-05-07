@@ -200,7 +200,7 @@ transition cfg desktop prev curr = do
   let toHide = empty \\ curr
   let toShow = all \\ toHide
 
-  when (hideEmptyWs cfg) $ do
+  when (hideEmptyWs cfg) $ postGUIAsync $ do
     mapM_ widgetHideAll $ map wsContainer $ map (getWs desktop) toHide
     mapM_ widgetShowAll $ map wsContainer $ map (getWs desktop) toShow
 
