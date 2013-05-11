@@ -33,8 +33,6 @@ import System.Information.EWMHDesktopInfo
 import System.Taffybar.Pager
 import System.Taffybar.Widgets.Util
 
-snd3 (_,x,_) = x
-
 -- $usage
 --
 -- This widget requires that the EwmhDesktops hook from the XMonadContrib
@@ -93,8 +91,8 @@ toggleSelector :: Label -- ^ Parent of the pop-up window to create.
 toggleSelector label ref = do
   win <- readIORef ref
   case win of
-    x:xs -> killSelector x ref
-    _    -> do
+    x:_  -> killSelector x ref
+    []   -> do
       selector <- createSelector ref
       case selector of
         Just sel -> do
@@ -104,7 +102,8 @@ toggleSelector label ref = do
         Nothing -> return ()
   return True
 
-formatWindow wsNames ((ws, wtitle, wclass), _) = wsName ++ ": " ++ wtitle
+formatWindow :: [String] -> ((Int, String, a), b) -> String
+formatWindow wsNames ((ws, wtitle, _), _) = wsName ++ ": " ++ wtitle
   where wsName = if 0 <= ws && ws < length wsNames
                  then wsNames !! ws
                  else "WS#" ++ show ws
@@ -121,9 +120,9 @@ createSelector ref = do
     view     <- makeTreeView list
     column   <- makeColumn list
 
-    M.treeViewAppendColumn view column
+    _ <- M.treeViewAppendColumn view column
     sel <- M.treeViewGetSelection view
-    M.onSelectionChanged sel $ do
+    _ <- M.onSelectionChanged sel $ do
       handlePick sel list handles
       killSelector selector ref
     set selector [ containerChild := view ]
@@ -162,7 +161,7 @@ handlePick :: M.TreeSelection -- ^ Pop-up selection
            -> ListStore String -- ^ List of all available windows
            -> [((Int, String, String), X11Window)] -- ^ workspace, window title, window class and window ID
            -> IO ()
-handlePick selection list handles = do
+handlePick selection _ handles = do
   row <- M.treeSelectionGetSelectedRows selection
   let idx = head (head row)
       wh = snd (handles !! idx)

@@ -161,10 +161,10 @@ transition :: PagerConfig -- ^ Configuration settings.
            -> [Int]       -- ^ Currently visible workspaces (first is active).
            -> IO ()
 transition cfg desktop wss = do
-  let all = allWorkspaces desktop
+  let allWs = allWorkspaces desktop
   nonEmpty <- fmap (filter (>=0)) nonEmptyWorkspaces
   mapM_ (mark desktop $ hiddenWorkspace cfg) nonEmpty
-  mapM_ (mark desktop $ emptyWorkspace cfg) (all \\ nonEmpty)
+  mapM_ (mark desktop $ emptyWorkspace cfg) (allWs \\ nonEmpty)
   mark desktop (activeWorkspace cfg) (head wss)
   mapM_ (mark desktop $ visibleWorkspace cfg) (tail wss)
 

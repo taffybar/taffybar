@@ -98,10 +98,9 @@ setVisibleWorkspaces vis = withDisplay $ \dpy -> do
 -- set the current layout accordingly.
 pagerHintsEventHook :: Event -> X All
 pagerHintsEventHook (ClientMessageEvent {
-    ev_window = w,
     ev_message_type = mt,
     ev_data = d
-  }) = withWindowSet $ \s -> do
+  }) = withWindowSet $ \_ -> do
   a <- xLayoutProp
   when (mt == a) $ sendLayoutMessage d
   return (All True)
@@ -111,7 +110,7 @@ pagerHintsEventHook _ = return (All True)
 -- to XMonad.
 sendLayoutMessage :: [CInt] -> X ()
 sendLayoutMessage evData = case evData of
-  x:xs -> if fromIntegral x < 0
+  []   -> return ()
+  x:_  -> if x < 0
             then sendMessage FirstLayout
             else sendMessage NextLayout
-  _    -> return ()
