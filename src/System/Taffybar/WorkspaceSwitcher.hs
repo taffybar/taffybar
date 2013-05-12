@@ -84,9 +84,8 @@ wspaceSwitcherNew pager = do
   idxRef  <- newIORef []
   let cfg = config pager
       activecb = activeCallback cfg desktop idxRef
-      urgentcb = urgentCallback cfg desktop
   subscribe pager activecb "_NET_CURRENT_DESKTOP"
-  subscribe pager urgentcb "WM_HINTS"
+  subscribe pager activecb "WM_HINTS"
   return widget
 
 -- | Get workspace names from EWMH, and return a list of Workspaces.
@@ -138,20 +137,6 @@ activeCallback cfg desktop ref _ = do
   curr <- withDefaultCtx getVisibleWorkspaces
   transition cfg desktop prev curr
   writeIORef ref curr
-
--- | Build a suitable callback function that can be registered as Listener
--- of "WM_HINTS" standard events. It will display in a different color any
--- workspace (other than the active one) containing one or more windows
--- with its urgency hint set.
-urgentCallback :: PagerConfig -> Desktop -> Event -> IO ()
-urgentCallback cfg desktop event = withDefaultCtx $ do
-  let window = ev_window event
-  isUrgent <- isWindowUrgent window
-  when isUrgent $ do
-    this <- getCurrentWorkspace
-    that <- getWorkspace window
-    when (this /= that) $ do
-      liftIO $ urgentWorkspace cfg (getWs desktop that)
 
 fst3 (x,_,_) = x
 
