@@ -181,21 +181,26 @@ transition cfg desktop prev curr = do
     curClass <- getActiveWindowClass
     liftIO $ applyImages cfg desktop (head curr) curTitle curClass summary
 
-  let all = allWorkspaces desktop
   nonEmpty <- nonEmptyWorkspaces
-  let empty = all \\ nonEmpty
+  let all = allWorkspaces desktop
+      empty = all \\ nonEmpty
 
   let toHide = empty \\ curr
-  let toShow = all \\ toHide
+      toShow = all \\ toHide
 
   when (hideEmptyWs cfg) $ postGUIAsync $ do
     mapM_ widgetHideAll $ map wsContainer $ map (getWs desktop) toHide
     mapM_ widgetShowAll $ map wsContainer $ map (getWs desktop) toShow
 
-  mapM_ (hiddenWorkspace cfg) $ map (getWs desktop) nonEmpty
-  mapM_ (emptyWorkspace cfg) $ map (getWs desktop) empty
-  activeWorkspace cfg $ getWs desktop (head curr)
-  mapM_ (visibleWorkspace cfg) $ map (getWs desktop) (tail curr)
+  let hiddenWs = map (getWs desktop) nonEmpty
+      emptyWs = map (getWs desktop) empty
+      activeWs = [getWs desktop (head curr)]
+      visibleWs = map (getWs desktop) (tail curr)
+
+  mapM_ (hiddenWorkspace cfg) $ hiddenWs
+  mapM_ (emptyWorkspace cfg) $ emptyWs
+  mapM_ (activeWorkspace cfg) $ activeWs
+  mapM_ (visibleWorkspace cfg) $ visibleWs
 
 applyImages :: PagerConfig
             -> Desktop
