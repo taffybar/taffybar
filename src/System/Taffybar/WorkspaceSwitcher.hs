@@ -168,6 +168,9 @@ winWorkspaces getWin = ok $ withDefaultCtx $ mapM getWorkspace =<< getWin
 nonEmptyWorkspaces :: IO [Int]
 nonEmptyWorkspaces = winWorkspaces $ getWindows
 
+urgentWorkspaces :: IO [Int]
+urgentWorkspaces = winWorkspaces $ filterM isWindowUrgent =<< getWindows
+
 -- | Perform all changes needed whenever the active workspace changes.
 transition :: PagerConfig -- ^ Configuration settings.
            -> Desktop -- ^ All available Labels with their default values.
@@ -182,6 +185,7 @@ transition cfg desktop prev curr = do
     liftIO $ applyImages cfg desktop (head curr) curTitle curClass summary
 
   nonEmpty <- nonEmptyWorkspaces
+  urgent <- urgentWorkspaces
   let all = allWorkspaces desktop
       empty = all \\ nonEmpty
 
@@ -196,11 +200,13 @@ transition cfg desktop prev curr = do
       emptyWs = map (getWs desktop) empty
       activeWs = [getWs desktop (head curr)]
       visibleWs = map (getWs desktop) (tail curr)
+      urgentWs = map (getWs desktop) urgent
 
   mapM_ (hiddenWorkspace cfg) $ hiddenWs
   mapM_ (emptyWorkspace cfg) $ emptyWs
   mapM_ (activeWorkspace cfg) $ activeWs
   mapM_ (visibleWorkspace cfg) $ visibleWs
+  mapM_ (urgentWorkspace cfg) $ urgentWs
 
 applyImages :: PagerConfig
             -> Desktop
