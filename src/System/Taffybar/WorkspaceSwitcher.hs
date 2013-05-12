@@ -162,9 +162,11 @@ getDesktopSummary desktop = do
 allWorkspaces :: Desktop -> [Int]
 allWorkspaces desktop = [0 .. length desktop - 1]
 
+winWorkspaces getWin = ok $ withDefaultCtx $ mapM getWorkspace =<< getWin
+  where ok = fmap (nub . filter (>=0))
+
 nonEmptyWorkspaces :: IO [Int]
-nonEmptyWorkspaces = fmap (nub . filter (>=0)) windowWorkspaces
-  where windowWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
+nonEmptyWorkspaces = winWorkspaces $ getWindows
 
 -- | Perform all changes needed whenever the active workspace changes.
 transition :: PagerConfig -- ^ Configuration settings.
