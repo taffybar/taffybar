@@ -28,7 +28,7 @@ module System.Taffybar.WorkspaceSwitcher (
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.IORef
-import Data.List ((\\))
+import Data.List ((\\), nub)
 import Data.Maybe (listToMaybe)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Gdk.Pixbuf (Pixbuf)
@@ -178,7 +178,7 @@ allWorkspaces :: Desktop -> [Int]
 allWorkspaces desktop = [0 .. length desktop - 1]
 
 nonEmptyWorkspaces :: IO [Int]
-nonEmptyWorkspaces = fmap (filter (>=0)) windowWorkspaces
+nonEmptyWorkspaces = fmap (nub . filter (>=0)) windowWorkspaces
   where windowWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
 -- | Perform all changes needed whenever the active workspace changes.
