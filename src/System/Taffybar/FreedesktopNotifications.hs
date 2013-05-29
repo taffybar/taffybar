@@ -144,7 +144,7 @@ notify :: NotifyState
           -> Map Text Variant -- ^ Hints
           -> Int32 -- ^ Expires timeout (milliseconds)
           -> IO Word32
-notify istate appName replaceId icon summary body actions hints timeout = do
+notify istate appName replaceId _ summary body _ _ timeout = do
   nid <- atomically $ do
     tid <- readTVar idsrc
     modifyTVar' idsrc (+1)
@@ -278,8 +278,6 @@ notifyAreaNew cfg = do
 
   bLabel <- labelNew Nothing
   widgetSetName bLabel "NotificationCloseButton"
-  buttonStyle <- rcGetStyle bLabel
-  buttonTextColor <- styleGetText buttonStyle StateNormal
   labelSetMarkup bLabel "×"
 
   labelSetMaxWidthChars textArea (notificationMaxLength cfg)

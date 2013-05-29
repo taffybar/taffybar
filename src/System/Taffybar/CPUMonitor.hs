@@ -31,8 +31,8 @@ cpuMonitorNew cfg interval cpu = do
     info <- getCPUInfo cpu
     sample <- newIORef info
     pollingGraphNew cfg interval $ probe sample cpu
-    where
-        probe :: IORef [Integer] -> String -> IO [Double]
-        probe sample cpu = do
-            load <- getAccLoad sample $ getCPUInfo cpu
-            return [load!!0 + load!!1, load!!2] -- user, system
+
+probe :: IORef [Integer] -> String -> IO [Double]
+probe sample cpuName = do
+    load <- getAccLoad sample $ getCPUInfo cpuName
+    return [load!!0 + load!!1, load!!2] -- user, system

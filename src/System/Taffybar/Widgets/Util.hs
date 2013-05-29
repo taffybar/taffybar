@@ -54,8 +54,8 @@ displayPopup :: (WidgetClass w) => w -- ^ The popup widget.
              -> IO ()
 displayPopup widget window = do
   windowSetPosition window WinPosMouse
-  (x,  y ) <- windowGetPosition window
-  (x', y') <- widgetGetSize widget
+  (x, y ) <- windowGetPosition window
+  (_, y') <- widgetGetSize widget
   widgetShowAll window
   if y > y'
     then windowMove window x (y - y')

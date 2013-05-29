@@ -41,13 +41,12 @@ module System.Taffybar.Pager
   ) where
 
 import Control.Concurrent (forkIO)
-import Control.Exception
+import Control.Exception as E
 import Control.Monad.Reader
 import Data.IORef
 import Graphics.UI.Gtk (Markup, escapeMarkup)
 import Graphics.X11.Types
 import Graphics.X11.Xlib.Extras
-import Prelude hiding (catch)
 import Text.Printf (printf)
 
 import System.Information.X11DesktopInfo
@@ -94,7 +93,7 @@ pagerNew :: PagerConfig -> IO Pager
 pagerNew cfg = do
   ref <- newIORef []
   let pager = Pager cfg ref
-  forkIO $ withDefaultCtx $ eventLoop (handleEvent ref)
+  _ <- forkIO $ withDefaultCtx $ eventLoop (handleEvent ref)
   return pager
     where handleEvent :: SubscriptionList -> Event -> IO ()
           handleEvent ref event = do
@@ -104,10 +103,10 @@ pagerNew cfg = do
 -- | Passes the given Event to the given Listener, but only if it was
 -- registered for that type of events via 'subscribe'.
 notify :: Event -> (Listener, Filter) -> IO ()
-notify event (listener, filter) =
+notify event (listener, eventFilter) =
   case event of
     PropertyEvent _ _ _ _ _ atom _ _ ->
-      when (atom == filter) $ catch (listener event) ignoreIOException
+      when (atom == eventFilter) $ E.catch (listener event) ignoreIOException
     _ -> return ()
 
 -- | Registers the given Listener as a subscriber of events of the given
@@ -115,9 +114,9 @@ notify event (listener, filter) =
 -- the Pager, it will execute Listener on it.
 subscribe :: Pager -> Listener -> String -> IO ()
 subscribe pager listener filterName = do
-  filter <- withDefaultCtx $ getAtom filterName
+  eventFilter <- withDefaultCtx $ getAtom filterName
   registered <- readIORef (clients pager)
-  let next = (listener, filter)
+  let next = (listener, eventFilter)
   writeIORef (clients pager) (next : registered)
 
 ignoreIOException :: IOException -> IO ()
