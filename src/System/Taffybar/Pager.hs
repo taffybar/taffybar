@@ -77,16 +77,16 @@ data Workspace = Workspace
 -- | Structure contanining functions to customize the pretty printing of
 -- different widget elements.
 data PagerConfig = PagerConfig
-  { activeWindow     :: String -> Markup   -- ^ the name of the active window.
-  , activeLayout     :: String -> Markup   -- ^ the currently active layout.
-  , activeWorkspace  :: Workspace -> IO () -- ^ the currently active workspace.
-  , hiddenWorkspace  :: Workspace -> IO () -- ^ inactive workspace with windows.
-  , emptyWorkspace   :: Workspace -> IO () -- ^ inactive workspace with no windows.
-  , visibleWorkspace :: Workspace -> IO () -- ^ all other visible workspaces (Xinerama or XRandR).
-  , urgentWorkspace  :: Workspace -> IO () -- ^ workspaces containing windows with the urgency hint set.
-  , hideEmptyWs      :: Bool               -- ^ If True, empty workspace buttons are set invisible
-  , wsButtonSpacing  :: Int                -- ^ Pixels between workspace buttons
-  , widgetSep        :: Markup             -- ^ separator to use between desktop widgets in 'TaffyPager'.
+  { activeWindow     :: String -> Markup    -- ^ the name of the active window.
+  , activeLayout     :: String -> IO Markup -- ^ the currently active layout.
+  , activeWorkspace  :: Workspace -> IO ()  -- ^ the currently active workspace.
+  , hiddenWorkspace  :: Workspace -> IO ()  -- ^ inactive workspace with windows.
+  , emptyWorkspace   :: Workspace -> IO ()  -- ^ inactive workspace with no windows.
+  , visibleWorkspace :: Workspace -> IO ()  -- ^ all other visible workspaces (Xinerama or XRandR).
+  , urgentWorkspace  :: Workspace -> IO ()  -- ^ workspaces containing windows with the urgency hint set.
+  , hideEmptyWs      :: Bool                -- ^ If True, empty workspace buttons are set invisible
+  , wsButtonSpacing  :: Int                 -- ^ Pixels between workspace buttons
+  , widgetSep        :: Markup              -- ^ separator to use between desktop widgets in 'TaffyPager'.
   , imageSelector    :: Maybe (String, String) -> Maybe Pixbuf -- ^ given a window title and class, produce a pixbuf or not
   , wrapWsButton     :: Container -> IO Container  -- ^ takes a workspace button (label, image) and produces a widget presumably containing it.
   }
@@ -101,7 +101,7 @@ data Pager = Pager
 defaultPagerConfig :: PagerConfig
 defaultPagerConfig   = PagerConfig
   { activeWindow     = colorize "green" "" . escape . shorten 40
-  , activeLayout     = escape
+  , activeLayout     = return . escape
   , activeWorkspace  = markWs $ colorize "yellow" "" . wrap "[" "]" . escape
   , hiddenWorkspace  = markWs escape
   , emptyWorkspace   = markWs escape
