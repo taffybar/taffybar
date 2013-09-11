@@ -13,9 +13,9 @@ module System.Taffybar.Battery (
   ) where
 
 import Data.Int
-import Data.String.Utils
 import Graphics.UI.Gtk
 import Text.Printf
+import Text.StringTemplate
 
 import System.Information.Battery
 import System.Taffybar.Widgets.PollingBar
@@ -38,13 +38,17 @@ battInfo ctxt fmt = do
         BatteryStateCharging -> (formatTime $ batteryTimeToFull info)
         BatteryStateDischarging -> (formatTime $ batteryTimeToEmpty info)
         _ -> "-"
-  return $ replace "<percentage>" (show battPctNum)
-         $ replace "<time>" battTime $ fmt
+
+      tpl = newSTMP fmt
+      tpl' = setManyAttrib [ ("percent", show battPctNum)
+                           , ("time", battTime)
+                           ] tpl
+  return $ render tpl'
 
 -- | A simple textual battery widget that auto-updates once every
 -- polling period (specified in seconds).  The displayed format is
--- specified format string where <percentage> is replaced with the
--- percentage of battery remaining and <time> is replaced with the
+-- specified format string where $percentage$ is replaced with the
+-- percentage of battery remaining and $time$ is replaced with the
 -- time until the battery is fully charged/discharged.
 textBatteryNew :: String    -- ^ Display format
                   -> Double -- ^ Poll period in seconds
