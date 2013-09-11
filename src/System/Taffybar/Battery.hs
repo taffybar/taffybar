@@ -12,6 +12,8 @@ module System.Taffybar.Battery (
   defaultBatteryConfig
   ) where
 
+import Data.Int
+import Data.String.Utils
 import Graphics.UI.Gtk
 import Text.Printf
 
@@ -24,16 +26,26 @@ battInfo ctxt fmt = do
   info <- getBatteryInfo ctxt
   let battPctNum :: Int
       battPctNum = floor (batteryPercentage info)
-  return $ printf fmt battPctNum
+      formatTime :: Int64 -> String
+      formatTime seconds =
+        let minutes = seconds `div` 60
+            hours = minutes `div` 60
+            minutes' = minutes `mod` 60
+        in printf "%02d:%02d" hours minutes'
+
+      battTime :: String
+      battTime = case (batteryState info) of
+        BatteryStateCharging -> (formatTime $ batteryTimeToFull info)
+        BatteryStateDischarging -> (formatTime $ batteryTimeToEmpty info)
+        _ -> "-"
+  return $ replace "<percentage>" (show battPctNum)
+         $ replace "<time>" battTime $ fmt
 
 -- | A simple textual battery widget that auto-updates once every
 -- polling period (specified in seconds).  The displayed format is
--- specified using a printf-style format string.  The format string
--- must have a single format argument: %d (and any number of %%
--- sequences to insert a literal percent sign).
---
--- More, fewer, or different format arguments will result in a runtime
--- error.
+-- specified format string where <percentage> is replaced with the
+-- percentage of battery remaining and <time> is replaced with the
+-- time until the battery is fully charged/discharged.
 textBatteryNew :: String    -- ^ Display format
                   -> Double -- ^ Poll period in seconds
                   -> IO Widget
@@ -85,7 +97,7 @@ batteryBarNew battCfg pollSeconds = do
       --
       -- Converting it to combine the two shouldn't be hard.
       b <- hBoxNew False 1
-      txt <- textBatteryNew "%d%%" pollSeconds
+      txt <- textBatteryNew "<percentage>%" pollSeconds
       bar <- pollingBarNew battCfg pollSeconds (battPct ctxt)
       boxPackStart b bar PackNatural 0
       boxPackStart b txt PackNatural 0
