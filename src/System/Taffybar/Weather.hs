@@ -290,10 +290,11 @@ weatherNew cfg delayMinutes = do
   widgetShowAll l
   return l
 
-weatherCustomNew :: IO (Either String WeatherInfo)
-                 -> String
-                 -> WeatherFormatter
-                 -> Double
+-- | Create a periodically-updating weather widget using custom weather getter
+weatherCustomNew :: IO (Either String WeatherInfo) -- ^ Weather querying action
+                 -> String                         -- ^ Weather template
+                 -> WeatherFormatter               -- ^ Weather formatter
+                 -> Double                         -- ^ Polling period in _minutes_
                  -> IO Widget
 weatherCustomNew getter tpl formatter delayMinutes = do
   let tpl' = newSTMP tpl
