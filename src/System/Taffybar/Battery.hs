@@ -101,7 +101,7 @@ batteryBarNew battCfg pollSeconds = do
       --
       -- Converting it to combine the two shouldn't be hard.
       b <- hBoxNew False 1
-      txt <- textBatteryNew "<percentage>%" pollSeconds
+      txt <- textBatteryNew "$percentage$%" pollSeconds
       bar <- pollingBarNew battCfg pollSeconds (battPct ctxt)
       boxPackStart b bar PackNatural 0
       boxPackStart b txt PackNatural 0
