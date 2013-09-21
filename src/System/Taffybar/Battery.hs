@@ -40,7 +40,7 @@ battInfo ctxt fmt = do
         _ -> "-"
 
       tpl = newSTMP fmt
-      tpl' = setManyAttrib [ ("percent", show battPctNum)
+      tpl' = setManyAttrib [ ("percentage", show battPctNum)
                            , ("time", battTime)
                            ] tpl
   return $ render tpl'
