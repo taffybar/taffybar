@@ -282,13 +282,7 @@ weatherNew :: WeatherConfig -- ^ Configuration to render
 weatherNew cfg delayMinutes = do
   let url = printf "%s/%s.TXT" baseUrl (weatherStation cfg)
       getter = getWeather url
-      tpl' = newSTMP (weatherTemplate cfg)
-      formatter = weatherFormatter cfg
-
-  l <- pollingLabelNew "N/A" (delayMinutes * 60) (getCurrentWeather getter tpl' formatter)
-
-  widgetShowAll l
-  return l
+  weatherCustomNew getter (weatherTemplate cfg) (weatherFormatter cfg) delayMinutes
 
 -- | Create a periodically-updating weather widget using custom weather getter
 weatherCustomNew :: IO (Either String WeatherInfo) -- ^ Weather querying action
