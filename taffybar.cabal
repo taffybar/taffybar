@@ -1,5 +1,5 @@
 name: taffybar
-version: 0.2.2
+version: 0.3.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
@@ -18,7 +18,7 @@ description:
   gtk2hs and provides several widgets (including a few graphical ones).
   It also sports an optional snazzy system tray.
   .
-  Changes in v0.2.2:
+  Changes in v0.3.0:
   .
     * Added an MPRIS2 widget (contributed by Igor Babuschkin)
   .
