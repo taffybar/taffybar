@@ -27,7 +27,7 @@ data BarDirection = HORIZONTAL | VERTICAL
 
 data BarConfig =
   BarConfig { barBorderColor :: (Double, Double, Double) -- ^ Color of the border drawn around the widget
-            , barBackgroundColor :: (Double, Double, Double) -- ^ The background color of the widget
+            , barBackgroundColor :: Double -> (Double, Double, Double) -- ^ The background color of the widget
             , barColor :: Double -> (Double, Double, Double) -- ^ A function to determine the color of the widget for the current data point
             , barPadding :: Int -- ^ Number of pixels of padding around the widget
             , barWidth :: Int
@@ -38,7 +38,7 @@ data BarConfig =
 -- the bar must be specified.
 defaultBarConfig :: (Double -> (Double, Double, Double)) -> BarConfig
 defaultBarConfig c = BarConfig { barBorderColor = (0.5, 0.5, 0.5)
-                               , barBackgroundColor = (0, 0, 0)
+                               , barBackgroundColor = const (0, 0, 0)
                                , barColor = c
                                , barPadding = 2
                                , barWidth = 15
@@ -58,13 +58,13 @@ verticalBarSetPercent (VBH mv) pct = do
 clamp :: Double -> Double -> Double -> Double
 clamp lo hi d = max lo $ min hi d
 
-renderFrame :: BarConfig -> Int -> Int -> Render ()
-renderFrame cfg width height = do
+renderFrame :: Double -> BarConfig -> Int -> Int -> Render ()
+renderFrame pct cfg width height = do
   let fwidth = fromIntegral width
       fheight = fromIntegral height
 
   -- Now draw the user's requested background, respecting padding
-  let (bgR, bgG, bgB) = barBackgroundColor cfg
+  let (bgR, bgG, bgB) = barBackgroundColor cfg pct
       pad = barPadding cfg
       fpad = fromIntegral pad
   setSourceRGB bgR bgG bgB
@@ -78,10 +78,8 @@ renderFrame cfg width height = do
   rectangle fpad fpad (fwidth - 2 * fpad) (fheight - 2 * fpad)
   stroke
 
--- renderBar :: Double -> (Double, Double, Double) -> Int -> Int -> Render ()
 renderBar :: Double -> BarConfig -> Int -> Int -> Render ()
 renderBar pct cfg width height = do
--- renderBar pct (r, g, b) width height = do
   let direction = barDirection cfg
       activeHeight = case direction of
                        VERTICAL   -> pct * (fromIntegral height)
@@ -94,7 +92,7 @@ renderBar pct cfg width height = do
                        HORIZONTAL -> 0
       pad = barPadding cfg
 
-  renderFrame cfg width height
+  renderFrame pct cfg width height
 
   -- After we draw the frame, transform the coordinate space so that
   -- we only draw within the frame.

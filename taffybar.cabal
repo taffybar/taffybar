@@ -28,6 +28,8 @@ description:
   .
     * GHC 7.6 compatibility
   .
+    * Vertical bars can now have dynamic background colors (suggested by Elliot Wolk)
+  .
   Changes in v0.2.1:
   .
     * More robust strut handling for multiple monitors of different sizes (contributed by Morgan Gibson)
