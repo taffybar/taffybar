@@ -38,7 +38,6 @@ module System.Taffybar.Hooks.PagerHints (
 
 import Codec.Binary.UTF8.String (encode)
 import Control.Monad
-import Data.Char (ord)
 import Data.Monoid
 import Foreign.C.Types (CInt)
 import XMonad
@@ -82,7 +81,7 @@ setCurrentLayout l = withDisplay $ \dpy -> do
   r <- asks theRoot
   a <- xLayoutProp
   c <- getAtom "UTF8_STRING"
-  let l' = map (fromIntegral . ord) l
+  let l' = map fromIntegral (encode l)
   io $ changeProperty8 dpy r a c propModeReplace l'
 
 -- | Set the value of the \"Visible Workspaces\" hint to the one given.
