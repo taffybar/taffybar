@@ -12,7 +12,7 @@ module System.Taffybar.Widgets.VerticalBar (
   ) where
 
 import Control.Concurrent
-import Graphics.Rendering.Cairo
+import Graphics.Rendering.Cairo hiding (width, height)
 import Graphics.UI.Gtk
 
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
