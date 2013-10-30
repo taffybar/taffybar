@@ -51,16 +51,16 @@ taffybarColor fg bg = wrap t "</span>" . taffybarEscape
 taffybarEscape :: String -> String
 taffybarEscape = escapeMarkup
 
--- | The same as defaultPP in XMonad.Hooks.DynamicLog
+-- | The same as the default PP in XMonad.Hooks.DynamicLog
 taffybarDefaultPP :: PP
-taffybarDefaultPP = defaultPP { ppCurrent         = taffybarEscape . wrap "[" "]"
-                              , ppVisible         = taffybarEscape . wrap "<" ">"
-			      , ppHidden          = taffybarEscape
-			      , ppHiddenNoWindows = taffybarEscape
-			      , ppUrgent          = taffybarEscape
-                              , ppTitle           = taffybarEscape . shorten 80
-			      , ppLayout          = taffybarEscape
-			      }
+taffybarDefaultPP = def { ppCurrent         = taffybarEscape . wrap "[" "]"
+                        , ppVisible         = taffybarEscape . wrap "<" ">"
+                        , ppHidden          = taffybarEscape
+                        , ppHiddenNoWindows = taffybarEscape
+                        , ppUrgent          = taffybarEscape
+                        , ppTitle           = taffybarEscape . shorten 80
+                        , ppLayout          = taffybarEscape
+                        }
 -- | The same as xmobarPP in XMonad.Hooks.DynamicLog
 taffybarPP :: PP
 taffybarPP = taffybarDefaultPP { ppCurrent = taffybarColor "yellow" "" . wrap "[" "]"
