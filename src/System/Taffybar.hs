@@ -121,7 +121,8 @@ module System.Taffybar (
   TaffybarConfig(..),
   defaultTaffybar,
   defaultTaffybarConfig,
-  Position(..)
+  Position(..),
+  taffybarMain
   ) where
 
 import qualified Config.Dyre as Dyre
