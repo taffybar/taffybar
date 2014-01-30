@@ -33,6 +33,13 @@ battInfo ctxt fmt = do
             minutes' = minutes `mod` 60
         in printf "%02d:%02d" hours minutes'
 
+      batteryOn :: Bool
+      batteryOn = case (batteryState info) of
+        BatteryStateCharging -> True
+        BatteryStateFullyCharged -> True
+        _ -> False
+
+
       battTime :: String
       battTime = case (batteryState info) of
         BatteryStateCharging -> (formatTime $ batteryTimeToFull info)
@@ -42,6 +49,7 @@ battInfo ctxt fmt = do
       tpl = newSTMP fmt
       tpl' = setManyAttrib [ ("percentage", show battPctNum)
                            , ("time", battTime)
+                           , ("percent_charge", if batteryOn then "On" else (show battPctNum) ++ "%")
                            ] tpl
   return $ render tpl'
 
@@ -101,7 +109,7 @@ batteryBarNew battCfg pollSeconds = do
       --
       -- Converting it to combine the two shouldn't be hard.
       b <- hBoxNew False 1
-      txt <- textBatteryNew "$percentage$%" pollSeconds
+      txt <- textBatteryNew "$percent_charge$" pollSeconds
       bar <- pollingBarNew battCfg pollSeconds (battPct ctxt)
       boxPackStart b bar PackNatural 0
       boxPackStart b txt PackNatural 0
