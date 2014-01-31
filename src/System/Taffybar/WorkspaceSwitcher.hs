@@ -27,15 +27,16 @@ module System.Taffybar.WorkspaceSwitcher (
 
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Trans.Reader (ReaderT)
 import Data.IORef
 import Data.List ((\\), nub)
 import Data.Maybe (listToMaybe)
 import Graphics.UI.Gtk
-import Graphics.UI.Gtk.Gdk.Pixbuf (Pixbuf)
 import Graphics.X11.Xlib.Extras
 
 import System.Taffybar.Pager
 import System.Information.EWMHDesktopInfo
+import System.Information.X11DesktopInfo (X11Context)
 
 -- $usage
 -- Display clickable workspace labels and images based on window title/class.
@@ -94,9 +95,10 @@ wspaceSwitcherNew pager = do
 allWorkspaces :: Desktop -> [Int]
 allWorkspaces desktop = [0 .. length desktop - 1]
 
--- | Return a list of two-element tuples, one for every workspace,
--- containing the Label widget used to display the name of that specific
--- workspace and a String with its default (unmarked) representation.
+
+-- | Get workspace names from EWMH, and return a list of Workspaces,
+-- each with the name, the widgets used to display that specific
+-- workspace, and the current urgent state
 getDesktop :: PagerConfig -> IO Desktop
 getDesktop cfg = do
   names <- withDefaultCtx getWorkspaceNames
@@ -106,7 +108,7 @@ clickBox :: WidgetClass w => w -> IO () -> IO Container
 clickBox w act = do
   ebox <- eventBoxNew
   containerAdd ebox w
-  on ebox buttonPressEvent $ liftIO act >> return True
+  _ <- on ebox buttonPressEvent $ liftIO act >> return True
   return $ toContainer ebox
 
 -- | Create a workspace
@@ -126,6 +128,7 @@ createWorkspace cfg name index = do
                      , wsLabel = label
                      , wsImage = image
                      , wsContainer = container
+                     , wsUrgent = False
                      }
 
 -- | Build the graphical representation of the widget.
@@ -180,6 +183,7 @@ addButton hbox desktop idx = do
   containerAdd ebox lbl
   boxPackStart hbox ebox PackNatural 0
 
+fst3 :: (a,b,c) -> a
 fst3 (x,_,_) = x
 
 -- | Get the title and class of the first window in a given workspace.
@@ -187,7 +191,7 @@ getWorkspaceWindow :: [(Int, String, String)] -- ^ full window list
                    -> Int -- ^ Workspace
                    -> Maybe (String, String) -- ^ (window title, window class)
 getWorkspaceWindow wins ws = case win of
-                              Just (ws, wtitle, wclass) -> Just (wtitle, wclass)
+                              Just (_, wtitle, wclass) -> Just (wtitle, wclass)
                               Nothing -> Nothing
   where win = listToMaybe $ filter ((==ws).fst3) wins
 
@@ -196,11 +200,12 @@ getDesktopSummary desktop = do
   allWins <- fmap reverse $ withDefaultCtx $ getWindowHandles
   let allX11Wins = map snd allWins
       allProps = map fst allWins
-  wsWins <- withDefaultCtx $ mapM getWorkspace allX11Wins
+  _ <- withDefaultCtx $ mapM getWorkspace allX11Wins
   let allWs = allWorkspaces desktop
       wsProps = map (getWorkspaceWindow allProps) allWs
   return $ zip allWs wsProps
 
+winWorkspaces :: ReaderT X11Context IO [X11Window] -> IO [Int]
 winWorkspaces getWin = ok $ withDefaultCtx $ mapM getWorkspace =<< getWin
   where ok = fmap (nub . filter (>=0))
 
@@ -225,11 +230,11 @@ transition cfg desktop curr = do
 
   nonEmpty <- nonEmptyWorkspaces
   urgent <- urgentWorkspaces
-  let all = allWorkspaces desktop
-      empty = all \\ nonEmpty
+  let allWs = allWorkspaces desktop
+      empty = allWs \\ nonEmpty
 
   let toHide = empty \\ curr
-      toShow = all \\ toHide
+      toShow = allWs \\ toHide
 
   when (hideEmptyWs cfg) $ postGUIAsync $ do
     mapM_ widgetHideAll $ map wsContainer $ map (getWs desktop) toHide
@@ -255,7 +260,7 @@ applyImages :: PagerConfig
             -> [(Int, Maybe (String, String))]
             -> IO ()
 applyImages cfg desktop curWs curTitle curClass summary = do
-  mapM apply summary
+  _ <- mapM apply summary
   return ()
   where getImg (ws, props) = imageSelector cfg $ if ws == curWs
                                                  then Just (curTitle, curClass)

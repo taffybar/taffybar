@@ -32,7 +32,7 @@ module System.Taffybar.Pager
   ( Pager (config)
   , PagerConfig (..)
   , Workspace (..)
-  , Desktop (..)
+  , Desktop
   , markWs
   , markImg
   , defaultPagerConfig
@@ -66,9 +66,9 @@ type Desktop = [Workspace]
 
 -- | Workspace record with ws name and widgets
 data Workspace = Workspace
-  { wsName      :: String -- ^ Name of the workspace.
-  , wsLabel     :: Label  -- ^ Text widget displaying workspace markup.
-  , wsImage     :: Image  -- ^ Image widget displaying the workspace image.
+  { wsName      :: String    -- ^ Name of the workspace.
+  , wsLabel     :: Label     -- ^ Text widget displaying workspace markup.
+  , wsImage     :: Image     -- ^ Image widget displaying the workspace image.
   , wsContainer :: Container -- ^ Container holding label/image
   , wsUrgent    :: Bool      -- ^ EWMH urgent flag
   }

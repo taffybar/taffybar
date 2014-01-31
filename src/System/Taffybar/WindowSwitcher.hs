@@ -33,8 +33,6 @@ import System.Information.EWMHDesktopInfo
 import System.Taffybar.Pager
 import System.Taffybar.Widgets.Util
 
-snd3 (_,x,_) = x
-
 -- $usage
 --
 -- This widget requires that the EwmhDesktops hook from the XMonadContrib
@@ -105,10 +103,10 @@ toggleSelector label ref = do
   return True
 
 formatWindow :: [String] -> ((Int, String, a), b) -> String
-formatWindow wsNames ((ws, wtitle, wclass), _) = wsName ++ ": " ++ wtitle
-  where wsName = if 0 <= ws && ws < length wsNames
-                 then wsNames !! ws
-                 else "WS#" ++ show ws
+formatWindow wsNames ((ws, wtitle, _), _) = name ++ ": " ++ wtitle
+  where name = if 0 <= ws && ws < length wsNames
+               then wsNames !! ws
+               else "WS#" ++ show ws
 
 -- | Build a new pop-up containing the titles of all currently open
 -- windows, and assign it as a singleton list to the given IORef.

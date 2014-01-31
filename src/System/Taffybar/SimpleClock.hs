@@ -36,7 +36,7 @@ makeCalendar = do
 resetCalendarDate :: Calendar -> IO ()
 resetCalendarDate cal = do
   (y,m,d) <- Clock.getCurrentTime >>= return . toGregorian . Clock.utctDay
-  calendarSelectMonth cal (fromIntegral m - 1) (fromIntegral y)
+  _ <- calendarSelectMonth cal (fromIntegral m - 1) (fromIntegral y)
   calendarSelectDay cal (fromIntegral d)
 
 toggleCalendar :: (MonadIO m, WindowClass self, WidgetClass widget)
