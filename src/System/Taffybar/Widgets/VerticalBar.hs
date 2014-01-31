@@ -8,6 +8,7 @@ module System.Taffybar.Widgets.VerticalBar (
   -- * Accessors/Constructors
   verticalBarNew,
   verticalBarSetPercent,
+  verticalBarSetColors,
   defaultBarConfig
   ) where
 
@@ -44,6 +45,18 @@ defaultBarConfig c = BarConfig { barBorderColor = (0.5, 0.5, 0.5)
                                , barWidth = 15
                                , barDirection = VERTICAL
                                }
+
+verticalBarSetColors :: VerticalBarHandle
+                     -> (Double -> (Double, Double, Double))
+                     -> (Double, Double, Double)
+                     -> IO ()
+verticalBarSetColors (VBH mv) color bgColor = do
+  s <- readMVar mv
+  let bc = (barConfig s) {barColor = color, barBackgroundColor = bgColor}
+  modifyMVar_ mv (\s' -> return s' {barConfig = bc})
+  case barIsBootstrapped s of
+    False -> return ()
+    True -> postGUIAsync $ widgetQueueDraw $ barCanvas s
 
 verticalBarSetPercent :: VerticalBarHandle -> Double -> IO ()
 verticalBarSetPercent (VBH mv) pct = do
