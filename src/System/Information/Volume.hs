@@ -1,22 +1,34 @@
 module System.Information.Volume (
   -- * Accessors
-  getVolume
+  getVolume,
+  setVolume
 ) where
 
 import Sound.ALSA.Mixer
 
--- | Gets volume of a control of a mixer
+-- | Gets volume of a channel of a mixer
 getVolume :: String -> String -> IO Integer
-getVolume mixer control = do
-  Just control <- getControlByName mixer control
+getVolume mixer channel = do
+  Just control <- getControlByName mixer channel
   let Just playbackVolume = playback $ volume control
-  (min, max) <- getRange playbackVolume
+  (lo, hi) <- getRange playbackVolume
   Just vol <- getChannel FrontLeft $ value $ playbackVolume
-  return . ceiling $ percent vol min max
+  return $ toPercent vol lo hi
 
-  where
-  percent :: Integer -> Integer -> Integer -> Float
-  percent v' lo' hi' = (v - lo) / (hi - lo) * 100
-    where v = fromIntegral v'
-          lo = fromIntegral lo'
-          hi = fromIntegral hi'
+-- | Sets volume of a channel of a mixer
+setVolume :: String -> String -> Double -> IO ()
+setVolume mixer channel vol = do
+   Just control <- getControlByName mixer channel
+   let Just playbackVolume = playback $ volume control
+   (lo, hi) <- getRange playbackVolume
+   setChannel FrontLeft (value $ playbackVolume) $ fromPercent vol lo hi
+
+toPercent :: Integer -> Integer -> Integer -> Integer
+toPercent v lo hi = ceiling $ (v' - lo') / (hi' - lo') * 100
+  where v' = fromIntegral v
+        lo' = fromIntegral lo
+        hi' = fromIntegral hi
+fromPercent :: Double -> Integer -> Integer -> Integer
+fromPercent v lo hi = ceiling $ lo' + (hi' - lo') * v / 100
+  where lo' = fromIntegral lo
+        hi' = fromIntegral hi

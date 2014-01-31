@@ -1,5 +1,6 @@
 module System.Taffybar.Volume (
-  volumeTextNew
+  volumeTextNew,
+  volumeControlNew
 ) where
 
 import System.Information.Volume
@@ -14,3 +15,14 @@ volumeTextNew mixer control pollSeconds = do
   l <- pollingLabelNew "" pollSeconds ((getVolume mixer control >>= return . show))
   widgetShowAll l
   return l
+
+volumeControlNew :: String -> String -> IO Widget
+volumeControlNew mixer control = do
+  b <- volumeButtonNew
+
+  _ <- on b scaleButtonValueChanged $ \v -> do
+    setVolume mixer control (v * 100)
+
+  let w = toWidget b
+  widgetShowAll w
+  return w
