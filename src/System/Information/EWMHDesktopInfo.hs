@@ -30,6 +30,7 @@ module System.Information.EWMHDesktopInfo
   , getWindowTitle
   , getWindowClass
   , getActiveWindowTitle
+  , getActiveWindowClass
   , getWindows
   , getWindowHandles
   , getWorkspace
@@ -91,6 +92,10 @@ withActiveWindow getProp = do
 -- | Get the title of the currently focused window.
 getActiveWindowTitle :: X11Property String
 getActiveWindowTitle = withActiveWindow getWindowTitle
+
+-- | Get the class of the currently focused window.
+getActiveWindowClass :: X11Property String
+getActiveWindowClass = withActiveWindow getWindowClass
 
 -- | Return a list of all windows
 getWindows :: X11Property [X11Window]
