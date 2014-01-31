@@ -103,10 +103,10 @@ toggleSelector label ref = do
   return True
 
 formatWindow :: [String] -> ((Int, String, a), b) -> String
-formatWindow wsNames ((ws, wtitle, _), _) = name ++ ": " ++ wtitle
-  where name = if 0 <= ws && ws < length wsNames
-               then wsNames !! ws
-               else "WS#" ++ show ws
+formatWindow wsNames ((ws, wtitle, _), _) = wsName ++ ": " ++ wtitle
+  where wsName = if 0 <= ws && ws < length wsNames
+                 then wsNames !! ws
+                 else "WS#" ++ show ws
 
 -- | Build a new pop-up containing the titles of all currently open
 -- windows, and assign it as a singleton list to the given IORef.
@@ -123,7 +123,7 @@ createSelector ref = do
     _ <- M.treeViewAppendColumn view column
     sel <- M.treeViewGetSelection view
     _ <- M.onSelectionChanged sel $ do
-      handlePick sel handles
+      handlePick sel list handles
       killSelector selector ref
     set selector [ containerChild := view ]
     _ <- on selector deleteEvent $ killSelector selector ref >> return False
@@ -158,9 +158,10 @@ makeColumn list = do
 
 -- | Switch to the window selected by the user in the pop-up.
 handlePick :: M.TreeSelection -- ^ Pop-up selection
+           -> ListStore String -- ^ List of all available windows
            -> [((Int, String, String), X11Window)] -- ^ workspace, window title, window class and window ID
            -> IO ()
-handlePick selection handles = do
+handlePick selection _ handles = do
   row <- M.treeSelectionGetSelectedRows selection
   let idx = head (head row)
       wh = snd (handles !! idx)

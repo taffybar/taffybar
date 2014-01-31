@@ -36,33 +36,18 @@ makeCalendar = do
 resetCalendarDate :: Calendar -> IO ()
 resetCalendarDate cal = do
   (y,m,d) <- Clock.getCurrentTime >>= return . toGregorian . Clock.utctDay
-  _ <- calendarSelectMonth cal (fromIntegral m - 1) (fromIntegral y)
+  calendarSelectMonth cal (fromIntegral m - 1) (fromIntegral y)
   calendarSelectDay cal (fromIntegral d)
 
-toggleCalendar :: (MonadIO m, WindowClass self, WidgetClass widget)
-                  => widget -> self -> m ()
-toggleCalendar w c = liftIO $ do
+toggleCalendar :: WidgetClass w => w -> Window -> IO Bool
+toggleCalendar w c = do
   isVis <- get c widgetVisible
-  case isVis of
-    True -> widgetHideAll c
-    False -> do
-      windowSetKeepAbove c True
-      windowStick c
-      windowSetTypeHint c WindowTypeHintTooltip
-      windowSetSkipTaskbarHint c True
-      windowSetSkipPagerHint c True
-
-      Just topLevel <- widgetGetAncestor w gTypeWindow
-      let topLevelWindow = castToWindow topLevel
-      windowSetTransientFor c topLevelWindow
-
-      windowSetPosition c WinPosMouse
-      (x,  y) <- windowGetPosition c
-      (_, y') <- widgetGetSize w
-      widgetShowAll c
-      if y > y'
-          then windowMove c x (y - y')
-          else windowMove c x y'
+  if isVis
+    then widgetHideAll c
+    else do
+      attachPopup w "Calendar" c
+      displayPopup w c
+  return True
 
 -- | Create the widget.  I recommend passing @Nothing@ for the
 -- TimeLocale parameter.  The format string can include Pango markup
