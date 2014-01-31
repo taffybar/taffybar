@@ -93,8 +93,8 @@ toggleSelector :: Label -- ^ Parent of the pop-up window to create.
 toggleSelector label ref = do
   win <- readIORef ref
   case win of
-    x:xs -> killSelector x ref
-    _    -> do
+    x:_  -> killSelector x ref
+    []   -> do
       selector <- createSelector ref
       case selector of
         Just sel -> do
@@ -104,6 +104,7 @@ toggleSelector label ref = do
         Nothing -> return ()
   return True
 
+formatWindow :: [String] -> ((Int, String, a), b) -> String
 formatWindow wsNames ((ws, wtitle, wclass), _) = wsName ++ ": " ++ wtitle
   where wsName = if 0 <= ws && ws < length wsNames
                  then wsNames !! ws
@@ -121,10 +122,10 @@ createSelector ref = do
     view     <- makeTreeView list
     column   <- makeColumn list
 
-    M.treeViewAppendColumn view column
+    _ <- M.treeViewAppendColumn view column
     sel <- M.treeViewGetSelection view
-    M.onSelectionChanged sel $ do
-      handlePick sel list handles
+    _ <- M.onSelectionChanged sel $ do
+      handlePick sel handles
       killSelector selector ref
     set selector [ containerChild := view ]
     _ <- on selector deleteEvent $ killSelector selector ref >> return False
@@ -159,10 +160,9 @@ makeColumn list = do
 
 -- | Switch to the window selected by the user in the pop-up.
 handlePick :: M.TreeSelection -- ^ Pop-up selection
-           -> ListStore String -- ^ List of all available windows
            -> [((Int, String, String), X11Window)] -- ^ workspace, window title, window class and window ID
            -> IO ()
-handlePick selection list handles = do
+handlePick selection handles = do
   row <- M.treeSelectionGetSelectedRows selection
   let idx = head (head row)
       wh = snd (handles !! idx)

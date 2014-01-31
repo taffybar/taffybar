@@ -1,5 +1,5 @@
 name: taffybar
-version: 0.2.2
+version: 0.3.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
@@ -18,7 +18,9 @@ description:
   gtk2hs and provides several widgets (including a few graphical ones).
   It also sports an optional snazzy system tray.
   .
-  Changes in v0.2.2:
+  Changes in v0.3.0:
+  .
+    * A new pager (System.Taffybar.TaffyPager) from José A. Romero L.  This pager is a drop-in replacement for the dbus-based XMonadLog widget.  It communicates via X atoms and EWMH like a real pager.  It even supports changing workspaces by clicking on them.  I recommend this over the old widget.
   .
     * Added an MPRIS2 widget (contributed by Igor Babuschkin)
   .
@@ -27,6 +29,10 @@ description:
     * Finally have the calendar widget pop up over the date/time widget (contributed by José A. Romero)
   .
     * GHC 7.6 compatibility
+  .
+    * Vertical bars can now have dynamic background colors (suggested by Elliot Wolk)
+  .
+    * Bug fixes
   .
   Changes in v0.2.1:
   .

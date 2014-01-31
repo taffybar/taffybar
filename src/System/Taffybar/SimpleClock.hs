@@ -18,6 +18,7 @@ import Graphics.UI.Gtk
 import System.Locale
 
 import System.Taffybar.Widgets.PollingLabel
+import System.Taffybar.Widgets.Util
 
 makeCalendar :: IO Window
 makeCalendar = do
@@ -63,6 +64,14 @@ toggleCalendar w c = liftIO $ do
           then windowMove c x (y - y')
           else windowMove c x y'
 
+toggleCalendar :: WidgetClass w => w -> Window -> IO Bool
+toggleCalendar w c = do
+  isVis <- get c widgetVisible
+  if isVis
+    then widgetHideAll c
+    else do
+      attachPopup w "Calendar" c
+      displayPopup w c
   return True
 
 -- | Create the widget.  I recommend passing @Nothing@ for the
@@ -97,7 +106,7 @@ textClockNewWith cfg fmt updateSeconds = do
   containerAdd ebox l
   eventBoxSetVisibleWindow ebox False
   cal <- makeCalendar
-  _   <- on ebox buttonPressEvent (toggleCalendar l cal)
+  _ <- on ebox buttonPressEvent $ onClick [SingleClick] (toggleCalendar l cal)
   widgetShowAll ebox
   return (toWidget ebox)
   where

@@ -54,9 +54,9 @@ getCurrentWorkspace = readAsInt Nothing "_NET_CURRENT_DESKTOP"
 getVisibleWorkspaces :: X11Property [Int]
 getVisibleWorkspaces = do
   vis <- getVisibleTags
-  all <- getWorkspaceNames
+  allNames <- getWorkspaceNames
   cur <- getCurrentWorkspace
-  return $ cur : mapMaybe (flip elemIndex all) vis
+  return $ cur : mapMaybe (`elemIndex` allNames) vis
 
 -- | Return a list with the names of all the workspaces currently
 -- available.
@@ -87,9 +87,7 @@ withActiveWindow :: (X11Window -> X11Property String) -> X11Property String
 withActiveWindow getProp = do
   awt <- readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
   let w = listToMaybe $ filter (>0) awt
-  case w of
-    Just w -> getProp w
-    Nothing -> return noFocus
+  maybe (return noFocus) getProp w
 
 -- | Get the title of the currently focused window.
 getActiveWindowTitle :: X11Property String

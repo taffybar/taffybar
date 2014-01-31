@@ -38,7 +38,6 @@ module System.Taffybar.Hooks.PagerHints (
 
 import Codec.Binary.UTF8.String (encode)
 import Control.Monad
-import Data.Char (ord)
 import Data.Monoid
 import Foreign.C.Types (CInt)
 import XMonad
@@ -82,7 +81,7 @@ setCurrentLayout l = withDisplay $ \dpy -> do
   r <- asks theRoot
   a <- xLayoutProp
   c <- getAtom "UTF8_STRING"
-  let l' = map (fromIntegral . ord) l
+  let l' = map fromIntegral (encode l)
   io $ changeProperty8 dpy r a c propModeReplace l'
 
 -- | Set the value of the \"Visible Workspaces\" hint to the one given.
@@ -98,10 +97,9 @@ setVisibleWorkspaces vis = withDisplay $ \dpy -> do
 -- set the current layout accordingly.
 pagerHintsEventHook :: Event -> X All
 pagerHintsEventHook (ClientMessageEvent {
-    ev_window = w,
     ev_message_type = mt,
     ev_data = d
-  }) = withWindowSet $ \s -> do
+  }) = withWindowSet $ \_ -> do
   a <- xLayoutProp
   when (mt == a) $ sendLayoutMessage d
   return (All True)
@@ -111,7 +109,7 @@ pagerHintsEventHook _ = return (All True)
 -- to XMonad.
 sendLayoutMessage :: [CInt] -> X ()
 sendLayoutMessage evData = case evData of
-  x:xs -> if (fromIntegral x) < 0
+  []   -> return ()
+  x:_  -> if x < 0
             then sendMessage FirstLayout
             else sendMessage NextLayout
-  _    -> return ()

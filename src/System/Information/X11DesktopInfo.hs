@@ -43,7 +43,7 @@ import Data.Maybe (fromMaybe)
 import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
 
-data X11Context = X11Context { display :: Display, root :: Window }
+data X11Context = X11Context { contextDisplay :: Display, contextRoot :: Window }
 type X11Property a = ReaderT X11Context IO a
 type X11Window = Window
 type PropertyFetcher a = Display -> Atom -> Window -> IO (Maybe [a])
@@ -54,7 +54,7 @@ withDefaultCtx :: X11Property a -> IO a
 withDefaultCtx fun = do
   ctx <- getDefaultCtx
   res <- runReaderT fun ctx
-  closeDisplay (display ctx)
+  closeDisplay (contextDisplay ctx)
   return res
 
 -- | Retrieve the property of the given window (or the root window,
@@ -66,8 +66,8 @@ readAsInt :: Maybe X11Window -- ^ window to read from. Nothing means the root wi
 readAsInt window name = do
   prop <- fetch getWindowProperty32 window name
   case prop of
-    Just (x:xs) -> return (fromIntegral x)
-    _           -> return (-1)
+    Just (x:_) -> return (fromIntegral x)
+    _          -> return (-1)
 
 -- | Retrieve the property of the given window (or the root window,
 -- if Nothing) with the given name as a String. If the property

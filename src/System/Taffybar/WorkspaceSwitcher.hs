@@ -88,11 +88,18 @@ wspaceSwitcherNew pager = do
   subscribe pager activecb "WM_HINTS"
   return widget
 
--- | Get workspace names from EWMH, and return a list of Workspaces.
-getDesktop :: PagerConfig -> IO Desktop
-getDesktop cfg = do
-  names <- withDefaultCtx getWorkspaceNames
-  mapM (\(name, index) -> createWorkspace cfg name index) $ zip names [0..]
+-- | List of indices of all available workspaces.
+allWorkspaces :: Desktop -> [Int]
+allWorkspaces desktop = [0 .. length desktop - 1]
+
+-- | Return a list of two-element tuples, one for every workspace,
+-- containing the Label widget used to display the name of that specific
+-- workspace and a String with its default (unmarked) representation.
+getDesktop :: Pager -> IO Desktop
+getDesktop pager = do
+  names  <- withDefaultCtx getWorkspaceNames
+  labels <- toLabels $ map (hiddenWorkspace $ config pager) names
+  return $ zipWith (\n l -> Workspace l n False) names labels
 
 clickBox :: WidgetClass w => w -> IO () -> IO Container
 clickBox w act = do
@@ -125,18 +132,60 @@ assembleWidget :: PagerConfig -> Desktop -> IO Widget
 assembleWidget cfg desktop = do
   hbox <- hBoxNew False (wsButtonSpacing cfg)
   mapM_ (containerAdd hbox) $ map wsContainer desktop
+  mapM_ (addButton hbox desktop) (allWorkspaces desktop)
   widgetShowAll hbox
   return $ toWidget hbox
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_CURRENT_DESKTOP" standard events. It will track the position of
 -- the active workspace in the desktop.
-activeCallback :: PagerConfig -> Desktop -> IORef [Int] -> Event -> IO ()
-activeCallback cfg desktop ref _ = do
-  prev <- readIORef ref
+activeCallback :: PagerConfig -> IORef Desktop -> Event -> IO ()
+activeCallback cfg deskRef _ = do
   curr <- withDefaultCtx getVisibleWorkspaces
-  transition cfg desktop prev curr
-  writeIORef ref curr
+  desktop <- readIORef deskRef
+  let visible = head curr
+  when (urgent $ desktop !! visible) $
+    liftIO $ toggleUrgent deskRef visible False
+  transition cfg desktop curr
+
+-- | Build a suitable callback function that can be registered as Listener
+-- of "WM_HINTS" standard events. It will display in a different color any
+-- workspace (other than the active one) containing one or more windows
+-- with its urgency hint set.
+urgentCallback :: PagerConfig -> IORef Desktop -> Event -> IO ()
+urgentCallback cfg deskRef event = do
+  desktop <- readIORef deskRef
+  withDefaultCtx $ do
+    let window = ev_window event
+    isUrgent <- isWindowUrgent window
+    when isUrgent $ do
+      this <- getCurrentWorkspace
+      that <- getWorkspace window
+      when (this /= that) $ liftIO $ do
+        toggleUrgent deskRef that True
+        mark desktop (urgentWorkspace cfg) that
+
+-- | Convert the given list of Strings to a list of Label widgets.
+toLabels :: [String] -> IO [Label]
+toLabels = mapM labelNewMarkup
+  where labelNewMarkup markup = do
+          label <- labelNew Nothing
+          labelSetMarkup label markup
+          return label
+
+-- | Build a new clickable event box containing the Label widget that
+-- corresponds to the given index, and add it to the given container.
+addButton :: HBox    -- ^ Graphical container.
+          -> Desktop -- ^ List of all workspace Labels available.
+          -> Int     -- ^ Index of the workspace to use.
+          -> IO ()
+addButton hbox desktop idx = do
+  let lbl = label (desktop !! idx)
+  ebox <- eventBoxNew
+  eventBoxSetVisibleWindow ebox False
+  _ <- on ebox buttonPressEvent $ switch idx
+  containerAdd ebox lbl
+  boxPackStart hbox ebox PackNatural 0
 
 fst3 (x,_,_) = x
 
@@ -159,12 +208,10 @@ getDesktopSummary desktop = do
       wsProps = map (getWorkspaceWindow allProps) allWs
   return $ zip allWs wsProps
 
-allWorkspaces :: Desktop -> [Int]
-allWorkspaces desktop = [0 .. length desktop - 1]
-
 winWorkspaces getWin = ok $ withDefaultCtx $ mapM getWorkspace =<< getWin
   where ok = fmap (nub . filter (>=0))
 
+-- | List of indices of all the workspaces that contain at least one window.
 nonEmptyWorkspaces :: IO [Int]
 nonEmptyWorkspaces = winWorkspaces $ getWindows
 
@@ -227,3 +274,17 @@ applyImages cfg desktop curWs curTitle curClass summary = do
 -- | Switch to the workspace with the given index.
 switch :: Int -> IO ()
 switch idx = liftIO $ withDefaultCtx $ switchToWorkspace idx
+
+-- | Modify the Desktop inside the given IORef, so that the Workspace at the
+-- given index has its "urgent" flag set to the given value.
+toggleUrgent :: IORef Desktop -- ^ IORef to modify.
+             -> Int           -- ^ Index of the Workspace to replace.
+             -> Bool          -- ^ New value of the "urgent" flag.
+             -> IO ()
+toggleUrgent deskRef idx isUrgent = do
+  desktop <- readIORef deskRef
+  let ws = desktop !! idx
+  unless (isUrgent == urgent ws) $ do
+    let ws' = (desktop !! idx) { urgent = isUrgent }
+    let (ys, zs) = splitAt idx desktop
+        in writeIORef deskRef $ ys ++ (ws' : tail zs)

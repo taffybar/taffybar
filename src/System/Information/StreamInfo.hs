@@ -24,7 +24,7 @@ module System.Information.StreamInfo
 
 import Control.Concurrent (threadDelay)
 import Data.IORef
-import Data.Maybe (fromJust)
+import Data.Maybe ( fromMaybe )
 
 -- | Apply the given parser function to the file under the given path to produce
 -- a lookup map, then use the given selector as key to extract from it the
@@ -33,7 +33,7 @@ getParsedInfo :: FilePath -> (String -> [(String, [Integer])]) -> String -> IO [
 getParsedInfo path parser selector = do
     file <- readFile path
     (length file) `seq` return ()
-    return (fromJust $ lookup selector $ parser file)
+    return (fromMaybe [] $ lookup selector $ parser file)
 
 truncVal :: Double -> Double
 truncVal v

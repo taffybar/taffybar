@@ -74,7 +74,7 @@ pagerCallback :: PagerConfig -> Label -> Event -> IO ()
 pagerCallback cfg label _ = do
   layout <- withDefaultCtx $ readAsString Nothing xLayoutProp
   let decorate = activeLayout cfg
-  postGUIAsync $ labelSetMarkup label =<< decorate layout
+  postGUIAsync $ labelSetMarkup label (decorate layout)
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: Label -> IO Widget
@@ -93,11 +93,10 @@ dispatchButtonEvent :: EventM EButton Bool
 dispatchButtonEvent = do
   btn <- eventButton
   let trigger = onClick [SingleClick]
-  success <- case btn of
+  case btn of
     LeftButton  -> trigger $ switch 1
     RightButton -> trigger $ switch (-1)
     _           -> return False
-  return success
 
 -- | Emit a new custom event of type _XMONAD_CURRENT_LAYOUT, that can be
 -- intercepted by the PagerHints hook, which in turn can instruct XMonad to
