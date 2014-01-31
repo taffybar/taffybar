@@ -136,7 +136,6 @@ assembleWidget :: PagerConfig -> Desktop -> IO Widget
 assembleWidget cfg desktop = do
   hbox <- hBoxNew False (wsButtonSpacing cfg)
   mapM_ (containerAdd hbox) $ map wsContainer desktop
-  mapM_ (addButton hbox desktop) (allWorkspaces desktop)
   widgetShowAll hbox
   return $ toWidget hbox
 
@@ -168,20 +167,6 @@ urgentCallback cfg deskRef event = do
       when (this /= that) $ liftIO $ do
         toggleUrgent deskRef that True
         urgentWorkspace cfg $ desktop !! that
-
--- | Build a new clickable event box containing the Label widget that
--- corresponds to the given index, and add it to the given container.
-addButton :: HBox    -- ^ Graphical container.
-          -> Desktop -- ^ List of all workspace Labels available.
-          -> Int     -- ^ Index of the workspace to use.
-          -> IO ()
-addButton hbox desktop idx = do
-  let lbl = wsLabel (desktop !! idx)
-  ebox <- eventBoxNew
-  eventBoxSetVisibleWindow ebox False
-  _ <- on ebox buttonPressEvent $ (switch idx >> return True)
-  containerAdd ebox lbl
-  boxPackStart hbox ebox PackNatural 0
 
 fst3 :: (a,b,c) -> a
 fst3 (x,_,_) = x
