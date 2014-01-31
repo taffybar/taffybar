@@ -40,7 +40,7 @@ resetCalendarDate cal = do
   calendarSelectDay cal (fromIntegral d)
 
 toggleCalendar :: (MonadIO m, WindowClass self, WidgetClass widget)
-                  => widget -> self -> m Bool
+                  => widget -> self -> m ()
 toggleCalendar w c = liftIO $ do
   isVis <- get c widgetVisible
   case isVis of
@@ -63,16 +63,6 @@ toggleCalendar w c = liftIO $ do
       if y > y'
           then windowMove c x (y - y')
           else windowMove c x y'
-
-toggleCalendar :: WidgetClass w => w -> Window -> IO Bool
-toggleCalendar w c = do
-  isVis <- get c widgetVisible
-  if isVis
-    then widgetHideAll c
-    else do
-      attachPopup w "Calendar" c
-      displayPopup w c
-  return True
 
 -- | Create the widget.  I recommend passing @Nothing@ for the
 -- TimeLocale parameter.  The format string can include Pango markup

@@ -70,6 +70,7 @@ data Workspace = Workspace
   , wsLabel     :: Label  -- ^ Text widget displaying workspace markup.
   , wsImage     :: Image  -- ^ Image widget displaying the workspace image.
   , wsContainer :: Container -- ^ Container holding label/image
+  , wsUrgent    :: Bool      -- ^ EWMH urgent flag
   }
 
 -- | Structure contanining functions to customize the pretty printing of

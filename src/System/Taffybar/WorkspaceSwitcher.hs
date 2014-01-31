@@ -81,11 +81,13 @@ wspaceSwitcherNew :: Pager -> IO Widget
 wspaceSwitcherNew pager = do
   desktop <- getDesktop (config pager)
   widget  <- assembleWidget (config pager) desktop
-  idxRef  <- newIORef []
+  deskRef <- newIORef desktop
   let cfg = config pager
-      activecb = activeCallback cfg desktop idxRef
+      activecb = activeCallback cfg deskRef
+      urgentcb = urgentCallback cfg deskRef
   subscribe pager activecb "_NET_CURRENT_DESKTOP"
   subscribe pager activecb "WM_HINTS"
+  subscribe pager urgentcb "WM_HINTS"
   return widget
 
 -- | List of indices of all available workspaces.
@@ -95,11 +97,10 @@ allWorkspaces desktop = [0 .. length desktop - 1]
 -- | Return a list of two-element tuples, one for every workspace,
 -- containing the Label widget used to display the name of that specific
 -- workspace and a String with its default (unmarked) representation.
-getDesktop :: Pager -> IO Desktop
-getDesktop pager = do
-  names  <- withDefaultCtx getWorkspaceNames
-  labels <- toLabels $ map (hiddenWorkspace $ config pager) names
-  return $ zipWith (\n l -> Workspace l n False) names labels
+getDesktop :: PagerConfig -> IO Desktop
+getDesktop cfg = do
+  names <- withDefaultCtx getWorkspaceNames
+  mapM (\(name, index) -> createWorkspace cfg name index) $ zip names [0..]
 
 clickBox :: WidgetClass w => w -> IO () -> IO Container
 clickBox w act = do
@@ -144,7 +145,7 @@ activeCallback cfg deskRef _ = do
   curr <- withDefaultCtx getVisibleWorkspaces
   desktop <- readIORef deskRef
   let visible = head curr
-  when (urgent $ desktop !! visible) $
+  when (wsUrgent $ desktop !! visible) $
     liftIO $ toggleUrgent deskRef visible False
   transition cfg desktop curr
 
@@ -163,15 +164,7 @@ urgentCallback cfg deskRef event = do
       that <- getWorkspace window
       when (this /= that) $ liftIO $ do
         toggleUrgent deskRef that True
-        mark desktop (urgentWorkspace cfg) that
-
--- | Convert the given list of Strings to a list of Label widgets.
-toLabels :: [String] -> IO [Label]
-toLabels = mapM labelNewMarkup
-  where labelNewMarkup markup = do
-          label <- labelNew Nothing
-          labelSetMarkup label markup
-          return label
+        urgentWorkspace cfg $ desktop !! that
 
 -- | Build a new clickable event box containing the Label widget that
 -- corresponds to the given index, and add it to the given container.
@@ -180,10 +173,10 @@ addButton :: HBox    -- ^ Graphical container.
           -> Int     -- ^ Index of the workspace to use.
           -> IO ()
 addButton hbox desktop idx = do
-  let lbl = label (desktop !! idx)
+  let lbl = wsLabel (desktop !! idx)
   ebox <- eventBoxNew
   eventBoxSetVisibleWindow ebox False
-  _ <- on ebox buttonPressEvent $ switch idx
+  _ <- on ebox buttonPressEvent $ (switch idx >> return True)
   containerAdd ebox lbl
   boxPackStart hbox ebox PackNatural 0
 
@@ -221,10 +214,9 @@ urgentWorkspaces = winWorkspaces $ filterM isWindowUrgent =<< getWindows
 -- | Perform all changes needed whenever the active workspace changes.
 transition :: PagerConfig -- ^ Configuration settings.
            -> Desktop -- ^ All available Labels with their default values.
-           -> [Int] -- ^ Previously visible workspaces (first was active).
            -> [Int] -- ^ Currently visible workspaces (first is active).
            -> IO ()
-transition cfg desktop prev curr = do
+transition cfg desktop curr = do
   withDefaultCtx $ do
     summary <- liftIO $ getDesktopSummary desktop
     curTitle <- getActiveWindowTitle
@@ -272,7 +264,7 @@ applyImages cfg desktop curWs curTitle curClass summary = do
           markImg (getImg (ws, props)) $ getWs desktop ws
 
 -- | Switch to the workspace with the given index.
-switch :: Int -> IO ()
+switch :: (MonadIO m) => Int -> m ()
 switch idx = liftIO $ withDefaultCtx $ switchToWorkspace idx
 
 -- | Modify the Desktop inside the given IORef, so that the Workspace at the
@@ -284,7 +276,7 @@ toggleUrgent :: IORef Desktop -- ^ IORef to modify.
 toggleUrgent deskRef idx isUrgent = do
   desktop <- readIORef deskRef
   let ws = desktop !! idx
-  unless (isUrgent == urgent ws) $ do
-    let ws' = (desktop !! idx) { urgent = isUrgent }
+  unless (isUrgent == wsUrgent ws) $ do
+    let ws' = (desktop !! idx) { wsUrgent = isUrgent }
     let (ys, zs) = splitAt idx desktop
         in writeIORef deskRef $ ys ++ (ws' : tail zs)

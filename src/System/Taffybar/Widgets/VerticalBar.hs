@@ -48,7 +48,7 @@ defaultBarConfig c = BarConfig { barBorderColor = (0.5, 0.5, 0.5)
 
 verticalBarSetColors :: VerticalBarHandle
                      -> (Double -> (Double, Double, Double))
-                     -> (Double, Double, Double)
+                     -> (Double -> (Double, Double, Double))
                      -> IO ()
 verticalBarSetColors (VBH mv) color bgColor = do
   s <- readMVar mv
