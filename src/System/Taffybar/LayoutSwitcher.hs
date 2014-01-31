@@ -82,9 +82,7 @@ assembleWidget :: Label -> IO Widget
 assembleWidget label = do
   ebox <- eventBoxNew
   containerAdd ebox label
-  _ <- on ebox buttonPressEvent $ do
-    success <- dispatchButtonEvent
-    return success
+  _ <- on ebox buttonPressEvent dispatchButtonEvent
   widgetShowAll ebox
   return $ toWidget ebox
 
