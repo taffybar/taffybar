@@ -22,6 +22,10 @@ setVolume mixer channel vol = do
    let Just playbackVolume = playback $ volume control
    (lo, hi) <- getRange playbackVolume
    setChannel FrontLeft (value $ playbackVolume) $ fromPercent vol lo hi
+   setChannel FrontRight (value $ playbackVolume) $ fromPercent vol lo hi
+   setChannel RearLeft (value $ playbackVolume) $ fromPercent vol lo hi
+   setChannel RearRight (value $ playbackVolume) $ fromPercent vol lo hi
+   setChannel FrontCenter (value $ playbackVolume) $ fromPercent vol lo hi
 
 toPercent :: Integer -> Integer -> Integer -> Integer
 toPercent v lo hi = ceiling $ (v' - lo') / (hi' - lo') * 100
