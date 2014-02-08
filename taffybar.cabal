@@ -78,7 +78,7 @@ library
                  dbus >= 0.10.1 && < 1.0, gtk >= 0.12.1, dyre >= 0.8.6,
                  HStringTemplate, gtk-traymanager >= 0.1.2 && < 0.2, xmonad-contrib, xmonad,
                  xdg-basedir, filepath, utf8-string, process, stm, transformers >= 0.3.0.0,
-                 X11 >= 1.5.0.1, split >= 0.1.4.2
+                 X11 >= 1.5.0.1, split >= 0.1.4.2, alsa-mixer
   hs-source-dirs: src
   pkgconfig-depends: gtk+-2.0
   exposed-modules: System.Taffybar,
@@ -90,6 +90,7 @@ library
                    System.Taffybar.MPRIS,
                    System.Taffybar.MPRIS2,
                    System.Taffybar.Battery,
+                   System.Taffybar.Volume,
                    System.Taffybar.CPUMonitor,
                    System.Taffybar.DiskIOMonitor,
                    System.Taffybar.FSMonitor,
@@ -108,6 +109,7 @@ library
                    System.Taffybar.Widgets.VerticalBar,
                    System.Information.StreamInfo,
                    System.Information.Battery,
+                   System.Information.Volume,
                    System.Information.EWMHDesktopInfo,
                    System.Information.X11DesktopInfo,
                    System.Information.Memory,
