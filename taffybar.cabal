@@ -91,6 +91,7 @@ library
                    System.Taffybar.MPRIS2,
                    System.Taffybar.Battery,
                    System.Taffybar.CPUMonitor,
+                   System.Taffybar.TextCPUMonitor,
                    System.Taffybar.DiskIOMonitor,
                    System.Taffybar.FSMonitor,
                    System.Taffybar.LayoutSwitcher,
