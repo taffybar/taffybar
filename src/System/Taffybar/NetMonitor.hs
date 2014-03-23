@@ -18,7 +18,7 @@ module System.Taffybar.NetMonitor (netMonitorNew) where
 
 import Data.IORef
 import Graphics.UI.Gtk
-import System.Information.Network (getNetInfo)
+import System.Information.Network (getNetInfo, isUpNet)
 import System.Taffybar.Widgets.PollingLabel
 import Text.Printf (printf)
 
@@ -36,9 +36,12 @@ netMonitorNew interval interface = do
 
 showInfo :: IORef [Integer] -> Double -> String -> IO String
 showInfo sample interval interface = do
-    thisSample <- getNetInfo interface
-    lastSample <- readIORef sample
-    writeIORef sample thisSample
-    let deltas = map fromIntegral $ zipWith (-) thisSample lastSample
-        [incoming, outgoing] = map (/(interval*1e3)) deltas
-    return $ printf "▼ %.2fkb/s ▲ %.2fkb/s" incoming outgoing
+    isUp <- isUpNet interface
+    if isUp
+       then do thisSample <- getNetInfo interface
+               lastSample <- readIORef sample
+               writeIORef sample thisSample
+               let deltas = map fromIntegral $ zipWith (-) thisSample lastSample
+                   [incoming, outgoing] = map (/(interval*1e3)) deltas
+               return $ printf "▼ %.2fkb/s ▲ %.2fkb/s" incoming outgoing
+       else return ""
