@@ -14,6 +14,7 @@ module System.Information.Battery (
   getBatteryInfo
   ) where
 
+import Control.Applicative
 import Data.Map ( Map )
 import qualified Data.Map as M
 import Data.Maybe
@@ -178,9 +179,6 @@ batteryContextNew = do
   reply <- call_ systemConn (methodCall powerBaseObjectPath "org.freedesktop.UPower" "EnumerateDevices")
         { methodCallDestination = Just powerBusName
         }
-  let Just powerDevices = fromVariant (methodReturnBody reply !! 0)
+  let powerDevices = fromJust . fromVariant . head $ methodReturnBody reply
 
-  case firstBattery powerDevices of
-    Nothing -> return Nothing
-    Just battPath ->
-      return . Just $ BC systemConn battPath
+  return $ BC systemConn <$> firstBattery powerDevices
