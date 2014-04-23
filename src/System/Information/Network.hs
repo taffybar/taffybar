@@ -14,7 +14,9 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Information.Network (getNetInfo) where
+module System.Information.Network ( getNetInfo
+                                  , isUpNet
+                                  ) where
 
 import System.Information.StreamInfo (getParsedInfo)
 
@@ -30,3 +32,10 @@ parse = map tuplize . map words . drop 2 . lines
 tuplize :: [String] -> (String, [Integer])
 tuplize s = (init $ head s, map read [s!!1, s!!out])
     where out = (length s) - 8
+
+-- | Returns whether the given network interface is up, according to
+-- the contents of the @\/sys\/class\/net\/'interface'\/operstate@
+-- file.
+isUpNet :: String -> IO Bool
+isUpNet interface = do state <- readFile $ "/sys/class/net/" ++ interface ++ "/operstate"
+                       return $ head state == 'u'
