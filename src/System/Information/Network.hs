@@ -14,10 +14,12 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Information.Network (getNetInfo) where
+module System.Information.Network ( getNetInfo ) where
 
 import Control.Applicative
-import System.Information.StreamInfo (getParsedInfo)
+import Data.Maybe ( mapMaybe )
+import Safe ( atMay, initSafe, readDef )
+import System.Information.StreamInfo ( getParsedInfo )
 
 -- | Returns a two-element list containing the current number of bytes
 -- received and transmitted via the given network interface (e.g. \"wlan0\"),
@@ -30,11 +32,16 @@ getNetInfo iface = do
     False -> return Nothing
 
 parse :: String -> [(String, [Integer])]
-parse = map tuplize . map words . drop 2 . lines
+parse = mapMaybe tuplize . map words . drop 2 . lines
 
-tuplize :: [String] -> (String, [Integer])
-tuplize s = (init $ head s, map read [s!!1, s!!out])
-    where out = (length s) - 8
+tuplize :: [String] -> Maybe (String, [Integer])
+tuplize s = do
+  dev <- initSafe <$> s `atMay` 0
+  down <- readDef (-1) <$> s `atMay` 1
+  up <- readDef (-1) <$> s `atMay` out
+  return (dev, [down, up])
+  where
+    out = (length s) - 8
 
 isInterfaceUp :: String -> IO Bool
 isInterfaceUp iface = do
