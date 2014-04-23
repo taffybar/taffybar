@@ -12,7 +12,7 @@ module System.Taffybar.Widgets.VerticalBar (
   ) where
 
 import Control.Concurrent
-import Graphics.Rendering.Cairo hiding (width, height)
+import qualified Graphics.Rendering.Cairo as C
 import Graphics.UI.Gtk
 
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
@@ -58,7 +58,7 @@ verticalBarSetPercent (VBH mv) pct = do
 clamp :: Double -> Double -> Double -> Double
 clamp lo hi d = max lo $ min hi d
 
-renderFrame :: Double -> BarConfig -> Int -> Int -> Render ()
+renderFrame :: Double -> BarConfig -> Int -> Int -> C.Render ()
 renderFrame pct cfg width height = do
   let fwidth = fromIntegral width
       fheight = fromIntegral height
@@ -67,18 +67,18 @@ renderFrame pct cfg width height = do
   let (bgR, bgG, bgB) = barBackgroundColor cfg pct
       pad = barPadding cfg
       fpad = fromIntegral pad
-  setSourceRGB bgR bgG bgB
-  rectangle fpad fpad (fwidth - 2 * fpad) (fheight - 2 * fpad)
-  fill
+  C.setSourceRGB bgR bgG bgB
+  C.rectangle fpad fpad (fwidth - 2 * fpad) (fheight - 2 * fpad)
+  C.fill
 
   -- Now draw a nice frame
   let (frameR, frameG, frameB) = barBorderColor cfg
-  setSourceRGB frameR frameG frameB
-  setLineWidth 1.0
-  rectangle fpad fpad (fwidth - 2 * fpad) (fheight - 2 * fpad)
-  stroke
+  C.setSourceRGB frameR frameG frameB
+  C.setLineWidth 1.0
+  C.rectangle fpad fpad (fwidth - 2 * fpad) (fheight - 2 * fpad)
+  C.stroke
 
-renderBar :: Double -> BarConfig -> Int -> Int -> Render ()
+renderBar :: Double -> BarConfig -> Int -> Int -> C.Render ()
 renderBar pct cfg width height = do
   let direction = barDirection cfg
       activeHeight = case direction of
@@ -96,16 +96,16 @@ renderBar pct cfg width height = do
 
   -- After we draw the frame, transform the coordinate space so that
   -- we only draw within the frame.
-  translate (fromIntegral pad + 1) (fromIntegral pad + 1)
+  C.translate (fromIntegral pad + 1) (fromIntegral pad + 1)
   let xS = fromIntegral (width - 2 * pad - 2) / fromIntegral width
       yS = fromIntegral (height - 2 * pad - 2) / fromIntegral height
-  scale xS yS
+  C.scale xS yS
 
   let (r, g, b) = (barColor cfg) pct
-  setSourceRGB r g b
-  translate 0 newOrigin
-  rectangle 0 0 activeWidth activeHeight
-  fill
+  C.setSourceRGB r g b
+  C.translate 0 newOrigin
+  C.rectangle 0 0 activeWidth activeHeight
+  C.fill
 
 drawBar :: MVar VerticalBarState -> DrawingArea -> IO ()
 drawBar mv drawArea = do
@@ -127,7 +127,7 @@ verticalBarNew cfg = do
                                  }
 
   widgetSetSizeRequest drawArea (barWidth cfg) (-1)
-  _ <- on drawArea exposeEvent $ tryEvent $ liftIO (drawBar mv drawArea)
+  _ <- on drawArea exposeEvent $ tryEvent $ C.liftIO (drawBar mv drawArea)
 
   box <- hBoxNew False 1
   boxPackStart box drawArea PackGrow 0
