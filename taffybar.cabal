@@ -112,6 +112,7 @@ library
                    System.Taffybar.Battery,
                    System.Taffybar.CPUMonitor,
                    System.Taffybar.TextCPUMonitor,
+                   System.Taffybar.TextMemoryMonitor,
                    System.Taffybar.DiskIOMonitor,
                    System.Taffybar.FSMonitor,
                    System.Taffybar.LayoutSwitcher,
