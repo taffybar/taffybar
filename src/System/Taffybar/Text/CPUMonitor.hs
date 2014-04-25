@@ -1,4 +1,4 @@
-module System.Taffybar.TextCPUMonitor(textCpuMonitorNew) where
+module System.Taffybar.Text.CPUMonitor(textCpuMonitorNew) where
 
 import Text.Printf
 import Text.StringTemplate
