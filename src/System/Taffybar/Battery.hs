@@ -23,27 +23,30 @@ import System.Taffybar.Widgets.PollingLabel
 
 battInfo :: BatteryContext -> String -> IO String
 battInfo ctxt fmt = do
-  info <- getBatteryInfo ctxt
-  let battPctNum :: Int
-      battPctNum = floor (batteryPercentage info)
-      formatTime :: Int64 -> String
-      formatTime seconds =
-        let minutes = seconds `div` 60
-            hours = minutes `div` 60
-            minutes' = minutes `mod` 60
-        in printf "%02d:%02d" hours minutes'
+  minfo <- getBatteryInfo ctxt
+  case minfo of
+    Nothing -> return ""
+    Just info -> do
+      let battPctNum :: Int
+          battPctNum = floor (batteryPercentage info)
+          formatTime :: Int64 -> String
+          formatTime seconds =
+            let minutes = seconds `div` 60
+                hours = minutes `div` 60
+                minutes' = minutes `mod` 60
+            in printf "%02d:%02d" hours minutes'
 
-      battTime :: String
-      battTime = case (batteryState info) of
-        BatteryStateCharging -> (formatTime $ batteryTimeToFull info)
-        BatteryStateDischarging -> (formatTime $ batteryTimeToEmpty info)
-        _ -> "-"
+          battTime :: String
+          battTime = case (batteryState info) of
+            BatteryStateCharging -> (formatTime $ batteryTimeToFull info)
+            BatteryStateDischarging -> (formatTime $ batteryTimeToEmpty info)
+            _ -> "-"
 
-      tpl = newSTMP fmt
-      tpl' = setManyAttrib [ ("percentage", show battPctNum)
-                           , ("time", battTime)
-                           ] tpl
-  return $ render tpl'
+          tpl = newSTMP fmt
+          tpl' = setManyAttrib [ ("percentage", show battPctNum)
+                               , ("time", battTime)
+                               ] tpl
+      return $ render tpl'
 
 -- | A simple textual battery widget that auto-updates once every
 -- polling period (specified in seconds).  The displayed format is
@@ -67,8 +70,10 @@ textBatteryNew fmt pollSeconds = do
 -- 1]
 battPct :: BatteryContext -> IO Double
 battPct ctxt = do
-  info <- getBatteryInfo ctxt
-  return (batteryPercentage info / 100)
+  minfo <- getBatteryInfo ctxt
+  case minfo of
+    Nothing -> return 0
+    Just info -> return (batteryPercentage info / 100)
 
 -- | A default configuration for the graphical battery display.  The
 -- bar will be red when power is critical (< 10%), green if it is full
