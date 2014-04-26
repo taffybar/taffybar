@@ -10,7 +10,7 @@
 --
 -- There is a more complete example of xmonad integration in the
 -- top-level module.
-module System.Taffybar.XMonadLog (
+module System.Taffybar.XMonadLog {-# DEPRECATED "Use TaffyPager instead.  This module will be removed." #-} (
   -- * Constructor
   xmonadLogNew,
   -- * Log hooks for xmonad.hs
@@ -106,3 +106,5 @@ xmonadLogNew = do
   _ <- on l realize $ setupDbus l
   widgetShowAll l
   return (toWidget l)
+
+{-# DEPRECATED xmonadLogNew "Use taffyPagerNew instead." #-}
