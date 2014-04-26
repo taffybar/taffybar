@@ -126,10 +126,15 @@ module System.Taffybar (
   ) where
 
 import qualified Config.Dyre as Dyre
+import Control.Monad ( when )
+import Data.Maybe ( fromMaybe )
 import System.Environment.XDG.BaseDir ( getUserConfigFile )
 import System.FilePath ( (</>) )
 import Graphics.UI.Gtk
-import Text.Printf
+import Safe ( atMay )
+import System.Exit ( exitFailure )
+import qualified System.IO as IO
+import Text.Printf ( printf )
 
 import Paths_taffybar ( getDataDir )
 import System.Taffybar.StrutProperties
@@ -200,7 +205,9 @@ realMain :: TaffybarConfig -> IO ()
 realMain cfg = do
   case errorMsg cfg of
     Nothing -> taffybarMain cfg
-    Just err -> error ("Error: " ++ err)
+    Just err -> do
+      IO.hPutStrLn IO.stderr ("Error: " ++ err)
+      exitFailure
 
 getDefaultConfigFile :: String -> IO FilePath
 getDefaultConfigFile name = do
@@ -215,15 +222,18 @@ setTaffybarSize cfg window = do
   screen <- windowGetScreen window
   nmonitors <- screenGetNMonitors screen
   allMonitorSizes <- mapM (screenGetMonitorGeometry screen) [0 .. (nmonitors - 1)]
-  monitorSize <-
-    case monitorNumber cfg < nmonitors of
-      False -> error $ printf "Monitor %d is not available in the selected screen" (monitorNumber cfg)
-      True -> return $ allMonitorSizes !! monitorNumber cfg
+
+  when (monitorNumber cfg < nmonitors) $ do
+    IO.hPutStrLn IO.stderr $ printf "Monitor %d is not available in the selected screen" (monitorNumber cfg)
+
+  let monitorSize = fromMaybe (allMonitorSizes !! 0) $ do
+        allMonitorSizes `atMay` monitorNumber cfg
 
   let Rectangle x y w h = monitorSize
-  windowMove window x (y + case barPosition cfg of
-                             Top    -> 0
-                             Bottom -> h - barHeight cfg)
+      yoff = case barPosition cfg of
+        Top -> 0
+        Bottom -> h - barHeight cfg
+  windowMove window x (y + yoff)
 
   -- Set up the window size using fixed min and max sizes. This
   -- prevents the contained horizontal box from affecting the window

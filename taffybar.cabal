@@ -151,6 +151,7 @@ executable taffybar
   build-depends: base > 3 && < 5,
                  dyre >= 0.8.6,
                  gtk >= 0.12,
+                 safe >= 0.3 && < 1,
                  xdg-basedir,
                  filepath
   hs-source-dirs: src
