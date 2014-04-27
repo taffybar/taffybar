@@ -10,7 +10,7 @@
 --
 -- There is a more complete example of xmonad integration in the
 -- top-level module.
-module System.Taffybar.XMonadLog (
+module System.Taffybar.XMonadLog {-# DEPRECATED "Use TaffyPager instead.  This module will be removed." #-} (
   -- * Constructor
   xmonadLogNew,
   -- * Log hooks for xmonad.hs
@@ -51,16 +51,16 @@ taffybarColor fg bg = wrap t "</span>" . taffybarEscape
 taffybarEscape :: String -> String
 taffybarEscape = escapeMarkup
 
--- | The same as defaultPP in XMonad.Hooks.DynamicLog
+-- | The same as the default PP in XMonad.Hooks.DynamicLog
 taffybarDefaultPP :: PP
-taffybarDefaultPP = defaultPP { ppCurrent         = taffybarEscape . wrap "[" "]"
-                              , ppVisible         = taffybarEscape . wrap "<" ">"
-			      , ppHidden          = taffybarEscape
-			      , ppHiddenNoWindows = taffybarEscape
-			      , ppUrgent          = taffybarEscape
-                              , ppTitle           = taffybarEscape . shorten 80
-			      , ppLayout          = taffybarEscape
-			      }
+taffybarDefaultPP = def { ppCurrent         = taffybarEscape . wrap "[" "]"
+                        , ppVisible         = taffybarEscape . wrap "<" ">"
+                        , ppHidden          = taffybarEscape
+                        , ppHiddenNoWindows = taffybarEscape
+                        , ppUrgent          = taffybarEscape
+                        , ppTitle           = taffybarEscape . shorten 80
+                        , ppLayout          = taffybarEscape
+                        }
 -- | The same as xmobarPP in XMonad.Hooks.DynamicLog
 taffybarPP :: PP
 taffybarPP = taffybarDefaultPP { ppCurrent = taffybarColor "yellow" "" . wrap "[" "]"
@@ -106,3 +106,5 @@ xmonadLogNew = do
   _ <- on l realize $ setupDbus l
   widgetShowAll l
   return (toWidget l)
+
+{-# DEPRECATED xmonadLogNew "Use taffyPagerNew instead." #-}

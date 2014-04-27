@@ -12,8 +12,10 @@ module System.Taffybar.Battery (
   defaultBatteryConfig
   ) where
 
+import Data.Int
 import Graphics.UI.Gtk
 import Text.Printf
+import Text.StringTemplate
 
 import System.Information.Battery
 import System.Taffybar.Widgets.PollingBar
@@ -21,19 +23,36 @@ import System.Taffybar.Widgets.PollingLabel
 
 battInfo :: BatteryContext -> String -> IO String
 battInfo ctxt fmt = do
-  info <- getBatteryInfo ctxt
-  let battPctNum :: Int
-      battPctNum = floor (batteryPercentage info)
-  return $ printf fmt battPctNum
+  minfo <- getBatteryInfo ctxt
+  case minfo of
+    Nothing -> return ""
+    Just info -> do
+      let battPctNum :: Int
+          battPctNum = floor (batteryPercentage info)
+          formatTime :: Int64 -> String
+          formatTime seconds =
+            let minutes = seconds `div` 60
+                hours = minutes `div` 60
+                minutes' = minutes `mod` 60
+            in printf "%02d:%02d" hours minutes'
+
+          battTime :: String
+          battTime = case (batteryState info) of
+            BatteryStateCharging -> (formatTime $ batteryTimeToFull info)
+            BatteryStateDischarging -> (formatTime $ batteryTimeToEmpty info)
+            _ -> "-"
+
+          tpl = newSTMP fmt
+          tpl' = setManyAttrib [ ("percentage", show battPctNum)
+                               , ("time", battTime)
+                               ] tpl
+      return $ render tpl'
 
 -- | A simple textual battery widget that auto-updates once every
 -- polling period (specified in seconds).  The displayed format is
--- specified using a printf-style format string.  The format string
--- must have a single format argument: %d (and any number of %%
--- sequences to insert a literal percent sign).
---
--- More, fewer, or different format arguments will result in a runtime
--- error.
+-- specified format string where $percentage$ is replaced with the
+-- percentage of battery remaining and $time$ is replaced with the
+-- time until the battery is fully charged/discharged.
 textBatteryNew :: String    -- ^ Display format
                   -> Double -- ^ Poll period in seconds
                   -> IO Widget
@@ -51,8 +70,10 @@ textBatteryNew fmt pollSeconds = do
 -- 1]
 battPct :: BatteryContext -> IO Double
 battPct ctxt = do
-  info <- getBatteryInfo ctxt
-  return (batteryPercentage info / 100)
+  minfo <- getBatteryInfo ctxt
+  case minfo of
+    Nothing -> return 0
+    Just info -> return (batteryPercentage info / 100)
 
 -- | A default configuration for the graphical battery display.  The
 -- bar will be red when power is critical (< 10%), green if it is full
@@ -85,7 +106,7 @@ batteryBarNew battCfg pollSeconds = do
       --
       -- Converting it to combine the two shouldn't be hard.
       b <- hBoxNew False 1
-      txt <- textBatteryNew "%d%%" pollSeconds
+      txt <- textBatteryNew "$percentage$%" pollSeconds
       bar <- pollingBarNew battCfg pollSeconds (battPct ctxt)
       boxPackStart b bar PackNatural 0
       boxPackStart b txt PackNatural 0

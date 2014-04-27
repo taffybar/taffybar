@@ -1,5 +1,5 @@
 name: taffybar
-version: 0.2.2
+version: 0.3.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
@@ -18,7 +18,9 @@ description:
   gtk2hs and provides several widgets (including a few graphical ones).
   It also sports an optional snazzy system tray.
   .
-  Changes in v0.2.2:
+  Changes in v0.3.0:
+  .
+    * A new pager (System.Taffybar.TaffyPager) from José A. Romero L.  This pager is a drop-in replacement for the dbus-based XMonadLog widget.  It communicates via X atoms and EWMH like a real pager.  It even supports changing workspaces by clicking on them.  I recommend this over the old widget.
   .
     * Added an MPRIS2 widget (contributed by Igor Babuschkin)
   .
@@ -27,6 +29,10 @@ description:
     * Finally have the calendar widget pop up over the date/time widget (contributed by José A. Romero)
   .
     * GHC 7.6 compatibility
+  .
+    * Vertical bars can now have dynamic background colors (suggested by Elliot Wolk)
+  .
+    * Bug fixes
   .
   Changes in v0.2.1:
   .
@@ -67,12 +73,32 @@ description:
 
 library
   default-language: Haskell2010
-  build-depends: base > 3 && < 5, time, old-locale, containers, text, HTTP,
-                 parsec >= 3.1, mtl >= 2, network, cairo,
-                 dbus >= 0.10.1 && < 1.0, gtk >= 0.12.1, dyre >= 0.8.6,
-                 HStringTemplate, gtk-traymanager >= 0.1.2 && < 0.2, xmonad-contrib, xmonad,
-                 xdg-basedir, filepath, utf8-string, process, stm, transformers >= 0.3.0.0,
-                 X11 >= 1.5.0.1, split >= 0.1.4.2
+  build-depends: base > 3 && < 5,
+                 time,
+                 old-locale,
+                 containers,
+                 text,
+                 HTTP,
+                 parsec >= 3.1,
+                 mtl >= 2,
+                 network,
+                 cairo,
+                 dbus >= 0.10.1 && < 1.0,
+                 gtk >= 0.12.1,
+                 dyre >= 0.8.6,
+                 HStringTemplate,
+                 gtk-traymanager >= 0.1.2 && < 0.2,
+                 xmonad-contrib,
+                 xmonad,
+                 xdg-basedir,
+                 filepath,
+                 utf8-string,
+                 process,
+                 stm,
+                 transformers >= 0.3.0.0,
+                 X11 >= 1.5.0.1,
+                 safe >= 0.3 && < 1,
+                 split >= 0.1.4.2
   hs-source-dirs: src
   pkgconfig-depends: gtk+-2.0
   exposed-modules: System.Taffybar,
@@ -91,6 +117,8 @@ library
                    System.Taffybar.NetMonitor,
                    System.Taffybar.Pager,
                    System.Taffybar.TaffyPager,
+                   System.Taffybar.Text.CPUMonitor,
+                   System.Taffybar.Text.MemoryMonitor,
                    System.Taffybar.WindowSwitcher,
                    System.Taffybar.WorkspaceSwitcher,
                    System.Taffybar.Hooks.PagerHints,
@@ -120,8 +148,12 @@ library
 
 executable taffybar
   default-language: Haskell2010
-  build-depends: base > 3 && < 5, dyre >= 0.8.6, gtk >= 0.12,
-                 xdg-basedir, filepath
+  build-depends: base > 3 && < 5,
+                 dyre >= 0.8.6,
+                 gtk >= 0.12,
+                 safe >= 0.3 && < 1,
+                 xdg-basedir,
+                 filepath
   hs-source-dirs: src
   main-is: Main.hs
   pkgconfig-depends: gtk+-2.0

@@ -1,7 +1,7 @@
 -- | This module defines a simple textual weather widget that polls
 -- NOAA for weather data.  To find your weather station, you can use
 --
--- > http://lwf.ncdc.noaa.gov/oa/climate/stationlocator.html
+-- <http://www.nws.noaa.gov/tg/siteloc.php>
 --
 -- For example, Madison, WI is KMSN.
 --
@@ -67,6 +67,7 @@ module System.Taffybar.Weather (
   WeatherFormatter(WeatherFormatter),
   -- * Constructor
   weatherNew,
+  weatherCustomNew,
   defaultWeatherConfig
   ) where
 
@@ -231,12 +232,15 @@ defaultFormatter tpl wi = render tpl'
                          , ("pressure", show (pressure wi))
                          ] tpl
 
-getCurrentWeather :: String -> StringTemplate String -> WeatherConfig -> IO String
-getCurrentWeather url tpl cfg = do
-  dat <- getWeather url
+getCurrentWeather :: IO (Either String WeatherInfo)
+    -> StringTemplate String
+    -> WeatherFormatter
+    -> IO String
+getCurrentWeather getter tpl formatter = do
+  dat <- getter
   case dat of
     Right wi -> do
-      case weatherFormatter cfg of
+      case formatter of
         DefaultWeatherFormatter -> return (defaultFormatter tpl wi)
         WeatherFormatter f -> return (f wi)
     Left err -> do
@@ -277,9 +281,19 @@ weatherNew :: WeatherConfig -- ^ Configuration to render
               -> IO Widget
 weatherNew cfg delayMinutes = do
   let url = printf "%s/%s.TXT" baseUrl (weatherStation cfg)
-      tpl' = newSTMP (weatherTemplate cfg)
+      getter = getWeather url
+  weatherCustomNew getter (weatherTemplate cfg) (weatherFormatter cfg) delayMinutes
 
-  l <- pollingLabelNew "N/A" (delayMinutes * 60) (getCurrentWeather url tpl' cfg)
+-- | Create a periodically-updating weather widget using custom weather getter
+weatherCustomNew :: IO (Either String WeatherInfo) -- ^ Weather querying action
+                 -> String                         -- ^ Weather template
+                 -> WeatherFormatter               -- ^ Weather formatter
+                 -> Double                         -- ^ Polling period in _minutes_
+                 -> IO Widget
+weatherCustomNew getter tpl formatter delayMinutes = do
+  let tpl' = newSTMP tpl
+
+  l <- pollingLabelNew "N/A" (delayMinutes * 60) (getCurrentWeather getter tpl' formatter)
 
   widgetShowAll l
   return l

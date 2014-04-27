@@ -16,7 +16,7 @@ module System.Information.Battery (
 
 import Data.Map ( Map )
 import qualified Data.Map as M
-import Data.Maybe
+import Data.Maybe ( fromMaybe )
 import Data.Word
 import Data.Int
 import DBus
@@ -24,6 +24,7 @@ import DBus.Client
 import Data.List ( find, isInfixOf )
 import Data.Text ( Text )
 import qualified Data.Text as T
+import Safe ( atMay )
 
 -- | An opaque wrapper around some internal library state
 data BatteryContext = BC Client ObjectPath
@@ -105,31 +106,31 @@ powerBaseObjectPath = "/org/freedesktop/UPower"
 -- | A helper to read the variant contents of a dict with a default
 -- value.
 readDict :: (IsVariant a) => Map Text Variant -> Text -> a -> a
-readDict dict key dflt = val
-  where
-    Just val = fromVariant variant
-    variant = M.findWithDefault (toVariant dflt) key dict
+readDict dict key dflt = fromMaybe dflt $ do
+  variant <- M.lookup key dict
+  fromVariant variant
 
 -- | Read the variant contents of a dict which is of an unknown integral type.
 readDictIntegral :: Map Text Variant -> Text -> Int32 -> Int
-readDictIntegral dict key dflt = case variantType variant of
-    TypeWord8   -> fromIntegral (f variant :: Word8)
-    TypeWord16  -> fromIntegral (f variant :: Word16)
-    TypeWord32  -> fromIntegral (f variant :: Word32)
-    TypeWord64  -> fromIntegral (f variant :: Word64)
-    TypeInt16   -> fromIntegral (f variant :: Int16)
-    TypeInt32   -> fromIntegral (f variant :: Int32)
-    TypeInt64   -> fromIntegral (f variant :: Int64)
-    t           -> error $ "readDictIntegral " ++ show key ++ ": got type " ++ show t
+readDictIntegral dict key dflt = fromMaybe (fromIntegral dflt) $ do
+  v <- M.lookup key dict
+  case variantType v of
+    TypeWord8   -> return $ fromIntegral (f v :: Word8)
+    TypeWord16  -> return $ fromIntegral (f v :: Word16)
+    TypeWord32  -> return $ fromIntegral (f v :: Word32)
+    TypeWord64  -> return $ fromIntegral (f v :: Word64)
+    TypeInt16   -> return $ fromIntegral (f v :: Int16)
+    TypeInt32   -> return $ fromIntegral (f v :: Int32)
+    TypeInt64   -> return $ fromIntegral (f v :: Int64)
+    _           -> Nothing
   where
-    variant = M.findWithDefault (toVariant dflt) key dict
-    f :: IsVariant a => Variant -> a
-    f = fromJust . fromVariant
+    f :: (Num a, IsVariant a) => Variant -> a
+    f = fromMaybe (fromIntegral dflt) . fromVariant
 
 -- | Query the UPower daemon about information on a specific battery.
 -- If some fields are not actually present, they may have bogus values
 -- here.  Don't bet anything critical on it.
-getBatteryInfo :: BatteryContext -> IO BatteryInfo
+getBatteryInfo :: BatteryContext -> IO (Maybe BatteryInfo)
 getBatteryInfo (BC systemConn battPath) = do
   -- Grab all of the properties of the battery each call with one
   -- message.
@@ -138,33 +139,34 @@ getBatteryInfo (BC systemConn battPath) = do
                              , methodCallBody = [toVariant $ T.pack "org.freedesktop.UPower.Device"]
                              }
 
-  let dict :: Map Text Variant
-      Just dict = fromVariant (methodReturnBody reply !! 0)
-  return BatteryInfo { batteryNativePath = readDict dict "NativePath" ""
-                     , batteryVendor = readDict dict "Vendor" ""
-                     , batteryModel = readDict dict "Model" ""
-                     , batterySerial = readDict dict "Serial" ""
-                     , batteryType = toEnum $ fromIntegral $ readDictIntegral dict "Type" 0
-                     , batteryPowerSupply = readDict dict "PowerSupply" False
-                     , batteryHasHistory = readDict dict "HasHistory" False
-                     , batteryHasStatistics = readDict dict "HasStatistics" False
-                     , batteryOnline = readDict dict "Online" False
-                     , batteryEnergy = readDict dict "Energy" 0.0
-                     , batteryEnergyEmpty = readDict dict "EnergyEmpty" 0.0
-                     , batteryEnergyFull = readDict dict "EnergyFull" 0.0
-                     , batteryEnergyFullDesign = readDict dict "EnergyFullDesign" 0.0
-                     , batteryEnergyRate = readDict dict "EnergyRate" 0.0
-                     , batteryVoltage = readDict dict "Voltage" 0.0
-                     , batteryTimeToEmpty = readDict dict "TimeToEmpty" 0
-                     , batteryTimeToFull = readDict dict "TimeToFull" 0
-                     , batteryPercentage = readDict dict "Percentage" 0.0
-                     , batteryIsPresent = readDict dict "IsPresent" False
-                     , batteryState = toEnum $ readDictIntegral dict "State" 0
-                     , batteryIsRechargable = readDict dict "IsRechargable" True
-                     , batteryCapacity = readDict dict "Capacity" 0.0
-                     , batteryTechnology =
-                       toEnum $ fromIntegral $ readDictIntegral dict "Technology" 0
-                     }
+  return $ do
+    body <- methodReturnBody reply `atMay` 0
+    dict <- fromVariant body
+    return BatteryInfo { batteryNativePath = readDict dict "NativePath" ""
+                       , batteryVendor = readDict dict "Vendor" ""
+                       , batteryModel = readDict dict "Model" ""
+                       , batterySerial = readDict dict "Serial" ""
+                       , batteryType = toEnum $ fromIntegral $ readDictIntegral dict "Type" 0
+                       , batteryPowerSupply = readDict dict "PowerSupply" False
+                       , batteryHasHistory = readDict dict "HasHistory" False
+                       , batteryHasStatistics = readDict dict "HasStatistics" False
+                       , batteryOnline = readDict dict "Online" False
+                       , batteryEnergy = readDict dict "Energy" 0.0
+                       , batteryEnergyEmpty = readDict dict "EnergyEmpty" 0.0
+                       , batteryEnergyFull = readDict dict "EnergyFull" 0.0
+                       , batteryEnergyFullDesign = readDict dict "EnergyFullDesign" 0.0
+                       , batteryEnergyRate = readDict dict "EnergyRate" 0.0
+                       , batteryVoltage = readDict dict "Voltage" 0.0
+                       , batteryTimeToEmpty = readDict dict "TimeToEmpty" 0
+                       , batteryTimeToFull = readDict dict "TimeToFull" 0
+                       , batteryPercentage = readDict dict "Percentage" 0.0
+                       , batteryIsPresent = readDict dict "IsPresent" False
+                       , batteryState = toEnum $ readDictIntegral dict "State" 0
+                       , batteryIsRechargable = readDict dict "IsRechargable" True
+                       , batteryCapacity = readDict dict "Capacity" 0.0
+                       , batteryTechnology =
+                         toEnum $ fromIntegral $ readDictIntegral dict "Technology" 0
+                       }
 
 -- | Construct a battery context if possible.  This could fail if the
 -- UPower daemon is not running.  The context can be used to get
@@ -178,9 +180,8 @@ batteryContextNew = do
   reply <- call_ systemConn (methodCall powerBaseObjectPath "org.freedesktop.UPower" "EnumerateDevices")
         { methodCallDestination = Just powerBusName
         }
-  let Just powerDevices = fromVariant (methodReturnBody reply !! 0)
-
-  case firstBattery powerDevices of
-    Nothing -> return Nothing
-    Just battPath ->
-      return . Just $ BC systemConn battPath
+  return $ do
+    body <- methodReturnBody reply `atMay` 0
+    powerDevices <- fromVariant body
+    battPath <- firstBattery powerDevices
+    return $ BC systemConn battPath

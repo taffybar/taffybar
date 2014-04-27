@@ -22,34 +22,34 @@ module System.Information.StreamInfo
     , getTransfer
     ) where
 
-import Control.Concurrent (threadDelay)
+import Control.Concurrent ( threadDelay )
 import Data.IORef
-import Data.Maybe (fromJust)
+import Data.Maybe ( fromMaybe )
 
 -- | Apply the given parser function to the file under the given path to produce
 -- a lookup map, then use the given selector as key to extract from it the
 -- desired value.
-getParsedInfo :: FilePath -> (String -> [(String, [Integer])]) -> String -> IO [Integer]
+getParsedInfo :: FilePath -> (String -> [(String, [a])]) -> String -> IO [a]
 getParsedInfo path parser selector = do
     file <- readFile path
     (length file) `seq` return ()
-    return (fromJust $ lookup selector $ parser file)
+    return (fromMaybe [] $ lookup selector $ parser file)
 
-truncVal :: Double -> Double
+truncVal :: (RealFloat a) => a -> a
 truncVal v
   | isNaN v || v < 0.0 = 0.0
   | otherwise = v
 
 -- | Convert the given list of Integer to a list of the ratios of each of its
 -- elements against their sum.
-toRatioList :: [Integer] -> [Double]
+toRatioList :: (Integral a, RealFloat b) => [a] -> [b]
 toRatioList deltas = map truncVal ratios
     where total = fromIntegral $ foldr (+) 0 deltas
           ratios = map ((/total) . fromIntegral) deltas
 
 -- | Execute the given action twice with the given delay in-between and return
 -- the difference between the two samples.
-probe :: IO [Integer] -> Double -> IO [Integer]
+probe :: (Num a, RealFrac b) => IO [a] -> b -> IO [a]
 probe action delay = do
     a <- action
     threadDelay $ round (delay * 1e6)
@@ -58,7 +58,7 @@ probe action delay = do
 
 -- | Execute the given action once and return the difference between the
 -- obtained sample and the one contained in the given IORef.
-accProbe :: IO [Integer] -> IORef [Integer] -> IO [Integer]
+accProbe :: (Num a) => IO [a] -> IORef [a] -> IO [a]
 accProbe action sample = do
     a <- readIORef sample
     b <- action
@@ -67,7 +67,7 @@ accProbe action sample = do
 
 -- | Probe the given action and, interpreting the result as a variation in time,
 -- return the speed of change of its values.
-getTransfer :: Double -> IO [Integer] -> IO [Double]
+getTransfer :: (Integral a, RealFloat b) => b -> IO [a] -> IO [b]
 getTransfer interval action = do
     deltas <- probe action interval
     return $ map (truncVal . (/interval) . fromIntegral) deltas
@@ -75,7 +75,7 @@ getTransfer interval action = do
 -- | Probe the given action and return the relative variation of each of the
 -- obtained values against the whole, where the whole is calculated as the sum
 -- of all the values in the probe.
-getLoad :: Double -> IO [Integer] -> IO [Double] 
+getLoad :: (Integral a, RealFloat b) => b -> IO [a] -> IO [b]
 getLoad interval action = do
     deltas <- probe action interval
     return $ toRatioList deltas
@@ -83,7 +83,7 @@ getLoad interval action = do
 -- | Similar to getLoad, but execute the given action only once and use the
 -- given IORef to calculate the result and to save the current value, so it
 -- can be reused in the next call.
-getAccLoad :: IORef [Integer] -> IO [Integer] -> IO [Double]
+getAccLoad :: (Integral a, RealFloat b) => IORef [a] -> IO [a] -> IO [b]
 getAccLoad sample action = do
      deltas <- accProbe action sample
      return $ toRatioList deltas

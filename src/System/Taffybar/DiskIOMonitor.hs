@@ -15,9 +15,9 @@
 
 module System.Taffybar.DiskIOMonitor ( dioMonitorNew ) where
 
-import Graphics.UI.Gtk
-import System.Information.DiskIO (getDiskTransfer)
-import System.Taffybar.Widgets.PollingGraph
+import qualified Graphics.UI.Gtk as Gtk
+import System.Information.DiskIO ( getDiskTransfer )
+import System.Taffybar.Widgets.PollingGraph ( GraphConfig, pollingGraphNew )
 
 -- | Creates a new disk IO monitor widget. This is a 'PollingGraph' fed by
 -- regular calls to 'getDiskTransfer'. The results of calling this function
@@ -26,7 +26,7 @@ import System.Taffybar.Widgets.PollingGraph
 dioMonitorNew :: GraphConfig -- ^ Configuration data for the Graph.
               -> Double      -- ^ Polling period (in seconds).
               -> String      -- ^ Name of the disk or partition to watch (e.g. \"sda\", \"sdb1\").
-              -> IO Widget
+              -> IO Gtk.Widget
 dioMonitorNew cfg pollSeconds =
   pollingGraphNew cfg pollSeconds . probeDisk
 
