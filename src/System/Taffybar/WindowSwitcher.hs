@@ -70,7 +70,7 @@ pagerCallback :: PagerConfig -> Label -> Event -> IO ()
 pagerCallback cfg label _ = do
   title <- withDefaultCtx getActiveWindowTitle
   let decorate = activeWindow cfg
-  postGUIAsync $ labelSetMarkup label (decorate title)
+  postGUIAsync $ labelSetMarkup label (decorate $ nonEmpty title)
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: Label -> IO Widget
@@ -101,12 +101,6 @@ toggleSelector label ref = do
           displayPopup label sel
         Nothing -> return ()
   return True
-
-formatWindow :: [String] -> ((Int, String, a), b) -> String
-formatWindow wsNames ((ws, wtitle, _), _) = wsName ++ ": " ++ wtitle
-  where wsName = if 0 <= ws && ws < length wsNames
-                 then wsNames !! ws
-                 else "WS#" ++ show ws
 
 -- | Build a new pop-up containing the titles of all currently open
 -- windows, and assign it as a singleton list to the given IORef.
@@ -159,7 +153,7 @@ makeColumn list = do
 -- | Switch to the window selected by the user in the pop-up.
 handlePick :: M.TreeSelection -- ^ Pop-up selection
            -> ListStore String -- ^ List of all available windows
-           -> [((Int, String, String), X11Window)] -- ^ workspace, window title, window class and window ID
+           -> [X11WindowHandle] -- ^ List of handles from getWindowHandles
            -> IO ()
 handlePick selection _ handles = do
   row <- M.treeSelectionGetSelectedRows selection
@@ -167,3 +161,19 @@ handlePick selection _ handles = do
       wh = snd (handles !! idx)
   withDefaultCtx (focusWindow wh)
   return ()
+
+-- | Build the name to display in the list of windows by prepending the name
+-- of the workspace it is currently in to the name of the window itself
+formatWindow :: [String] -- ^ List of names of all available workspaces
+             -> X11WindowHandle -- ^ Handle of the window to name
+             -> String
+formatWindow wsNames ((ws, wtitle, _), _) = wsName ++ ": " ++ (nonEmpty wtitle)
+  where wsName = if 0 <= ws && ws < length wsNames
+                 then wsNames !! ws
+                 else "WS#" ++ show ws
+
+-- | Return the given String if it's not empty, otherwise return "(nameless window)"
+nonEmpty :: String -> String
+nonEmpty x = case x of
+               [] -> "(nameless window)"
+               _  -> x

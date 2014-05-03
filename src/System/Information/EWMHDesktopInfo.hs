@@ -21,6 +21,7 @@
 
 module System.Information.EWMHDesktopInfo
   ( X11Window      -- re-exported from X11DesktopInfo
+  , X11WindowHandle
   , withDefaultCtx -- re-exported from X11DesktopInfo
   , isWindowUrgent -- re-exported from X11DesktopInfo
   , getCurrentWorkspace
@@ -39,6 +40,11 @@ module System.Information.EWMHDesktopInfo
 import Data.List (elemIndex)
 import Data.Maybe (listToMaybe, mapMaybe)
 import System.Information.X11DesktopInfo
+
+-- | Convenience alias for a pair of the form (props, window), where props is a
+-- tuple of the form (workspace index, window title, window class), and window
+-- is the internal ID of an open window.
+type X11WindowHandle = ((Int, String, String), X11Window)
 
 noFocus :: String
 noFocus = "..."
@@ -96,10 +102,9 @@ getActiveWindowTitle = withActiveWindow getWindowTitle
 getWindows :: X11Property [X11Window]
 getWindows = readAsListOfWindow Nothing "_NET_CLIENT_LIST"
 
--- | Return a list of pairs of (props, window) for all the windows open.
--- props is a pair of (window title, window class),
--- and window is the internal ID of one window.
-getWindowHandles :: X11Property [((Int, String, String), X11Window)]
+-- | Return a list of X11 window handles, one for each window open. Refer to the
+-- documentation of 'X11WindowHandle' for details on the structure returned.
+getWindowHandles :: X11Property [X11WindowHandle]
 getWindowHandles = do
   windows <- getWindows
   workspaces <- mapM getWorkspace windows
