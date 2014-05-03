@@ -30,9 +30,10 @@ onClick triggers action = tryEvent $ do
 -- | Attach the given widget as a popup with the given title to the
 -- given window. The newly attached popup is not shown initially. Use
 -- the 'displayPopup' function to display it.
-attachPopup :: (WidgetClass w) => w -- ^ The widget to set as popup.
-            -> String         -- ^ The title of the popup.
-            -> Window         -- ^ The window to attach the popup to.
+attachPopup :: (WidgetClass w, WindowClass wnd) =>
+               w      -- ^ The widget to set as popup.
+            -> String -- ^ The title of the popup.
+            -> wnd    -- ^ The window to attach the popup to.
             -> IO ()
 attachPopup widget title window = do
   set window [ windowTitle := title
@@ -49,8 +50,9 @@ attachPopup widget title window = do
 -- | Display the given popup widget (previously prepared using the
 -- 'attachPopup' function) immediately beneath (or above) the given
 -- window.
-displayPopup :: (WidgetClass w) => w -- ^ The popup widget.
-             -> Window -- ^ The window the widget was attached to.
+displayPopup :: (WidgetClass w, WindowClass wnd) =>
+                w   -- ^ The popup widget.
+             -> wnd -- ^ The window the widget was attached to.
              -> IO ()
 displayPopup widget window = do
   windowSetPosition window WinPosMouse
