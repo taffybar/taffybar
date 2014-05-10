@@ -77,7 +77,7 @@ data Pager = Pager
 -- | Default pretty printing options.
 defaultPagerConfig :: PagerConfig
 defaultPagerConfig   = PagerConfig
-  { activeWindow     = colorize "green" "" . escape . shorten 40
+  { activeWindow     = escape . shorten 40
   , activeLayout     = escape
   , activeWorkspace  = colorize "yellow" "" . wrap "[" "]" . escape
   , hiddenWorkspace  = escape
