@@ -1,8 +1,1 @@
 /dist/
-/debian/
-/dist-ghc/
-Setup.hi
-Setup.o
-build-ghc-stamp
-build-haddock-stamp
-check-ghc-stamp
