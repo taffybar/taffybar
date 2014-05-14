@@ -85,6 +85,7 @@ library
                    System.Taffybar.Text.CPUMonitor,
                    System.Taffybar.Text.MemoryMonitor,
                    System.Taffybar.Widgets.Graph,
+                   System.Taffybar.Widgets.Icon,
                    System.Taffybar.Widgets.PollingBar,
                    System.Taffybar.WindowSwitcher,
                    System.Taffybar.IconImages,
