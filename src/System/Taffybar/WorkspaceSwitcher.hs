@@ -78,22 +78,28 @@ data Workspace = Workspace { label  :: Label
 -- its source of events.
 wspaceSwitcherNew :: Pager -> IO Widget
 wspaceSwitcherNew pager = do
-  desktop <- getDesktop pager
-  widget  <- assembleWidget desktop
-  deskRef <- newIORef desktop
-  wRef    <- newIORef widget
+  switcher <- hBoxNew False 0
+  desktop  <- getDesktop pager
+  deskRef  <- newIORef desktop
+  populateSwitcher switcher deskRef
+
   let cfg = config pager
       activecb = activeCallback cfg deskRef
-      nodeskscb = nodesksCallback cfg deskRef wRef
+      redrawcb = redrawCallback pager deskRef switcher
       urgentcb = urgentCallback cfg deskRef
   subscribe pager activecb "_NET_CURRENT_DESKTOP"
-  subscribe pager nodeskscb "_NET_NUMBER_OF_DESKTOPS"
+  subscribe pager redrawcb "_NET_NUMBER_OF_DESKTOPS"
   subscribe pager urgentcb "WM_HINTS"
-  return widget
+
+  return $ toWidget switcher
 
 -- | List of indices of all available workspaces.
 allWorkspaces :: Desktop -> [Int]
 allWorkspaces desktop = [0 .. length desktop - 1]
+
+-- | List of indices of all the workspaces that contain at least one window.
+nonEmptyWorkspaces :: IO [Int]
+nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
 -- | Return a list of two-element tuples, one for every workspace,
 -- containing the Label widget used to display the name of that specific
@@ -104,27 +110,25 @@ getDesktop pager = do
   labels <- toLabels $ map (hiddenWorkspace $ config pager) names
   return $ zipWith (\n l -> Workspace l n False) names labels
 
--- | Take an existing Desktop IORef and update it, storing the result in the
--- IORef.
-updateDesktop :: PagerConfig -> IORef Desktop -> IO ()
-updateDesktop cfg deskRef = do
-  names  <- withDefaultCtx getWorkspaceNames
-  labels <- toLabels $ map (hiddenWorkspace cfg) names
-  atomicWriteIORef deskRef $ zipWith (\n l -> Workspace l n False) names labels
+-- | Take an existing Desktop IORef and update it if necessary, store the result
+-- in the IORef, then return True if the reference was actually updated, False
+-- otherwise.
+updateDesktop :: Pager -> IORef Desktop -> IO Bool
+updateDesktop pager deskRef = do
+  wsnames <- withDefaultCtx getWorkspaceNames
+  desktop <- readIORef deskRef
+  if (length wsnames /= length desktop)
+  then getDesktop pager >>= writeIORef deskRef >> return True
+  else return False
 
--- | Build the graphical representation of the widget.
-assembleWidget :: Desktop -> IO Widget
-assembleWidget desktop = do
-  hbox <- hBoxNew False 0
-  mapM_ (addButton hbox desktop) (allWorkspaces desktop)
-  widgetShowAll hbox
-  return $ toWidget hbox
-
--- | Insert widgets into an existing Box.
-updateWidget :: BoxClass self => self -> Desktop -> IO ()
-updateWidget box desktop = do
-  mapM_ (addButton box desktop) (allWorkspaces desktop)
-  widgetShowAll box
+-- | Clean up the given box, then fill it up with the buttons for the current
+-- state of the desktop.
+populateSwitcher :: BoxClass box => box -> IORef Desktop -> IO ()
+populateSwitcher switcher deskRef = do
+  containerClear switcher
+  desktop <- readIORef deskRef
+  mapM_ (addButton switcher desktop) (allWorkspaces desktop)
+  widgetShowAll switcher
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_CURRENT_DESKTOP" standard events. It will track the position of
@@ -158,16 +162,10 @@ urgentCallback cfg deskRef event = do
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_NUMBER_OF_DESKTOPS" standard events. It will handle dynamically
 -- adding and removing workspaces.
-nodesksCallback :: PagerConfig -> IORef Desktop -> IORef Widget -> Event -> IO ()
-nodesksCallback cfg deskRef wRef _ = do
-  updateDesktop cfg deskRef
-  desktop <- readIORef deskRef
-  visible <- withDefaultCtx getVisibleWorkspaces
-  widget <- readIORef wRef
-  let box = castToBox widget
-  containerClear box
-  updateWidget box desktop 
-  transition cfg desktop visible
+redrawCallback :: BoxClass box => Pager -> IORef Desktop -> box -> Event -> IO ()
+redrawCallback pager deskRef box _ =
+  updateDesktop pager deskRef >>= \changed ->
+    when changed $ postGUIAsync (populateSwitcher box deskRef)
 
 -- | Remove all children of a container.
 containerClear :: ContainerClass self => self -> IO ()
@@ -197,10 +195,6 @@ addButton hbox desktop idx = do
   _ <- on ebox buttonPressEvent $ switch idx
   containerAdd ebox lbl
   boxPackStart hbox ebox PackNatural 0
-
--- | List of indices of all the workspaces that contain at least one window.
-nonEmptyWorkspaces :: IO [Int]
-nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
 -- | Re-mark all workspace labels.
 transition :: PagerConfig -- ^ Configuration settings.
