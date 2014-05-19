@@ -78,19 +78,28 @@ data Workspace = Workspace { label  :: Label
 -- its source of events.
 wspaceSwitcherNew :: Pager -> IO Widget
 wspaceSwitcherNew pager = do
-  desktop <- getDesktop pager
-  widget  <- assembleWidget desktop
-  deskRef <- newIORef desktop
+  switcher <- hBoxNew False 0
+  desktop  <- getDesktop pager
+  deskRef  <- newIORef desktop
+  populateSwitcher switcher deskRef
+
   let cfg = config pager
       activecb = activeCallback cfg deskRef
+      redrawcb = redrawCallback pager deskRef switcher
       urgentcb = urgentCallback cfg deskRef
   subscribe pager activecb "_NET_CURRENT_DESKTOP"
+  subscribe pager redrawcb "_NET_NUMBER_OF_DESKTOPS"
   subscribe pager urgentcb "WM_HINTS"
-  return widget
+
+  return $ toWidget switcher
 
 -- | List of indices of all available workspaces.
 allWorkspaces :: Desktop -> [Int]
 allWorkspaces desktop = [0 .. length desktop - 1]
+
+-- | List of indices of all the workspaces that contain at least one window.
+nonEmptyWorkspaces :: IO [Int]
+nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
 -- | Return a list of two-element tuples, one for every workspace,
 -- containing the Label widget used to display the name of that specific
@@ -101,13 +110,25 @@ getDesktop pager = do
   labels <- toLabels $ map (hiddenWorkspace $ config pager) names
   return $ zipWith (\n l -> Workspace l n False) names labels
 
--- | Build the graphical representation of the widget.
-assembleWidget :: Desktop -> IO Widget
-assembleWidget desktop = do
-  hbox <- hBoxNew False 0
-  mapM_ (addButton hbox desktop) (allWorkspaces desktop)
-  widgetShowAll hbox
-  return $ toWidget hbox
+-- | Take an existing Desktop IORef and update it if necessary, store the result
+-- in the IORef, then return True if the reference was actually updated, False
+-- otherwise.
+updateDesktop :: Pager -> IORef Desktop -> IO Bool
+updateDesktop pager deskRef = do
+  wsnames <- withDefaultCtx getWorkspaceNames
+  desktop <- readIORef deskRef
+  if (length wsnames /= length desktop)
+  then getDesktop pager >>= writeIORef deskRef >> return True
+  else return False
+
+-- | Clean up the given box, then fill it up with the buttons for the current
+-- state of the desktop.
+populateSwitcher :: BoxClass box => box -> IORef Desktop -> IO ()
+populateSwitcher switcher deskRef = do
+  containerClear switcher
+  desktop <- readIORef deskRef
+  mapM_ (addButton switcher desktop) (allWorkspaces desktop)
+  widgetShowAll switcher
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_CURRENT_DESKTOP" standard events. It will track the position of
@@ -138,6 +159,18 @@ urgentCallback cfg deskRef event = do
         toggleUrgent deskRef that True
         mark desktop (urgentWorkspace cfg) that
 
+-- | Build a suitable callback function that can be registered as Listener
+-- of "_NET_NUMBER_OF_DESKTOPS" standard events. It will handle dynamically
+-- adding and removing workspaces.
+redrawCallback :: BoxClass box => Pager -> IORef Desktop -> box -> Event -> IO ()
+redrawCallback pager deskRef box _ =
+  updateDesktop pager deskRef >>= \changed ->
+    when changed $ postGUIAsync (populateSwitcher box deskRef)
+
+-- | Remove all children of a container.
+containerClear :: ContainerClass self => self -> IO ()
+containerClear container = containerForeach container (containerRemove container)
+
 -- | Convert the given list of Strings to a list of Label widgets.
 toLabels :: [String] -> IO [Label]
 toLabels = mapM labelNewMarkup
@@ -148,21 +181,20 @@ toLabels = mapM labelNewMarkup
 
 -- | Build a new clickable event box containing the Label widget that
 -- corresponds to the given index, and add it to the given container.
-addButton :: HBox    -- ^ Graphical container.
+addButton :: BoxClass self
+          => self    -- ^ Graphical container.
           -> Desktop -- ^ List of all workspace Labels available.
           -> Int     -- ^ Index of the workspace to use.
           -> IO ()
 addButton hbox desktop idx = do
-  let lbl = label (desktop !! idx)
+  let index = desktop !! idx
+      lbl = label index
   ebox <- eventBoxNew
+  widgetSetName ebox $ name index
   eventBoxSetVisibleWindow ebox False
   _ <- on ebox buttonPressEvent $ switch idx
   containerAdd ebox lbl
   boxPackStart hbox ebox PackNatural 0
-
--- | List of indices of all the workspaces that contain at least one window.
-nonEmptyWorkspaces :: IO [Int]
-nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
 -- | Re-mark all workspace labels.
 transition :: PagerConfig -- ^ Configuration settings.
