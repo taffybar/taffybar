@@ -113,7 +113,7 @@ fillMenu menu = do
     wsNames  <- withDefaultCtx getWorkspaceNames
     forM_ handles $ \handle -> do
       item <- menuItemNewWithLabel (formatEntry wsNames handle)
-      onActivateLeaf item $ withDefaultCtx (focusWindow $ snd handle)
+      _ <- onActivateLeaf item $ withDefaultCtx (focusWindow $ snd handle)
       menuShellAppend menu item
       widgetShow item
 
