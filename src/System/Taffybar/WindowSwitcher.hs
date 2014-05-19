@@ -8,9 +8,9 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- Text widget that shows the title of the currently focused window and
--- that, when clicked with the mouse, displays a pop-up with a list of all
--- currently open windows that allows to switch to any of them.
+-- Menu widget that shows the title of the currently focused window and that,
+-- when clicked, displays the list of all currently open windows allowing to
+-- switch to any of them.
 --
 -- N.B. If you're just looking for a drop-in replacement for the
 -- "System.Taffybar.XMonadLog" widget that is clickable and doesn't require
@@ -24,14 +24,11 @@ module System.Taffybar.WindowSwitcher (
   windowSwitcherNew
 ) where
 
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.IORef
+import Control.Monad (forM_)
 import Graphics.UI.Gtk
-import Graphics.UI.Gtk.ModelView as M
 import Graphics.X11.Xlib.Extras (Event)
 import System.Information.EWMHDesktopInfo
 import System.Taffybar.Pager
-import System.Taffybar.Widgets.Util
 
 -- $usage
 --
@@ -58,6 +55,7 @@ import System.Taffybar.Widgets.Util
 windowSwitcherNew :: Pager -> IO Widget
 windowSwitcherNew pager = do
   label <- labelNew Nothing
+  widgetSetName label "label"
   let cfg = config pager
       callback = pagerCallback cfg label
   subscribe pager callback "_NET_ACTIVE_WINDOW"
@@ -74,100 +72,62 @@ pagerCallback cfg label _ = do
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: Label -> IO Widget
-assembleWidget l = do
-  box <- eventBoxNew
-  containerAdd box l
-  eventBoxSetVisibleWindow box False
-  ref <- newIORef []
-  _ <- on box buttonPressEvent $ onClick [SingleClick] (toggleSelector l ref)
-  widgetShowAll box
-  return (toWidget box)
+assembleWidget label = do
+  title <- menuItemNew
+  widgetSetName title "title"
+  containerAdd title label
 
--- | Either create a new pop-up window (aka "selector") if none is
--- currently present, or destroy the one being currently displayed.
-toggleSelector :: Label -- ^ Parent of the pop-up window to create.
-               -> IORef [Window] -- ^ Last created pop-up window (if any)
-               -> IO Bool
-toggleSelector label ref = do
-  win <- readIORef ref
-  case win of
-    x:_  -> killSelector x ref
-    []   -> do
-      selector <- createSelector ref
-      case selector of
-        Just sel -> do
-          title <- labelGetText label
-          attachPopup label title sel
-          displayPopup label sel
-        Nothing -> return ()
-  return True
+  switcher <- menuBarNew
+  widgetSetName switcher "WindowSwitcher"
+  containerAdd switcher title
 
--- | Build a new pop-up containing the titles of all currently open
--- windows, and assign it as a singleton list to the given IORef.
-createSelector :: IORef [Window] -> IO (Maybe Window)
-createSelector ref = do
+  rcParseString $ unlines [ "style 'WindowSwitcher' {"
+                          , "  xthickness = 0"
+                          , "  GtkMenuBar::internal-padding = 0"
+                          , "}"
+                          , "style 'title' {"
+                          , "  xthickness = 0"
+                          , "  GtkMenuItem::horizontal-padding = 0"
+                          , "}"
+                          , "widget '*WindowSwitcher' style 'WindowSwitcher'"
+                          , "widget '*WindowSwitcher*title' style 'title'"
+                          ]
+  menu <- menuNew
+  widgetSetName menu "menu"
+
+  menuTop <- widgetGetToplevel menu
+  widgetSetName menuTop "Taffybar_WindowSwitcher"
+
+  menuItemSetSubmenu title menu
+  _ <- on title menuItemActivate $ fillMenu  menu
+  _ <- on title menuItemDeselect $ emptyMenu menu
+
+  widgetShowAll switcher
+  return $ toWidget switcher
+
+-- | Populate the given menu widget with the list of all currently open windows.
+fillMenu :: MenuClass menu => menu -> IO ()
+fillMenu menu = do
   handles  <- withDefaultCtx getWindowHandles
-  if null handles then return Nothing else do
-    selector <- windowNew
+  if null handles then return () else do
     wsNames  <- withDefaultCtx getWorkspaceNames
-    list     <- listStoreNew $ map (formatWindow wsNames) handles
-    view     <- makeTreeView list
-    column   <- makeColumn list
+    forM_ handles $ \handle -> do
+      item <- menuItemNewWithLabel (formatEntry wsNames handle)
+      onActivateLeaf item $ withDefaultCtx (focusWindow $ snd handle)
+      menuShellAppend menu item
+      widgetShow item
 
-    _ <- M.treeViewAppendColumn view column
-    sel <- M.treeViewGetSelection view
-    _ <- M.onSelectionChanged sel $ do
-      handlePick sel list handles
-      killSelector selector ref
-    set selector [ containerChild := view ]
-    _ <- on selector deleteEvent $ killSelector selector ref >> return False
-    _ <- on selector focusOutEvent $ killSelector selector ref >> return False
-
-    writeIORef ref [selector]
-    return (Just selector)
-
--- | Destroy given pop-up and clean-up the given IORef.
-killSelector :: (MonadIO m) => Window -> IORef[Window] -> m ()
-killSelector window ref = liftIO $ do
-  writeIORef ref []
-  postGUIAsync (widgetDestroy window)
-
--- | Build a new TreeView from the given ListStore containing window
--- titles.
-makeTreeView :: ListStore String -> IO TreeView
-makeTreeView list = do
-  treeview <- M.treeViewNewWithModel list
-  M.treeViewSetHeadersVisible treeview False
-  return treeview
-
--- | Build a new TreeViewColumn from the given ListStore containing window
--- titles.
-makeColumn :: ListStore String -> IO TreeViewColumn
-makeColumn list = do
-  col <- M.treeViewColumnNew
-  renderer <- M.cellRendererTextNew
-  M.cellLayoutPackStart col renderer False
-  M.cellLayoutSetAttributes col renderer list $ \ind -> [M.cellText := ind]
-  return col
-
--- | Switch to the window selected by the user in the pop-up.
-handlePick :: M.TreeSelection -- ^ Pop-up selection
-           -> ListStore String -- ^ List of all available windows
-           -> [X11WindowHandle] -- ^ List of handles from getWindowHandles
-           -> IO ()
-handlePick selection _ handles = do
-  row <- M.treeSelectionGetSelectedRows selection
-  let idx = head (head row)
-      wh = snd (handles !! idx)
-  withDefaultCtx (focusWindow wh)
-  return ()
+-- | Remove all contents from the given menu widget.
+emptyMenu :: MenuClass menu => menu -> IO ()
+emptyMenu menu = containerForeach menu $ \item ->
+                 containerRemove menu item >> postGUIAsync (widgetDestroy item)
 
 -- | Build the name to display in the list of windows by prepending the name
 -- of the workspace it is currently in to the name of the window itself
-formatWindow :: [String] -- ^ List of names of all available workspaces
-             -> X11WindowHandle -- ^ Handle of the window to name
-             -> String
-formatWindow wsNames ((ws, wtitle, _), _) = wsName ++ ": " ++ (nonEmpty wtitle)
+formatEntry :: [String] -- ^ List of names of all available workspaces
+            -> X11WindowHandle -- ^ Handle of the window to name
+            -> String
+formatEntry wsNames ((ws, wtitle, _), _) = wsName ++ ": " ++ (nonEmpty wtitle)
   where wsName = if 0 <= ws && ws < length wsNames
                  then wsNames !! ws
                  else "WS#" ++ show ws
