@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- | This widget listens on DBus for Log events from XMonad and
 -- displays the formatted status string.  To log to this widget using
@@ -53,14 +54,20 @@ taffybarEscape = escapeMarkup
 
 -- | The same as the default PP in XMonad.Hooks.DynamicLog
 taffybarDefaultPP :: PP
-taffybarDefaultPP = def { ppCurrent         = taffybarEscape . wrap "[" "]"
-                        , ppVisible         = taffybarEscape . wrap "<" ">"
-                        , ppHidden          = taffybarEscape
-                        , ppHiddenNoWindows = taffybarEscape
-                        , ppUrgent          = taffybarEscape
-                        , ppTitle           = taffybarEscape . shorten 80
-                        , ppLayout          = taffybarEscape
-                        }
+taffybarDefaultPP =
+#if MIN_VERSION_xmonad_contrib(0, 12, 0)
+  def {
+#else
+  defaultPP {
+#endif
+    ppCurrent         = taffybarEscape . wrap "[" "]"
+    , ppVisible         = taffybarEscape . wrap "<" ">"
+    , ppHidden          = taffybarEscape
+    , ppHiddenNoWindows = taffybarEscape
+    , ppUrgent          = taffybarEscape
+    , ppTitle           = taffybarEscape . shorten 80
+    , ppLayout          = taffybarEscape
+    }
 -- | The same as xmobarPP in XMonad.Hooks.DynamicLog
 taffybarPP :: PP
 taffybarPP = taffybarDefaultPP { ppCurrent = taffybarColor "yellow" "" . wrap "[" "]"
