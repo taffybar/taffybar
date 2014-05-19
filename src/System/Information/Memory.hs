@@ -14,9 +14,12 @@ data MemoryInfo = MemoryInfo { memoryTotal :: Double
                              , memoryUsed :: Double      -- total - rest
                              , memoryUsedRatio :: Double -- used / total
                              }
+
+emptyMemoryInfo :: MemoryInfo
 emptyMemoryInfo = MemoryInfo 0 0 0 0 0 0 0
 
-parseLines (line:lines) memInfo = parseLines lines newMemInfo
+parseLines :: [String] -> MemoryInfo -> MemoryInfo
+parseLines (line:rest) memInfo = parseLines rest newMemInfo
   where (label:size:_) = words line
         newMemInfo = case label of
                        "MemTotal:" -> memInfo { memoryTotal = toMB size }
