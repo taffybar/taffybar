@@ -164,8 +164,8 @@ urgentCallback cfg deskRef event = do
 -- adding and removing workspaces.
 redrawCallback :: BoxClass box => Pager -> IORef Desktop -> box -> Event -> IO ()
 redrawCallback pager deskRef box _ =
-  updateDesktop pager deskRef >>= \changed ->
-    when changed $ postGUIAsync (populateSwitcher box deskRef)
+  updateDesktop pager deskRef >>= \deskChanged ->
+    when deskChanged $ postGUIAsync (populateSwitcher box deskRef)
 
 -- | Remove all children of a container.
 containerClear :: ContainerClass self => self -> IO ()
@@ -175,9 +175,9 @@ containerClear container = containerForeach container (containerRemove container
 toLabels :: [String] -> IO [Label]
 toLabels = mapM labelNewMarkup
   where labelNewMarkup markup = do
-          label <- labelNew Nothing
-          labelSetMarkup label markup
-          return label
+          lbl <- labelNew Nothing
+          labelSetMarkup lbl markup
+          return lbl
 
 -- | Build a new clickable event box containing the Label widget that
 -- corresponds to the given index, and add it to the given container.
