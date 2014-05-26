@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | This module provides battery widgets using the UPower system
 -- service.
 --
@@ -12,18 +13,36 @@ module System.Taffybar.Battery (
   defaultBatteryConfig
   ) where
 
-import Data.Int
+import qualified Control.Exception as E
+import Data.Int ( Int64 )
+import Data.IORef
+import DBus.Client ( ClientError )
 import Graphics.UI.Gtk
-import Text.Printf
+import qualified System.IO as IO
+import Text.Printf ( printf )
 import Text.StringTemplate
 
 import System.Information.Battery
 import System.Taffybar.Widgets.PollingBar
 import System.Taffybar.Widgets.PollingLabel
 
-battInfo :: BatteryContext -> String -> IO String
-battInfo ctxt fmt = do
-  minfo <- getBatteryInfo ctxt
+safeGetBatteryInfo :: IORef BatteryContext -> IO (Maybe BatteryInfo)
+safeGetBatteryInfo mv = do
+  ctxt <- readIORef mv
+  E.catches (getBatteryInfo ctxt) [ E.Handler (\(_ :: E.IOException) -> reconnect)
+                                  , E.Handler (\(_ :: ClientError) -> reconnect)
+                                  ]
+  where
+    reconnect = do
+      mctxt <- batteryContextNew
+      case mctxt of
+        Nothing -> IO.hPutStrLn IO.stderr "Could not reconnect to UPower"
+        Just ctxt -> writeIORef mv ctxt
+      return Nothing
+
+battInfo :: IORef BatteryContext -> String -> IO String
+battInfo r fmt = do
+  minfo <- safeGetBatteryInfo r
   case minfo of
     Nothing -> return ""
     Just info -> do
@@ -58,19 +77,19 @@ textBatteryNew :: String    -- ^ Display format
                   -> IO Widget
 textBatteryNew fmt pollSeconds = do
   battCtxt <- batteryContextNew
-
   case battCtxt of
     Nothing -> labelNew (Just "No battery") >>= return . toWidget
     Just ctxt -> do
-      l <- pollingLabelNew "" pollSeconds (battInfo ctxt fmt)
+      r <- newIORef ctxt
+      l <- pollingLabelNew "" pollSeconds (battInfo r fmt)
       widgetShowAll l
       return l
 
 -- | Returns the current battery percent as a double in the range [0,
 -- 1]
-battPct :: BatteryContext -> IO Double
-battPct ctxt = do
-  minfo <- getBatteryInfo ctxt
+battPct :: IORef BatteryContext -> IO Double
+battPct r = do
+  minfo <- safeGetBatteryInfo r
   case minfo of
     Nothing -> return 0
     Just info -> return (batteryPercentage info / 100)
@@ -107,7 +126,8 @@ batteryBarNew battCfg pollSeconds = do
       -- Converting it to combine the two shouldn't be hard.
       b <- hBoxNew False 1
       txt <- textBatteryNew "$percentage$%" pollSeconds
-      bar <- pollingBarNew battCfg pollSeconds (battPct ctxt)
+      r <- newIORef ctxt
+      bar <- pollingBarNew battCfg pollSeconds (battPct r)
       boxPackStart b bar PackNatural 0
       boxPackStart b txt PackNatural 0
       widgetShowAll b
