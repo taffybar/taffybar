@@ -22,6 +22,7 @@
 module System.Information.EWMHDesktopInfo
   ( X11Window      -- re-exported from X11DesktopInfo
   , X11WindowHandle
+  , WorkspaceIdx(..)
   , withDefaultCtx -- re-exported from X11DesktopInfo
   , isWindowUrgent -- re-exported from X11DesktopInfo
   , getCurrentWorkspace
@@ -37,41 +38,45 @@ module System.Information.EWMHDesktopInfo
   , focusWindow
   ) where
 
-import Data.List (elemIndex)
+import Data.Tuple (swap)
 import Data.Maybe (listToMaybe, mapMaybe)
 import System.Information.X11DesktopInfo
 
 -- | Convenience alias for a pair of the form (props, window), where props is a
 -- tuple of the form (workspace index, window title, window class), and window
 -- is the internal ID of an open window.
-type X11WindowHandle = ((Int, String, String), X11Window)
+type X11WindowHandle = ((WorkspaceIdx, String, String), X11Window)
+
+newtype WorkspaceIdx = WSIdx Int
+                     deriving (Show, Read, Ord, Eq)
 
 noFocus :: String
 noFocus = "..."
 
 -- | Retrieve the index of the current workspace in the desktop,
 -- starting from 0.
-getCurrentWorkspace :: X11Property Int
-getCurrentWorkspace = readAsInt Nothing "_NET_CURRENT_DESKTOP"
+getCurrentWorkspace :: X11Property WorkspaceIdx
+getCurrentWorkspace = WSIdx `fmap` readAsInt Nothing "_NET_CURRENT_DESKTOP"
 
 -- | Retrieve the indexes of all currently visible workspaces
 -- with the active workspace at the head of the list.
-getVisibleWorkspaces :: X11Property [Int]
+getVisibleWorkspaces :: X11Property [WorkspaceIdx]
 getVisibleWorkspaces = do
   vis <- getVisibleTags
-  allNames <- getWorkspaceNames
+  allNames <- map swap `fmap` getWorkspaceNames
   cur <- getCurrentWorkspace
-  return $ cur : mapMaybe (`elemIndex` allNames) vis
+  return $ cur : mapMaybe (flip lookup allNames) vis
 
 -- | Return a list with the names of all the workspaces currently
 -- available.
-getWorkspaceNames :: X11Property [String]
-getWorkspaceNames = readAsListOfString Nothing "_NET_DESKTOP_NAMES"
+getWorkspaceNames :: X11Property [(WorkspaceIdx, String)]
+getWorkspaceNames = go `fmap` readAsListOfString Nothing "_NET_DESKTOP_NAMES"
+  where go = zip [WSIdx i | i <- [0..]]
 
 -- | Ask the window manager to switch to the workspace with the given
 -- index, starting from 0.
-switchToWorkspace :: Int -> X11Property ()
-switchToWorkspace idx = do
+switchToWorkspace :: WorkspaceIdx -> X11Property ()
+switchToWorkspace (WSIdx idx) = do
   cmd <- getAtom "_NET_CURRENT_DESKTOP"
   sendCommandEvent cmd (fromIntegral idx)
 
@@ -114,8 +119,8 @@ getWindowHandles = do
 
 -- | Return the index (starting from 0) of the workspace on which the
 -- given window is being displayed.
-getWorkspace :: X11Window -> X11Property Int
-getWorkspace window = readAsInt (Just window) "_NET_WM_DESKTOP"
+getWorkspace :: X11Window -> X11Property WorkspaceIdx
+getWorkspace window = WSIdx `fmap` readAsInt (Just window) "_NET_WM_DESKTOP"
 
 -- | Ask the window manager to give focus to the given window.
 focusWindow :: X11Window -> X11Property ()

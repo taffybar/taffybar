@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.WorkspaceSwitcher
@@ -95,11 +94,11 @@ wspaceSwitcherNew pager = do
   return $ toWidget switcher
 
 -- | List of indices of all available workspaces.
-allWorkspaces :: Desktop -> [Int]
-allWorkspaces desktop = [0 .. length desktop - 1]
+allWorkspaces :: Desktop -> [WorkspaceIdx]
+allWorkspaces desktop = map WSIdx [0 .. length desktop - 1]
 
 -- | List of indices of all the workspaces that contain at least one window.
-nonEmptyWorkspaces :: IO [Int]
+nonEmptyWorkspaces :: IO [WorkspaceIdx]
 nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
 -- | Return a list of two-element tuples, one for every workspace,
@@ -107,7 +106,7 @@ nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 -- workspace and a String with its default (unmarked) representation.
 getDesktop :: Pager -> IO Desktop
 getDesktop pager = do
-  names  <- withDefaultCtx getWorkspaceNames
+  names  <- map snd `fmap` withDefaultCtx getWorkspaceNames
   labels <- toLabels $ map (hiddenWorkspace $ config pager) names
   return $ zipWith (\n l -> Workspace l n False) names labels
 
@@ -139,7 +138,7 @@ activeCallback cfg deskRef _ = do
   curr <- withDefaultCtx getVisibleWorkspaces
   desktop <- readIORef deskRef
   let visible = head curr
-  when (urgent $ desktop !! visible) $
+  when (urgent $ desktop !! getWSIdx visible) $
     liftIO $ toggleUrgent deskRef visible False
   transition cfg desktop curr
 
@@ -180,15 +179,18 @@ toLabels = mapM labelNewMarkup
           labelSetMarkup lbl markup
           return lbl
 
+getWSIdx :: WorkspaceIdx -> Int
+getWSIdx (WSIdx i) = i
+
 -- | Build a new clickable event box containing the Label widget that
 -- corresponds to the given index, and add it to the given container.
 addButton :: BoxClass self
-          => self    -- ^ Graphical container.
-          -> Desktop -- ^ List of all workspace Labels available.
-          -> Int     -- ^ Index of the workspace to use.
+          => self         -- ^ Graphical container.
+          -> Desktop      -- ^ List of all workspace Labels available.
+          -> WorkspaceIdx -- ^ Index of the workspace to use.
           -> IO ()
 addButton hbox desktop idx = do
-  let index = desktop !! idx
+  let index = desktop !! getWSIdx idx
       lbl = label index
   ebox <- eventBoxNew
   widgetSetName ebox $ name index
@@ -198,13 +200,13 @@ addButton hbox desktop idx = do
   boxPackStart hbox ebox PackNatural 0
 
 -- | Re-mark all workspace labels.
-transition :: PagerConfig -- ^ Configuration settings.
-           -> Desktop     -- ^ All available Labels with their default values.
-           -> [Int]       -- ^ Currently visible workspaces (first is active).
+transition :: PagerConfig    -- ^ Configuration settings.
+           -> Desktop        -- ^ All available Labels with their default values.
+           -> [WorkspaceIdx] -- ^ Currently visible workspaces (first is active).
            -> IO ()
 transition cfg desktop wss = do
-  nonEmpty <- fmap (filter (>=0)) nonEmptyWorkspaces
-  let urgentWs = findIndices urgent desktop
+  nonEmpty <- fmap (filter (>=WSIdx 0)) nonEmptyWorkspaces
+  let urgentWs = map WSIdx $ findIndices urgent desktop
       allWs    = (allWorkspaces desktop) \\ urgentWs
       nonEmptyWs = nonEmpty \\ urgentWs
   mapM_ (mark desktop $ hiddenWorkspace cfg) nonEmptyWs
@@ -217,17 +219,17 @@ transition cfg desktop wss = do
 -- the given index.
 mark :: Desktop            -- ^ List of all available labels.
      -> (String -> String) -- ^ Marking function.
-     -> Int                -- ^ Index of the Label to modify.
+     -> WorkspaceIdx       -- ^ Index of the Label to modify.
      -> IO ()
 mark desktop decorate idx = do
-  let ws = desktop !! idx
+  let ws = desktop !! getWSIdx idx
   postGUIAsync $ labelSetMarkup (label ws) $ decorate' (name ws)
   where decorate' = pad . decorate
         pad m | m == [] = m
               | otherwise = ' ' : m
 
 -- | Switch to the workspace with the given index.
-switch :: (MonadIO m) => Int -> m Bool
+switch :: (MonadIO m) => WorkspaceIdx -> m Bool
 switch idx = do
   liftIO $ withDefaultCtx (switchToWorkspace idx)
   return True
@@ -235,13 +237,13 @@ switch idx = do
 -- | Modify the Desktop inside the given IORef, so that the Workspace at the
 -- given index has its "urgent" flag set to the given value.
 toggleUrgent :: IORef Desktop -- ^ IORef to modify.
-             -> Int           -- ^ Index of the Workspace to replace.
+             -> WorkspaceIdx  -- ^ Index of the Workspace to replace.
              -> Bool          -- ^ New value of the "urgent" flag.
              -> IO ()
 toggleUrgent deskRef idx isUrgent = do
   desktop <- readIORef deskRef
-  let ws = desktop !! idx
+  let ws = desktop !! getWSIdx idx
   unless (isUrgent == urgent ws) $ do
-    let ws' = (desktop !! idx) { urgent = isUrgent }
-    let (ys, zs) = splitAt idx desktop
+    let ws' = (desktop !! getWSIdx idx) { urgent = isUrgent }
+    let (ys, zs) = splitAt (getWSIdx idx) desktop
         in writeIORef deskRef $ ys ++ (ws' : tail zs)
