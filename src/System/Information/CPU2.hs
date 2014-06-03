@@ -39,7 +39,7 @@ getCPULoad cpu = do
 getCPUTemp :: [String] -> IO [Int]
 getCPUTemp cpus = do
     let cpus' = map (\s -> [last s]) cpus
-    liftM concat $ mapM (\cpu -> getParsedInfo ("/sys/bus/platform/devices/coretemp.0/temp" ++ show ((read cpu::Int) + 1) ++ "_input") (\s -> [("temp", [read s::Int])]) "temp") cpus'
+    liftM concat $ mapM (\cpu -> getParsedInfo ("/sys/bus/platform/devices/coretemp.0/temp" ++ show ((read cpu::Int) + 1) ++ "_input") (\s -> [("temp", [(read s::Int) `div` 1000])]) "temp") cpus'
     --TODO and suppoprt for more than 1 physical cpu.
 
 -- | Returns a list of 5 to 7 elements containing all the values available for
