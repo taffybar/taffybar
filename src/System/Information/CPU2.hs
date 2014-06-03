@@ -11,14 +11,17 @@
 -- Provides information about used CPU times, obtained from parsing the
 -- @\/proc\/stat@ file using some of the facilities included in the
 -- "System.Information.StreamInfo" module.
+-- And also provides information about the temperature of cores.
+-- (Now supports only physical cpu).
 --
 -----------------------------------------------------------------------------
 
-module System.Information.CPU2 ( getCPULoad, getCPUInfo ) where
+module System.Information.CPU2 ( getCPULoad, getCPUInfo, getCPUTemp ) where
 
 import Data.Maybe ( mapMaybe )
 import Safe ( atMay, readDef, tailSafe )
 import System.Information.StreamInfo ( getLoad, getParsedInfo )
+import Control.Monad (liftM)
 
 -- | Returns a two-element list containing relative system and user times
 -- calculated using two almost simultaneous samples of the @\/proc\/stat@ file
@@ -29,6 +32,15 @@ getCPULoad cpu = do
   case load of
     l0:l1:l2:_ -> return [ l0 + l1, l2 ]
     _ -> return []
+
+-- | Returns a list containing temperatures of user given cpu cores.
+-- Use ["cpu1", "cpu2".."cpuN"] to get temperature of exact cores.
+-- Use ["cpu0"] to get common temperature.
+getCPUTemp :: [String] -> IO [Int]
+getCPUTemp cpus = do
+    let cpus' = map (\s -> [last s]) cpus
+    liftM concat $ mapM (\cpu -> getParsedInfo ("/sys/bus/platform/devices/coretemp.0/temp" ++ show ((read cpu::Int) + 1) ++ "_input") (\s -> [("temp", [read s::Int])]) "temp") cpus'
+    --TODO and suppoprt for more than 1 physical cpu.
 
 -- | Returns a list of 5 to 7 elements containing all the values available for
 -- the given core (or all of them aggregated, if "cpu" is passed).
