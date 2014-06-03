@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.CommandRunner
--- Copyright   : (c) José A. Romero L.
+-- Copyright   : (c) Arseniy Seroka
 -- License     : BSD3-style (see LICENSE)
 --
 -- Maintainer  : Arseniy Seroka <ars.seroka@gmail.com>
@@ -64,5 +64,5 @@ readProcess cmd args input = do
     hClose outh
     ex <- waitForProcess pid
     case ex of
-     ExitSuccess   -> return $ Just output
-     ExitFailure _ -> return Nothing
+        ExitSuccess   -> return $ Just output
+        ExitFailure _ -> return Nothing
