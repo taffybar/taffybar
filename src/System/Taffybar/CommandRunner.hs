@@ -16,6 +16,7 @@
 module System.Taffybar.CommandRunner ( commandRunnerNew ) where
 
 import qualified Graphics.UI.Gtk                      as Gtk
+import           System.Taffybar.Pager                (colorize)
 import           System.Taffybar.Widgets.PollingLabel
 
 import           System.Process                       hiding (readProcess,
@@ -36,18 +37,19 @@ commandRunnerNew :: Double   -- ^ Polling period (in seconds).
                  -> String   -- ^ Command to execute. Should be in $PATH or an absolute path
                  -> [String] -- Command argyment. May be []
                  -> String   -- If command failes this would be displayed.
+                 -> String   -- Output color
                  -> IO Gtk.Widget
-commandRunnerNew interval cmd args defaultOutput = do
-    label  <- pollingLabelNew "" interval $ runCommand cmd args defaultOutput
+commandRunnerNew interval cmd args defaultOutput color = do
+    label  <- pollingLabelNew "" interval $ runCommand cmd args defaultOutput color
     Gtk.widgetShowAll label
     return $ Gtk.toWidget label
 
-runCommand :: FilePath -> [String] -> String -> IO String
-runCommand cmd args defaultOutput = do
+runCommand :: FilePath -> [String] -> String -> String -> IO String
+runCommand cmd args defaultOutput color = do
     result <- readProcess cmd args []
-    case result of
-         Nothing -> return defaultOutput
-         Just a  -> return a
+    return $ colorize color "" $ case result of
+         Nothing -> defaultOutput
+         Just a  -> a
 
 readProcess :: FilePath -> [String] -> String -> IO (Maybe String) -- had to modify function from library
 readProcess cmd args input = do
