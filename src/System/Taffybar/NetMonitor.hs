@@ -10,17 +10,18 @@
 --
 -- Simple text widget that displays incoming\/outgoing network traffic over
 -- one selected interface, as provided by the "System.Information.Network"
--- module.
+-- module. Values are in kb/s.
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.NetMonitor (netMonitorNew) where
+module System.Taffybar.NetMonitor (netMonitorNew, netMonitorNewWith) where
 
-import Data.IORef
-import Graphics.UI.Gtk
-import System.Information.Network (getNetInfo)
-import System.Taffybar.Widgets.PollingLabel
-import Text.Printf (printf)
+import           Data.IORef
+import           Graphics.UI.Gtk
+import           System.Information.Network           (getNetInfo)
+import           System.Taffybar.Widgets.PollingLabel
+import           Text.Printf                          (printf)
+import           Text.StringTemplate
 
 -- | Creates a new network monitor widget. It consists of two 'PollingLabel's,
 -- one for incoming and one for outgoing traffic fed by regular calls to
@@ -28,14 +29,23 @@ import Text.Printf (printf)
 netMonitorNew :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
               -> String -- ^ Name of the network interface to monitor (e.g. \"eth0\", \"wlan1\")
               -> IO Widget
-netMonitorNew interval interface = do
+netMonitorNew interval interface = netMonitorNewWith interval interface 2 "▼ $inKB$kb/s ▲ $outKB$kb/s"
+
+-- | Creates a new network monitor widget with custom template and precision. 
+-- Similar to 'netMonitorNew'.
+netMonitorNewWith :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
+                  -> String -- ^ Name of the network interface to monitor (e.g. \"eth0\", \"wlan1\")
+                  -> Integer -- ^ Precision for an output
+                  -> String -- ^ Template for an output. You can use variables: $inB$, $inKB$, $inMB$, $outB$, $outKB$, $outMB$
+                  -> IO Widget
+netMonitorNewWith interval interface prec template = do
     sample <- newIORef [0, 0]
-    label  <- pollingLabelNew "" interval $ showInfo sample interval interface
+    label  <- pollingLabelNew "" interval $ showInfo sample interval interface template prec
     widgetShowAll label
     return $ toWidget label
 
-showInfo :: IORef [Integer] -> Double -> String -> IO String
-showInfo sample interval interface = do
+showInfo :: IORef [Integer] -> Double -> String -> String -> Integer -> IO String
+showInfo sample interval interface template prec = do
     maybeThisSample <- getNetInfo interface
     case maybeThisSample of
       Nothing -> return ""
@@ -43,5 +53,18 @@ showInfo sample interval interface = do
         lastSample <- readIORef sample
         writeIORef sample thisSample
         let deltas = map fromIntegral $ zipWith (-) thisSample lastSample
-            [incoming, outgoing] = map (/(interval*1e3)) deltas
-        return $ printf "▼ %.2fkb/s ▲ %.2fkb/s" incoming outgoing
+            speed@[incomingb, outgoingb] = map (/(interval)) deltas
+            [incomingkb, outgoingkb] = map (setDigits prec . (/1024)) speed
+            [incomingmb, outgoingmb] = map (setDigits prec . (/1024^2)) speed
+            attribs = [ ("inB", show incomingb)
+                      , ("inKB", incomingkb)
+                      , ("inMB", incomingmb)
+                      , ("outB", show outgoingb)
+                      , ("outKB", outgoingkb)
+                      , ("outMB", outgoingmb)
+                      ]
+        return . render . setManyAttrib attribs $ newSTMP template
+
+setDigits :: Integer -> Double -> String
+setDigits dig a = printf format a
+    where format = "%." ++ show dig ++ "f"
