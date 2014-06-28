@@ -10,11 +10,15 @@
 --
 -- Simple text widget that displays incoming\/outgoing network traffic over
 -- one selected interface, as provided by the "System.Information.Network"
--- module. Values are in kb/s.
+-- module.
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.NetMonitor (netMonitorNew, netMonitorNewWith) where
+module System.Taffybar.NetMonitor (
+  netMonitorNew,
+  netMonitorNewWith,
+  defaultNetFormat
+  ) where
 
 import           Data.IORef
 import           Graphics.UI.Gtk
@@ -23,16 +27,24 @@ import           System.Taffybar.Widgets.PollingLabel
 import           Text.Printf                          (printf)
 import           Text.StringTemplate
 
+defaultNetFormat :: String
+defaultNetFormat = "▼ $inKB$kb/s ▲ $outKB$kb/s"
+
 -- | Creates a new network monitor widget. It consists of two 'PollingLabel's,
 -- one for incoming and one for outgoing traffic fed by regular calls to
 -- 'getNetInfo'.
 netMonitorNew :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
               -> String -- ^ Name of the network interface to monitor (e.g. \"eth0\", \"wlan1\")
               -> IO Widget
-netMonitorNew interval interface = netMonitorNewWith interval interface 2 "▼ $inKB$kb/s ▲ $outKB$kb/s"
+netMonitorNew interval interface =
+  netMonitorNewWith interval interface 2 defaultNetFormat
 
--- | Creates a new network monitor widget with custom template and precision. 
+-- | Creates a new network monitor widget with custom template and precision.
 -- Similar to 'netMonitorNew'.
+--
+-- The format template currently supports three units: bytes,
+-- kilobytes, and megabytes.  Automatic intelligent unit selection is
+-- planned, eventually.
 netMonitorNewWith :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
                   -> String -- ^ Name of the network interface to monitor (e.g. \"eth0\", \"wlan1\")
                   -> Integer -- ^ Precision for an output
@@ -55,7 +67,7 @@ showInfo sample interval interface template prec = do
         let deltas = map fromIntegral $ zipWith (-) thisSample lastSample
             speed@[incomingb, outgoingb] = map (/(interval)) deltas
             [incomingkb, outgoingkb] = map (setDigits prec . (/1024)) speed
-            [incomingmb, outgoingmb] = map (setDigits prec . (/1024^2)) speed
+            [incomingmb, outgoingmb] = map (setDigits prec . (/square 1024)) speed
             attribs = [ ("inB", show incomingb)
                       , ("inKB", incomingkb)
                       , ("inMB", incomingmb)
@@ -64,6 +76,9 @@ showInfo sample interval interface template prec = do
                       , ("outMB", outgoingmb)
                       ]
         return . render . setManyAttrib attribs $ newSTMP template
+
+square :: Double -> Double
+square x = x ^ (2 :: Int)
 
 setDigits :: Integer -> Double -> String
 setDigits dig a = printf format a
