@@ -8,6 +8,7 @@
  * A new window switcher menu in the pager (José Alfredo Romero L)
  * Dynamic workspace support in the workspace switcher (Nick Hu)
  * More configurable network monitor (Arseniy Seroka)
+ * New widget: text-based command runner (Arseniy Seroka)
 
 ## Bug Fixes
 
