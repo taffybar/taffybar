@@ -98,7 +98,8 @@ library
                  transformers >= 0.3.0.0,
                  X11 >= 1.5.0.1,
                  safe >= 0.3 && < 1,
-                 split >= 0.1.4.2
+                 split >= 0.1.4.2,
+                 process >= 1.0.1.1
   hs-source-dirs: src
   pkgconfig-depends: gtk+-2.0
   exposed-modules: System.Taffybar,
@@ -111,6 +112,7 @@ library
                    System.Taffybar.MPRIS2,
                    System.Taffybar.Battery,
                    System.Taffybar.CPUMonitor,
+                   System.Taffybar.CommandRunner,
                    System.Taffybar.DiskIOMonitor,
                    System.Taffybar.FSMonitor,
                    System.Taffybar.LayoutSwitcher,
