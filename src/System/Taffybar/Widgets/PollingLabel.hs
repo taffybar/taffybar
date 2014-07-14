@@ -37,6 +37,7 @@ pollingLabelNew initialString interval cmd = do
       threadDelay $ floor (interval * 1000000)
     return ()
 
+  widgetShowAll l
   return (toWidget l)
 
 ignoreIOException :: IOException -> IO ()
