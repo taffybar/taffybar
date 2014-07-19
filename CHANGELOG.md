@@ -12,6 +12,7 @@
 
 ## Bug Fixes
 
+ * Reduce wakeups by tweaking the default GHC RTS options (Joachim Breitner)
  * UTF8 fixes (Nathan Maxson)
  * Various fixes to EWMH support (José Alfredo Romero L)
 

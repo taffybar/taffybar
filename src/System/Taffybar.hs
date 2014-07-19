@@ -126,6 +126,7 @@ module System.Taffybar (
   ) where
 
 import qualified Config.Dyre as Dyre
+import qualified Config.Dyre.Params as Dyre
 import Control.Monad ( when )
 import Data.Maybe ( fromMaybe )
 import System.Environment.XDG.BaseDir ( getUserConfigFile )
@@ -194,7 +195,8 @@ defaultParams :: Dyre.Params TaffybarConfig
 defaultParams = Dyre.defaultParams { Dyre.projectName = "taffybar"
                                    , Dyre.realMain = realMain
                                    , Dyre.showError = showError
-                                   , Dyre.ghcOpts = ["-threaded"]
+                                   , Dyre.ghcOpts = ["-threaded", "-rtsopts"]
+                                   , Dyre.rtsOptsHandling = Dyre.RTSAppend ["-I0", "-V0"]
                                    }
 
 -- | The entry point of the application.  Feed it a custom config.
