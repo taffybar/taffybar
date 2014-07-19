@@ -19,25 +19,19 @@ import qualified Graphics.UI.Gtk                      as Gtk
 import           System.Taffybar.Pager                (colorize)
 import           System.Taffybar.Widgets.PollingLabel
 
-import           System.Process                       hiding (readProcess,
-                                                       runCommand)
-
-import           Prelude                              hiding (mapM)
-
-import           Control.Concurrent
-import qualified Control.Exception                    as C
 import           Control.Monad
 import           System.Exit                          (ExitCode (..))
-import           System.IO
+import qualified System.IO as IO
+import qualified System.Process as P
 
 -- | Creates a new command runner widget. This is a 'PollingLabel' fed by
 -- regular calls to command given by argument. The results of calling this function
 -- are displayed as string.
 commandRunnerNew :: Double   -- ^ Polling period (in seconds).
                  -> String   -- ^ Command to execute. Should be in $PATH or an absolute path
-                 -> [String] -- Command argyment. May be []
-                 -> String   -- If command failes this would be displayed.
-                 -> String   -- Output color
+                 -> [String] -- ^ Command argument. May be []
+                 -> String   -- ^ If command fails this will be displayed.
+                 -> String   -- ^ Output color
                  -> IO Gtk.Widget
 commandRunnerNew interval cmd args defaultOutput color = do
     label  <- pollingLabelNew "" interval $ runCommand cmd args defaultOutput color
@@ -46,25 +40,35 @@ commandRunnerNew interval cmd args defaultOutput color = do
 
 runCommand :: FilePath -> [String] -> String -> String -> IO String
 runCommand cmd args defaultOutput color = do
-    result <- readProcess cmd args []
-    return $ colorize color "" $ case result of
-         Nothing -> defaultOutput
-         Just a  -> a
+  (ecode, stdout, stderr) <- P.readProcessWithExitCode cmd args ""
+  unless (null stderr) $ do
+    IO.hPutStrLn IO.stderr stderr
+  return $ colorize color "" $ case ecode of
+    ExitSuccess -> stdout
+    ExitFailure _ -> defaultOutput
+--     result <- readProcess cmd args []
+--     return $ colorize color "" $ fromMaybe defaultOutput result
+--     -- return $ colorize color "" $ case result of
+--     --      Nothing -> defaultOutput
+--     --      Just a  -> a
 
-readProcess :: FilePath -> [String] -> String -> IO (Maybe String) -- had to modify function from library
-readProcess cmd args input = do
-    (Just inh, Just outh, _, pid) <-
-        createProcess (proc cmd args){ std_in  = CreatePipe,
-                                       std_out = CreatePipe,
-                                       std_err = Inherit }
-    output  <- hGetContents outh
-    outMVar <- newEmptyMVar
-    forkIO $ C.evaluate (length output) >> putMVar outMVar ()
-    when (not (null input)) $ do hPutStr inh input; hFlush inh
-    hClose inh
-    takeMVar outMVar
-    hClose outh
-    ex <- waitForProcess pid
-    case ex of
-        ExitSuccess   -> return $ Just output
-        ExitFailure _ -> return Nothing
+-- readProcess :: FilePath -> [String] -> String -> IO (Maybe String) -- had to modify function from library
+-- readProcess cmd args input = do
+--     (Just inh, Just outh, _, pid) <-
+--       P.createProcess (P.proc cmd args){ P.std_in  = P.CreatePipe,
+--                                          P.std_out = P.CreatePipe,
+--                                          P.std_err = P.Inherit
+--                                        }
+--     output  <- IO.hGetContents outh
+--     outMVar <- C.newEmptyMVar
+--     C.forkIO $ E.evaluate (length output) >> C.putMVar outMVar ()
+--     when (not (null input)) $ do
+--       IO.hPutStr inh input
+--       IO.hFlush inh
+--     IO.hClose inh
+--     C.takeMVar outMVar
+--     IO.hClose outh
+--     ex <- P.waitForProcess pid
+--     case ex of
+--       ExitSuccess   -> return $ Just output
+--       ExitFailure _ -> return Nothing
