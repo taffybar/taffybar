@@ -75,7 +75,7 @@ renderFrame pct cfg width height = do
   let (frameR, frameG, frameB) = barBorderColor cfg
   C.setSourceRGB frameR frameG frameB
   C.setLineWidth 1.0
-  C.rectangle fpad fpad (fwidth - 2 * fpad) (fheight - 2 * fpad)
+  C.rectangle (fpad + 0.5) (fpad + 0.5) (fwidth - 2 * fpad - 1) (fheight - 2 * fpad - 1)
   C.stroke
 
 renderBar :: Double -> BarConfig -> Int -> Int -> C.Render ()

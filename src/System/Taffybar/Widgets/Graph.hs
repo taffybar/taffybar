@@ -14,6 +14,7 @@ module System.Taffybar.Widgets.Graph (
   GraphHandle,
   GraphConfig(..),
   GraphDirection(..),
+  GraphStyle(..),
   -- * Functions
   graphNew,
   graphAddSample,
@@ -24,6 +25,7 @@ import Prelude hiding ( mapM_ )
 import Control.Concurrent
 import Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import Data.Foldable ( mapM_ )
+import Control.Monad ( when )
 import qualified Data.Sequence as S
 import Graphics.Rendering.Cairo
 import Graphics.Rendering.Cairo.Matrix hiding (scale, translate)
@@ -39,6 +41,11 @@ data GraphState =
 
 data GraphDirection = LEFT_TO_RIGHT | RIGHT_TO_LEFT deriving (Eq)
 
+-- | The style of the graph. Generally, you will want to draw all 'Area' graphs first, and then all 'Line' graphs.
+data GraphStyle
+    = Area -- ^ Thea area below the value is filled
+    | Line -- ^ The values are connected by a line (one pixel wide)
+
 -- | The configuration options for the graph.  The padding is the
 -- number of pixels reserved as blank space around the widget in each
 -- direction.
@@ -46,9 +53,11 @@ data GraphConfig =
   GraphConfig { graphPadding :: Int -- ^ Number of pixels of padding on each side of the graph widget
               , graphBackgroundColor :: (Double, Double, Double) -- ^ The background color of the graph (default black)
               , graphBorderColor :: (Double, Double, Double) -- ^ The border color drawn around the graph (default gray)
-              , graphDataColors :: [(Double, Double, Double, Double)] -- ^ Colors for each data set (default [])
+              , graphBorderWidth :: Int -- ^ The width of the border (default 1, use 0 to disable the border)
+              , graphDataColors :: [(Double, Double, Double, Double)] -- ^ Colors for each data set (default cycles between red, green and blue)
+              , graphDataStyles :: [GraphStyle] -- ^ How to draw each data point (default @repeat Area@)
               , graphHistorySize :: Int -- ^ The number of data points to retain for each data set (default 20)
-              , graphLabel :: Maybe String -- ^ May contain Pango markup (default Nothing)
+              , graphLabel :: Maybe String -- ^ May contain Pango markup (default @Nothing@)
               , graphWidth :: Int -- ^ The width (in pixels) of the graph widget (default 50)
               , graphDirection :: GraphDirection
               }
@@ -57,7 +66,9 @@ defaultGraphConfig :: GraphConfig
 defaultGraphConfig = GraphConfig { graphPadding = 2
                                  , graphBackgroundColor = (0.0, 0.0, 0.0)
                                  , graphBorderColor = (0.5, 0.5, 0.5)
-                                 , graphDataColors = []
+                                 , graphBorderWidth = 1
+                                 , graphDataColors = cycle [(1,0,0,0), (0,1,0,0), (0,0,1,0)]
+                                 , graphDataStyles = repeat Area
                                  , graphHistorySize = 20
                                  , graphLabel = Nothing
                                  , graphWidth = 50
@@ -106,10 +117,14 @@ renderFrameAndBackground cfg w h = do
   fill
 
   -- Draw a frame around the widget area
-  setLineWidth 1.0
-  setSourceRGB frameR frameG frameB
-  rectangle fpad fpad (fw - 2 * fpad) (fh - 2 * fpad)
-  stroke
+  -- (unless equal to background color, which likely means the user does not
+  -- want a frame)
+  when (graphBorderWidth cfg > 0) $ do
+    let p = fromIntegral (graphBorderWidth cfg)
+    setLineWidth p
+    setSourceRGB frameR frameG frameB
+    rectangle (fpad + (p / 2)) (fpad + (p / 2)) (fw - 2 * fpad - p) (fh - 2 * fpad - p)
+    stroke
 
 
 renderGraph :: [Seq Double] -> GraphConfig -> Int -> Int -> Double -> Render ()
@@ -118,14 +133,15 @@ renderGraph hists cfg w h xStep = do
 
   setLineWidth 0.1
 
-  let pad = graphPadding cfg
+  let pad = fromIntegral $ graphPadding cfg
+  let framePad = fromIntegral $ graphBorderWidth cfg
 
   -- Make the new origin be inside the frame and then scale the
   -- drawing area so that all operations in terms of width and height
   -- are inside the drawn frame.
-  translate (fromIntegral pad + 1) (fromIntegral pad + 1)
-  let xS = fromIntegral (w - 2 * pad - 2) / fromIntegral w
-      yS = fromIntegral (h - 2 * pad - 2) / fromIntegral h
+  translate (pad + framePad) (pad + framePad)
+  let xS = (fromIntegral w - 2 * pad - 2 * framePad) / fromIntegral w
+      yS = (fromIntegral h - 2 * pad - 2 * framePad) / fromIntegral h
   scale xS yS
 
   -- If right-to-left direction is requested, apply an horizontal inversion
@@ -135,8 +151,7 @@ renderGraph hists cfg w h xStep = do
       else return ()
 
   let pctToY pct = fromIntegral h * (1 - pct)
-      histsAndColors = zip hists (graphDataColors cfg)
-      renderDataSet (hist, color)
+      renderDataSet hist color style
         | S.length hist <= 1 = return ()
         | otherwise = do
           let (r, g, b, a) = color
@@ -147,13 +162,18 @@ renderGraph hists cfg w h xStep = do
           moveTo originX originY
 
           mapM_ (outlineData pctToY xStep) hist'
-          (endX, _) <- getCurrentPoint
-          lineTo endX (fromIntegral h)
-          lineTo 0 (fromIntegral h)
-          fill
+          case style of
+            Area -> do
+              (endX, _) <- getCurrentPoint
+              lineTo endX (fromIntegral h)
+              lineTo 0 (fromIntegral h)
+              fill
+            Line -> do
+              setLineWidth 1.0
+              stroke
 
 
-  mapM_ renderDataSet histsAndColors
+  sequence_ $ zipWith3 renderDataSet hists (graphDataColors cfg) (graphDataStyles cfg)
 
 drawBorder :: MVar GraphState -> DrawingArea -> IO ()
 drawBorder mv drawArea = do
