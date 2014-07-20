@@ -41,7 +41,8 @@ module System.Taffybar.Pager
   ) where
 
 import Control.Concurrent (forkIO)
-import Control.Exception as E
+import Control.Exception
+import Control.Exception.Enclosed (catchAny)
 import Control.Monad.Reader
 import Data.IORef
 import Graphics.UI.Gtk (Markup, escapeMarkup)
@@ -106,7 +107,7 @@ notify :: Event -> (Listener, Filter) -> IO ()
 notify event (listener, eventFilter) =
   case event of
     PropertyEvent _ _ _ _ _ atom _ _ ->
-      when (atom == eventFilter) $ E.catch (listener event) ignoreIOException
+      when (atom == eventFilter) $ catchAny (listener event) ignoreException
     _ -> return ()
 
 -- | Registers the given Listener as a subscriber of events of the given
@@ -119,8 +120,8 @@ subscribe pager listener filterName = do
   let next = (listener, eventFilter)
   writeIORef (clients pager) (next : registered)
 
-ignoreIOException :: IOException -> IO ()
-ignoreIOException _ = return ()
+ignoreException :: SomeException -> IO ()
+ignoreException _ = return ()
 
 -- | Creates markup with the given foreground and background colors and the
 -- given contents.
