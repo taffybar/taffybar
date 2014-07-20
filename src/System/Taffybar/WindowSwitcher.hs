@@ -25,6 +25,7 @@ module System.Taffybar.WindowSwitcher (
 ) where
 
 import Control.Monad (forM_)
+import qualified Data.Map as M
 import Graphics.UI.Gtk
 import Graphics.X11.Xlib.Extras (Event)
 import System.Information.EWMHDesktopInfo
@@ -112,7 +113,7 @@ fillMenu menu = do
   if null handles then return () else do
     wsNames  <- withDefaultCtx getWorkspaceNames
     forM_ handles $ \handle -> do
-      item <- menuItemNewWithLabel (formatEntry wsNames handle)
+      item <- menuItemNewWithLabel (formatEntry (M.fromList wsNames) handle)
       _ <- onActivateLeaf item $ withDefaultCtx (focusWindow $ snd handle)
       menuShellAppend menu item
       widgetShow item
@@ -124,13 +125,13 @@ emptyMenu menu = containerForeach menu $ \item ->
 
 -- | Build the name to display in the list of windows by prepending the name
 -- of the workspace it is currently in to the name of the window itself
-formatEntry :: [String] -- ^ List of names of all available workspaces
+formatEntry :: M.Map WorkspaceIdx String -- ^ List of names of all available workspaces
             -> X11WindowHandle -- ^ Handle of the window to name
             -> String
 formatEntry wsNames ((ws, wtitle, _), _) = wsName ++ ": " ++ (nonEmpty wtitle)
-  where wsName = if 0 <= ws && ws < length wsNames
-                 then wsNames !! ws
-                 else "WS#" ++ show ws
+  where
+    wsName = M.findWithDefault ("WS#"++show wsN) ws wsNames
+    WSIdx wsN = ws
 
 -- | Return the given String if it's not empty, otherwise return "(nameless window)"
 nonEmpty :: String -> String
