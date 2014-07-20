@@ -14,6 +14,7 @@ module System.Taffybar.Widgets.Graph (
   GraphHandle,
   GraphConfig(..),
   GraphDirection(..),
+  GraphStyle(..),
   -- * Functions
   graphNew,
   graphAddSample,
@@ -39,6 +40,11 @@ data GraphState =
 
 data GraphDirection = LEFT_TO_RIGHT | RIGHT_TO_LEFT deriving (Eq)
 
+-- | The style of the graph. Generally, you will want to draw all 'Area' graphs first, and then all 'Line' graphs.
+data GraphStyle
+    = Area -- ^ Thea area below the value is filled
+    | Line -- ^ The values are connected by a line (one pixel wide)
+
 -- | The configuration options for the graph.  The padding is the
 -- number of pixels reserved as blank space around the widget in each
 -- direction.
@@ -47,6 +53,7 @@ data GraphConfig =
               , graphBackgroundColor :: (Double, Double, Double) -- ^ The background color of the graph (default black)
               , graphBorderColor :: (Double, Double, Double) -- ^ The border color drawn around the graph (default gray)
               , graphDataColors :: [(Double, Double, Double, Double)] -- ^ Colors for each data set (default [])
+              , graphDataStyles :: [GraphStyle] -- ^ How to draw each data point (default @repeat Area@)
               , graphHistorySize :: Int -- ^ The number of data points to retain for each data set (default 20)
               , graphLabel :: Maybe String -- ^ May contain Pango markup (default Nothing)
               , graphWidth :: Int -- ^ The width (in pixels) of the graph widget (default 50)
@@ -58,6 +65,7 @@ defaultGraphConfig = GraphConfig { graphPadding = 2
                                  , graphBackgroundColor = (0.0, 0.0, 0.0)
                                  , graphBorderColor = (0.5, 0.5, 0.5)
                                  , graphDataColors = []
+                                 , graphDataStyles = repeat Area
                                  , graphHistorySize = 20
                                  , graphLabel = Nothing
                                  , graphWidth = 50
@@ -135,8 +143,7 @@ renderGraph hists cfg w h xStep = do
       else return ()
 
   let pctToY pct = fromIntegral h * (1 - pct)
-      histsAndColors = zip hists (graphDataColors cfg)
-      renderDataSet (hist, color)
+      renderDataSet hist color style
         | S.length hist <= 1 = return ()
         | otherwise = do
           let (r, g, b, a) = color
@@ -147,13 +154,18 @@ renderGraph hists cfg w h xStep = do
           moveTo originX originY
 
           mapM_ (outlineData pctToY xStep) hist'
-          (endX, _) <- getCurrentPoint
-          lineTo endX (fromIntegral h)
-          lineTo 0 (fromIntegral h)
-          fill
+          case style of
+            Area -> do
+              (endX, _) <- getCurrentPoint
+              lineTo endX (fromIntegral h)
+              lineTo 0 (fromIntegral h)
+              fill
+            Line -> do
+              setLineWidth 1.0
+              stroke
 
 
-  mapM_ renderDataSet histsAndColors
+  sequence_ $ zipWith3 renderDataSet hists (graphDataColors cfg) (graphDataStyles cfg)
 
 drawBorder :: MVar GraphState -> DrawingArea -> IO ()
 drawBorder mv drawArea = do

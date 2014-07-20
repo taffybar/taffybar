@@ -9,6 +9,7 @@
  * Dynamic workspace support in the workspace switcher (Nick Hu)
  * More configurable network monitor (Arseniy Seroka)
  * New widget: text-based command runner (Arseniy Seroka)
+ * The Graph widget supports lines graphs (via graphDataStyles) (Joachim Breitner)
 
 ## Bug Fixes
 
