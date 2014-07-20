@@ -52,7 +52,7 @@ data GraphConfig =
   GraphConfig { graphPadding :: Int -- ^ Number of pixels of padding on each side of the graph widget
               , graphBackgroundColor :: (Double, Double, Double) -- ^ The background color of the graph (default black)
               , graphBorderColor :: (Double, Double, Double) -- ^ The border color drawn around the graph (default gray)
-              , graphDataColors :: [(Double, Double, Double, Double)] -- ^ Colors for each data set (default @[]@)
+              , graphDataColors :: [(Double, Double, Double, Double)] -- ^ Colors for each data set (default cycles between red, green and blue)
               , graphDataStyles :: [GraphStyle] -- ^ How to draw each data point (default @repeat Area@)
               , graphHistorySize :: Int -- ^ The number of data points to retain for each data set (default 20)
               , graphLabel :: Maybe String -- ^ May contain Pango markup (default @Nothing@)
@@ -64,7 +64,7 @@ defaultGraphConfig :: GraphConfig
 defaultGraphConfig = GraphConfig { graphPadding = 2
                                  , graphBackgroundColor = (0.0, 0.0, 0.0)
                                  , graphBorderColor = (0.5, 0.5, 0.5)
-                                 , graphDataColors = []
+                                 , graphDataColors = cycle [(1,0,0,0), (0,1,0,0), (0,0,1,0)]
                                  , graphDataStyles = repeat Area
                                  , graphHistorySize = 20
                                  , graphLabel = Nothing
