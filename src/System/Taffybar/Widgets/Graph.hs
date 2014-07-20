@@ -25,6 +25,7 @@ import Prelude hiding ( mapM_ )
 import Control.Concurrent
 import Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import Data.Foldable ( mapM_ )
+import Control.Monad ( when )
 import qualified Data.Sequence as S
 import Graphics.Rendering.Cairo
 import Graphics.Rendering.Cairo.Matrix hiding (scale, translate)
@@ -52,6 +53,7 @@ data GraphConfig =
   GraphConfig { graphPadding :: Int -- ^ Number of pixels of padding on each side of the graph widget
               , graphBackgroundColor :: (Double, Double, Double) -- ^ The background color of the graph (default black)
               , graphBorderColor :: (Double, Double, Double) -- ^ The border color drawn around the graph (default gray)
+              , graphBorderWidth :: Int -- ^ The width of the border (default 1, use 0 to disable the border)
               , graphDataColors :: [(Double, Double, Double, Double)] -- ^ Colors for each data set (default cycles between red, green and blue)
               , graphDataStyles :: [GraphStyle] -- ^ How to draw each data point (default @repeat Area@)
               , graphHistorySize :: Int -- ^ The number of data points to retain for each data set (default 20)
@@ -64,6 +66,7 @@ defaultGraphConfig :: GraphConfig
 defaultGraphConfig = GraphConfig { graphPadding = 2
                                  , graphBackgroundColor = (0.0, 0.0, 0.0)
                                  , graphBorderColor = (0.5, 0.5, 0.5)
+                                 , graphBorderWidth = 1
                                  , graphDataColors = cycle [(1,0,0,0), (0,1,0,0), (0,0,1,0)]
                                  , graphDataStyles = repeat Area
                                  , graphHistorySize = 20
@@ -114,10 +117,14 @@ renderFrameAndBackground cfg w h = do
   fill
 
   -- Draw a frame around the widget area
-  setLineWidth 1.0
-  setSourceRGB frameR frameG frameB
-  rectangle (fpad - 0.5) (fpad - 0.5) (fw - 2 * fpad + 1) (fh - 2 * fpad + 1)
-  stroke
+  -- (unless equal to background color, which likely means the user does not
+  -- want a frame)
+  when (graphBorderWidth cfg > 0) $ do
+    let p = fromIntegral (graphBorderWidth cfg)
+    setLineWidth p
+    setSourceRGB frameR frameG frameB
+    rectangle (fpad + (p / 2)) (fpad + (p / 2)) (fw - 2 * fpad - p) (fh - 2 * fpad - p)
+    stroke
 
 
 renderGraph :: [Seq Double] -> GraphConfig -> Int -> Int -> Double -> Render ()
@@ -126,14 +133,15 @@ renderGraph hists cfg w h xStep = do
 
   setLineWidth 0.1
 
-  let pad = graphPadding cfg
+  let pad = fromIntegral $ graphPadding cfg
+  let framePad = fromIntegral $ graphBorderWidth cfg
 
   -- Make the new origin be inside the frame and then scale the
   -- drawing area so that all operations in terms of width and height
   -- are inside the drawn frame.
-  translate (fromIntegral pad + 1) (fromIntegral pad + 1)
-  let xS = fromIntegral (w - 2 * pad - 2) / fromIntegral w
-      yS = fromIntegral (h - 2 * pad - 2) / fromIntegral h
+  translate (pad + framePad) (pad + framePad)
+  let xS = (fromIntegral w - 2 * pad - 2 * framePad) / fromIntegral w
+      yS = (fromIntegral h - 2 * pad - 2 * framePad) / fromIntegral h
   scale xS yS
 
   -- If right-to-left direction is requested, apply an horizontal inversion
