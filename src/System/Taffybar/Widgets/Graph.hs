@@ -116,7 +116,7 @@ renderFrameAndBackground cfg w h = do
   -- Draw a frame around the widget area
   setLineWidth 1.0
   setSourceRGB frameR frameG frameB
-  rectangle fpad fpad (fw - 2 * fpad) (fh - 2 * fpad)
+  rectangle (fpad - 0.5) (fpad - 0.5) (fw - 2 * fpad + 1) (fh - 2 * fpad + 1)
   stroke
 
 
