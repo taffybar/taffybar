@@ -29,7 +29,7 @@ import qualified System.Process as P
 -- are displayed as string.
 commandRunnerNew :: Double   -- ^ Polling period (in seconds).
                  -> String   -- ^ Command to execute. Should be in $PATH or an absolute path
-                 -> [String] -- ^ Command argument. May be []
+                 -> [String] -- ^ Command argument. May be @[]@
                  -> String   -- ^ If command fails this will be displayed.
                  -> String   -- ^ Output color
                  -> IO Gtk.Widget
@@ -46,29 +46,3 @@ runCommand cmd args defaultOutput color = do
   return $ colorize color "" $ case ecode of
     ExitSuccess -> stdout
     ExitFailure _ -> defaultOutput
---     result <- readProcess cmd args []
---     return $ colorize color "" $ fromMaybe defaultOutput result
---     -- return $ colorize color "" $ case result of
---     --      Nothing -> defaultOutput
---     --      Just a  -> a
-
--- readProcess :: FilePath -> [String] -> String -> IO (Maybe String) -- had to modify function from library
--- readProcess cmd args input = do
---     (Just inh, Just outh, _, pid) <-
---       P.createProcess (P.proc cmd args){ P.std_in  = P.CreatePipe,
---                                          P.std_out = P.CreatePipe,
---                                          P.std_err = P.Inherit
---                                        }
---     output  <- IO.hGetContents outh
---     outMVar <- C.newEmptyMVar
---     C.forkIO $ E.evaluate (length output) >> C.putMVar outMVar ()
---     when (not (null input)) $ do
---       IO.hPutStr inh input
---       IO.hFlush inh
---     IO.hClose inh
---     C.takeMVar outMVar
---     IO.hClose outh
---     ex <- P.waitForProcess pid
---     case ex of
---       ExitSuccess   -> return $ Just output
---       ExitFailure _ -> return Nothing
