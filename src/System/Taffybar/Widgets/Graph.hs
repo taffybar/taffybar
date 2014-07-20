@@ -52,10 +52,10 @@ data GraphConfig =
   GraphConfig { graphPadding :: Int -- ^ Number of pixels of padding on each side of the graph widget
               , graphBackgroundColor :: (Double, Double, Double) -- ^ The background color of the graph (default black)
               , graphBorderColor :: (Double, Double, Double) -- ^ The border color drawn around the graph (default gray)
-              , graphDataColors :: [(Double, Double, Double, Double)] -- ^ Colors for each data set (default [])
+              , graphDataColors :: [(Double, Double, Double, Double)] -- ^ Colors for each data set (default @[]@)
               , graphDataStyles :: [GraphStyle] -- ^ How to draw each data point (default @repeat Area@)
               , graphHistorySize :: Int -- ^ The number of data points to retain for each data set (default 20)
-              , graphLabel :: Maybe String -- ^ May contain Pango markup (default Nothing)
+              , graphLabel :: Maybe String -- ^ May contain Pango markup (default @Nothing@)
               , graphWidth :: Int -- ^ The width (in pixels) of the graph widget (default 50)
               , graphDirection :: GraphDirection
               }
