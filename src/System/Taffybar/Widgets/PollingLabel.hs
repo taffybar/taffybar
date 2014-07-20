@@ -3,7 +3,7 @@
 module System.Taffybar.Widgets.PollingLabel ( pollingLabelNew ) where
 
 import Control.Concurrent ( forkIO, threadDelay )
-import Control.Exception as E
+import Control.Exception.Enclosed as E
 import Control.Monad ( forever )
 import Graphics.UI.Gtk
 
@@ -30,14 +30,12 @@ pollingLabelNew initialString interval cmd = do
 
   _ <- on l realize $ do
     _ <- forkIO $ forever $ do
-      let tryUpdate = do
-            str <- cmd
-            postGUIAsync $ labelSetMarkup l str
-      E.catch tryUpdate ignoreIOException
+      estr <- E.tryAny cmd
+      case estr of
+        Left _ -> return ()
+        Right str -> postGUIAsync $ labelSetMarkup l str
       threadDelay $ floor (interval * 1000000)
     return ()
 
   return (toWidget l)
 
-ignoreIOException :: IOException -> IO ()
-ignoreIOException _ = return ()

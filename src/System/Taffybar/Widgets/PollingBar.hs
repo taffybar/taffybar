@@ -11,6 +11,7 @@ module System.Taffybar.Widgets.PollingBar (
   ) where
 
 import Control.Concurrent
+import qualified Control.Exception.Enclosed as E
 import Control.Monad ( forever )
 import Graphics.UI.Gtk
 
@@ -22,8 +23,10 @@ pollingBarNew cfg pollSeconds action = do
 
   _ <- on drawArea realize $ do
     _ <- forkIO $ forever $ do
-      sample <- action
-      verticalBarSetPercent h sample
+      esample <- E.tryAny action
+      case esample of
+        Left _ -> return ()
+        Right sample -> verticalBarSetPercent h sample
       threadDelay $ floor (pollSeconds * 1000000)
     return ()
 

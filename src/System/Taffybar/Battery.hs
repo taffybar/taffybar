@@ -13,10 +13,9 @@ module System.Taffybar.Battery (
   defaultBatteryConfig
   ) where
 
-import qualified Control.Exception as E
+import qualified Control.Exception.Enclosed as E
 import Data.Int ( Int64 )
 import Data.IORef
-import DBus.Client ( ClientError )
 import Graphics.UI.Gtk
 import qualified System.IO as IO
 import Text.Printf ( printf )
@@ -29,9 +28,7 @@ import System.Taffybar.Widgets.PollingLabel
 safeGetBatteryInfo :: IORef BatteryContext -> IO (Maybe BatteryInfo)
 safeGetBatteryInfo mv = do
   ctxt <- readIORef mv
-  E.catches (getBatteryInfo ctxt) [ E.Handler (\(_ :: E.IOException) -> reconnect)
-                                  , E.Handler (\(_ :: ClientError) -> reconnect)
-                                  ]
+  E.catchAny (getBatteryInfo ctxt) $ \_ -> reconnect
   where
     reconnect = do
       mctxt <- batteryContextNew

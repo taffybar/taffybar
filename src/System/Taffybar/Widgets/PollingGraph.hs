@@ -12,6 +12,7 @@ module System.Taffybar.Widgets.PollingGraph (
   ) where
 
 import Control.Concurrent
+import qualified Control.Exception.Enclosed as E
 import Control.Monad ( forever )
 import Graphics.UI.Gtk
 
@@ -26,8 +27,10 @@ pollingGraphNew cfg pollSeconds action = do
 
   _ <- on da realize $ do
        _ <- forkIO $ forever $ do
-         sample <- action
-         graphAddSample h sample
+         esample <- E.tryAny action
+         case esample of
+           Left _ -> return ()
+           Right sample -> graphAddSample h sample
          threadDelay $ floor (pollSeconds * 1000000)
        return ()
 
