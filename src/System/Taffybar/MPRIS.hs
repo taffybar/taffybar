@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | This is a "Now Playing"-style widget that listens for MPRIS
 -- events on DBus.  Various media players implement this.  This widget
 -- only works with version 1 of the MPRIS protocol
@@ -51,6 +52,7 @@ trackCallback w s = do
     Just m -> do
       let artist = maybe "[unknown]" id (variantDictLookup "artist" m)
           track = maybe "[unknown]" id (variantDictLookup "title" m)
+          msg :: String
           msg = escapeMarkup $ printf "%s - %s" (T.unpack artist) (T.unpack track)
           txt = "<span fgcolor='yellow'>Now Playing:</span> " ++ msg
       postGUIAsync $ do
@@ -74,7 +76,7 @@ stateCallback w s =
 
 mprisNew :: IO Widget
 mprisNew = do
-  l <- labelNew Nothing
+  l <- labelNew (Nothing :: Maybe String)
 
   _ <- on l realize $ setupDBus l
   widgetShowAll l

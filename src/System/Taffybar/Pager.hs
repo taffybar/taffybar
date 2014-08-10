@@ -45,7 +45,7 @@ import Control.Exception
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad.Reader
 import Data.IORef
-import Graphics.UI.Gtk (Markup, escapeMarkup)
+import Graphics.UI.Gtk (escapeMarkup)
 import Graphics.X11.Types
 import Graphics.X11.Xlib.Extras
 import Text.Printf (printf)
@@ -59,14 +59,14 @@ type SubscriptionList = IORef [(Listener, Filter)]
 -- | Structure contanining functions to customize the pretty printing of
 -- different widget elements.
 data PagerConfig = PagerConfig
-  { activeWindow     :: String -> Markup -- ^ the name of the active window.
-  , activeLayout     :: String -> Markup -- ^ the currently active layout.
-  , activeWorkspace  :: String -> Markup -- ^ the currently active workspace.
-  , hiddenWorkspace  :: String -> Markup -- ^ inactive workspace with windows.
-  , emptyWorkspace   :: String -> Markup -- ^ inactive workspace with no windows.
-  , visibleWorkspace :: String -> Markup -- ^ all other visible workspaces (Xinerama or XRandR).
-  , urgentWorkspace  :: String -> Markup -- ^ workspaces containing windows with the urgency hint set.
-  , widgetSep        :: Markup           -- ^ separator to use between desktop widgets in 'TaffyPager'.
+  { activeWindow     :: String -> String -- ^ the name of the active window.
+  , activeLayout     :: String -> String -- ^ the currently active layout.
+  , activeWorkspace  :: String -> String -- ^ the currently active workspace.
+  , hiddenWorkspace  :: String -> String -- ^ inactive workspace with windows.
+  , emptyWorkspace   :: String -> String -- ^ inactive workspace with no windows.
+  , visibleWorkspace :: String -> String -- ^ all other visible workspaces (Xinerama or XRandR).
+  , urgentWorkspace  :: String -> String -- ^ workspaces containing windows with the urgency hint set.
+  , widgetSep        :: String           -- ^ separator to use between desktop widgets in 'TaffyPager'.
   }
 
 -- | Structure containing the state of the Pager.
@@ -128,7 +128,7 @@ ignoreException _ = return ()
 colorize :: String -- ^ Foreground color.
          -> String -- ^ Background color.
          -> String -- ^ Contents.
-         -> Markup
+         -> String
 colorize fg bg = printf "<span%s%s>%s</span>" (attr "fg" fg) (attr "bg" bg)
   where attr name value
           | null value = ""

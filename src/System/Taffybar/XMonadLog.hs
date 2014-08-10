@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | This widget listens on DBus for Log events from XMonad and
 -- displays the formatted status string.  To log to this widget using
 -- the excellent dbus-core library, use code like the following:
@@ -103,13 +104,14 @@ setupDbus w = do
 callback :: Label -> Signal -> IO ()
 callback w sig = do
   let [bdy] = signalBody sig
+      status :: String
       Just status = fromVariant bdy
   postGUIAsync $ labelSetMarkup w status
 
 -- | Return a new XMonad log widget
 xmonadLogNew :: IO Widget
 xmonadLogNew = do
-  l <- labelNew Nothing
+  l <- labelNew (Nothing :: Maybe String)
   _ <- on l realize $ setupDbus l
   widgetShowAll l
   return (toWidget l)

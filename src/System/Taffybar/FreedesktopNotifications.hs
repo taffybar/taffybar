@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | This widget listens on DBus for freedesktop notifications
 -- (http://developer.gnome.org/notification-spec/).  Currently it is
 -- somewhat ugly, but the format is somewhat configurable.  A visual
@@ -272,13 +273,13 @@ notifyAreaNew :: NotificationConfig -> IO Widget
 notifyAreaNew cfg = do
   frame <- frameNew
   box <- hBoxNew False 3
-  textArea <- labelNew Nothing
+  textArea <- labelNew (Nothing :: Maybe String)
   button <- eventBoxNew
   sep <- vSeparatorNew
 
-  bLabel <- labelNew Nothing
-  widgetSetName bLabel "NotificationCloseButton"
-  labelSetMarkup bLabel "×"
+  bLabel <- labelNew (Nothing :: Maybe String)
+  widgetSetName bLabel ("NotificationCloseButton" :: String)
+  labelSetMarkup bLabel ("×" :: String)
 
   labelSetMaxWidthChars textArea (notificationMaxLength cfg)
   labelSetEllipsize textArea EllipsizeEnd

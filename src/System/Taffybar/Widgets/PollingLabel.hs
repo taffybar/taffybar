@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | This is a simple text widget that updates its contents by calling
 -- a callback at a set interval.
 module System.Taffybar.Widgets.PollingLabel ( pollingLabelNew ) where
@@ -25,7 +26,7 @@ pollingLabelNew :: String       -- ^ Initial value for the label
                    -> IO String -- ^ Command to run to get the input string
                    -> IO Widget
 pollingLabelNew initialString interval cmd = do
-  l <- labelNew Nothing
+  l <- labelNew (Nothing :: Maybe String)
   labelSetMarkup l initialString
 
   _ <- on l realize $ do

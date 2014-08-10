@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.LayoutSwitcher
@@ -61,7 +62,7 @@ xLayoutProp = "_XMONAD_CURRENT_LAYOUT"
 -- its source of events.
 layoutSwitcherNew :: Pager -> IO Widget
 layoutSwitcherNew pager = do
-  label <- labelNew Nothing
+  label <- labelNew (Nothing :: Maybe String)
   let cfg = config pager
       callback = pagerCallback cfg label
   subscribe pager callback xLayoutProp

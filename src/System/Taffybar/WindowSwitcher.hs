@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.WindowSwitcher
@@ -54,7 +55,7 @@ import System.Taffybar.Pager
 -- its source of events.
 windowSwitcherNew :: Pager -> IO Widget
 windowSwitcherNew pager = do
-  label <- labelNew Nothing
+  label <- labelNew (Nothing :: Maybe String)
   widgetSetName label "label"
   let cfg = config pager
       callback = pagerCallback cfg label

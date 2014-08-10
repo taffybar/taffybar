@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | This is a graph widget inspired by the widget of the same name in
 -- Awesome (the window manager).  It plots a series of data points
 -- similarly to a bar graph.  This version must be explicitly fed data
@@ -218,7 +219,7 @@ graphNew cfg = do
   case graphLabel cfg of
     Nothing  -> return ()
     Just lbl -> do
-      l <- labelNew Nothing
+      l <- labelNew (Nothing :: Maybe String)
       labelSetMarkup l lbl
       boxPackStart box l PackNatural 0
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.TaffyPager
@@ -89,6 +90,6 @@ taffyPagerNew cfg = do
 -- | Create a new separator label to put between two sub-components.
 separator :: PagerConfig -> IO Label
 separator cfg = do
-  sep <- labelNew Nothing
+  sep <- labelNew (Nothing :: Maybe String)
   labelSetMarkup sep (widgetSep cfg)
   return sep

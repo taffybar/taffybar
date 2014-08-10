@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.WorkspaceSwitcher
@@ -175,7 +176,7 @@ containerClear container = containerForeach container (containerRemove container
 toLabels :: [String] -> IO [Label]
 toLabels = mapM labelNewMarkup
   where labelNewMarkup markup = do
-          lbl <- labelNew Nothing
+          lbl <- labelNew (Nothing :: Maybe String)
           labelSetMarkup lbl markup
           return lbl
 
@@ -215,7 +216,7 @@ transition cfg desktop wss = do
 -- | Apply the given marking function to the Label of the workspace with
 -- the given index.
 mark :: Desktop            -- ^ List of all available labels.
-     -> (String -> Markup) -- ^ Marking function.
+     -> (String -> String) -- ^ Marking function.
      -> Int                -- ^ Index of the Label to modify.
      -> IO ()
 mark desktop decorate idx = do

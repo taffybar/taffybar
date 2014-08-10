@@ -75,7 +75,10 @@ textBatteryNew :: String    -- ^ Display format
 textBatteryNew fmt pollSeconds = do
   battCtxt <- batteryContextNew
   case battCtxt of
-    Nothing -> labelNew (Just "No battery") >>= return . toWidget
+    Nothing -> do
+      let lbl :: Maybe String
+          lbl = Just "No battery"
+      labelNew lbl >>= return . toWidget
     Just ctxt -> do
       r <- newIORef ctxt
       l <- pollingLabelNew "" pollSeconds (battInfo r fmt)
@@ -114,7 +117,10 @@ batteryBarNew :: BarConfig -- ^ Configuration options for the bar display
 batteryBarNew battCfg pollSeconds = do
   battCtxt <- batteryContextNew
   case battCtxt of
-    Nothing -> labelNew (Just "No battery") >>= return . toWidget
+    Nothing -> do
+      let lbl :: Maybe String
+          lbl = Just "No battery"
+      labelNew lbl >>= return . toWidget
     Just ctxt -> do
       -- This is currently pretty inefficient - each poll period it
       -- queries the battery twice (once for the label and once for

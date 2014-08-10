@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | This is a "Now Playing"-style widget that listens for MPRIS
 -- events on DBus.  Various media players implement this.  This widget
 -- works with version 2 of the MPRIS protocol
@@ -15,7 +16,7 @@ import Text.Printf
 
 mpris2New :: IO Widget
 mpris2New = do
-  label <- labelNew Nothing
+  label <- labelNew (Nothing :: Maybe String)
   widgetShowAll label
   _ <- on label realize $ initLabel label
   return (toWidget label)
@@ -73,7 +74,8 @@ getProperty client name property = do
 
 setSongInfo :: Label -> String -> String -> IO ()
 setSongInfo w artist title = do
-  let msg = escapeMarkup $ printf "%s - %s" (cutoff 15 artist) (cutoff 30 title)
+  let msg :: String
+      msg = escapeMarkup $ printf "%s - %s" (cutoff 15 artist) (cutoff 30 title)
       txt = "<span fgcolor='yellow'>▶</span> " ++ msg
   postGUIAsync $ do
     labelSetMarkup w txt
