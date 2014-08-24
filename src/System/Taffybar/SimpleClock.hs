@@ -9,7 +9,6 @@ module System.Taffybar.SimpleClock (
   ) where
 
 import Control.Monad.Trans ( MonadIO, liftIO )
-import Data.Maybe ( fromMaybe )
 import Data.Time.Calendar ( toGregorian )
 import qualified Data.Time.Clock as Clock
 import Data.Time.Format
@@ -67,16 +66,20 @@ data ClockConfig = ClockConfig { clockTimeZone :: Maybe TimeZone
 defaultClockConfig :: ClockConfig
 defaultClockConfig = ClockConfig Nothing Nothing
 
+data TimeInfo = TimeInfo { getTZ :: IO TimeZone
+                         , getLocale :: IO TimeLocale
+                         }
+
 -- | A configurable text-based clock widget.  It currently allows for
 -- a configurable time zone through the 'ClockConfig'.
 --
 -- See also 'textClockNew'.
 textClockNewWith :: ClockConfig -> String -> Double -> IO Widget
 textClockNewWith cfg fmt updateSeconds = do
-  defaultTimeZone <- getCurrentTimeZone
-  let timeLocale = fromMaybe defaultTimeLocale userLocale
-      timeZone = fromMaybe defaultTimeZone userZone
-  l    <- pollingLabelNew "" updateSeconds (getCurrentTime' timeLocale fmt timeZone)
+  let ti = TimeInfo { getTZ = maybe getCurrentTimeZone return userZone
+                    , getLocale = maybe (return defaultTimeLocale) return userLocale
+                    }
+  l    <- pollingLabelNew "" updateSeconds (getCurrentTime' ti fmt)
   ebox <- eventBoxNew
   containerAdd ebox l
   eventBoxSetVisibleWindow ebox False
@@ -88,6 +91,10 @@ textClockNewWith cfg fmt updateSeconds = do
     userZone = clockTimeZone cfg
     userLocale = clockTimeLocale cfg
     -- alternate getCurrentTime that takes a specific TZ
-    getCurrentTime' :: TimeLocale -> String -> TimeZone -> IO String
-    getCurrentTime' l f z =
-      return . formatTime l f . utcToZonedTime z =<< Clock.getCurrentTime
+    getCurrentTime' :: TimeInfo -> String -> IO String
+    getCurrentTime' ti f = do
+      l <- getLocale ti
+      z <- getTZ ti
+      t <- Clock.getCurrentTime
+      return $ formatTime l f $ utcToZonedTime z t
+

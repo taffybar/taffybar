@@ -1,3 +1,7 @@
+# 0.4.1
+
+ * Make the clock react to time zone changes
+
 # 0.4.0
 
 ## Features
