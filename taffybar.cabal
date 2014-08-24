@@ -11,6 +11,7 @@ cabal-version: >=1.10
 homepage: http://github.com/travitch/taffybar
 data-files: taffybar.rc
 extra-source-files: README.md,
+                    CHANGELOG.md,
                     taffybar.hs.example
 
 description:
