@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
 -- | This module implements a very simple text-based clock widget.
 -- The widget also toggles a calendar widget when clicked.  This
 -- calendar is not fancy at all and has no data backend.
@@ -70,13 +72,28 @@ data TimeInfo = TimeInfo { getTZ :: IO TimeZone
                          , getLocale :: IO TimeLocale
                          }
 
+systemGetTZ :: IO TimeZone
+systemGetTZ = setTZ >> getCurrentTimeZone
+
+-- | Old versions of time do not call localtime_r properly.  We set
+-- the time zone manually, if required.
+setTZ :: IO ()
+#if MIN_VERSION_time(1, 4, 2)
+setTZ = return ()
+#else
+setTZ = c_tzset
+
+foreign import ccall unsafe "time.h tzset"
+  c_tzset :: IO ()
+#endif
+
 -- | A configurable text-based clock widget.  It currently allows for
 -- a configurable time zone through the 'ClockConfig'.
 --
 -- See also 'textClockNew'.
 textClockNewWith :: ClockConfig -> String -> Double -> IO Widget
 textClockNewWith cfg fmt updateSeconds = do
-  let ti = TimeInfo { getTZ = maybe getCurrentTimeZone return userZone
+  let ti = TimeInfo { getTZ = maybe systemGetTZ return userZone
                     , getLocale = maybe (return defaultTimeLocale) return userLocale
                     }
   l    <- pollingLabelNew "" updateSeconds (getCurrentTime' ti fmt)
