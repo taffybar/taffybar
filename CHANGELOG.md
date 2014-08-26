@@ -1,3 +1,7 @@
+# 0.4.2
+
+ * Expand the version range for time
+
 # 0.4.1
 
  * Make the clock react to time zone changes
