@@ -1,6 +1,7 @@
 # 0.4.2
 
  * Expand the version range for time
+ * Depend on network-uri instead of network
 
 # 0.4.1
 
