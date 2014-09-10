@@ -1,3 +1,7 @@
+# 0.4.3
+
+ * Try again to fix the network dependency
+
 # 0.4.2
 
  * Expand the version range for time
