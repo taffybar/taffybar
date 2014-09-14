@@ -2,7 +2,9 @@ This is a desktop information bar intended for use with XMonad and
 similar window managers.  It is similar in spirit to xmobar; it is
 different in that it gives up some simplicity for a reasonable helping
 of eye candy.  This bar is based on GTK+ (via gtk2hs) and uses fancy
-graphics where doing so is reasonable and useful.
+graphics where doing so is reasonable and useful.  Example:
+
+![](https://github.com/travitch/taffybar/blob/master/doc/screenshot.png)
 
 The bar is configured much like XMonad.  It uses
 ~/.config/taffybar/taffybar.hs as its configuration file.  This file
