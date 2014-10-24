@@ -31,7 +31,8 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Pager
-  ( WorkspaceInfo (..)
+  ( Markup
+  , WorkspaceInfo (..)
   , WSVisibility (..)
   , wsiEmpty
   , Pager (config)
@@ -51,13 +52,14 @@ import Control.Exception.Enclosed (catchAny)
 import Control.Monad.Reader
 import Data.IORef
 import Data.Traversable
-import Graphics.UI.Gtk (Markup, escapeMarkup)
+import Graphics.UI.Gtk (escapeMarkup)
 import Graphics.X11.Types
 import Graphics.X11.Xlib.Extras
 import Text.Printf (printf)
 
 import System.Information.X11DesktopInfo
 
+type Markup = String
 type Listener = Event -> IO ()
 type Filter = Atom
 type SubscriptionList = IORef [(Listener, Filter)]
@@ -173,5 +175,5 @@ wrap open close s = open ++ s ++ close
 
 -- | Escape strings so that they can be safely displayed by Pango in the
 -- bar widget
-escape :: String -> String
+escape :: String -> Markup
 escape = escapeMarkup

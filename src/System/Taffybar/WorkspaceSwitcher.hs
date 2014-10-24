@@ -115,7 +115,7 @@ getDesktop = do
   where
     nameToWorkspace :: String -> IO Workspace
     nameToWorkspace wsName = do
-      lbl <- labelNew Nothing
+      lbl <- labelNew (Nothing :: Maybe String)
       return $ Workspace lbl wsName Hidden False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
