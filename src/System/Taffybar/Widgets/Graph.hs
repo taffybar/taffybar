@@ -27,16 +27,17 @@ import Control.Concurrent
 import Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import Data.Foldable ( mapM_ )
 import Control.Monad ( when )
+import Control.Monad.Trans ( liftIO )
 import qualified Data.Sequence as S
-import Graphics.Rendering.Cairo
-import Graphics.Rendering.Cairo.Matrix hiding (scale, translate)
-import Graphics.UI.Gtk
+import qualified Graphics.Rendering.Cairo as C
+import qualified Graphics.Rendering.Cairo.Matrix as M
+import qualified Graphics.UI.Gtk as Gtk
 
 newtype GraphHandle = GH (MVar GraphState)
 data GraphState =
   GraphState { graphIsBootstrapped :: Bool
              , graphHistory :: [Seq Double]
-             , graphCanvas :: DrawingArea
+             , graphCanvas :: Gtk.DrawingArea
              , graphConfig :: GraphConfig
              }
 
@@ -91,19 +92,19 @@ graphAddSample (GH mv) rawData = do
     False -> return ()
     True -> do
       modifyMVar_ mv (\s' -> return s' { graphHistory = newHists })
-      postGUIAsync $ widgetQueueDraw drawArea
+      Gtk.postGUIAsync $ Gtk.widgetQueueDraw drawArea
   where
     pcts = map (clamp 0 1) rawData
 
 clamp :: Double -> Double -> Double -> Double
 clamp lo hi d = max lo $ min hi d
 
-outlineData :: (Double -> Double) -> Double -> Double -> Render ()
+outlineData :: (Double -> Double) -> Double -> Double -> C.Render ()
 outlineData pctToY xStep pct = do
-  (curX,_) <- getCurrentPoint
-  lineTo (curX + xStep) (pctToY pct)
+  (curX,_) <- C.getCurrentPoint
+  C.lineTo (curX + xStep) (pctToY pct)
 
-renderFrameAndBackground :: GraphConfig -> Int -> Int -> Render ()
+renderFrameAndBackground :: GraphConfig -> Int -> Int -> C.Render ()
 renderFrameAndBackground cfg w h = do
   let (backR, backG, backB) = graphBackgroundColor cfg
       (frameR, frameG, frameB) = graphBorderColor cfg
@@ -113,26 +114,26 @@ renderFrameAndBackground cfg w h = do
       fh = fromIntegral h
 
   -- Draw the requested background
-  setSourceRGB backR backG backB
-  rectangle fpad fpad (fw - 2 * fpad) (fh - 2 * fpad)
-  fill
+  C.setSourceRGB backR backG backB
+  C.rectangle fpad fpad (fw - 2 * fpad) (fh - 2 * fpad)
+  C.fill
 
   -- Draw a frame around the widget area
   -- (unless equal to background color, which likely means the user does not
   -- want a frame)
   when (graphBorderWidth cfg > 0) $ do
     let p = fromIntegral (graphBorderWidth cfg)
-    setLineWidth p
-    setSourceRGB frameR frameG frameB
-    rectangle (fpad + (p / 2)) (fpad + (p / 2)) (fw - 2 * fpad - p) (fh - 2 * fpad - p)
-    stroke
+    C.setLineWidth p
+    C.setSourceRGB frameR frameG frameB
+    C.rectangle (fpad + (p / 2)) (fpad + (p / 2)) (fw - 2 * fpad - p) (fh - 2 * fpad - p)
+    C.stroke
 
 
-renderGraph :: [Seq Double] -> GraphConfig -> Int -> Int -> Double -> Render ()
+renderGraph :: [Seq Double] -> GraphConfig -> Int -> Int -> Double -> C.Render ()
 renderGraph hists cfg w h xStep = do
   renderFrameAndBackground cfg w h
 
-  setLineWidth 0.1
+  C.setLineWidth 0.1
 
   let pad = fromIntegral $ graphPadding cfg
   let framePad = fromIntegral $ graphBorderWidth cfg
@@ -140,15 +141,15 @@ renderGraph hists cfg w h xStep = do
   -- Make the new origin be inside the frame and then scale the
   -- drawing area so that all operations in terms of width and height
   -- are inside the drawn frame.
-  translate (pad + framePad) (pad + framePad)
+  C.translate (pad + framePad) (pad + framePad)
   let xS = (fromIntegral w - 2 * pad - 2 * framePad) / fromIntegral w
       yS = (fromIntegral h - 2 * pad - 2 * framePad) / fromIntegral h
-  scale xS yS
+  C.scale xS yS
 
   -- If right-to-left direction is requested, apply an horizontal inversion
   -- transformation with an offset to the right equal to the width of the widget.
   if graphDirection cfg == RIGHT_TO_LEFT
-      then transform $ Matrix (-1) 0 0 1 (fromIntegral w) 0
+      then C.transform $ M.Matrix (-1) 0 0 1 (fromIntegral w) 0
       else return ()
 
   let pctToY pct = fromIntegral h * (1 - pct)
@@ -159,37 +160,37 @@ renderGraph hists cfg w h xStep = do
               originY = pctToY newestSample
               originX = 0
               newestSample :< hist' = viewl hist
-          setSourceRGBA r g b a
-          moveTo originX originY
+          C.setSourceRGBA r g b a
+          C.moveTo originX originY
 
           mapM_ (outlineData pctToY xStep) hist'
           case style of
             Area -> do
-              (endX, _) <- getCurrentPoint
-              lineTo endX (fromIntegral h)
-              lineTo 0 (fromIntegral h)
-              fill
+              (endX, _) <- C.getCurrentPoint
+              C.lineTo endX (fromIntegral h)
+              C.lineTo 0 (fromIntegral h)
+              C.fill
             Line -> do
-              setLineWidth 1.0
-              stroke
+              C.setLineWidth 1.0
+              C.stroke
 
 
   sequence_ $ zipWith3 renderDataSet hists (graphDataColors cfg) (graphDataStyles cfg)
 
-drawBorder :: MVar GraphState -> DrawingArea -> IO ()
+drawBorder :: MVar GraphState -> Gtk.DrawingArea -> IO ()
 drawBorder mv drawArea = do
-  (w, h) <- widgetGetSize drawArea
-  drawWin <- widgetGetDrawWindow drawArea
+  (w, h) <- Gtk.widgetGetSize drawArea
+  drawWin <- Gtk.widgetGetDrawWindow drawArea
   s <- readMVar mv
   let cfg = graphConfig s
-  renderWithDrawable drawWin (renderFrameAndBackground cfg w h)
+  Gtk.renderWithDrawable drawWin (renderFrameAndBackground cfg w h)
   modifyMVar_ mv (\s' -> return s' { graphIsBootstrapped = True })
   return ()
 
-drawGraph :: MVar GraphState -> DrawingArea -> IO ()
+drawGraph :: MVar GraphState -> Gtk.DrawingArea -> IO ()
 drawGraph mv drawArea = do
-  (w, h) <- widgetGetSize drawArea
-  drawWin <- widgetGetDrawWindow drawArea
+  (w, h) <- Gtk.widgetGetSize drawArea
+  drawWin <- Gtk.widgetGetDrawWindow drawArea
   s <- readMVar mv
   let hist = graphHistory s
       cfg = graphConfig s
@@ -199,30 +200,30 @@ drawGraph mv drawArea = do
       xStep = fromIntegral w / fromIntegral (histSize - 1)
 
   case hist of
-    [] -> renderWithDrawable drawWin (renderFrameAndBackground cfg w h)
-    _ -> renderWithDrawable drawWin (renderGraph hist cfg w h xStep)
+    [] -> Gtk.renderWithDrawable drawWin (renderFrameAndBackground cfg w h)
+    _ -> Gtk.renderWithDrawable drawWin (renderGraph hist cfg w h xStep)
 
-graphNew :: GraphConfig -> IO (Widget, GraphHandle)
+graphNew :: GraphConfig -> IO (Gtk.Widget, GraphHandle)
 graphNew cfg = do
-  drawArea <- drawingAreaNew
+  drawArea <- Gtk.drawingAreaNew
   mv <- newMVar GraphState { graphIsBootstrapped = False
                            , graphHistory = []
                            , graphCanvas = drawArea
                            , graphConfig = cfg
                            }
 
-  widgetSetSizeRequest drawArea (graphWidth cfg) (-1)
-  _ <- on drawArea exposeEvent $ tryEvent $ liftIO (drawGraph mv drawArea)
-  _ <- on drawArea realize $ liftIO (drawBorder mv drawArea)
-  box <- hBoxNew False 1
+  Gtk.widgetSetSizeRequest drawArea (graphWidth cfg) (-1)
+  _ <- Gtk.on drawArea Gtk.exposeEvent $ Gtk.tryEvent $ liftIO (drawGraph mv drawArea)
+  _ <- Gtk.on drawArea Gtk.realize $ liftIO (drawBorder mv drawArea)
+  box <- Gtk.hBoxNew False 1
 
   case graphLabel cfg of
     Nothing  -> return ()
     Just lbl -> do
-      l <- labelNew (Nothing :: Maybe String)
-      labelSetMarkup l lbl
-      boxPackStart box l PackNatural 0
+      l <- Gtk.labelNew (Nothing :: Maybe String)
+      Gtk.labelSetMarkup l lbl
+      Gtk.boxPackStart box l Gtk.PackNatural 0
 
-  boxPackStart box drawArea PackGrow 0
-  widgetShowAll box
-  return (toWidget box, GH mv)
+  Gtk.boxPackStart box drawArea Gtk.PackGrow 0
+  Gtk.widgetShowAll box
+  return (Gtk.toWidget box, GH mv)
