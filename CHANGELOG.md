@@ -1,3 +1,7 @@
+# 0.4.4
+
+ * Fix compilation with gtk 0.13.1
+
 # 0.4.3
 
  * Try again to fix the network dependency
