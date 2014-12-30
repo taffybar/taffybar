@@ -1,0 +1,19 @@
+import           XMonad
+
+import           XMonad.Hooks.EwmhDesktops        (ewmh)
+import           XMonad.Hooks.ManageDocks
+
+import           System.Taffybar.Hooks.PagerHints (pagerHints)
+
+       -- xmonad entrypoint
+main = xmonad $
+
+       -- gives taffybar logger information
+       ewmh $
+       pagerHints $
+
+       -- xmonad config
+       defaultConfig
+
+       -- manageDocks allows xmonad to handle taffybar
+       { manageHook = manageDocks }
