@@ -69,7 +69,7 @@ pagerCallback :: PagerConfig -> Label -> Event -> IO ()
 pagerCallback cfg label _ = do
   title <- withDefaultCtx getActiveWindowTitle
   let decorate = activeWindow cfg
-  postGUIAsync $ labelSetMarkup label (decorate $ nonEmpty title)
+  labelSetMarkup label (decorate $ nonEmpty title)
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: Label -> IO Widget
@@ -121,7 +121,7 @@ fillMenu menu = do
 -- | Remove all contents from the given menu widget.
 emptyMenu :: MenuClass menu => menu -> IO ()
 emptyMenu menu = containerForeach menu $ \item ->
-                 containerRemove menu item >> postGUIAsync (widgetDestroy item)
+                 containerRemove menu item >> widgetDestroy item
 
 -- | Build the name to display in the list of windows by prepending the name
 -- of the workspace it is currently in to the name of the window itself

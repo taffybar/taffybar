@@ -75,7 +75,7 @@ pagerCallback :: PagerConfig -> Label -> Event -> IO ()
 pagerCallback cfg label _ = do
   layout <- withDefaultCtx $ readAsString Nothing xLayoutProp
   let decorate = activeLayout cfg
-  postGUIAsync $ labelSetMarkup label (decorate layout)
+  labelSetMarkup label (decorate layout)
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: Label -> IO Widget

@@ -166,7 +166,7 @@ urgentCallback cfg deskRef event = do
 redrawCallback :: BoxClass box => Pager -> IORef Desktop -> box -> Event -> IO ()
 redrawCallback pager deskRef box _ =
   updateDesktop pager deskRef >>= \deskChanged ->
-    when deskChanged $ postGUIAsync (populateSwitcher box deskRef)
+    when deskChanged $ populateSwitcher box deskRef
 
 -- | Remove all children of a container.
 containerClear :: ContainerClass self => self -> IO ()
@@ -221,7 +221,7 @@ mark :: Desktop            -- ^ List of all available labels.
      -> IO ()
 mark desktop decorate idx = do
   let ws = desktop !! idx
-  postGUIAsync $ labelSetMarkup (label ws) $ decorate' (name ws)
+  labelSetMarkup (label ws) $ decorate' (name ws)
   where decorate' = pad . decorate
         pad m | m == [] = m
               | otherwise = ' ' : m
