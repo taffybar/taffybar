@@ -26,7 +26,7 @@ module System.Taffybar.WindowSwitcher (
 ) where
 
 import Control.Monad (forM_)
-import Graphics.UI.Gtk
+import qualified Graphics.UI.Gtk as Gtk
 import Graphics.X11.Xlib.Extras (Event)
 import System.Information.EWMHDesktopInfo
 import System.Taffybar.Pager
@@ -53,10 +53,12 @@ import System.Taffybar.Pager
 
 -- | Create a new WindowSwitcher widget that will use the given Pager as
 -- its source of events.
-windowSwitcherNew :: Pager -> IO Widget
+windowSwitcherNew :: Pager -> IO Gtk.Widget
 windowSwitcherNew pager = do
-  label <- labelNew (Nothing :: Maybe String)
-  widgetSetName label "label"
+  label <- Gtk.labelNew (Nothing :: Maybe String)
+  Gtk.widgetSetName label "label"
+  -- This callback is registered through 'subscribe', which runs the
+  -- callback in another thread.  We need to use postGUIAsync in it.
   let cfg = config pager
       callback = pagerCallback cfg label
   subscribe pager callback "_NET_ACTIVE_WINDOW"
@@ -65,24 +67,24 @@ windowSwitcherNew pager = do
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_ACTIVE_WINDOW" standard events. It will keep track of the
 -- currently focused window.
-pagerCallback :: PagerConfig -> Label -> Event -> IO ()
+pagerCallback :: PagerConfig -> Gtk.Label -> Event -> IO ()
 pagerCallback cfg label _ = do
   title <- withDefaultCtx getActiveWindowTitle
   let decorate = activeWindow cfg
-  labelSetMarkup label (decorate $ nonEmpty title)
+  Gtk.postGUIAsync $ Gtk.labelSetMarkup label (decorate $ nonEmpty title)
 
 -- | Build the graphical representation of the widget.
-assembleWidget :: Label -> IO Widget
+assembleWidget :: Gtk.Label -> IO Gtk.Widget
 assembleWidget label = do
-  title <- menuItemNew
-  widgetSetName title "title"
-  containerAdd title label
+  title <- Gtk.menuItemNew
+  Gtk.widgetSetName title "title"
+  Gtk.containerAdd title label
 
-  switcher <- menuBarNew
-  widgetSetName switcher "WindowSwitcher"
-  containerAdd switcher title
+  switcher <- Gtk.menuBarNew
+  Gtk.widgetSetName switcher "WindowSwitcher"
+  Gtk.containerAdd switcher title
 
-  rcParseString $ unlines [ "style 'WindowSwitcher' {"
+  Gtk.rcParseString $ unlines [ "style 'WindowSwitcher' {"
                           , "  xthickness = 0"
                           , "  GtkMenuBar::internal-padding = 0"
                           , "}"
@@ -93,35 +95,37 @@ assembleWidget label = do
                           , "widget '*WindowSwitcher' style 'WindowSwitcher'"
                           , "widget '*WindowSwitcher*title' style 'title'"
                           ]
-  menu <- menuNew
-  widgetSetName menu "menu"
+  menu <- Gtk.menuNew
+  Gtk.widgetSetName menu "menu"
 
-  menuTop <- widgetGetToplevel menu
-  widgetSetName menuTop "Taffybar_WindowSwitcher"
+  menuTop <- Gtk.widgetGetToplevel menu
+  Gtk.widgetSetName menuTop "Taffybar_WindowSwitcher"
 
-  menuItemSetSubmenu title menu
-  _ <- on title menuItemActivate $ fillMenu  menu
-  _ <- on title menuItemDeselect $ emptyMenu menu
+  Gtk.menuItemSetSubmenu title menu
+  -- These callbacks are run in the GUI thread automatically and do
+  -- not need to use postGUIAsync
+  _ <- Gtk.on title Gtk.menuItemActivate $ fillMenu  menu
+  _ <- Gtk.on title Gtk.menuItemDeselect $ emptyMenu menu
 
-  widgetShowAll switcher
-  return $ toWidget switcher
+  Gtk.widgetShowAll switcher
+  return $ Gtk.toWidget switcher
 
 -- | Populate the given menu widget with the list of all currently open windows.
-fillMenu :: MenuClass menu => menu -> IO ()
+fillMenu :: Gtk.MenuClass menu => menu -> IO ()
 fillMenu menu = do
   handles  <- withDefaultCtx getWindowHandles
   if null handles then return () else do
     wsNames  <- withDefaultCtx getWorkspaceNames
     forM_ handles $ \handle -> do
-      item <- menuItemNewWithLabel (formatEntry wsNames handle)
-      _ <- onActivateLeaf item $ withDefaultCtx (focusWindow $ snd handle)
-      menuShellAppend menu item
-      widgetShow item
+      item <- Gtk.menuItemNewWithLabel (formatEntry wsNames handle)
+      _ <- Gtk.onActivateLeaf item $ withDefaultCtx (focusWindow $ snd handle)
+      Gtk.menuShellAppend menu item
+      Gtk.widgetShow item
 
 -- | Remove all contents from the given menu widget.
-emptyMenu :: MenuClass menu => menu -> IO ()
-emptyMenu menu = containerForeach menu $ \item ->
-                 containerRemove menu item >> widgetDestroy item
+emptyMenu :: Gtk.MenuClass menu => menu -> IO ()
+emptyMenu menu = Gtk.containerForeach menu $ \item ->
+                 Gtk.containerRemove menu item >> Gtk.widgetDestroy item
 
 -- | Build the name to display in the list of windows by prepending the name
 -- of the workspace it is currently in to the name of the window itself

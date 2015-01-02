@@ -26,18 +26,18 @@ module System.Taffybar.WorkspaceSwitcher (
   wspaceSwitcherNew
 ) where
 
+import qualified Control.Concurrent.MVar as MV
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.IORef
 import Data.List ((\\), findIndices)
-import Graphics.UI.Gtk hiding (get)
+import qualified Graphics.UI.Gtk as Gtk
 import Graphics.X11.Xlib.Extras
 
 import System.Taffybar.Pager
 import System.Information.EWMHDesktopInfo
 
 type Desktop = [Workspace]
-data Workspace = Workspace { label  :: Label
+data Workspace = Workspace { label  :: Gtk.Label
                            , name   :: String
                            , urgent :: Bool
                            }
@@ -77,13 +77,15 @@ data Workspace = Workspace { label  :: Label
 
 -- | Create a new WorkspaceSwitcher widget that will use the given Pager as
 -- its source of events.
-wspaceSwitcherNew :: Pager -> IO Widget
+wspaceSwitcherNew :: Pager -> IO Gtk.Widget
 wspaceSwitcherNew pager = do
-  switcher <- hBoxNew False 0
+  switcher <- Gtk.hBoxNew False 0
   desktop  <- getDesktop pager
-  deskRef  <- newIORef desktop
+  deskRef  <- MV.newMVar desktop
   populateSwitcher switcher deskRef
 
+  -- These callbacks need to use postGUIAsync since they run in
+  -- another thread
   let cfg = config pager
       activecb = activeCallback cfg deskRef
       redrawcb = redrawCallback pager deskRef switcher
@@ -92,7 +94,7 @@ wspaceSwitcherNew pager = do
   subscribe pager redrawcb "_NET_NUMBER_OF_DESKTOPS"
   subscribe pager urgentcb "WM_HINTS"
 
-  return $ toWidget switcher
+  return $ Gtk.toWidget switcher
 
 -- | List of indices of all available workspaces.
 allWorkspaces :: Desktop -> [Int]
@@ -114,42 +116,46 @@ getDesktop pager = do
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
 -- otherwise.
-updateDesktop :: Pager -> IORef Desktop -> IO Bool
+updateDesktop :: Pager -> MV.MVar Desktop -> IO Bool
 updateDesktop pager deskRef = do
   wsnames <- withDefaultCtx getWorkspaceNames
-  desktop <- readIORef deskRef
-  if (length wsnames /= length desktop)
-  then getDesktop pager >>= writeIORef deskRef >> return True
-  else return False
+  MV.modifyMVar deskRef $ \desktop ->
+    case length wsnames /= length desktop of
+      True -> do
+        desk' <- getDesktop pager
+        return (desk', True)
+      False -> return (desktop, False)
 
 -- | Clean up the given box, then fill it up with the buttons for the current
 -- state of the desktop.
-populateSwitcher :: BoxClass box => box -> IORef Desktop -> IO ()
+populateSwitcher :: Gtk.BoxClass box => box -> MV.MVar Desktop -> IO ()
 populateSwitcher switcher deskRef = do
   containerClear switcher
-  desktop <- readIORef deskRef
+  desktop <- MV.readMVar deskRef
   mapM_ (addButton switcher desktop) (allWorkspaces desktop)
-  widgetShowAll switcher
+  Gtk.widgetShowAll switcher
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_CURRENT_DESKTOP" standard events. It will track the position of
 -- the active workspace in the desktop.
-activeCallback :: PagerConfig -> IORef Desktop -> Event -> IO ()
+activeCallback :: PagerConfig -> MV.MVar Desktop -> Event -> IO ()
 activeCallback cfg deskRef _ = do
   curr <- withDefaultCtx getVisibleWorkspaces
-  desktop <- readIORef deskRef
-  let visible = head curr
-  when (urgent $ desktop !! visible) $
-    liftIO $ toggleUrgent deskRef visible False
-  transition cfg desktop curr
+  desktop <- MV.readMVar deskRef
+  case curr of
+    visible : _ | length desktop > visible -> do
+      when (urgent (desktop !! visible)) $ do
+        toggleUrgent deskRef visible False
+      transition cfg desktop curr
+    _ -> return ()
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "WM_HINTS" standard events. It will display in a different color any
 -- workspace (other than the active one) containing one or more windows
 -- with its urgency hint set.
-urgentCallback :: PagerConfig -> IORef Desktop -> Event -> IO ()
+urgentCallback :: PagerConfig -> MV.MVar Desktop -> Event -> IO ()
 urgentCallback cfg deskRef event = do
-  desktop <- readIORef deskRef
+  desktop <- MV.readMVar deskRef
   withDefaultCtx $ do
     let window = ev_window event
     isUrgent <- isWindowUrgent window
@@ -163,39 +169,43 @@ urgentCallback cfg deskRef event = do
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_NUMBER_OF_DESKTOPS" standard events. It will handle dynamically
 -- adding and removing workspaces.
-redrawCallback :: BoxClass box => Pager -> IORef Desktop -> box -> Event -> IO ()
-redrawCallback pager deskRef box _ =
-  updateDesktop pager deskRef >>= \deskChanged ->
-    when deskChanged $ populateSwitcher box deskRef
+redrawCallback :: Gtk.BoxClass box => Pager -> MV.MVar Desktop -> box -> Event -> IO ()
+redrawCallback pager deskRef box _ = Gtk.postGUIAsync $ do
+  -- updateDesktop indirectly invokes some gtk functions, so it also
+  -- needs to be guarded by postGUIAsync
+  deskChanged <- updateDesktop pager deskRef
+  when deskChanged $ populateSwitcher box deskRef
 
 -- | Remove all children of a container.
-containerClear :: ContainerClass self => self -> IO ()
-containerClear container = containerForeach container (containerRemove container)
+containerClear :: Gtk.ContainerClass self => self -> IO ()
+containerClear container = Gtk.containerForeach container (Gtk.containerRemove container)
 
 -- | Convert the given list of Strings to a list of Label widgets.
-toLabels :: [String] -> IO [Label]
+toLabels :: [String] -> IO [Gtk.Label]
 toLabels = mapM labelNewMarkup
   where labelNewMarkup markup = do
-          lbl <- labelNew (Nothing :: Maybe String)
-          labelSetMarkup lbl markup
+          lbl <- Gtk.labelNew (Nothing :: Maybe String)
+          Gtk.labelSetMarkup lbl markup
           return lbl
 
 -- | Build a new clickable event box containing the Label widget that
 -- corresponds to the given index, and add it to the given container.
-addButton :: BoxClass self
+addButton :: Gtk.BoxClass self
           => self    -- ^ Graphical container.
           -> Desktop -- ^ List of all workspace Labels available.
           -> Int     -- ^ Index of the workspace to use.
           -> IO ()
-addButton hbox desktop idx = do
-  let index = desktop !! idx
-      lbl = label index
-  ebox <- eventBoxNew
-  widgetSetName ebox $ name index
-  eventBoxSetVisibleWindow ebox False
-  _ <- on ebox buttonPressEvent $ switch idx
-  containerAdd ebox lbl
-  boxPackStart hbox ebox PackNatural 0
+addButton hbox desktop idx
+  | length desktop > idx = do
+    let index = desktop !! idx
+        lbl = label index
+    ebox <- Gtk.eventBoxNew
+    Gtk.widgetSetName ebox $ name index
+    Gtk.eventBoxSetVisibleWindow ebox False
+    _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch idx
+    Gtk.containerAdd ebox lbl
+    Gtk.boxPackStart hbox ebox Gtk.PackNatural 0
+  | otherwise = return ()
 
 -- | Re-mark all workspace labels.
 transition :: PagerConfig -- ^ Configuration settings.
@@ -209,8 +219,11 @@ transition cfg desktop wss = do
       nonEmptyWs = nonEmpty \\ urgentWs
   mapM_ (mark desktop $ hiddenWorkspace cfg) nonEmptyWs
   mapM_ (mark desktop $ emptyWorkspace cfg) (allWs \\ nonEmpty)
-  mark desktop (activeWorkspace cfg) (head wss)
-  mapM_ (mark desktop $ visibleWorkspace cfg) (tail wss)
+  case wss of
+    active:rest -> do
+      mark desktop (activeWorkspace cfg) active
+      mapM_ (mark desktop $ visibleWorkspace cfg) rest
+    _ -> return ()
   mapM_ (mark desktop $ urgentWorkspace cfg) urgentWs
 
 -- | Apply the given marking function to the Label of the workspace with
@@ -219,9 +232,11 @@ mark :: Desktop            -- ^ List of all available labels.
      -> (String -> String) -- ^ Marking function.
      -> Int                -- ^ Index of the Label to modify.
      -> IO ()
-mark desktop decorate idx = do
-  let ws = desktop !! idx
-  labelSetMarkup (label ws) $ decorate' (name ws)
+mark desktop decorate idx
+  | length desktop > idx = do
+    let ws = desktop !! idx
+    Gtk.postGUIAsync $ Gtk.labelSetMarkup (label ws) $ decorate' (name ws)
+  | otherwise = return ()
   where decorate' = pad . decorate
         pad m | m == [] = m
               | otherwise = ' ' : m
@@ -234,14 +249,19 @@ switch idx = do
 
 -- | Modify the Desktop inside the given IORef, so that the Workspace at the
 -- given index has its "urgent" flag set to the given value.
-toggleUrgent :: IORef Desktop -- ^ IORef to modify.
+toggleUrgent :: MV.MVar Desktop -- ^ IORef to modify.
              -> Int           -- ^ Index of the Workspace to replace.
              -> Bool          -- ^ New value of the "urgent" flag.
              -> IO ()
-toggleUrgent deskRef idx isUrgent = do
-  desktop <- readIORef deskRef
-  let ws = desktop !! idx
-  unless (isUrgent == urgent ws) $ do
-    let ws' = (desktop !! idx) { urgent = isUrgent }
-    let (ys, zs) = splitAt idx desktop
-        in writeIORef deskRef $ ys ++ (ws' : tail zs)
+toggleUrgent deskRef idx isUrgent =
+  MV.modifyMVar_ deskRef $ \desktop -> do
+    let ws = desktop !! idx
+    case length desktop > idx of
+      True | isUrgent /= urgent ws -> do
+               let ws' = ws { urgent = isUrgent }
+                   (ys, zs) = splitAt idx desktop
+               case zs of
+                 _ : rest -> return $ ys ++ (ws' : rest)
+                 _ -> return (ys ++ [ws'])
+      _ -> return desktop
+
