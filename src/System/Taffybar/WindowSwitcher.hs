@@ -26,6 +26,7 @@ module System.Taffybar.WindowSwitcher (
 ) where
 
 import Control.Monad (forM_)
+import Control.Monad.IO.Class ( liftIO )
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.X11.Xlib.Extras (Event)
 import System.Information.EWMHDesktopInfo
@@ -112,13 +113,16 @@ assembleWidget label = do
 
 -- | Populate the given menu widget with the list of all currently open windows.
 fillMenu :: Gtk.MenuClass menu => menu -> IO ()
-fillMenu menu = do
-  handles  <- withDefaultCtx getWindowHandles
+fillMenu menu = withDefaultCtx $ do
+  handles <- getWindowHandles
   if null handles then return () else do
-    wsNames  <- withDefaultCtx getWorkspaceNames
-    forM_ handles $ \handle -> do
+    wsNames <- getWorkspaceNames
+    forM_ handles $ \handle -> liftIO $ do
+      putStrLn ("Adding a handler for a menu item " ++ show handle)
       item <- Gtk.menuItemNewWithLabel (formatEntry wsNames handle)
-      _ <- Gtk.onActivateLeaf item $ withDefaultCtx (focusWindow $ snd handle)
+      _ <- Gtk.on item Gtk.buttonPressEvent $ liftIO $ do
+        withDefaultCtx (focusWindow $ snd handle)
+        return True
       Gtk.menuShellAppend menu item
       Gtk.widgetShow item
 
