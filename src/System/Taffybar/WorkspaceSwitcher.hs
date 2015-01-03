@@ -139,7 +139,7 @@ populateSwitcher switcher deskRef = do
 -- of "_NET_CURRENT_DESKTOP" standard events. It will track the position of
 -- the active workspace in the desktop.
 activeCallback :: PagerConfig -> MV.MVar Desktop -> Event -> IO ()
-activeCallback cfg deskRef _ = do
+activeCallback cfg deskRef _ = Gtk.postGUIAsync $ do
   curr <- withDefaultCtx getVisibleWorkspaces
   desktop <- MV.readMVar deskRef
   case curr of
@@ -154,7 +154,7 @@ activeCallback cfg deskRef _ = do
 -- workspace (other than the active one) containing one or more windows
 -- with its urgency hint set.
 urgentCallback :: PagerConfig -> MV.MVar Desktop -> Event -> IO ()
-urgentCallback cfg deskRef event = do
+urgentCallback cfg deskRef event = Gtk.postGUIAsync $ do
   desktop <- MV.readMVar deskRef
   withDefaultCtx $ do
     let window = ev_window event

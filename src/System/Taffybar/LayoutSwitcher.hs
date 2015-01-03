@@ -74,10 +74,10 @@ layoutSwitcherNew pager = do
 -- of "_XMONAD_CURRENT_LAYOUT" custom events. These events are emitted by
 -- the PagerHints hook to notify of changes in the current layout.
 pagerCallback :: PagerConfig -> Gtk.Label -> Event -> IO ()
-pagerCallback cfg label _ = do
+pagerCallback cfg label _ = Gtk.postGUIAsync $ do
   layout <- withDefaultCtx $ readAsString Nothing xLayoutProp
   let decorate = activeLayout cfg
-  Gtk.postGUIAsync $ Gtk.labelSetMarkup label (decorate layout)
+  Gtk.labelSetMarkup label (decorate layout)
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: Gtk.Label -> IO Gtk.Widget
