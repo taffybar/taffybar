@@ -118,7 +118,6 @@ fillMenu menu = withDefaultCtx $ do
   if null handles then return () else do
     wsNames <- getWorkspaceNames
     forM_ handles $ \handle -> liftIO $ do
-      putStrLn ("Adding a handler for a menu item " ++ show handle)
       item <- Gtk.menuItemNewWithLabel (formatEntry wsNames handle)
       _ <- Gtk.on item Gtk.buttonPressEvent $ liftIO $ do
         withDefaultCtx (focusWindow $ snd handle)
