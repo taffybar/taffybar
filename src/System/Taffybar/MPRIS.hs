@@ -5,10 +5,12 @@
 -- only works with version 1 of the MPRIS protocol
 -- (http://www.mpris.org/1.0/spec.html).  Support for version 2 will
 -- be in a separate widget.
---
--- This widget isn't as configurable as the others yet - that will be
--- fixed.
-module System.Taffybar.MPRIS ( mprisNew ) where
+module System.Taffybar.MPRIS
+  ( TrackInfo (..)
+  , MPRISConfig (..)
+  , defaultMPRISConfig
+  , mprisNew
+  ) where
 
 import Data.Int ( Int32 )
 import qualified Data.Map as M
@@ -19,8 +21,18 @@ import DBus.Client
 import Graphics.UI.Gtk hiding ( Signal, Variant )
 import Text.Printf
 
-setupDBus :: Label -> IO ()
-setupDBus w = do
+data TrackInfo = TrackInfo
+  { trackArtist :: Maybe String -- ^ Artist name, if available.
+  , trackTitle  :: Maybe String -- ^ Track name, if available.
+  , trackAlbum  :: Maybe String -- ^ Album name, if available.
+  }
+
+data MPRISConfig = MPRISConfig
+  { trackLabel :: TrackInfo -> String -- ^ Calculate a label to display.
+  }
+
+setupDBus :: MPRISConfig -> Label -> IO ()
+setupDBus cfg w = do
   let trackMatcher = matchAny { matchSender = Nothing
                                , matchDestination = Nothing
                                , matchPath = Just "/Player"
@@ -34,7 +46,7 @@ setupDBus w = do
                                , matchMember = Just "StatusChange"
                                }
   client <- connectSession
-  listen client trackMatcher (trackCallback w)
+  listen client trackMatcher (trackCallback cfg w)
   listen client stateMatcher (stateCallback w)
 
 variantDictLookup :: (IsVariant b, Ord k) => k -> M.Map k Variant -> Maybe b
@@ -43,18 +55,19 @@ variantDictLookup k m = do
   fromVariant val
 
 
-trackCallback :: Label -> Signal -> IO ()
-trackCallback w s = do
+trackCallback :: MPRISConfig -> Label -> Signal -> IO ()
+trackCallback cfg w s = do
   let v :: Maybe (M.Map Text Variant)
       v = fromVariant variant
       [variant] = signalBody s
   case v of
     Just m -> do
-      let artist = maybe "[unknown]" id (variantDictLookup "artist" m)
-          track = maybe "[unknown]" id (variantDictLookup "title" m)
-          msg :: String
-          msg = escapeMarkup $ printf "%s - %s" (T.unpack artist) (T.unpack track)
-          txt = "<span fgcolor='yellow'>Now Playing:</span> " ++ msg
+      let get key = fmap (escapeMarkup . T.unpack) $ variantDictLookup key m
+          txt = trackLabel cfg info
+          info = TrackInfo { trackArtist = get "artist"
+                           , trackTitle  = get "title"
+                           , trackAlbum  = get "album"
+                           }
       postGUIAsync $ do
         -- In case the widget was hidden due to a stop/pause, forcibly
         -- show it again when the track changes.
@@ -74,10 +87,19 @@ stateCallback w s =
       _ -> return ()
     _ -> return ()
 
-mprisNew :: IO Widget
-mprisNew = do
+defaultMPRISConfig :: MPRISConfig
+defaultMPRISConfig = MPRISConfig
+  { trackLabel = display
+  }
+  where artist track  = maybe "[unknown]" id (trackArtist track)
+        title  track  = maybe "[unknown]" id (trackTitle  track)
+        display track = "<span fgcolor='yellow'>▶</span> " ++
+                        printf "%s - %s" (artist track) (title track)
+
+mprisNew :: MPRISConfig -> IO Widget
+mprisNew cfg = do
   l <- labelNew (Nothing :: Maybe String)
 
-  _ <- on l realize $ setupDBus l
+  _ <- on l realize $ setupDBus cfg l
   widgetShowAll l
   return (toWidget l)
