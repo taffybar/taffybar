@@ -17,7 +17,7 @@ import Data.Time.Format
 import Data.Time.LocalTime
 import Graphics.UI.Gtk
 import System.Locale
-
+import System.Glib.Signals
 import System.Taffybar.Widgets.PollingLabel
 import System.Taffybar.Widgets.Util
 
@@ -27,10 +27,11 @@ makeCalendar = do
   cal <- calendarNew
   containerAdd container cal
   -- update the date on show
-  _ <- onShow container $ liftIO $ resetCalendarDate cal
+  _ <- on container showSignal (resetCalendarDate cal)
+  --_ <- onShow container $ liftIO $ resetCalendarDate cal
   -- prevent calendar from being destroyed, it can be only hidden:
   _ <- on container deleteEvent $ do
-    liftIO (widgetHideAll container)
+    liftIO (widgetHide container)
     return True
   return container
 
@@ -44,7 +45,7 @@ toggleCalendar :: WidgetClass w => w -> Window -> IO Bool
 toggleCalendar w c = do
   isVis <- get c widgetVisible
   if isVis
-    then widgetHideAll c
+    then widgetHide c
     else do
       attachPopup w "Calendar" c
       displayPopup w c

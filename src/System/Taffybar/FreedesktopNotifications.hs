@@ -32,6 +32,7 @@ import DBus
 import DBus.Client
 import Graphics.UI.Gtk hiding ( Variant )
 
+import Graphics.UI.Gtk.Abstract.Widget
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification { noteAppName :: Text
                                  , noteReplaceId :: Word32
@@ -216,7 +217,7 @@ displayThread s = forever $ do
   _ <- readChan (noteChan s)
   cur <- atomically $ readTVar (noteCurrent s)
   case cur of
-    Nothing -> postGUIAsync (widgetHideAll (noteContainer s))
+    Nothing -> postGUIAsync (widgetHide (noteContainer s))
     Just n -> postGUIAsync $ do
       labelSetMarkup (noteWidget s) (formatMessage s n)
       widgetShowAll (noteContainer s)
@@ -291,7 +292,7 @@ notifyAreaNew cfg = do
 
   containerAdd frame box
 
-  widgetHideAll frame
+  widgetHide frame
 
   istate <- initialNoteState (toWidget frame) textArea cfg
   _ <- on button buttonReleaseEvent (userCancel istate)

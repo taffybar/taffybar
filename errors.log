@@ -1,0 +1,418 @@
+Configuring taffybar-0.4.4...
+Flags chosen: network-uri=True
+Dependency HStringTemplate ==0.7.3: using HStringTemplate-0.7.3
+Dependency HTTP ==4000.2.19: using HTTP-4000.2.19
+Dependency X11 ==1.6.1.2: using X11-1.6.1.2
+Dependency base ==4.7.0.2: using base-4.7.0.2
+Dependency cairo ==0.13.0.6: using cairo-0.13.0.6
+Dependency containers ==0.5.5.1: using containers-0.5.5.1
+Dependency dbus ==0.10.9.1: using dbus-0.10.9.1
+Dependency dyre ==0.8.12: using dyre-0.8.12
+Dependency enclosed-exceptions ==1.0.1: using enclosed-exceptions-1.0.1
+Dependency filepath ==1.3.0.2: using filepath-1.3.0.2
+Dependency glib ==0.13.0.7: using glib-0.13.0.7
+Dependency gtk ==0.13.4: using gtk-0.13.4
+Dependency gtk-traymanager ==0.1.5: using gtk-traymanager-0.1.5
+Dependency gtk3 ==0.13.5: using gtk3-0.13.5
+Dependency mtl ==2.1.3.1: using mtl-2.1.3.1
+Dependency network ==2.6.0.2: using network-2.6.0.2
+Dependency network-uri ==2.6.0.1: using network-uri-2.6.0.1
+Dependency old-locale ==1.0.0.6: using old-locale-1.0.0.6
+Dependency parsec ==3.1.7: using parsec-3.1.7
+Dependency process ==1.2.0.0: using process-1.2.0.0
+Dependency safe ==0.3.8: using safe-0.3.8
+Dependency split ==0.2.2: using split-0.2.2
+Dependency stm ==2.4.3: using stm-2.4.3
+Dependency text ==1.2.0.4: using text-1.2.0.4
+Dependency time ==1.4.2: using time-1.4.2
+Dependency transformers ==0.3.0.0: using transformers-0.3.0.0
+Dependency utf8-string ==0.3.8: using utf8-string-0.3.8
+Dependency xdg-basedir ==0.2.2: using xdg-basedir-0.2.2
+Dependency xmonad ==0.11: using xmonad-0.11
+Dependency xmonad-contrib ==0.11.3: using xmonad-contrib-0.11.3
+Dependency gtk+-3.0 -any: using version 3.14.8
+Dependency gtk+-3.0 -any: using version 3.14.8
+Using Cabal-1.22.0.0 compiled by ghc-7.8
+Using compiler: ghc-7.8.4
+Using install prefix: /home/wes/.cabal
+Binaries installed in: /home/wes/.cabal/bin
+Libraries installed in:
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4
+Private binaries installed in: /home/wes/.cabal/libexec
+Data files installed in:
+/home/wes/.cabal/share/x86_64-linux-ghc-7.8.4/taffybar-0.4.4
+Documentation installed in:
+/home/wes/.cabal/share/doc/x86_64-linux-ghc-7.8.4/taffybar-0.4.4
+Configuration files installed in: /home/wes/.cabal/etc
+Using alex version 3.1.3 found on system at: /home/wes/.cabal/bin/alex
+Using ar found on system at: /usr/bin/ar
+No c2hs found
+Using cpphs version 1.18.6 found on system at: /home/wes/.cabal/bin/cpphs
+Using gcc version 4.9.2 found on system at: /usr/bin/gcc
+Using ghc version 7.8.4 found on system at: /usr/bin/ghc
+Using ghc-pkg version 7.8.4 found on system at: /usr/bin/ghc-pkg
+No ghcjs found
+No ghcjs-pkg found
+No greencard found
+Using haddock version 2.14.3 found on system at: /usr/bin/haddock
+Using happy version 1.19.4 found on system at: /home/wes/.cabal/bin/happy
+Using haskell-suite found on system at: haskell-suite-dummy-location
+Using haskell-suite-pkg found on system at: haskell-suite-pkg-dummy-location
+No hmake found
+Using hpc version 0.67 found on system at: /usr/bin/hpc
+Using hsc2hs version 0.67 found on system at: /usr/bin/hsc2hs
+No hscolour found
+No jhc found
+Using ld found on system at: /usr/bin/ld
+No lhc found
+No lhc-pkg found
+Using pkg-config version 0.28 found on system at: /usr/bin/pkg-config
+Using strip found on system at: /usr/bin/strip
+Using tar found on system at: /usr/bin/tar
+No uhc found
+Component build order: library, executable 'taffybar'
+creating dist/build
+creating dist/build/autogen
+Building taffybar-0.4.4...
+/usr/bin/ghc-pkg init dist/package.conf.inplace
+Preprocessing library taffybar-0.4.4...
+Building library...
+creating dist/build
+/usr/bin/ghc --make -fbuilding-cabal-package -O -static -dynamic-too -dynosuf dyn_o -dynhisuf dyn_hi -outputdir dist/build -odir dist/build -hidir dist/build -stubdir dist/build -i -idist/build -isrc -idist/build/autogen -Idist/build/autogen -Idist/build -I/usr/include/gtk-3.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/gio-unix-2.0/ -I/usr/include/cairo -I/usr/include/pango-1.0 -I/usr/include/atk-1.0 -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/harfbuzz -I/usr/include/libdrm -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -optP-include -optPdist/build/autogen/cabal_macros.h -package-name taffybar-0.4.4 -hide-all-packages -package-db dist/package.conf.inplace -package-id HStringTemplate-0.7.3-8ef28de5b45a9752ae0b5495172779cf -package-id HTTP-4000.2.19-01263b9fa018236d7ea0d6e855432ead -package-id X11-1.6.1.2-308eb1aa39b1d256e7575e6bb19ddd02 -package-id base-4.7.0.2-bfd89587617e381ae01b8dd7b6c7f1c1 -package-id cairo-0.13.0.6-0ebcdf7f44a5179817ebf074bc7b0900 -package-id containers-0.5.5.1-d4bd887fb97aa3a46cbadc13709b7653 -package-id dbus-0.10.9.1-ec1a2dc285f64dbace1827f076c7a0b6 -package-id dyre-0.8.12-1e948970812bf3ebda51d6d9857520ac -package-id enclosed-exceptions-1.0.1-dd997af6da3d3f31e90c5ac3c81a5981 -package-id filepath-1.3.0.2-25a474a9272ae6260626ce0d70ad1cab -package-id glib-0.13.0.7-ec887728c14b7f0901c18f45946a8095 -package-id gtk-traymanager-0.1.5-891cc5af2c67b8f8b151ee1bd08e3448 -package-id gtk3-0.13.5-64c8a897f5b060d02aa703c5b0d73f76 -package-id mtl-2.1.3.1-96f1a7910a7553352339ed05fb61c269 -package-id network-2.6.0.2-9fc722f006cccfc46fd09710d2f526e7 -package-id network-uri-2.6.0.1-3dd3f14075bf7e9c6a8c7db2c1df55b7 -package-id old-locale-1.0.0.6-50b0125c49f76af85dc7aa22975cdc34 -package-id parsec-3.1.7-f0791c4ecd3561d804d29719faa00495 -package-id process-1.2.0.0-06c3215a79834ce4886ae686a0f81122 -package-id safe-0.3.8-2768015ac3c05191f36e05e355f041d5 -package-id split-0.2.2-34cfb851cc3784e22bfae7a7bddda9c5 -package-id stm-2.4.3-8a3151f7cfc72aa29bfd977f1eb45e4e -package-id text-1.2.0.4-45eb55624ad282a004669092880e4171 -package-id time-1.4.2-9b3076800c33f8382c38628f35717951 -package-id transformers-0.3.0.0-6458c21515cab7c1cf21e53141557a1c -package-id utf8-string-0.3.8-013b7a7487c531302bf0b0ba6baedc8d -package-id xdg-basedir-0.2.2-32dc93dc99bb259a537a6beb9e1b36e3 -package-id xmonad-0.11-22c90cf6cc4c3237b70ac9cd413c575e -package-id xmonad-contrib-0.11.3-955a4c70f3435c2b6facec4f3fe15df1 -XHaskell2010 System.Taffybar System.Taffybar.XMonadLog System.Taffybar.Systray System.Taffybar.SimpleClock System.Taffybar.FreedesktopNotifications System.Taffybar.Weather System.Taffybar.MPRIS System.Taffybar.MPRIS2 System.Taffybar.Battery System.Taffybar.CPUMonitor System.Taffybar.CommandRunner System.Taffybar.DiskIOMonitor System.Taffybar.FSMonitor System.Taffybar.LayoutSwitcher System.Taffybar.NetMonitor System.Taffybar.Pager System.Taffybar.TaffyPager System.Taffybar.Text.CPUMonitor System.Taffybar.Text.MemoryMonitor System.Taffybar.WindowSwitcher System.Taffybar.WorkspaceSwitcher System.Taffybar.Hooks.PagerHints System.Taffybar.Widgets.Graph System.Taffybar.Widgets.PollingBar System.Taffybar.Widgets.PollingGraph System.Taffybar.Widgets.PollingLabel System.Taffybar.Widgets.Util System.Taffybar.Widgets.VerticalBar System.Information.StreamInfo System.Information.Battery System.Information.EWMHDesktopInfo System.Information.X11DesktopInfo System.Information.Memory System.Information.Network System.Information.CPU System.Information.CPU2 System.Information.DiskIO System.Taffybar.StrutProperties Paths_taffybar -Wall -funbox-strict-fields
+Building C Sources...
+creating dist/build
+/usr/bin/ghc -c -fPIC -odir dist/build -Idist/build/autogen -Idist/build -I/usr/include/gtk-3.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/gio-unix-2.0/ -I/usr/include/cairo -I/usr/include/pango-1.0 -I/usr/include/atk-1.0 -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/harfbuzz -I/usr/include/libdrm -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -optc-O2 -optc-pthread -package-db dist/package.conf.inplace -package-id HStringTemplate-0.7.3-8ef28de5b45a9752ae0b5495172779cf -package-id HTTP-4000.2.19-01263b9fa018236d7ea0d6e855432ead -package-id X11-1.6.1.2-308eb1aa39b1d256e7575e6bb19ddd02 -package-id base-4.7.0.2-bfd89587617e381ae01b8dd7b6c7f1c1 -package-id cairo-0.13.0.6-0ebcdf7f44a5179817ebf074bc7b0900 -package-id containers-0.5.5.1-d4bd887fb97aa3a46cbadc13709b7653 -package-id dbus-0.10.9.1-ec1a2dc285f64dbace1827f076c7a0b6 -package-id dyre-0.8.12-1e948970812bf3ebda51d6d9857520ac -package-id enclosed-exceptions-1.0.1-dd997af6da3d3f31e90c5ac3c81a5981 -package-id filepath-1.3.0.2-25a474a9272ae6260626ce0d70ad1cab -package-id glib-0.13.0.7-ec887728c14b7f0901c18f45946a8095 -package-id gtk-traymanager-0.1.5-891cc5af2c67b8f8b151ee1bd08e3448 -package-id gtk3-0.13.5-64c8a897f5b060d02aa703c5b0d73f76 -package-id mtl-2.1.3.1-96f1a7910a7553352339ed05fb61c269 -package-id network-2.6.0.2-9fc722f006cccfc46fd09710d2f526e7 -package-id network-uri-2.6.0.1-3dd3f14075bf7e9c6a8c7db2c1df55b7 -package-id old-locale-1.0.0.6-50b0125c49f76af85dc7aa22975cdc34 -package-id parsec-3.1.7-f0791c4ecd3561d804d29719faa00495 -package-id process-1.2.0.0-06c3215a79834ce4886ae686a0f81122 -package-id safe-0.3.8-2768015ac3c05191f36e05e355f041d5 -package-id split-0.2.2-34cfb851cc3784e22bfae7a7bddda9c5 -package-id stm-2.4.3-8a3151f7cfc72aa29bfd977f1eb45e4e -package-id text-1.2.0.4-45eb55624ad282a004669092880e4171 -package-id time-1.4.2-9b3076800c33f8382c38628f35717951 -package-id transformers-0.3.0.0-6458c21515cab7c1cf21e53141557a1c -package-id utf8-string-0.3.8-013b7a7487c531302bf0b0ba6baedc8d -package-id xdg-basedir-0.2.2-32dc93dc99bb259a537a6beb9e1b36e3 -package-id xmonad-0.11-22c90cf6cc4c3237b70ac9cd413c575e -package-id xmonad-contrib-0.11.3-955a4c70f3435c2b6facec4f3fe15df1 src/gdk_property_change_wrapper.c
+/usr/bin/ghc -c -dynamic -fPIC -osuf dyn_o -odir dist/build -Idist/build/autogen -Idist/build -I/usr/include/gtk-3.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/gio-unix-2.0/ -I/usr/include/cairo -I/usr/include/pango-1.0 -I/usr/include/atk-1.0 -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/harfbuzz -I/usr/include/libdrm -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -optc-O2 -optc-pthread -package-db dist/package.conf.inplace -package-id HStringTemplate-0.7.3-8ef28de5b45a9752ae0b5495172779cf -package-id HTTP-4000.2.19-01263b9fa018236d7ea0d6e855432ead -package-id X11-1.6.1.2-308eb1aa39b1d256e7575e6bb19ddd02 -package-id base-4.7.0.2-bfd89587617e381ae01b8dd7b6c7f1c1 -package-id cairo-0.13.0.6-0ebcdf7f44a5179817ebf074bc7b0900 -package-id containers-0.5.5.1-d4bd887fb97aa3a46cbadc13709b7653 -package-id dbus-0.10.9.1-ec1a2dc285f64dbace1827f076c7a0b6 -package-id dyre-0.8.12-1e948970812bf3ebda51d6d9857520ac -package-id enclosed-exceptions-1.0.1-dd997af6da3d3f31e90c5ac3c81a5981 -package-id filepath-1.3.0.2-25a474a9272ae6260626ce0d70ad1cab -package-id glib-0.13.0.7-ec887728c14b7f0901c18f45946a8095 -package-id gtk-traymanager-0.1.5-891cc5af2c67b8f8b151ee1bd08e3448 -package-id gtk3-0.13.5-64c8a897f5b060d02aa703c5b0d73f76 -package-id mtl-2.1.3.1-96f1a7910a7553352339ed05fb61c269 -package-id network-2.6.0.2-9fc722f006cccfc46fd09710d2f526e7 -package-id network-uri-2.6.0.1-3dd3f14075bf7e9c6a8c7db2c1df55b7 -package-id old-locale-1.0.0.6-50b0125c49f76af85dc7aa22975cdc34 -package-id parsec-3.1.7-f0791c4ecd3561d804d29719faa00495 -package-id process-1.2.0.0-06c3215a79834ce4886ae686a0f81122 -package-id safe-0.3.8-2768015ac3c05191f36e05e355f041d5 -package-id split-0.2.2-34cfb851cc3784e22bfae7a7bddda9c5 -package-id stm-2.4.3-8a3151f7cfc72aa29bfd977f1eb45e4e -package-id text-1.2.0.4-45eb55624ad282a004669092880e4171 -package-id time-1.4.2-9b3076800c33f8382c38628f35717951 -package-id transformers-0.3.0.0-6458c21515cab7c1cf21e53141557a1c -package-id utf8-string-0.3.8-013b7a7487c531302bf0b0ba6baedc8d -package-id xdg-basedir-0.2.2-32dc93dc99bb259a537a6beb9e1b36e3 -package-id xmonad-0.11-22c90cf6cc4c3237b70ac9cd413c575e -package-id xmonad-contrib-0.11.3-955a4c70f3435c2b6facec4f3fe15df1 src/gdk_property_change_wrapper.c
+Linking...
+[(InstalledPackageId
+"HStringTemplate-0.7.3-8ef28de5b45a9752ae0b5495172779cf",PackageIdentifier
+{pkgName = PackageName {unPackageName = "HStringTemplate"}, pkgVersion =
+Version {versionBranch = [0,7,3], versionTags = []}},ModuleRenaming True
+[]),(InstalledPackageId
+"HTTP-4000.2.19-01263b9fa018236d7ea0d6e855432ead",PackageIdentifier {pkgName =
+PackageName {unPackageName = "HTTP"}, pkgVersion = Version {versionBranch =
+[4000,2,19], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"X11-1.6.1.2-308eb1aa39b1d256e7575e6bb19ddd02",PackageIdentifier {pkgName =
+PackageName {unPackageName = "X11"}, pkgVersion = Version {versionBranch =
+[1,6,1,2], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"base-4.7.0.2-bfd89587617e381ae01b8dd7b6c7f1c1",PackageIdentifier {pkgName =
+PackageName {unPackageName = "base"}, pkgVersion = Version {versionBranch =
+[4,7,0,2], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"cairo-0.13.0.6-0ebcdf7f44a5179817ebf074bc7b0900",PackageIdentifier {pkgName =
+PackageName {unPackageName = "cairo"}, pkgVersion = Version {versionBranch =
+[0,13,0,6], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"containers-0.5.5.1-d4bd887fb97aa3a46cbadc13709b7653",PackageIdentifier
+{pkgName = PackageName {unPackageName = "containers"}, pkgVersion = Version
+{versionBranch = [0,5,5,1], versionTags = []}},ModuleRenaming True
+[]),(InstalledPackageId
+"dbus-0.10.9.1-ec1a2dc285f64dbace1827f076c7a0b6",PackageIdentifier {pkgName =
+PackageName {unPackageName = "dbus"}, pkgVersion = Version {versionBranch =
+[0,10,9,1], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"dyre-0.8.12-1e948970812bf3ebda51d6d9857520ac",PackageIdentifier {pkgName =
+PackageName {unPackageName = "dyre"}, pkgVersion = Version {versionBranch =
+[0,8,12], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"enclosed-exceptions-1.0.1-dd997af6da3d3f31e90c5ac3c81a5981",PackageIdentifier
+{pkgName = PackageName {unPackageName = "enclosed-exceptions"}, pkgVersion =
+Version {versionBranch = [1,0,1], versionTags = []}},ModuleRenaming True
+[]),(InstalledPackageId
+"filepath-1.3.0.2-25a474a9272ae6260626ce0d70ad1cab",PackageIdentifier {pkgName
+= PackageName {unPackageName = "filepath"}, pkgVersion = Version
+{versionBranch = [1,3,0,2], versionTags = []}},ModuleRenaming True
+[]),(InstalledPackageId
+"glib-0.13.0.7-ec887728c14b7f0901c18f45946a8095",PackageIdentifier {pkgName =
+PackageName {unPackageName = "glib"}, pkgVersion = Version {versionBranch =
+[0,13,0,7], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"gtk-traymanager-0.1.5-891cc5af2c67b8f8b151ee1bd08e3448",PackageIdentifier
+{pkgName = PackageName {unPackageName = "gtk-traymanager"}, pkgVersion =
+Version {versionBranch = [0,1,5], versionTags = []}},ModuleRenaming True
+[]),(InstalledPackageId
+"gtk3-0.13.5-64c8a897f5b060d02aa703c5b0d73f76",PackageIdentifier {pkgName =
+PackageName {unPackageName = "gtk3"}, pkgVersion = Version {versionBranch =
+[0,13,5], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"mtl-2.1.3.1-96f1a7910a7553352339ed05fb61c269",PackageIdentifier {pkgName =
+PackageName {unPackageName = "mtl"}, pkgVersion = Version {versionBranch =
+[2,1,3,1], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"network-2.6.0.2-9fc722f006cccfc46fd09710d2f526e7",PackageIdentifier {pkgName
+= PackageName {unPackageName = "network"}, pkgVersion = Version {versionBranch
+= [2,6,0,2], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"network-uri-2.6.0.1-3dd3f14075bf7e9c6a8c7db2c1df55b7",PackageIdentifier
+{pkgName = PackageName {unPackageName = "network-uri"}, pkgVersion = Version
+{versionBranch = [2,6,0,1], versionTags = []}},ModuleRenaming True
+[]),(InstalledPackageId
+"old-locale-1.0.0.6-50b0125c49f76af85dc7aa22975cdc34",PackageIdentifier
+{pkgName = PackageName {unPackageName = "old-locale"}, pkgVersion = Version
+{versionBranch = [1,0,0,6], versionTags = []}},ModuleRenaming True
+[]),(InstalledPackageId
+"parsec-3.1.7-f0791c4ecd3561d804d29719faa00495",PackageIdentifier {pkgName =
+PackageName {unPackageName = "parsec"}, pkgVersion = Version {versionBranch =
+[3,1,7], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"process-1.2.0.0-06c3215a79834ce4886ae686a0f81122",PackageIdentifier {pkgName
+= PackageName {unPackageName = "process"}, pkgVersion = Version {versionBranch
+= [1,2,0,0], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"safe-0.3.8-2768015ac3c05191f36e05e355f041d5",PackageIdentifier {pkgName =
+PackageName {unPackageName = "safe"}, pkgVersion = Version {versionBranch =
+[0,3,8], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"split-0.2.2-34cfb851cc3784e22bfae7a7bddda9c5",PackageIdentifier {pkgName =
+PackageName {unPackageName = "split"}, pkgVersion = Version {versionBranch =
+[0,2,2], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"stm-2.4.3-8a3151f7cfc72aa29bfd977f1eb45e4e",PackageIdentifier {pkgName =
+PackageName {unPackageName = "stm"}, pkgVersion = Version {versionBranch =
+[2,4,3], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"text-1.2.0.4-45eb55624ad282a004669092880e4171",PackageIdentifier {pkgName =
+PackageName {unPackageName = "text"}, pkgVersion = Version {versionBranch =
+[1,2,0,4], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"time-1.4.2-9b3076800c33f8382c38628f35717951",PackageIdentifier {pkgName =
+PackageName {unPackageName = "time"}, pkgVersion = Version {versionBranch =
+[1,4,2], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"transformers-0.3.0.0-6458c21515cab7c1cf21e53141557a1c",PackageIdentifier
+{pkgName = PackageName {unPackageName = "transformers"}, pkgVersion = Version
+{versionBranch = [0,3,0,0], versionTags = []}},ModuleRenaming True
+[]),(InstalledPackageId
+"utf8-string-0.3.8-013b7a7487c531302bf0b0ba6baedc8d",PackageIdentifier
+{pkgName = PackageName {unPackageName = "utf8-string"}, pkgVersion = Version
+{versionBranch = [0,3,8], versionTags = []}},ModuleRenaming True
+[]),(InstalledPackageId
+"xdg-basedir-0.2.2-32dc93dc99bb259a537a6beb9e1b36e3",PackageIdentifier
+{pkgName = PackageName {unPackageName = "xdg-basedir"}, pkgVersion = Version
+{versionBranch = [0,2,2], versionTags = []}},ModuleRenaming True
+[]),(InstalledPackageId
+"xmonad-0.11-22c90cf6cc4c3237b70ac9cd413c575e",PackageIdentifier {pkgName =
+PackageName {unPackageName = "xmonad"}, pkgVersion = Version {versionBranch =
+[0,11], versionTags = []}},ModuleRenaming True []),(InstalledPackageId
+"xmonad-contrib-0.11.3-955a4c70f3435c2b6facec4f3fe15df1",PackageIdentifier
+{pkgName = PackageName {unPackageName = "xmonad-contrib"}, pkgVersion =
+Version {versionBranch = [0,11,3], versionTags = []}},ModuleRenaming True [])]
+/usr/bin/ar -r dist/build/libHStaffybar-0.4.4.a-21143/libHStaffybar-0.4.4.a dist/build/System/Taffybar.o dist/build/System/Taffybar/XMonadLog.o dist/build/System/Taffybar/Systray.o dist/build/System/Taffybar/SimpleClock.o dist/build/System/Taffybar/FreedesktopNotifications.o dist/build/System/Taffybar/Weather.o dist/build/System/Taffybar/MPRIS.o dist/build/System/Taffybar/MPRIS2.o dist/build/System/Taffybar/Battery.o dist/build/System/Taffybar/CPUMonitor.o dist/build/System/Taffybar/CommandRunner.o dist/build/System/Taffybar/DiskIOMonitor.o dist/build/System/Taffybar/FSMonitor.o dist/build/System/Taffybar/LayoutSwitcher.o dist/build/System/Taffybar/NetMonitor.o dist/build/System/Taffybar/Pager.o dist/build/System/Taffybar/TaffyPager.o dist/build/System/Taffybar/Text/CPUMonitor.o dist/build/System/Taffybar/Text/MemoryMonitor.o dist/build/System/Taffybar/WindowSwitcher.o dist/build/System/Taffybar/WorkspaceSwitcher.o dist/build/System/Taffybar/Hooks/PagerHints.o dist/build/System/Taffybar/Widgets/Graph.o dist/build/System/Taffybar/Widgets/PollingBar.o dist/build/System/Taffybar/Widgets/PollingGraph.o dist/build/System/Taffybar/Widgets/PollingLabel.o dist/build/System/Taffybar/Widgets/Util.o dist/build/System/Taffybar/Widgets/VerticalBar.o dist/build/System/Information/StreamInfo.o dist/build/System/Information/Battery.o dist/build/System/Information/EWMHDesktopInfo.o dist/build/System/Information/X11DesktopInfo.o dist/build/System/Information/Memory.o dist/build/System/Information/Network.o dist/build/System/Information/CPU.o dist/build/System/Information/CPU2.o dist/build/System/Information/DiskIO.o dist/build/System/Taffybar/StrutProperties.o dist/build/Paths_taffybar.o dist/build/src/gdk_property_change_wrapper.o
+/usr/bin/ar: creating dist/build/libHStaffybar-0.4.4.a-21143/libHStaffybar-0.4.4.a
+/usr/bin/strip dist/build/libHStaffybar-0.4.4.a-21143/libHStaffybar-0.4.4.a --strip-unneeded
+/usr/bin/ghc -shared -dynamic -lgtk-3 -lgdk-3 -lpangocairo-1.0 -lpango-1.0 -latk-1.0 -lcairo-gobject -lcairo -lgdk_pixbuf-2.0 -lgio-2.0 -lgobject-2.0 -lglib-2.0 '-dynload deploy' -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/HStringTemplate-0.7.3 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/HTTP-4000.2.19 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/X11-1.6.1.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/X11-xft-0.3.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/array-0.5.0.0 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/async-2.0.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/base-4.7.0.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/binary-0.7.1.0 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/blaze-builder-0.3.3.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/rts-1.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/bytestring-0.10.4.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/cairo-0.13.0.6 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/cereal-0.4.1.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/containers-0.5.5.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-0.5.3 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-class-0.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-instances-base-0.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-instances-containers-0.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-instances-dlist-0.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-instances-old-locale-0.0.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/dbus-0.10.9.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/deepseq-1.3.0.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/directory-1.2.1.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/dlist-0.7.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/dyre-0.8.12 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/enclosed-exceptions-1.0.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/executable-path-0.0.3 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/extensible-exceptions-0.1.1.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/filepath-1.3.0.2 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/ghc-paths-0.1.0.9 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/ghc-prim-0.3.1.0 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/gio-0.13.0.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/glib-0.13.0.7 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/gtk-0.13.4 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/gtk-traymanager-0.1.5 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/gtk3-0.13.5 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/hashable-1.2.3.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/integer-gmp-0.5.1.0 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/io-storage-0.3 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/libxml-sax-0.7.5 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/lifted-base-0.2.3.3 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/monad-control-1.0.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/mtl-2.1.3.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/nats-1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/network-2.6.0.2 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/network-uri-2.6.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/old-locale-1.0.0.6 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/old-time-1.1.0.2 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/pango-0.13.0.5 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/parsec-3.1.7 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/pretty-1.1.1.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/primitive-0.5.4.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/process-1.2.0.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/random-1.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/safe-0.3.8 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/semigroups-0.16.0.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/split-0.2.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/stm-2.4.3 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/syb-0.4.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/template-haskell-2.9.0.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/text-1.2.0.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/time-1.4.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/transformers-0.3.0.0 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/transformers-base-0.4.3 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/unix-2.7.0.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/unordered-containers-0.2.5.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/utf8-string-0.3.8 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/vector-0.10.12.2 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/void-0.7 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/xdg-basedir-0.2.2 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/xml-types-0.3.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/xmonad-0.11 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/xmonad-contrib-0.11.3 -package-name taffybar-0.4.4 -no-auto-link-packages -package-db dist/package.conf.inplace -package-id HStringTemplate-0.7.3-8ef28de5b45a9752ae0b5495172779cf -package-id HTTP-4000.2.19-01263b9fa018236d7ea0d6e855432ead -package-id X11-1.6.1.2-308eb1aa39b1d256e7575e6bb19ddd02 -package-id base-4.7.0.2-bfd89587617e381ae01b8dd7b6c7f1c1 -package-id cairo-0.13.0.6-0ebcdf7f44a5179817ebf074bc7b0900 -package-id containers-0.5.5.1-d4bd887fb97aa3a46cbadc13709b7653 -package-id dbus-0.10.9.1-ec1a2dc285f64dbace1827f076c7a0b6 -package-id dyre-0.8.12-1e948970812bf3ebda51d6d9857520ac -package-id enclosed-exceptions-1.0.1-dd997af6da3d3f31e90c5ac3c81a5981 -package-id filepath-1.3.0.2-25a474a9272ae6260626ce0d70ad1cab -package-id glib-0.13.0.7-ec887728c14b7f0901c18f45946a8095 -package-id gtk-traymanager-0.1.5-891cc5af2c67b8f8b151ee1bd08e3448 -package-id gtk3-0.13.5-64c8a897f5b060d02aa703c5b0d73f76 -package-id mtl-2.1.3.1-96f1a7910a7553352339ed05fb61c269 -package-id network-2.6.0.2-9fc722f006cccfc46fd09710d2f526e7 -package-id network-uri-2.6.0.1-3dd3f14075bf7e9c6a8c7db2c1df55b7 -package-id old-locale-1.0.0.6-50b0125c49f76af85dc7aa22975cdc34 -package-id parsec-3.1.7-f0791c4ecd3561d804d29719faa00495 -package-id process-1.2.0.0-06c3215a79834ce4886ae686a0f81122 -package-id safe-0.3.8-2768015ac3c05191f36e05e355f041d5 -package-id split-0.2.2-34cfb851cc3784e22bfae7a7bddda9c5 -package-id stm-2.4.3-8a3151f7cfc72aa29bfd977f1eb45e4e -package-id text-1.2.0.4-45eb55624ad282a004669092880e4171 -package-id time-1.4.2-9b3076800c33f8382c38628f35717951 -package-id transformers-0.3.0.0-6458c21515cab7c1cf21e53141557a1c -package-id utf8-string-0.3.8-013b7a7487c531302bf0b0ba6baedc8d -package-id xdg-basedir-0.2.2-32dc93dc99bb259a537a6beb9e1b36e3 -package-id xmonad-0.11-22c90cf6cc4c3237b70ac9cd413c575e -package-id xmonad-contrib-0.11.3-955a4c70f3435c2b6facec4f3fe15df1 dist/build/System/Taffybar.dyn_o dist/build/System/Taffybar/XMonadLog.dyn_o dist/build/System/Taffybar/Systray.dyn_o dist/build/System/Taffybar/SimpleClock.dyn_o dist/build/System/Taffybar/FreedesktopNotifications.dyn_o dist/build/System/Taffybar/Weather.dyn_o dist/build/System/Taffybar/MPRIS.dyn_o dist/build/System/Taffybar/MPRIS2.dyn_o dist/build/System/Taffybar/Battery.dyn_o dist/build/System/Taffybar/CPUMonitor.dyn_o dist/build/System/Taffybar/CommandRunner.dyn_o dist/build/System/Taffybar/DiskIOMonitor.dyn_o dist/build/System/Taffybar/FSMonitor.dyn_o dist/build/System/Taffybar/LayoutSwitcher.dyn_o dist/build/System/Taffybar/NetMonitor.dyn_o dist/build/System/Taffybar/Pager.dyn_o dist/build/System/Taffybar/TaffyPager.dyn_o dist/build/System/Taffybar/Text/CPUMonitor.dyn_o dist/build/System/Taffybar/Text/MemoryMonitor.dyn_o dist/build/System/Taffybar/WindowSwitcher.dyn_o dist/build/System/Taffybar/WorkspaceSwitcher.dyn_o dist/build/System/Taffybar/Hooks/PagerHints.dyn_o dist/build/System/Taffybar/Widgets/Graph.dyn_o dist/build/System/Taffybar/Widgets/PollingBar.dyn_o dist/build/System/Taffybar/Widgets/PollingGraph.dyn_o dist/build/System/Taffybar/Widgets/PollingLabel.dyn_o dist/build/System/Taffybar/Widgets/Util.dyn_o dist/build/System/Taffybar/Widgets/VerticalBar.dyn_o dist/build/System/Information/StreamInfo.dyn_o dist/build/System/Information/Battery.dyn_o dist/build/System/Information/EWMHDesktopInfo.dyn_o dist/build/System/Information/X11DesktopInfo.dyn_o dist/build/System/Information/Memory.dyn_o dist/build/System/Information/Network.dyn_o dist/build/System/Information/CPU.dyn_o dist/build/System/Information/CPU2.dyn_o dist/build/System/Information/DiskIO.dyn_o dist/build/System/Taffybar/StrutProperties.dyn_o dist/build/Paths_taffybar.dyn_o dist/build/src/gdk_property_change_wrapper.dyn_o -o dist/build/libHStaffybar-0.4.4-ghc7.8.4.so
+In-place registering taffybar-0.4.4...
+/usr/bin/ghc-pkg update - --global --user '--package-db=dist/package.conf.inplace'
+Preprocessing executable 'taffybar' for taffybar-0.4.4...
+Building executable taffybar...
+creating dist/build/taffybar
+creating dist/build/taffybar/taffybar-tmp
+/usr/bin/ghc --make -no-link -fbuilding-cabal-package -O -static -outputdir dist/build/taffybar/taffybar-tmp -odir dist/build/taffybar/taffybar-tmp -hidir dist/build/taffybar/taffybar-tmp -stubdir dist/build/taffybar/taffybar-tmp -i -idist/build/taffybar/taffybar-tmp -isrc -idist/build/autogen -Idist/build/autogen -Idist/build/taffybar/taffybar-tmp -I/usr/include/gtk-3.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/gio-unix-2.0/ -I/usr/include/cairo -I/usr/include/pango-1.0 -I/usr/include/atk-1.0 -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/harfbuzz -I/usr/include/libdrm -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -optP-include -optPdist/build/autogen/cabal_macros.h -hide-all-packages -package-db dist/package.conf.inplace -package-id base-4.7.0.2-bfd89587617e381ae01b8dd7b6c7f1c1 -package-id dyre-0.8.12-1e948970812bf3ebda51d6d9857520ac -package-id filepath-1.3.0.2-25a474a9272ae6260626ce0d70ad1cab -package-id glib-0.13.0.7-ec887728c14b7f0901c18f45946a8095 -package-id gtk-0.13.4-56314f2783bfb49721438f3b2d5f0529 -package-id safe-0.3.8-2768015ac3c05191f36e05e355f041d5 -package-id xdg-basedir-0.2.2-32dc93dc99bb259a537a6beb9e1b36e3 -XHaskell2010 src/Main.hs -Wall -rtsopts -threaded
+[3 of 4] Compiling System.Taffybar  ( src/System/Taffybar.hs, dist/build/taffybar/taffybar-tmp/System/Taffybar.o )
+
+src/System/Taffybar.hs:140:1: Warning:
+    The import of ‘System.Glib.Signals’ is redundant
+      except perhaps to import instances from ‘System.Glib.Signals’
+    To import instances alone, use: import System.Glib.Signals()
+
+src/System/Taffybar.hs:141:1: Warning:
+    The import of ‘Graphics.UI.Gtk.Abstract.Widget’ is redundant
+      except perhaps to import instances from ‘Graphics.UI.Gtk.Abstract.Widget’
+    To import instances alone, use: import Graphics.UI.Gtk.Abstract.Widget()
+Building C Sources...
+creating dist/build/taffybar/taffybar-tmp
+/usr/bin/ghc -c -static -odir dist/build/taffybar/taffybar-tmp -Idist/build/autogen -Idist/build/taffybar/taffybar-tmp -I/usr/include/gtk-3.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/gio-unix-2.0/ -I/usr/include/cairo -I/usr/include/pango-1.0 -I/usr/include/atk-1.0 -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/harfbuzz -I/usr/include/libdrm -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -optc-O2 -optc-pthread -package-db dist/package.conf.inplace -package-id base-4.7.0.2-bfd89587617e381ae01b8dd7b6c7f1c1 -package-id dyre-0.8.12-1e948970812bf3ebda51d6d9857520ac -package-id filepath-1.3.0.2-25a474a9272ae6260626ce0d70ad1cab -package-id glib-0.13.0.7-ec887728c14b7f0901c18f45946a8095 -package-id gtk-0.13.4-56314f2783bfb49721438f3b2d5f0529 -package-id safe-0.3.8-2768015ac3c05191f36e05e355f041d5 -package-id xdg-basedir-0.2.2-32dc93dc99bb259a537a6beb9e1b36e3 src/gdk_property_change_wrapper.c
+Linking...
+/usr/bin/ghc --make -fbuilding-cabal-package -O -static -outputdir dist/build/taffybar/taffybar-tmp -odir dist/build/taffybar/taffybar-tmp -hidir dist/build/taffybar/taffybar-tmp -stubdir dist/build/taffybar/taffybar-tmp -i -idist/build/taffybar/taffybar-tmp -isrc -idist/build/autogen -Idist/build/autogen -Idist/build/taffybar/taffybar-tmp -I/usr/include/gtk-3.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/gio-unix-2.0/ -I/usr/include/cairo -I/usr/include/pango-1.0 -I/usr/include/atk-1.0 -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/harfbuzz -I/usr/include/libdrm -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -optP-include -optPdist/build/autogen/cabal_macros.h -lgtk-3 -lgdk-3 -lpangocairo-1.0 -lpango-1.0 -latk-1.0 -lcairo-gobject -lcairo -lgdk_pixbuf-2.0 -lgio-2.0 -lgobject-2.0 -lglib-2.0 '-dynload deploy' -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/HStringTemplate-0.7.3 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/HTTP-4000.2.19 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/X11-1.6.1.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/X11-xft-0.3.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/array-0.5.0.0 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/async-2.0.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/base-4.7.0.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/binary-0.7.1.0 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/blaze-builder-0.3.3.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/rts-1.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/bytestring-0.10.4.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/cairo-0.13.0.6 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/cereal-0.4.1.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/containers-0.5.5.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-0.5.3 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-class-0.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-instances-base-0.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-instances-containers-0.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-instances-dlist-0.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/data-default-instances-old-locale-0.0.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/dbus-0.10.9.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/deepseq-1.3.0.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/directory-1.2.1.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/dlist-0.7.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/dyre-0.8.12 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/enclosed-exceptions-1.0.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/executable-path-0.0.3 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/extensible-exceptions-0.1.1.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/filepath-1.3.0.2 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/ghc-paths-0.1.0.9 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/ghc-prim-0.3.1.0 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/gio-0.13.0.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/glib-0.13.0.7 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/gtk-0.13.4 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/gtk-traymanager-0.1.5 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/gtk3-0.13.5 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/hashable-1.2.3.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/integer-gmp-0.5.1.0 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/io-storage-0.3 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/libxml-sax-0.7.5 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/lifted-base-0.2.3.3 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/monad-control-1.0.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/mtl-2.1.3.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/nats-1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/network-2.6.0.2 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/network-uri-2.6.0.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/old-locale-1.0.0.6 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/old-time-1.1.0.2 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/pango-0.13.0.5 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/parsec-3.1.7 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/pretty-1.1.1.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/primitive-0.5.4.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/process-1.2.0.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/random-1.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/safe-0.3.8 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/semigroups-0.16.0.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/split-0.2.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/stm-2.4.3 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/syb-0.4.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/template-haskell-2.9.0.0 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/text-1.2.0.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/time-1.4.2 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/transformers-0.3.0.0 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/transformers-base-0.4.3 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/unix-2.7.0.1 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/unordered-containers-0.2.5.1 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/utf8-string-0.3.8 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/vector-0.10.12.2 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/void-0.7 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/xdg-basedir-0.2.2 -optl-Wl,-rpath,/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/xml-types-0.3.4 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/xmonad-0.11 -optl-Wl,-rpath,/usr/lib/ghc-7.8.4/site-local/xmonad-contrib-0.11.3 -hide-all-packages -package-db dist/package.conf.inplace -package-id base-4.7.0.2-bfd89587617e381ae01b8dd7b6c7f1c1 -package-id dyre-0.8.12-1e948970812bf3ebda51d6d9857520ac -package-id filepath-1.3.0.2-25a474a9272ae6260626ce0d70ad1cab -package-id glib-0.13.0.7-ec887728c14b7f0901c18f45946a8095 -package-id gtk-0.13.4-56314f2783bfb49721438f3b2d5f0529 -package-id safe-0.3.8-2768015ac3c05191f36e05e355f041d5 -package-id xdg-basedir-0.2.2-32dc93dc99bb259a537a6beb9e1b36e3 -XHaskell2010 src/Main.hs dist/build/taffybar/taffybar-tmp/src/gdk_property_change_wrapper.o -o dist/build/taffybar/taffybar -Wall -rtsopts -threaded
+Linking dist/build/taffybar/taffybar ...
+/usr/bin/ghc --abi-hash -fbuilding-cabal-package -O -outputdir dist/build -odir dist/build -hidir dist/build -stubdir dist/build -i -idist/build -isrc -idist/build/autogen -Idist/build/autogen -Idist/build -I/usr/include/gtk-3.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/gio-unix-2.0/ -I/usr/include/cairo -I/usr/include/pango-1.0 -I/usr/include/atk-1.0 -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/harfbuzz -I/usr/include/libdrm -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -optP-include -optPdist/build/autogen/cabal_macros.h -package-name taffybar-0.4.4 -hide-all-packages -package-id HStringTemplate-0.7.3-8ef28de5b45a9752ae0b5495172779cf -package-id HTTP-4000.2.19-01263b9fa018236d7ea0d6e855432ead -package-id X11-1.6.1.2-308eb1aa39b1d256e7575e6bb19ddd02 -package-id base-4.7.0.2-bfd89587617e381ae01b8dd7b6c7f1c1 -package-id cairo-0.13.0.6-0ebcdf7f44a5179817ebf074bc7b0900 -package-id containers-0.5.5.1-d4bd887fb97aa3a46cbadc13709b7653 -package-id dbus-0.10.9.1-ec1a2dc285f64dbace1827f076c7a0b6 -package-id dyre-0.8.12-1e948970812bf3ebda51d6d9857520ac -package-id enclosed-exceptions-1.0.1-dd997af6da3d3f31e90c5ac3c81a5981 -package-id filepath-1.3.0.2-25a474a9272ae6260626ce0d70ad1cab -package-id glib-0.13.0.7-ec887728c14b7f0901c18f45946a8095 -package-id gtk-traymanager-0.1.5-891cc5af2c67b8f8b151ee1bd08e3448 -package-id gtk3-0.13.5-64c8a897f5b060d02aa703c5b0d73f76 -package-id mtl-2.1.3.1-96f1a7910a7553352339ed05fb61c269 -package-id network-2.6.0.2-9fc722f006cccfc46fd09710d2f526e7 -package-id network-uri-2.6.0.1-3dd3f14075bf7e9c6a8c7db2c1df55b7 -package-id old-locale-1.0.0.6-50b0125c49f76af85dc7aa22975cdc34 -package-id parsec-3.1.7-f0791c4ecd3561d804d29719faa00495 -package-id process-1.2.0.0-06c3215a79834ce4886ae686a0f81122 -package-id safe-0.3.8-2768015ac3c05191f36e05e355f041d5 -package-id split-0.2.2-34cfb851cc3784e22bfae7a7bddda9c5 -package-id stm-2.4.3-8a3151f7cfc72aa29bfd977f1eb45e4e -package-id text-1.2.0.4-45eb55624ad282a004669092880e4171 -package-id time-1.4.2-9b3076800c33f8382c38628f35717951 -package-id transformers-0.3.0.0-6458c21515cab7c1cf21e53141557a1c -package-id utf8-string-0.3.8-013b7a7487c531302bf0b0ba6baedc8d -package-id xdg-basedir-0.2.2-32dc93dc99bb259a537a6beb9e1b36e3 -package-id xmonad-0.11-22c90cf6cc4c3237b70ac9cd413c575e -package-id xmonad-contrib-0.11.3-955a4c70f3435c2b6facec4f3fe15df1 -XHaskell2010 System.Taffybar System.Taffybar.XMonadLog System.Taffybar.Systray System.Taffybar.SimpleClock System.Taffybar.FreedesktopNotifications System.Taffybar.Weather System.Taffybar.MPRIS System.Taffybar.MPRIS2 System.Taffybar.Battery System.Taffybar.CPUMonitor System.Taffybar.CommandRunner System.Taffybar.DiskIOMonitor System.Taffybar.FSMonitor System.Taffybar.LayoutSwitcher System.Taffybar.NetMonitor System.Taffybar.Pager System.Taffybar.TaffyPager System.Taffybar.Text.CPUMonitor System.Taffybar.Text.MemoryMonitor System.Taffybar.WindowSwitcher System.Taffybar.WorkspaceSwitcher System.Taffybar.Hooks.PagerHints System.Taffybar.Widgets.Graph System.Taffybar.Widgets.PollingBar System.Taffybar.Widgets.PollingGraph System.Taffybar.Widgets.PollingLabel System.Taffybar.Widgets.Util System.Taffybar.Widgets.VerticalBar System.Information.StreamInfo System.Information.Battery System.Information.EWMHDesktopInfo System.Information.X11DesktopInfo System.Information.Memory System.Information.Network System.Information.CPU System.Information.CPU2 System.Information.DiskIO -Wall -funbox-strict-fields
+Creating package registration file: /tmp/pkgConf-taffybar-0.421047.4
+directory dist/doc/html/taffybar does exist: False
+creating /home/wes/.cabal/share/x86_64-linux-ghc-7.8.4/taffybar-0.4.4
+Installing taffybar.rc to
+/home/wes/.cabal/share/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/taffybar.rc
+creating /home/wes/.cabal/share/doc/x86_64-linux-ghc-7.8.4/taffybar-0.4.4
+Installing LICENSE to
+/home/wes/.cabal/share/doc/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/LICENSE
+Installing library in
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4
+Installing executable(s) in /home/wes/.cabal/bin
+creating /home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System
+creating
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar
+creating
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Text
+creating
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Hooks
+creating
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets
+creating
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information
+creating /home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4
+Installing dist/build/System/Taffybar.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar.hi
+Installing dist/build/System/Taffybar/XMonadLog.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/XMonadLog.hi
+Installing dist/build/System/Taffybar/Systray.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Systray.hi
+Installing dist/build/System/Taffybar/SimpleClock.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/SimpleClock.hi
+Installing dist/build/System/Taffybar/FreedesktopNotifications.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/FreedesktopNotifications.hi
+Installing dist/build/System/Taffybar/Weather.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Weather.hi
+Installing dist/build/System/Taffybar/MPRIS.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/MPRIS.hi
+Installing dist/build/System/Taffybar/MPRIS2.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/MPRIS2.hi
+Installing dist/build/System/Taffybar/Battery.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Battery.hi
+Installing dist/build/System/Taffybar/CPUMonitor.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/CPUMonitor.hi
+Installing dist/build/System/Taffybar/CommandRunner.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/CommandRunner.hi
+Installing dist/build/System/Taffybar/DiskIOMonitor.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/DiskIOMonitor.hi
+Installing dist/build/System/Taffybar/FSMonitor.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/FSMonitor.hi
+Installing dist/build/System/Taffybar/LayoutSwitcher.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/LayoutSwitcher.hi
+Installing dist/build/System/Taffybar/NetMonitor.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/NetMonitor.hi
+Installing dist/build/System/Taffybar/Pager.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Pager.hi
+Installing dist/build/System/Taffybar/TaffyPager.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/TaffyPager.hi
+Installing dist/build/System/Taffybar/Text/CPUMonitor.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Text/CPUMonitor.hi
+Installing dist/build/System/Taffybar/Text/MemoryMonitor.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Text/MemoryMonitor.hi
+Installing dist/build/System/Taffybar/WindowSwitcher.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/WindowSwitcher.hi
+Installing dist/build/System/Taffybar/WorkspaceSwitcher.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/WorkspaceSwitcher.hi
+Installing dist/build/System/Taffybar/Hooks/PagerHints.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Hooks/PagerHints.hi
+Installing dist/build/System/Taffybar/Widgets/Graph.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/Graph.hi
+Installing dist/build/System/Taffybar/Widgets/PollingBar.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/PollingBar.hi
+Installing dist/build/System/Taffybar/Widgets/PollingGraph.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/PollingGraph.hi
+Installing dist/build/System/Taffybar/Widgets/PollingLabel.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/PollingLabel.hi
+Installing dist/build/System/Taffybar/Widgets/Util.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/Util.hi
+Installing dist/build/System/Taffybar/Widgets/VerticalBar.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/VerticalBar.hi
+Installing dist/build/System/Information/StreamInfo.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/StreamInfo.hi
+Installing dist/build/System/Information/Battery.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/Battery.hi
+Installing dist/build/System/Information/EWMHDesktopInfo.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/EWMHDesktopInfo.hi
+Installing dist/build/System/Information/X11DesktopInfo.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/X11DesktopInfo.hi
+Installing dist/build/System/Information/Memory.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/Memory.hi
+Installing dist/build/System/Information/Network.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/Network.hi
+Installing dist/build/System/Information/CPU.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/CPU.hi
+Installing dist/build/System/Information/CPU2.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/CPU2.hi
+Installing dist/build/System/Information/DiskIO.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/DiskIO.hi
+Installing dist/build/System/Taffybar/StrutProperties.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/StrutProperties.hi
+Installing dist/build/Paths_taffybar.hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/Paths_taffybar.hi
+creating /home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System
+creating
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar
+creating
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Text
+creating
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Hooks
+creating
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets
+creating
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information
+creating /home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4
+Installing dist/build/System/Taffybar.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar.dyn_hi
+Installing dist/build/System/Taffybar/XMonadLog.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/XMonadLog.dyn_hi
+Installing dist/build/System/Taffybar/Systray.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Systray.dyn_hi
+Installing dist/build/System/Taffybar/SimpleClock.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/SimpleClock.dyn_hi
+Installing dist/build/System/Taffybar/FreedesktopNotifications.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/FreedesktopNotifications.dyn_hi
+Installing dist/build/System/Taffybar/Weather.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Weather.dyn_hi
+Installing dist/build/System/Taffybar/MPRIS.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/MPRIS.dyn_hi
+Installing dist/build/System/Taffybar/MPRIS2.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/MPRIS2.dyn_hi
+Installing dist/build/System/Taffybar/Battery.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Battery.dyn_hi
+Installing dist/build/System/Taffybar/CPUMonitor.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/CPUMonitor.dyn_hi
+Installing dist/build/System/Taffybar/CommandRunner.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/CommandRunner.dyn_hi
+Installing dist/build/System/Taffybar/DiskIOMonitor.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/DiskIOMonitor.dyn_hi
+Installing dist/build/System/Taffybar/FSMonitor.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/FSMonitor.dyn_hi
+Installing dist/build/System/Taffybar/LayoutSwitcher.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/LayoutSwitcher.dyn_hi
+Installing dist/build/System/Taffybar/NetMonitor.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/NetMonitor.dyn_hi
+Installing dist/build/System/Taffybar/Pager.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Pager.dyn_hi
+Installing dist/build/System/Taffybar/TaffyPager.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/TaffyPager.dyn_hi
+Installing dist/build/System/Taffybar/Text/CPUMonitor.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Text/CPUMonitor.dyn_hi
+Installing dist/build/System/Taffybar/Text/MemoryMonitor.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Text/MemoryMonitor.dyn_hi
+Installing dist/build/System/Taffybar/WindowSwitcher.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/WindowSwitcher.dyn_hi
+Installing dist/build/System/Taffybar/WorkspaceSwitcher.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/WorkspaceSwitcher.dyn_hi
+Installing dist/build/System/Taffybar/Hooks/PagerHints.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Hooks/PagerHints.dyn_hi
+Installing dist/build/System/Taffybar/Widgets/Graph.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/Graph.dyn_hi
+Installing dist/build/System/Taffybar/Widgets/PollingBar.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/PollingBar.dyn_hi
+Installing dist/build/System/Taffybar/Widgets/PollingGraph.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/PollingGraph.dyn_hi
+Installing dist/build/System/Taffybar/Widgets/PollingLabel.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/PollingLabel.dyn_hi
+Installing dist/build/System/Taffybar/Widgets/Util.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/Util.dyn_hi
+Installing dist/build/System/Taffybar/Widgets/VerticalBar.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/Widgets/VerticalBar.dyn_hi
+Installing dist/build/System/Information/StreamInfo.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/StreamInfo.dyn_hi
+Installing dist/build/System/Information/Battery.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/Battery.dyn_hi
+Installing dist/build/System/Information/EWMHDesktopInfo.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/EWMHDesktopInfo.dyn_hi
+Installing dist/build/System/Information/X11DesktopInfo.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/X11DesktopInfo.dyn_hi
+Installing dist/build/System/Information/Memory.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/Memory.dyn_hi
+Installing dist/build/System/Information/Network.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/Network.dyn_hi
+Installing dist/build/System/Information/CPU.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/CPU.dyn_hi
+Installing dist/build/System/Information/CPU2.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/CPU2.dyn_hi
+Installing dist/build/System/Information/DiskIO.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Information/DiskIO.dyn_hi
+Installing dist/build/System/Taffybar/StrutProperties.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/System/Taffybar/StrutProperties.dyn_hi
+Installing dist/build/Paths_taffybar.dyn_hi to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/Paths_taffybar.dyn_hi
+creating /home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4
+Installing dist/build/libHStaffybar-0.4.4.a to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/libHStaffybar-0.4.4.a
+creating /home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4
+/usr/bin/strip dist/build/libHStaffybar-0.4.4-ghc7.8.4.so --strip-unneeded
+Installing executable dist/build/libHStaffybar-0.4.4-ghc7.8.4.so to
+/home/wes/.cabal/lib/x86_64-linux-ghc-7.8.4/taffybar-0.4.4/libHStaffybar-0.4.4-ghc7.8.4.so
+creating /home/wes/.cabal/bin
+Installing executable dist/build/taffybar/taffybar to
+/home/wes/.cabal/bin/taffybar
+/usr/bin/strip /home/wes/.cabal/bin/taffybar
+/usr/bin/ghc --abi-hash -fbuilding-cabal-package -O -outputdir dist/build -odir dist/build -hidir dist/build -stubdir dist/build -i -idist/build -isrc -idist/build/autogen -Idist/build/autogen -Idist/build -I/usr/include/gtk-3.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/gio-unix-2.0/ -I/usr/include/cairo -I/usr/include/pango-1.0 -I/usr/include/atk-1.0 -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/harfbuzz -I/usr/include/libdrm -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -optP-include -optPdist/build/autogen/cabal_macros.h -package-name taffybar-0.4.4 -hide-all-packages -package-id HStringTemplate-0.7.3-8ef28de5b45a9752ae0b5495172779cf -package-id HTTP-4000.2.19-01263b9fa018236d7ea0d6e855432ead -package-id X11-1.6.1.2-308eb1aa39b1d256e7575e6bb19ddd02 -package-id base-4.7.0.2-bfd89587617e381ae01b8dd7b6c7f1c1 -package-id cairo-0.13.0.6-0ebcdf7f44a5179817ebf074bc7b0900 -package-id containers-0.5.5.1-d4bd887fb97aa3a46cbadc13709b7653 -package-id dbus-0.10.9.1-ec1a2dc285f64dbace1827f076c7a0b6 -package-id dyre-0.8.12-1e948970812bf3ebda51d6d9857520ac -package-id enclosed-exceptions-1.0.1-dd997af6da3d3f31e90c5ac3c81a5981 -package-id filepath-1.3.0.2-25a474a9272ae6260626ce0d70ad1cab -package-id glib-0.13.0.7-ec887728c14b7f0901c18f45946a8095 -package-id gtk-traymanager-0.1.5-891cc5af2c67b8f8b151ee1bd08e3448 -package-id gtk3-0.13.5-64c8a897f5b060d02aa703c5b0d73f76 -package-id mtl-2.1.3.1-96f1a7910a7553352339ed05fb61c269 -package-id network-2.6.0.2-9fc722f006cccfc46fd09710d2f526e7 -package-id network-uri-2.6.0.1-3dd3f14075bf7e9c6a8c7db2c1df55b7 -package-id old-locale-1.0.0.6-50b0125c49f76af85dc7aa22975cdc34 -package-id parsec-3.1.7-f0791c4ecd3561d804d29719faa00495 -package-id process-1.2.0.0-06c3215a79834ce4886ae686a0f81122 -package-id safe-0.3.8-2768015ac3c05191f36e05e355f041d5 -package-id split-0.2.2-34cfb851cc3784e22bfae7a7bddda9c5 -package-id stm-2.4.3-8a3151f7cfc72aa29bfd977f1eb45e4e -package-id text-1.2.0.4-45eb55624ad282a004669092880e4171 -package-id time-1.4.2-9b3076800c33f8382c38628f35717951 -package-id transformers-0.3.0.0-6458c21515cab7c1cf21e53141557a1c -package-id utf8-string-0.3.8-013b7a7487c531302bf0b0ba6baedc8d -package-id xdg-basedir-0.2.2-32dc93dc99bb259a537a6beb9e1b36e3 -package-id xmonad-0.11-22c90cf6cc4c3237b70ac9cd413c575e -package-id xmonad-contrib-0.11.3-955a4c70f3435c2b6facec4f3fe15df1 -XHaskell2010 System.Taffybar System.Taffybar.XMonadLog System.Taffybar.Systray System.Taffybar.SimpleClock System.Taffybar.FreedesktopNotifications System.Taffybar.Weather System.Taffybar.MPRIS System.Taffybar.MPRIS2 System.Taffybar.Battery System.Taffybar.CPUMonitor System.Taffybar.CommandRunner System.Taffybar.DiskIOMonitor System.Taffybar.FSMonitor System.Taffybar.LayoutSwitcher System.Taffybar.NetMonitor System.Taffybar.Pager System.Taffybar.TaffyPager System.Taffybar.Text.CPUMonitor System.Taffybar.Text.MemoryMonitor System.Taffybar.WindowSwitcher System.Taffybar.WorkspaceSwitcher System.Taffybar.Hooks.PagerHints System.Taffybar.Widgets.Graph System.Taffybar.Widgets.PollingBar System.Taffybar.Widgets.PollingGraph System.Taffybar.Widgets.PollingLabel System.Taffybar.Widgets.Util System.Taffybar.Widgets.VerticalBar System.Information.StreamInfo System.Information.Battery System.Information.EWMHDesktopInfo System.Information.X11DesktopInfo System.Information.Memory System.Information.Network System.Information.CPU System.Information.CPU2 System.Information.DiskIO -Wall -funbox-strict-fields
+Registering taffybar-0.4.4...
+/usr/bin/ghc-pkg update - --global --user

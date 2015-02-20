@@ -137,6 +137,8 @@ import System.Exit ( exitFailure )
 import qualified System.IO as IO
 import Text.Printf ( printf )
 
+import System.Glib.Signals
+import Graphics.UI.Gtk.Abstract.Widget
 import Paths_taffybar ( getDataDir )
 import System.Taffybar.StrutProperties
 
@@ -257,7 +259,8 @@ setTaffybarSize cfg window = do
   winRealized <- widgetGetRealized window
   if winRealized
     then setStrutProps
-    else onRealize window setStrutProps >> return ()
+      else on window realize setStrutProps >> return ()
+    --else onRealize window setStrutProps >> return ()
 
 taffybarMain :: TaffybarConfig -> IO ()
 taffybarMain cfg = do
