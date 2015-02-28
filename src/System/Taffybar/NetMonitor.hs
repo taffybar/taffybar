@@ -64,7 +64,7 @@ showInfo sample interval interface template prec = do
       Just thisSample -> do
         lastSample <- readIORef sample
         writeIORef sample thisSample
-        let deltas = map fromIntegral $ zipWith (-) thisSample lastSample
+        let deltas = map (max 0 . fromIntegral) $ zipWith (-) thisSample lastSample
             speed@[incomingb, outgoingb] = map (/(interval)) deltas
             [incomingkb, outgoingkb] = map (setDigits prec . (/1024)) speed
             [incomingmb, outgoingmb] = map (setDigits prec . (/square 1024)) speed
