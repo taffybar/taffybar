@@ -75,11 +75,12 @@ getProperty client name property = do
 setSongInfo :: Label -> String -> String -> IO ()
 setSongInfo w artist title = do
   let msg :: String
-      msg = escapeMarkup $ printf "%s - %s" (cutoff 15 artist) (cutoff 30 title)
+      msg = case artist of
+        "" -> escapeMarkup $ printf "%s" (cutoff 30 title)
+        art ->  escapeMarkup $ printf "%s - %s" (cutoff 15 artist) (cutoff 30 title)
       txt = "<span fgcolor='yellow'>▶</span> " ++ msg
   postGUIAsync $ do
     labelSetMarkup w txt
-    widgetShowAll w
   where cutoff n xs | length xs <= n = xs
                     | otherwise      = take n xs ++ "…"
 
@@ -96,18 +97,23 @@ updatePlaybackStatus w items = do
       return ()
 
 updateSongInfo :: Label -> [(Variant, Variant)] -> IO ()
-updateSongInfo w items =
-  case parseArtistAndTitle of
-    Just (artist, title) -> setSongInfo w artist title
+updateSongInfo w items = do
+  let artist = case readArtist of
+        Just x -> x
+        Nothing -> ""
+  case readTitle of
+    Just title -> do
+      setSongInfo w artist title
     Nothing -> return ()
   where
-    parseArtistAndTitle = do
-      aLookup <- lookup (toVariant ("xesam:artist" :: String)) items
-      tLookup <- lookup (toVariant ("xesam:title" :: String)) items
-      let artists = (unpack . unpack) aLookup :: [String]
-          title = (unpack . unpack) tLookup :: String
-      artist <- listToMaybe artists
-      return (artist, title)
+    readArtist :: Maybe String
+    readArtist = do
+      artist <- lookup (toVariant ("xesam:artist" :: String)) items
+      listToMaybe $ ((unpack . unpack) artist :: [String])
+    readTitle :: Maybe String
+    readTitle = do
+      title <- lookup (toVariant ("xesam:title" :: String)) items
+      Just $ (unpack . unpack) title
 
 updateMetadata :: Label -> [(Variant, Variant)] -> IO ()
 updateMetadata w items = do
