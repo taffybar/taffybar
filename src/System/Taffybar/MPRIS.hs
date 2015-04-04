@@ -93,7 +93,7 @@ defaultMPRISConfig = MPRISConfig
   }
   where artist track  = maybe "[unknown]" id (trackArtist track)
         title  track  = maybe "[unknown]" id (trackTitle  track)
-        display track = "<span fgcolor='yellow'>▶</span> " ++
+        display track = ("<span fgcolor='yellow'>▶</span> " :: String) ++
                         printf "%s - %s" (artist track) (title track)
 
 mprisNew :: MPRISConfig -> IO Widget
