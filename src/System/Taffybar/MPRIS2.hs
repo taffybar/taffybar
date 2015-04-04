@@ -76,13 +76,15 @@ setSongInfo :: Label -> String -> String -> IO ()
 setSongInfo w artist title = do
   let msg :: String
       msg = case artist of
-        "" -> escapeMarkup $ printf "%s" (cutoff 30 title)
-        art ->  escapeMarkup $ printf "%s - %s" (cutoff 15 artist) (cutoff 30 title)
+        "" -> escapeMarkup $ printf "%s" (truncateString 30 title)
+        _ ->  escapeMarkup $ printf "%s - %s" (truncateString 15 artist) (truncateString 30 title)
       txt = "<span fgcolor='yellow'>▶</span> " ++ msg
   postGUIAsync $ do
     labelSetMarkup w txt
-  where cutoff n xs | length xs <= n = xs
-                    | otherwise      = take n xs ++ "…"
+
+truncateString :: Int -> String -> String
+truncateString n xs | length xs <= n = xs
+              | otherwise      = take n xs ++ "…"
 
 updatePlaybackStatus :: Label -> [(Variant, Variant)] -> IO ()
 updatePlaybackStatus w items = do

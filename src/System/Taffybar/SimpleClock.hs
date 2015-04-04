@@ -16,7 +16,7 @@ import qualified Data.Time.Clock as Clock
 import Data.Time.Format
 import Data.Time.LocalTime
 import Graphics.UI.Gtk
-import System.Locale
+import qualified Data.Time.Locale.Compat as L
 
 import System.Taffybar.Widgets.PollingLabel
 import System.Taffybar.Widgets.Util
@@ -53,14 +53,14 @@ toggleCalendar w c = do
 -- | Create the widget.  I recommend passing @Nothing@ for the
 -- TimeLocale parameter.  The format string can include Pango markup
 -- (http://developer.gnome.org/pango/stable/PangoMarkupFormat.html).
-textClockNew :: Maybe TimeLocale -> String -> Double -> IO Widget
+textClockNew :: Maybe L.TimeLocale -> String -> Double -> IO Widget
 textClockNew userLocale fmt updateSeconds =
   textClockNewWith cfg fmt updateSeconds
   where
     cfg = defaultClockConfig { clockTimeLocale = userLocale }
 
 data ClockConfig = ClockConfig { clockTimeZone :: Maybe TimeZone
-                               , clockTimeLocale :: Maybe TimeLocale
+                               , clockTimeLocale :: Maybe L.TimeLocale
                                }
                                deriving (Eq, Ord, Show)
 
@@ -69,7 +69,7 @@ defaultClockConfig :: ClockConfig
 defaultClockConfig = ClockConfig Nothing Nothing
 
 data TimeInfo = TimeInfo { getTZ :: IO TimeZone
-                         , getLocale :: IO TimeLocale
+                         , getLocale :: IO L.TimeLocale
                          }
 
 systemGetTZ :: IO TimeZone
@@ -94,7 +94,7 @@ foreign import ccall unsafe "time.h tzset"
 textClockNewWith :: ClockConfig -> String -> Double -> IO Widget
 textClockNewWith cfg fmt updateSeconds = do
   let ti = TimeInfo { getTZ = maybe systemGetTZ return userZone
-                    , getLocale = maybe (return defaultTimeLocale) return userLocale
+                    , getLocale = maybe (return L.defaultTimeLocale) return userLocale
                     }
   l    <- pollingLabelNew "" updateSeconds (getCurrentTime' ti fmt)
   ebox <- eventBoxNew

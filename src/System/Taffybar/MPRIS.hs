@@ -62,11 +62,11 @@ trackCallback cfg w s = do
       [variant] = signalBody s
   case v of
     Just m -> do
-      let get key = fmap (escapeMarkup . T.unpack) $ variantDictLookup key m
+      let getInfo key = fmap (escapeMarkup . T.unpack) $ variantDictLookup key m
           txt = trackLabel cfg info
-          info = TrackInfo { trackArtist = get "artist"
-                           , trackTitle  = get "title"
-                           , trackAlbum  = get "album"
+          info = TrackInfo { trackArtist = getInfo "artist"
+                           , trackTitle  = getInfo "title"
+                           , trackAlbum  = getInfo "album"
                            }
       postGUIAsync $ do
         -- In case the widget was hidden due to a stop/pause, forcibly
@@ -93,6 +93,7 @@ defaultMPRISConfig = MPRISConfig
   }
   where artist track  = maybe "[unknown]" id (trackArtist track)
         title  track  = maybe "[unknown]" id (trackTitle  track)
+        display :: TrackInfo -> String
         display track = "<span fgcolor='yellow'>▶</span> " ++
                         printf "%s - %s" (artist track) (title track)
 

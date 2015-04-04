@@ -21,6 +21,8 @@ import Data.Maybe ( mapMaybe )
 import Safe ( atMay, initSafe, readDef )
 import System.Information.StreamInfo ( getParsedInfo )
 
+import Prelude
+
 -- | Returns a two-element list containing the current number of bytes
 -- received and transmitted via the given network interface (e.g. \"wlan0\"),
 -- according to the contents of the @\/proc\/dev\/net@ file.
