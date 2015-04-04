@@ -16,7 +16,9 @@ import qualified Data.Time.Clock as Clock
 import Data.Time.Format
 import Data.Time.LocalTime
 import Graphics.UI.Gtk
+#if !MIN_VERSION_time(1,5,0)
 import System.Locale
+#endif
 
 import System.Taffybar.Widgets.PollingLabel
 import System.Taffybar.Widgets.Util

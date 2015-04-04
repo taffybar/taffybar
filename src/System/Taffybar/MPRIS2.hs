@@ -82,7 +82,7 @@ setSongInfo w artist title = do
   postGUIAsync $ do
     labelSetMarkup w txt
   where cutoff n xs | length xs <= n = xs
-                    | otherwise      = take n xs ++ "…"
+                    | otherwise      = take n xs ++ ("…" :: String)
 
 updatePlaybackStatus :: Label -> [(Variant, Variant)] -> IO ()
 updatePlaybackStatus w items = do
