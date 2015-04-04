@@ -1,3 +1,7 @@
+# 0.4.5
+
+ * GHC 7.10 compat
+
 # 0.4.4
 
  * Fix compilation with gtk 0.13.1
