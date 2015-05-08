@@ -225,7 +225,7 @@ setTaffybarSize cfg window = do
   nmonitors <- screenGetNMonitors screen
   allMonitorSizes <- mapM (screenGetMonitorGeometry screen) [0 .. (nmonitors - 1)]
 
-  when (monitorNumber cfg < nmonitors) $ do
+  when (monitorNumber cfg >= nmonitors) $ do
     IO.hPutStrLn IO.stderr $ printf "Monitor %d is not available in the selected screen" (monitorNumber cfg)
 
   let monitorSize = fromMaybe (allMonitorSizes !! 0) $ do
