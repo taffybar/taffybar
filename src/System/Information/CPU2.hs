@@ -22,6 +22,7 @@ import Data.Maybe ( mapMaybe )
 import Safe ( atMay, readDef, tailSafe )
 import System.Information.StreamInfo ( getLoad, getParsedInfo )
 import Control.Monad (liftM)
+import System.Directory (doesDirectoryExist)
 
 -- | Returns a two-element list containing relative system and user times
 -- calculated using two almost simultaneous samples of the @\/proc\/stat@ file
@@ -38,8 +39,11 @@ getCPULoad cpu = do
 -- Use ["cpu0"] to get common temperature.
 getCPUTemp :: [String] -> IO [Int]
 getCPUTemp cpus = do
-    let cpus' = map (\s -> [last s]) cpus
-    liftM concat $ mapM (\cpu -> getParsedInfo ("/sys/bus/platform/devices/coretemp.0/temp" ++ show ((read cpu::Int) + 1) ++ "_input") (\s -> [("temp", [(read s::Int) `div` 1000])]) "temp") cpus'
+    let cpus' = map (\s -> drop 3 s) cpus
+        baseDir = "/sys/bus/platform/devices/coretemp.0"
+        getTemps dir = liftM concat $ mapM (\cpu -> getParsedInfo (baseDir ++ dir ++ "/temp" ++ show (read cpu + 1) ++ "_input") (\s -> [("temp", [read s `div` 1000])]) "temp") cpus'
+    newDirectory <- doesDirectoryExist $ baseDir ++ "/hwmon/hwmon0"
+    getTemps $ if newDirectory then "/hwmon/hwmon0" else ""
     --TODO and suppoprt for more than 1 physical cpu.
 
 -- | Returns a list of 5 to 7 elements containing all the values available for
