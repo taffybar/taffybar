@@ -113,9 +113,8 @@ closeNotification istate nid = do
 -- | Apply the user's formatter and truncate the result with the
 -- specified maxlen.
 formatMessage :: NotifyState -> Notification -> String
-formatMessage s = take maxlen . fmt
+formatMessage s = fmt
   where
-    maxlen = notificationMaxLength $ noteConfig s
     fmt = notificationFormatter $ noteConfig s
 
 -- | The notificationDaemon thread looks at the notification queue.
