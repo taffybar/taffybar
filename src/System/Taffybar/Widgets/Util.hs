@@ -18,6 +18,7 @@ import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Graphics.UI.Gtk
 
+import Graphics.UI.Gtk.Abstract.Widget
 -- | Execute the given action as a response to any of the given types
 -- of mouse button clicks.
 onClick :: [Click] -- ^ Types of button clicks to listen to.
@@ -40,12 +41,13 @@ attachPopup widget title window = do
              , windowTypeHint := WindowTypeHintTooltip
              , windowSkipTaskbarHint := True
              ]
-  windowSetSkipPagerHint window True
+  --windowSetSkipPagerHint window True
   windowSetKeepAbove window True
   windowStick window
   Just topLevel <- widgetGetAncestor widget gTypeWindow
   let topLevelWindow = castToWindow topLevel
-  windowSetTransientFor window topLevelWindow
+  return ()
+  --windowSetTransientFor window topLevelWindow
 
 -- | Display the given popup widget (previously prepared using the
 -- 'attachPopup' function) immediately beneath (or above) the given
@@ -57,7 +59,7 @@ displayPopup :: (WidgetClass w, WindowClass wnd) =>
 displayPopup widget window = do
   windowSetPosition window WinPosMouse
   (x, y ) <- windowGetPosition window
-  (_, y') <- widgetGetSize widget
+  (_, y') <- widgetGetSizeRequest widget
   widgetShowAll window
   if y > y'
     then windowMove window x (y - y')

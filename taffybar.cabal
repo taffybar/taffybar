@@ -28,6 +28,7 @@ library
   build-depends: base > 3 && < 5,
                  time >= 1.4 && < 1.6,
                  time-locale-compat >= 0.1 && < 0.2,
+                 glib,
                  old-locale,
                  containers,
                  text,
@@ -36,7 +37,7 @@ library
                  mtl >= 2,
                  cairo,
                  dbus >= 0.10.1 && < 1.0,
-                 gtk >= 0.12.1 && < 0.14,
+                 gtk3,
                  dyre >= 0.8.6,
                  HStringTemplate,
                  gtk-traymanager >= 0.1.2 && < 0.2,
@@ -58,7 +59,7 @@ library
   else
     build-depends: network-uri < 2.6, network < 2.6
   hs-source-dirs: src
-  pkgconfig-depends: gtk+-2.0
+  pkgconfig-depends: gtk+-3.0
   exposed-modules: System.Taffybar,
                    System.Taffybar.XMonadLog,
                    System.Taffybar.Systray,
@@ -107,7 +108,8 @@ library
 
 executable taffybar
   default-language: Haskell2010
-  build-depends: base > 3 && < 5,
+  build-depends: glib,
+                 base > 3 && < 5,
                  dyre >= 0.8.6,
                  gtk >= 0.12 && < 0.14,
                  safe >= 0.3 && < 1,
@@ -115,7 +117,7 @@ executable taffybar
                  filepath
   hs-source-dirs: src
   main-is: Main.hs
-  pkgconfig-depends: gtk+-2.0
+  pkgconfig-depends: gtk+-3.0
   c-sources: src/gdk_property_change_wrapper.c
   ghc-options: -Wall -rtsopts -threaded
   ghc-prof-options: -auto-all

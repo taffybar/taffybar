@@ -21,7 +21,7 @@ module System.Taffybar.Widgets.Graph (
   graphAddSample,
   defaultGraphConfig
   ) where
-
+import Graphics.UI.Gtk.Abstract.Widget
 import Prelude hiding ( mapM_ )
 import Control.Concurrent
 import Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
@@ -179,18 +179,18 @@ renderGraph hists cfg w h xStep = do
 
 drawBorder :: MVar GraphState -> Gtk.DrawingArea -> IO ()
 drawBorder mv drawArea = do
-  (w, h) <- Gtk.widgetGetSize drawArea
-  drawWin <- Gtk.widgetGetDrawWindow drawArea
+  (w, h) <- widgetGetSizeRequest drawArea
+  (Just drawWin) <- widgetGetWindow drawArea
   s <- readMVar mv
   let cfg = graphConfig s
-  Gtk.renderWithDrawable drawWin (renderFrameAndBackground cfg w h)
+  Gtk.renderWithDrawWindow drawWin (renderFrameAndBackground cfg w h)
   modifyMVar_ mv (\s' -> return s' { graphIsBootstrapped = True })
   return ()
 
 drawGraph :: MVar GraphState -> Gtk.DrawingArea -> IO ()
 drawGraph mv drawArea = do
-  (w, h) <- Gtk.widgetGetSize drawArea
-  drawWin <- Gtk.widgetGetDrawWindow drawArea
+  (w, h) <- widgetGetSizeRequest drawArea
+  (Just drawWin) <- Gtk.widgetGetWindow drawArea
   s <- readMVar mv
   let hist = graphHistory s
       cfg = graphConfig s
@@ -200,8 +200,8 @@ drawGraph mv drawArea = do
       xStep = fromIntegral w / fromIntegral (histSize - 1)
 
   case hist of
-    [] -> Gtk.renderWithDrawable drawWin (renderFrameAndBackground cfg w h)
-    _ -> Gtk.renderWithDrawable drawWin (renderGraph hist cfg w h xStep)
+    [] -> Gtk.renderWithDrawWindow drawWin (renderFrameAndBackground cfg w h)
+    _ -> Gtk.renderWithDrawWindow drawWin (renderGraph hist cfg w h xStep)
 
 graphNew :: GraphConfig -> IO (Gtk.Widget, GraphHandle)
 graphNew cfg = do

@@ -15,6 +15,7 @@ import Control.Concurrent
 import qualified Graphics.Rendering.Cairo as C
 import Graphics.UI.Gtk
 
+import Graphics.UI.Gtk.Abstract.Widget
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
 data VerticalBarState =
   VerticalBarState { barIsBootstrapped :: Bool
@@ -109,12 +110,12 @@ renderBar pct cfg width height = do
 
 drawBar :: MVar VerticalBarState -> DrawingArea -> IO ()
 drawBar mv drawArea = do
-  (w, h) <- widgetGetSize drawArea
-  drawWin <- widgetGetDrawWindow drawArea
+  (w, h) <- widgetGetSizeRequest drawArea
+  (Just drawWin) <- widgetGetWindow drawArea
   s <- readMVar mv
   let pct = barPercent s
   modifyMVar_ mv (\s' -> return s' { barIsBootstrapped = True })
-  renderWithDrawable drawWin (renderBar pct (barConfig s) w h)
+  renderWithDrawWindow drawWin (renderBar pct (barConfig s) w h)
 
 verticalBarNew :: BarConfig -> IO (Widget, VerticalBarHandle)
 verticalBarNew cfg = do
