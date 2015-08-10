@@ -98,11 +98,11 @@ wspaceSwitcherNew pager = do
   return $ Gtk.toWidget switcher
 
 -- | List of indices of all available workspaces.
-allWorkspaces :: Desktop -> [Int]
-allWorkspaces desktop = [0 .. length desktop - 1]
+allWorkspaces :: Desktop -> [WorkspaceIdx]
+allWorkspaces desktop = map WSIdx [0 .. length desktop - 1]
 
 -- | List of indices of all the workspaces that contain at least one window.
-nonEmptyWorkspaces :: IO [Int]
+nonEmptyWorkspaces :: IO [WorkspaceIdx]
 nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
 -- | Return a list of two-element tuples, one for every workspace,
@@ -110,7 +110,7 @@ nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 -- workspace and a String with its default (unmarked) representation.
 getDesktop :: Pager -> IO Desktop
 getDesktop pager = do
-  names  <- withDefaultCtx getWorkspaceNames
+  names  <- map snd <$> withDefaultCtx getWorkspaceNames
   labels <- toLabels $ map (hiddenWorkspace $ config pager) names
   return $ zipWith (\n l -> Workspace l n False) names labels
 
@@ -144,9 +144,8 @@ activeCallback cfg deskRef _ = Gtk.postGUIAsync $ do
   curr <- withDefaultCtx getVisibleWorkspaces
   desktop <- MV.readMVar deskRef
   case curr of
-    visible : _ | length desktop > visible -> do
-      when (urgent (desktop !! visible)) $ do
-        toggleUrgent deskRef visible False
+    visible : _ | Just ws <- getWS desktop visible -> do
+      when (urgent ws) $ toggleUrgent deskRef visible False
       transition cfg desktop curr
     _ -> return ()
 
@@ -189,19 +188,24 @@ toLabels = mapM labelNewMarkup
           Gtk.labelSetMarkup lbl markup
           return lbl
 
+-- | Get the workspace corresponding to the given 'WorkspaceIdx' on the given desktop
+getWS :: Desktop -> WorkspaceIdx -> Maybe Workspace
+getWS desktop (WSIdx idx)
+  | length desktop > idx = Just (desktop !! idx)
+  | otherwise            = Nothing
+
 -- | Build a new clickable event box containing the Label widget that
 -- corresponds to the given index, and add it to the given container.
 addButton :: Gtk.BoxClass self
-          => self    -- ^ Graphical container.
-          -> Desktop -- ^ List of all workspace Labels available.
-          -> Int     -- ^ Index of the workspace to use.
+          => self         -- ^ Graphical container.
+          -> Desktop      -- ^ List of all workspace Labels available.
+          -> WorkspaceIdx -- ^ Index of the workspace to use.
           -> IO ()
 addButton hbox desktop idx
-  | length desktop > idx = do
-    let index = desktop !! idx
-        lbl = label index
+  | Just ws <- getWS desktop idx = do
+    let lbl = label ws
     ebox <- Gtk.eventBoxNew
-    Gtk.widgetSetName ebox $ name index
+    Gtk.widgetSetName ebox $ name ws
     Gtk.eventBoxSetVisibleWindow ebox False
     _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch idx
     Gtk.containerAdd ebox lbl
@@ -209,13 +213,13 @@ addButton hbox desktop idx
   | otherwise = return ()
 
 -- | Re-mark all workspace labels.
-transition :: PagerConfig -- ^ Configuration settings.
-           -> Desktop     -- ^ All available Labels with their default values.
-           -> [Int]       -- ^ Currently visible workspaces (first is active).
+transition :: PagerConfig    -- ^ Configuration settings.
+           -> Desktop        -- ^ All available Labels with their default values.
+           -> [WorkspaceIdx] -- ^ Currently visible workspaces (first is active).
            -> IO ()
 transition cfg desktop wss = do
-  nonEmpty <- fmap (filter (>=0)) nonEmptyWorkspaces
-  let urgentWs = findIndices urgent desktop
+  nonEmpty <- fmap (filter (>=WSIdx 0)) nonEmptyWorkspaces
+  let urgentWs = map WSIdx $ findIndices urgent desktop
       allWs    = (allWorkspaces desktop) \\ urgentWs
       nonEmptyWs = nonEmpty \\ urgentWs
   mapM_ (mark desktop $ hiddenWorkspace cfg) nonEmptyWs
@@ -231,11 +235,10 @@ transition cfg desktop wss = do
 -- the given index.
 mark :: Desktop            -- ^ List of all available labels.
      -> (String -> String) -- ^ Marking function.
-     -> Int                -- ^ Index of the Label to modify.
+     -> WorkspaceIdx       -- ^ Index of the Label to modify.
      -> IO ()
-mark desktop decorate idx
-  | length desktop > idx = do
-    let ws = desktop !! idx
+mark desktop decorate wsIdx
+  | Just ws <- getWS desktop wsIdx =
     Gtk.postGUIAsync $ Gtk.labelSetMarkup (label ws) $ decorate' (name ws)
   | otherwise = return ()
   where decorate' = pad . decorate
@@ -243,18 +246,18 @@ mark desktop decorate idx
               | otherwise = ' ' : m
 
 -- | Switch to the workspace with the given index.
-switch :: (MonadIO m) => Int -> m Bool
+switch :: (MonadIO m) => WorkspaceIdx -> m Bool
 switch idx = do
   liftIO $ withDefaultCtx (switchToWorkspace idx)
   return True
 
 -- | Modify the Desktop inside the given IORef, so that the Workspace at the
 -- given index has its "urgent" flag set to the given value.
-toggleUrgent :: MV.MVar Desktop -- ^ IORef to modify.
-             -> Int           -- ^ Index of the Workspace to replace.
+toggleUrgent :: MV.MVar Desktop -- ^ MVar to modify.
+             -> WorkspaceIdx  -- ^ Index of the Workspace to replace.
              -> Bool          -- ^ New value of the "urgent" flag.
              -> IO ()
-toggleUrgent deskRef idx isUrgent =
+toggleUrgent deskRef (WSIdx idx) isUrgent =
   MV.modifyMVar_ deskRef $ \desktop -> do
     let ws = desktop !! idx
     case length desktop > idx of
