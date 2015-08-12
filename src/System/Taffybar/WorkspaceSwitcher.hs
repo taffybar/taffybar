@@ -26,12 +26,15 @@ module System.Taffybar.WorkspaceSwitcher (
   wspaceSwitcherNew
 ) where
 
+import Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List ((\\), findIndices)
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.X11.Xlib.Extras
+
+import Prelude
 
 import System.Taffybar.Pager
 import System.Information.EWMHDesktopInfo
