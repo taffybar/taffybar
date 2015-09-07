@@ -16,6 +16,7 @@ before_install:
   - cabal install gtk2hs-buildtools
 install:
   - cabal sandbox init
+  - cabal install 'Cabal >= 1.22'
   - cabal install --only-dependencies --enable-tests
 before_script:
   - cabal configure --enable-tests
