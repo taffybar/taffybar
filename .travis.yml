@@ -10,6 +10,9 @@ addons:
       - libgtk2.0-dev
       - libcairo2-dev
       - libglib2.0-dev
+cache:
+  directories:
+    - $HOME/.cabal
 before_install:
   - cabal install 'cabal-install >= 1.22'
   - cabal install alex happy
