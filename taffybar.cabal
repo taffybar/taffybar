@@ -37,7 +37,7 @@ library
                  cairo,
                  dbus >= 0.10.1 && < 1.0,
                  gtk >= 0.12.1 && < 0.14,
-                 dyre >= 0.8.6 < 0.9,
+                 dyre >= 0.8.6 && < 0.9,
                  HStringTemplate >= 0.8 && < 0.9,
                  gtk-traymanager >= 0.1.2 && < 0.2,
                  xmonad-contrib,
