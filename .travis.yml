@@ -11,4 +11,14 @@ addons:
       - libcairo2-dev
       - libglib2.0-dev
 before_install:
-  - cabal install alex happy gtk2hs-buildtools 'Cabal >= 1.22.4.0'
+  - cabal install 'cabal-install >= 1.22'
+  - cabal install alex happy
+  - cabal install gtk2hs-buildtools
+install:
+  - cabal sandbox init
+  - cabal install --only-dependencies --enable-tests
+before_script:
+  - cabal configure --enable-tests
+  - cabal build
+script:
+  - cabal test --show-detail=always
