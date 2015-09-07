@@ -7,10 +7,8 @@ addons:
   apt:
     packages:
       - libgmp-dev
-      - happy
-      - alex
       - libgtk2.0-dev
       - libcairo2-dev
       - libglib2.0-dev
 before_install:
-  - cabal install gtk2hs-buildtools 'Cabal >= 1.22.4.0'
+  - cabal install alex happy gtk2hs-buildtools 'Cabal >= 1.22.4.0'
