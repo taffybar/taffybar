@@ -10,5 +10,7 @@ addons:
       - happy
       - alex
       - libgtk2.0-dev
+      - libcairo2-dev
+      - libglib2.0-dev
 before_install:
   - cabal install gtk2hs-buildtools
