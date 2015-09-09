@@ -17,7 +17,6 @@ before_install:
   - cabal install alex happy
   - cabal install gtk2hs-buildtools
 install:
-  - rm -rf ~/.ghc
   - cabal sandbox init
   - cabal install 'Cabal >= 1.22'
   - cabal install --only-dependencies --enable-tests
