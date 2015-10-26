@@ -29,6 +29,7 @@ module System.Information.EWMHDesktopInfo
   , getVisibleWorkspaces
   , getWorkspaceNames
   , switchToWorkspace
+  , switchOneWorkspace
   , getWindowTitle
   , getWindowClass
   , getActiveWindowTitle
@@ -80,6 +81,24 @@ switchToWorkspace :: WorkspaceIdx -> X11Property ()
 switchToWorkspace (WSIdx idx) = do
   cmd <- getAtom "_NET_CURRENT_DESKTOP"
   sendCommandEvent cmd (fromIntegral idx)
+
+-- | Move one workspace up or down from the current workspace
+switchOneWorkspace :: Bool -> Int -> X11Property ()
+switchOneWorkspace dir end = do
+  cur <- getCurrentWorkspace
+  switchToWorkspace $ if dir then getPrev cur end else getNext cur end
+
+-- | Check for corner case and switch one workspace up
+getPrev :: WorkspaceIdx -> Int -> WorkspaceIdx
+getPrev (WSIdx idx) end
+  | idx > 0 = WSIdx $ idx-1
+  | otherwise = WSIdx end
+
+-- | Check for corner case and switch one workspace down
+getNext :: WorkspaceIdx -> Int -> WorkspaceIdx
+getNext (WSIdx idx) end
+  | idx < end = WSIdx $ idx+1
+  | otherwise = WSIdx 0
 
 -- | Get the title of the given X11 window.
 getWindowTitle :: X11Window -> X11Property String
