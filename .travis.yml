@@ -51,7 +51,7 @@ install:
      echo "cabal build-cache MISS";
      rm -rf $HOME/.cabsnap;
      mkdir -p $HOME/.ghc $HOME/.cabal/lib $HOME/.cabal/share $HOME/.cabal/bin;
-     cabal install --only-dependencies --enable-tests --enable-benchmarks;
+     cabal install --only-dependencies --enable-tests --enable-benchmarks --force-reinstalls;
    fi
 
 # snapshot package-db on cache miss
