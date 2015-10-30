@@ -261,15 +261,14 @@ setTaffybarSize cfg window = do
 
 taffybarMain :: TaffybarConfig -> IO ()
 taffybarMain cfg = do
-  -- Override the default GTK theme path settings.  This causes the
-  -- bar (by design) to ignore the real GTK theme and just use the
-  -- provided minimal theme to set the background and text colors.
-  -- Users can override this default.
-  defaultGtkConfig <- getDefaultConfigFile "taffybar.rc"
-  userGtkConfig <- getUserConfigFile "taffybar" "taffybar.rc"
-  rcSetDefaultFiles [ defaultGtkConfig, userGtkConfig ]
 
   _ <- initGUI
+
+  -- Load default and user gtk resources
+  defaultGtkConfig <- getDefaultConfigFile "taffybar.rc"
+  userGtkConfig <- getUserConfigFile "taffybar" "taffybar.rc"
+  rcParse defaultGtkConfig
+  rcParse userGtkConfig
 
   Just disp <- displayGetDefault
   nscreens <- displayGetNScreens disp
