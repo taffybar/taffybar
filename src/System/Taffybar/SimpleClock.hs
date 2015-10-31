@@ -21,22 +21,24 @@ import qualified Data.Time.Locale.Compat as L
 import System.Taffybar.Widgets.PollingLabel
 import System.Taffybar.Widgets.Util
 
-makeCalendar :: IO Window
-makeCalendar = do
+makeCalendar :: IO TimeZone -> IO Window
+makeCalendar tzfn = do
   container <- windowNew
   cal <- calendarNew
   containerAdd container cal
   -- update the date on show
-  _ <- onShow container $ liftIO $ resetCalendarDate cal
+  _ <- onShow container $ liftIO $ resetCalendarDate cal tzfn
   -- prevent calendar from being destroyed, it can be only hidden:
   _ <- on container deleteEvent $ do
     liftIO (widgetHideAll container)
     return True
   return container
 
-resetCalendarDate :: Calendar -> IO ()
-resetCalendarDate cal = do
-  (y,m,d) <- Clock.getCurrentTime >>= return . toGregorian . Clock.utctDay
+resetCalendarDate :: Calendar -> IO TimeZone -> IO ()
+resetCalendarDate cal tzfn = do
+  tz <- tzfn
+  current <- Clock.getCurrentTime
+  let (y,m,d) = toGregorian $ localDay $ utcToLocalTime tz current
   calendarSelectMonth cal (fromIntegral m - 1) (fromIntegral y)
   calendarSelectDay cal (fromIntegral d)
 
@@ -100,7 +102,7 @@ textClockNewWith cfg fmt updateSeconds = do
   ebox <- eventBoxNew
   containerAdd ebox l
   eventBoxSetVisibleWindow ebox False
-  cal <- makeCalendar
+  cal <- makeCalendar $ getTZ ti
   _ <- on ebox buttonPressEvent $ onClick [SingleClick] (toggleCalendar l cal)
   widgetShowAll ebox
   return (toWidget ebox)
