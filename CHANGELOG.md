@@ -1,3 +1,10 @@
+# 0.4.6
+
+ * Fix a longstanding bug in loading .rc files (Peder Stray)
+ * Add support for scrolling in the workspace switcher (Saksham Sharma)
+ * Improve default formatting of empty workspaces in the pager (Saksham Sharma)
+ * Relax gtk version bounds
+
 # 0.4.5
 
  * GHC 7.10 compat
