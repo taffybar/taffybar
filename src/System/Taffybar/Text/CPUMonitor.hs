@@ -3,6 +3,7 @@ module System.Taffybar.Text.CPUMonitor(textCpuMonitorNew) where
 import Text.Printf ( printf )
 import qualified Text.StringTemplate as ST
 import System.Information.CPU
+import System.Information.CPU2
 import System.Taffybar.Widgets.PollingLabel ( pollingLabelNew )
 import qualified Graphics.UI.Gtk as Gtk
 
@@ -18,11 +19,13 @@ textCpuMonitorNew fmt period = do
   where
     callback = do
       (userLoad, systemLoad, totalLoad) <- cpuLoad
+      cpuTemp = getCPUTemp["cpu0"]
       let [userLoad', systemLoad', totalLoad'] = map (formatPercent.(*100)) [userLoad, systemLoad, totalLoad]
       let template = ST.newSTMP fmt
       let template' = ST.setManyAttrib [ ("user", userLoad'),
                                          ("system", systemLoad'),
-                                         ("total", totalLoad') ] template
+                                         ("total", totalLoad'),
+                                         ("temp", cpuTemp) ] template
       return $ ST.render template'
 
 formatPercent :: Double -> String
