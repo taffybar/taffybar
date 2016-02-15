@@ -22,7 +22,7 @@ textCpuMonitorNew fmt period = do
       cpuTemp = getCPUTemp["cpu0"]
       let [userLoad', systemLoad', totalLoad'] = map (formatPercent.(*100)) [userLoad, systemLoad, totalLoad]
       let template = ST.newSTMP fmt
-      let template' = ST.setManyAttrib [ ("user", userLoad'),
+      let template' = ST.setManyAttrib [ ("user", cpuTemp),
                                          ("system", systemLoad'),
                                          ("total", totalLoad'),
                                          ("temp", cpuTemp) ] template
