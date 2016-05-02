@@ -10,7 +10,6 @@ module System.Information.Battery (
   BatteryTechnology(..),
   BatteryType(..),
   -- * Accessors
-  batteryContextNew,
   batteryContextsNew,
   getBatteryInfo
   ) where
@@ -96,11 +95,6 @@ data BatteryInfo = BatteryInfo { batteryNativePath :: Text
 isBattery :: ObjectPath -> Bool
 isBattery = isInfixOf "BAT" . formatObjectPath
 
--- | Find the first power source that is a battery in the list
--- (according to 'isBattery')
-firstBattery :: [ObjectPath] -> Maybe ObjectPath
-firstBattery = find isBattery
-
 -- | Find the power sources that are batteries (according to
 -- 'isBattery')
 batteries :: [ObjectPath] -> [ObjectPath]
@@ -178,24 +172,6 @@ getBatteryInfo (BC systemConn battPath) = do
                        , batteryTechnology =
                          toEnum $ fromIntegral $ readDictIntegral dict "Technology" 0
                        }
-
--- | Construct a battery context if possible.  This could fail if the
--- UPower daemon is not running.  The context can be used to get
--- actual battery state with 'getBatteryInfo'.
-batteryContextNew :: IO (Maybe BatteryContext)
-batteryContextNew = do
-  systemConn <- connectSystem
-
-  -- First, get the list of devices.  For now, we just get the stats
-  -- for the first battery
-  reply <- call_ systemConn (methodCall powerBaseObjectPath "org.freedesktop.UPower" "EnumerateDevices")
-        { methodCallDestination = Just powerBusName
-        }
-  return $ do
-    body <- methodReturnBody reply `atMay` 0
-    powerDevices <- fromVariant body
-    battPath <- firstBattery powerDevices
-    return $ BC systemConn battPath
 
 
 -- | Construct a battery context for every battery in the system. This

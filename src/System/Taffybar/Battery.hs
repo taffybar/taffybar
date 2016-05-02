@@ -8,9 +8,7 @@
 -- warning text in it.  Battery hotplugging is not supported.  These
 -- more advanced features could be supported if there is interest.
 module System.Taffybar.Battery (
-  batteryBarNew,
   batteryBarsNew,
-  textBatteryNew,
   textBatteriesNew,
   defaultBatteryConfig
   ) where
@@ -89,12 +87,6 @@ formatBattInfo (Just info) fmt =
                            ] tpl
   in render tpl'
 
--- | Provides textual information regarding a single battery
-battInfo :: IORef BatteryContext -> String -> IO String
-battInfo r fmt = do
-  mwinfo <- getBatteryWidgetInfo r
-  return $ formatBattInfo mwinfo fmt
-
 -- | Provides textual information regarding multiple batteries
 battSumm :: [IORef BatteryContext] -> String -> IO String
 battSumm rs fmt = do
@@ -107,26 +99,6 @@ battSumm rs fmt = do
       combined = combine ws
   return $ formatBattInfo combined fmt
 
--- | A simple textual battery widget that auto-updates once every
--- polling period (specified in seconds).  The displayed format is
--- specified format string where $percentage$ is replaced with the
--- percentage of battery remaining and $time$ is replaced with the
--- time until the battery is fully charged/discharged.
-textBatteryNew :: String    -- ^ Display format
-                  -> Double -- ^ Poll period in seconds
-                  -> IO Widget
-textBatteryNew fmt pollSeconds = do
-  battCtxt <- batteryContextNew
-  case battCtxt of
-    Nothing -> do
-      let lbl :: Maybe String
-          lbl = Just "No battery"
-      labelNew lbl >>= return . toWidget
-    Just ctxt -> do
-      r <- newIORef ctxt
-      l <- pollingLabelNew "" pollSeconds (battInfo r fmt)
-      widgetShowAll l
-      return l
 
 -- | A simple textual battery widget that auto-updates once every
 -- polling period (specified in seconds).  The displayed format is
@@ -174,35 +146,7 @@ defaultBatteryConfig =
       | pct < 0.9 = (0.5, 0.5, 0.5)
       | otherwise = (0, 1, 0)
 
--- | A fancy graphical battery widget that represents the current
--- charge as a colored vertical bar.  There is also a textual
--- percentage readout next to the bar.
-batteryBarNew :: BarConfig -- ^ Configuration options for the bar display
-                 -> Double -- ^ Polling period in seconds
-                 -> IO Widget
-batteryBarNew battCfg pollSeconds = do
-  battCtxt <- batteryContextNew
-  case battCtxt of
-    Nothing -> do
-      let lbl :: Maybe String
-          lbl = Just "No battery"
-      labelNew lbl >>= return . toWidget
-    Just ctxt -> do
-      -- This is currently pretty inefficient - each poll period it
-      -- queries the battery twice (once for the label and once for
-      -- the bar).
-      --
-      -- Converting it to combine the two shouldn't be hard.
-      b <- hBoxNew False 1
-      txt <- textBatteryNew "$percentage$%" pollSeconds
-      r <- newIORef ctxt
-      bar <- pollingBarNew battCfg pollSeconds (battPct r)
-      boxPackStart b bar PackNatural 0
-      boxPackStart b txt PackNatural 0
-      widgetShowAll b
-      return (toWidget b)
 
--- | Fancy graphical battery widgets that represent the current charge
 -- as colored vertical bars (one per battery).  There is also a
 -- textual percentage reppadout next to the bars, containing a summary of
 -- battery information.
