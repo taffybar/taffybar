@@ -8,8 +8,8 @@
 -- warning text in it.  Battery hotplugging is not supported.  These
 -- more advanced features could be supported if there is interest.
 module System.Taffybar.Battery (
-  batteryBarsNew,
-  textBatteriesNew,
+  batteryBarNew,
+  textBatteryNew,
   defaultBatteryConfig
   ) where
 
@@ -109,15 +109,15 @@ battSumm rs fmt = do
 -- Multiple battery values are combined as follows:
 -- - for time remaining, the largest value is used.
 -- - for percentage, the mean is taken.
-textBatteriesNew :: [IORef BatteryContext]
+textBatteryNew :: [IORef BatteryContext]
                     -> String -- ^ Display format
                     -> Double -- ^ Poll period in seconds
                     -> IO Widget
-textBatteriesNew [] _ _ =
+textBatteryNew [] _ _ =
   let lbl :: Maybe String
       lbl = Just "No battery"
   in labelNew lbl >>= return . toWidget
-textBatteriesNew rs fmt pollSeconds = do
+textBatteryNew rs fmt pollSeconds = do
     l <- pollingLabelNew "" pollSeconds (battSumm rs fmt)
     widgetShowAll l
     return l
@@ -150,8 +150,8 @@ defaultBatteryConfig =
 -- as colored vertical bars (one per battery).  There is also a
 -- textual percentage reppadout next to the bars, containing a summary of
 -- battery information.
-batteryBarsNew :: BarConfig -> Double -> IO Widget
-batteryBarsNew battCfg pollSeconds = do
+batteryBarNew :: BarConfig -> Double -> IO Widget
+batteryBarNew battCfg pollSeconds = do
   battCtxt <- batteryContextsNew
   case battCtxt of
     [] -> do
@@ -161,7 +161,7 @@ batteryBarsNew battCfg pollSeconds = do
     cs -> do
       b <- hBoxNew False 1
       rs <- sequence $ fmap newIORef cs
-      txt <- textBatteriesNew rs "$percentage$%" pollSeconds
+      txt <- textBatteryNew rs "$percentage$%" pollSeconds
       let ris :: [(IORef BatteryContext, Int)]
           ris = rs `zip` [0..]
       bars <- sequence $ fmap (\(i, r) -> pollingBarNew battCfg pollSeconds (battPct i r)) ris
