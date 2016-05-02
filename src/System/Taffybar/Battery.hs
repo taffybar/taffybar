@@ -32,12 +32,13 @@ import System.Taffybar.Widgets.PollingLabel
 -- | Just the battery info that will be used for display (this makes combining several easier).
 data BatteryWidgetInfo = BWI {seconds :: Maybe Int64, percent :: Int } deriving (Eq, Show)
 
--- | Combination operation for 'BatteryWidgetInfo'.
+-- | Combination for 'BatteryWidgetInfo'.
 -- If one battery lacks time information, combination has no time information
-(<>) :: BatteryWidgetInfo -> BatteryWidgetInfo -> BatteryWidgetInfo
-b1 <> b2 =
-  BWI { seconds = (+) <$> seconds b1 <*> seconds b2
-      , percent = (percent b1 + percent b2) `div` 2}
+combine :: [BatteryWidgetInfo] -> Maybe BatteryWidgetInfo
+combine [] = Nothing
+combine bs =
+  Just (BWI { seconds = sum <$> (sequence (seconds <$> bs))
+            , percent = (sum $ percent <$> bs) `div` (length bs) })
 
 -- | Format a duration expressed as seconds to hours and minutes
 formatDuration :: Maybe Int64 -> String
@@ -103,9 +104,7 @@ battSumm rs fmt = do
       flatten [] = []
       flatten ((Just a):as) = a:(flatten as)
       flatten (Nothing:as)  = flatten as
-      combined = case ws of
-        [] -> Nothing
-        (a:as) -> Just $ foldr (<>) a as
+      combined = combine ws
   return $ formatBattInfo combined fmt
 
 -- | A simple textual battery widget that auto-updates once every
