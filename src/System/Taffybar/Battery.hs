@@ -22,6 +22,7 @@ import Graphics.UI.Gtk
 import qualified System.IO as IO
 import Text.Printf ( printf )
 import Text.StringTemplate
+import Safe ( atMay )
 
 import System.Information.Battery
 import System.Taffybar.Widgets.PollingBar
@@ -46,22 +47,24 @@ formatDuration (Just secs) = let minutes = secs `div` 60
                                  minutes' = minutes `mod` 60
                              in printf "%02d:%02d" hours minutes'
 
-safeGetBatteryInfo :: IORef BatteryContext -> IO (Maybe BatteryInfo)
-safeGetBatteryInfo mv = do
+safeGetBatteryInfo :: IORef BatteryContext -> Int -> IO (Maybe BatteryInfo)
+safeGetBatteryInfo mv i = do
   ctxt <- readIORef mv
   E.catchAny (getBatteryInfo ctxt) $ \_ -> reconnect
   where
     reconnect = do
       IO.hPutStrLn IO.stderr "reconnecting"
-      mctxt <- batteryContextNew
+      ctxts <- batteryContextsNew
+      let mctxt = ctxts `atMay` i
       case mctxt of
         Nothing -> IO.hPutStrLn IO.stderr "Could not reconnect to UPower"
-        Just ctxt -> writeIORef mv ctxt
+        Just ctxt ->
+          writeIORef mv ctxt
       return Nothing
 
-getBatteryWidgetInfo :: IORef BatteryContext -> IO (Maybe BatteryWidgetInfo)
-getBatteryWidgetInfo r = do
-  minfo <- safeGetBatteryInfo r
+getBatteryWidgetInfo :: IORef BatteryContext -> Int -> IO (Maybe BatteryWidgetInfo)
+getBatteryWidgetInfo r i = do
+  minfo <- safeGetBatteryInfo r i
   case minfo of
     Nothing -> return Nothing
     Just info -> do
@@ -94,7 +97,7 @@ battInfo r fmt = do
 -- | Provides textual information regarding multiple batteries
 battSumm :: [IORef BatteryContext] -> String -> IO String
 battSumm rs fmt = do
-  winfos <- sequence $ fmap getBatteryWidgetInfo rs
+  winfos <- sequence $ fmap (uncurry getBatteryWidgetInfo) (rs `zip` [0..])
   let ws :: [BatteryWidgetInfo]
       ws = flatten winfos
       flatten [] = []
@@ -151,9 +154,9 @@ textBatteriesNew rs fmt pollSeconds = do
 
 -- | Returns the current battery percent as a double in the range [0,
 -- 1]
-battPct :: IORef BatteryContext -> IO Double
-battPct r = do
-  minfo <- safeGetBatteryInfo r
+battPct :: IORef BatteryContext -> Int -> IO Double
+battPct i r = do
+  minfo <- safeGetBatteryInfo i r
   case minfo of
     Nothing -> return 0
     Just info -> return (batteryPercentage info / 100)
@@ -216,7 +219,9 @@ batteryBarsNew battCfg pollSeconds = do
       b <- hBoxNew False 1
       rs <- sequence $ fmap newIORef cs
       txt <- textBatteriesNew rs "$percentage$%" pollSeconds
-      bars <- sequence $ fmap (\r -> pollingBarNew battCfg pollSeconds (battPct r)) rs
+      let ris :: [(IORef BatteryContext, Int)]
+          ris = rs `zip` [0..]
+      bars <- sequence $ fmap (\(i, r) -> pollingBarNew battCfg pollSeconds (battPct i r)) ris
       sequence $ fmap (\bar -> boxPackStart b bar PackNatural 0) bars
       boxPackStart b txt PackNatural 0
       widgetShowAll b
