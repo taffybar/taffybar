@@ -11,12 +11,13 @@ module System.Information.Battery (
   BatteryType(..),
   -- * Accessors
   batteryContextNew,
+  batteryContextsNew,
   getBatteryInfo
   ) where
 
 import Data.Map ( Map )
 import qualified Data.Map as M
-import Data.Maybe ( fromMaybe )
+import Data.Maybe ( fromMaybe, maybeToList )
 import Data.Word
 import Data.Int
 import DBus
@@ -90,10 +91,20 @@ data BatteryInfo = BatteryInfo { batteryNativePath :: Text
 -}
                                }
 
--- | Find the first power source that is a battery in the list.  The
--- simple heuristic is a substring search on 'BAT'
+-- | determin if a power source is a battery. The simple heuristic is
+-- a substring search on 'BAT'.
+isBattery :: ObjectPath -> Bool
+isBattery = isInfixOf "BAT" . formatObjectPath
+
+-- | Find the first power source that is a battery in the list
+-- (according to 'isBattery')
 firstBattery :: [ObjectPath] -> Maybe ObjectPath
-firstBattery = find (isInfixOf "BAT" . formatObjectPath)
+firstBattery = find isBattery
+
+-- | Find the power sources that are batteries (according to
+-- 'isBattery')
+batteries :: [ObjectPath] -> [ObjectPath]
+batteries = filter isBattery
 
 -- | The name of the power daemon bus
 powerBusName :: BusName
@@ -184,4 +195,19 @@ batteryContextNew = do
     body <- methodReturnBody reply `atMay` 0
     powerDevices <- fromVariant body
     battPath <- firstBattery powerDevices
+    return $ BC systemConn battPath
+
+
+-- | Construct a battery context for every battery in the system. This
+-- could fail if the UPower daemon is not running. The contexts can be
+-- used to get actual battery state with 'getBatteryInfo'.
+batteryContextsNew :: IO [BatteryContext]
+batteryContextsNew = do
+  systemConn <- connectSystem
+  let mc = methodCall powerBaseObjectPath "org.freedesktop.UPower" "EnumerateDevices"
+  reply <- call_ systemConn mc { methodCallDestination = Just powerBusName }
+  return $ do
+    body <- take 1 $ methodReturnBody reply
+    powerDevices <- maybeToList $ fromVariant body
+    battPath <- batteries powerDevices
     return $ BC systemConn battPath
