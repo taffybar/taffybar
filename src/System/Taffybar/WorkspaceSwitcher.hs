@@ -124,7 +124,7 @@ updateDesktop :: Pager -> MV.MVar Desktop -> IO Bool
 updateDesktop pager deskRef = do
   wsnames <- withDefaultCtx getWorkspaceNames
   MV.modifyMVar deskRef $ \desktop ->
-    case length wsnames /= length desktop of
+    case map snd wsnames /= map name desktop of
       True -> do
         desk' <- getDesktop pager
         return (desk', True)
@@ -284,4 +284,3 @@ toggleUrgent deskRef (WSIdx idx) isUrgent =
                  _ : rest -> return $ ys ++ (ws' : rest)
                  _ -> return (ys ++ [ws'])
       _ -> return desktop
-
