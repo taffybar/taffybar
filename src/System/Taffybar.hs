@@ -164,6 +164,7 @@ strutProperties pos bh (Rectangle mX mY mW mH) monitors =
 data TaffybarConfig =
   TaffybarConfig { screenNumber :: Int -- ^ The screen number to run the bar on (default is almost always fine)
                  , monitorNumber :: Int -- ^ The xinerama/xrandr monitor number to put the bar on (default: 0)
+                 , primaryMonitor :: Bool -- ^ If true, ignore monitorNumber and use the xrandr primary
                  , barHeight :: Int -- ^ Number of pixels to reserve for the bar (default: 25 pixels)
                  , barPosition :: Position -- ^ The position of the bar on the screen (default: Top)
                  , widgetSpacing :: Int -- ^ The number of pixels between widgets
@@ -177,6 +178,7 @@ defaultTaffybarConfig :: TaffybarConfig
 defaultTaffybarConfig =
   TaffybarConfig { screenNumber = 0
                  , monitorNumber = 0
+                 , primaryMonitor = False
                  , barHeight = 25
                  , barPosition = Top
                  , widgetSpacing = 10
@@ -225,11 +227,16 @@ setTaffybarSize cfg window = do
   nmonitors <- screenGetNMonitors screen
   allMonitorSizes <- mapM (screenGetMonitorGeometry screen) [0 .. (nmonitors - 1)]
 
-  when (monitorNumber cfg >= nmonitors) $ do
-    IO.hPutStrLn IO.stderr $ printf "Monitor %d is not available in the selected screen" (monitorNumber cfg)
+  displayMonitor <- if (primaryMonitor cfg) then
+                      screenGetPrimaryMonitor screen
+                    else
+                      return $ monitorNumber cfg
+
+  when (displayMonitor >= nmonitors) $ do
+    IO.hPutStrLn IO.stderr $ printf "Monitor %d is not available in the selected screen" displayMonitor
 
   let monitorSize = fromMaybe (allMonitorSizes !! 0) $ do
-        allMonitorSizes `atMay` monitorNumber cfg
+        allMonitorSizes `atMay` displayMonitor
 
   let Rectangle x y w h = monitorSize
       yoff = case barPosition cfg of
