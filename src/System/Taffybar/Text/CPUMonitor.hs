@@ -7,6 +7,8 @@ import System.Information.CPU2
 import System.Taffybar.Widgets.PollingLabel ( pollingLabelNew )
 import qualified Graphics.UI.Gtk as Gtk
 import Data.Int
+import Data.List (intercalate)
+
 
 -- | Creates a simple textual CPU monitor. It updates once every polling
 -- period (in seconds).
@@ -22,13 +24,16 @@ textCpuMonitorNew fmt period = do
       (userLoad, systemLoad, totalLoad) <- cpuLoad
       cpuTemp <- getCPUTemp["cpu0"]
       let [userLoad', systemLoad', totalLoad'] = map (formatPercent.(*100)) [userLoad, systemLoad, totalLoad]
-      --let [cpuTemp'] = map (tempCheck) [cpuTemp]
+      let [cpuTemp'] = map (showTemp) [cpuTemp]
       let template = ST.newSTMP fmt
       let template' = ST.setManyAttrib [ ("user", userLoad'),
                                          ("system", systemLoad'),
                                          ("total", totalLoad'),
-					 ("temp",((showList cpuTemp) "C"))] template
+					 ("temp",cpuTemp')] template
       return $ ST.render template'
 
 formatPercent :: Double -> String
 formatPercent = printf "%.2f"
+
+showTemp :: Show a => [a] -> String
+showTemp = intercalate " " . map show
