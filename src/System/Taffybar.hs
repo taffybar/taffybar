@@ -90,7 +90,7 @@ module System.Taffybar (
   -- >                        , manageHook = manageDocks
   -- >                        }
   --
-  -- The complexity is handled in the System.Tafftbar.XMonadLog
+  -- The complexity is handled in the System.Taffybar.XMonadLog
   -- module.  Note that manageDocks is required to have XMonad put
   -- taffybar in the strut space that it reserves.  If you have
   -- problems with taffybar appearing almost fullscreen, check to
