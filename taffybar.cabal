@@ -54,7 +54,7 @@ library
                  split >= 0.1.4.2,
                  process >= 1.0.1.1,
                  enclosed-exceptions >= 1.0.0.1,
-		 gtk2hs-buildtools >= 0.13.0.0
+                 gtk2hs-buildtools
   if flag(network-uri)
     build-depends: network-uri >= 2.6 && < 3, network >= 2.6 && < 3
   else
