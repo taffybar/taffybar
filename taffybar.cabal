@@ -27,6 +27,7 @@ flag network-uri
 library
   default-language: Haskell2010
   build-depends: base > 3 && < 5,
+                 gtk2hs-buildtools,
                  time >= 1.4 && < 1.7,
                  time-locale-compat >= 0.1 && < 0.2,
                  old-locale,
@@ -53,8 +54,7 @@ library
                  safe >= 0.3 && < 1,
                  split >= 0.1.4.2,
                  process >= 1.0.1.1,
-                 enclosed-exceptions >= 1.0.0.1,
-                 gtk2hs-buildtools
+                 enclosed-exceptions >= 1.0.0.1
   if flag(network-uri)
     build-depends: network-uri >= 2.6 && < 3, network >= 2.6 && < 3
   else
