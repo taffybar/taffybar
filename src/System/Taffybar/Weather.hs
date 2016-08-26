@@ -249,7 +249,7 @@ getCurrentWeather getter tpl formatter = do
 
 -- | The NOAA URL to get data from
 baseUrl :: String
-baseUrl = "http://weather.noaa.gov/pub/data/observations/metar/decoded"
+baseUrl = "http://tgftp.nws.noaa.gov/data/observations/metar/decoded"
 
 -- | A wrapper to allow users to specify a custom weather formatter.
 -- The default interpolates variables into a string as described
