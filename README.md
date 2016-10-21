@@ -31,6 +31,21 @@ There are also several more specialized widgets:
  * XMonad log widget (listens on dbus instead of stdin)
  * System tray
 
+Installation
+============
+**NOTE**: `gtk2hs-buildtools` is needed for installations with GHC 8 and above, till there's better support for `setup-depends`.
+
+### Cabal
+```
+cabal install taffybar
+```
+
+### Stack
+```
+stack install gtk2hs-buildtools
+stack install taffybar
+```
+
 TODO
 ====
 
