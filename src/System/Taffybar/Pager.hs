@@ -70,6 +70,8 @@ data PagerConfig = PagerConfig
   -- ^ the name of the active window.
   , activeLayout            :: String -> String
   -- ^ the currently active layout.
+  , activeLayoutIO          :: String -> IO String
+  -- ^ IO action to modify active layout.
   , activeWorkspace         :: String -> String
   -- ^ the currently active workspace.
   , hiddenWorkspace         :: String -> String
@@ -126,6 +128,7 @@ defaultPagerConfig :: PagerConfig
 defaultPagerConfig = PagerConfig
   { activeWindow            = escape . shorten 40
   , activeLayout            = escape
+  , activeLayoutIO          = return
   , activeWorkspace         = colorize "yellow" "" . wrap "[" "]" . escape
   , hiddenWorkspace         = escape
   , emptyWorkspace          = const ""
