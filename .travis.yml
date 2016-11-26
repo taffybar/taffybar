@@ -44,5 +44,5 @@ matrix:
   allow_failures:
     - env: GHCVER=8.0.1 STACK_YAML=stack-8.0.yaml
 
-install:
+script:
  - stack --no-terminal --skip-ghc-check build
