@@ -8,7 +8,8 @@ module System.Taffybar.Widgets.VerticalBar (
   -- * Accessors/Constructors
   verticalBarNew,
   verticalBarSetPercent,
-  defaultBarConfig
+  defaultBarConfig,
+  defaultBarConfigIO
   ) where
 
 import Control.Concurrent
@@ -33,6 +34,13 @@ data BarConfig =
             , barWidth :: Int
             , barDirection :: BarDirection
             }
+  | BarConfigIO { barBorderColorIO :: IO (Double, Double, Double)
+                , barBackgroundColorIO :: Double -> IO (Double, Double, Double)
+                , barColorIO :: Double -> IO (Double, Double, Double)
+                , barPadding :: Int
+                , barWidth :: Int
+                , barDirection :: BarDirection
+                }
 
 -- | A default bar configuration.  The color of the active portion of
 -- the bar must be specified.
@@ -44,6 +52,15 @@ defaultBarConfig c = BarConfig { barBorderColor = (0.5, 0.5, 0.5)
                                , barWidth = 15
                                , barDirection = VERTICAL
                                }
+
+defaultBarConfigIO :: (Double -> IO (Double, Double, Double)) -> BarConfig
+defaultBarConfigIO c = BarConfigIO { barBorderColorIO = return (0.5, 0.5, 0.5)
+                                   , barBackgroundColorIO = \_ -> return (0, 0, 0)
+                                   , barColorIO = c
+                                   , barPadding = 2
+                                   , barWidth = 15
+                                   , barDirection = VERTICAL
+                                 }
 
 verticalBarSetPercent :: VerticalBarHandle -> Double -> IO ()
 verticalBarSetPercent (VBH mv) pct = do
@@ -58,21 +75,39 @@ verticalBarSetPercent (VBH mv) pct = do
 clamp :: Double -> Double -> Double -> Double
 clamp lo hi d = max lo $ min hi d
 
+liftedBackgroundColor :: BarConfig -> Double -> IO (Double, Double, Double)
+liftedBackgroundColor bc pct =
+  case bc of
+    BarConfig { barBackgroundColor = bcolor } -> return (bcolor pct)
+    BarConfigIO { barBackgroundColorIO = bcolor } -> bcolor pct
+
+liftedBorderColor :: BarConfig -> IO (Double, Double, Double)
+liftedBorderColor bc =
+  case bc of
+    BarConfig { barBorderColor = border } -> return border
+    BarConfigIO { barBorderColorIO = border } -> border
+
+liftedBarColor :: BarConfig -> Double -> IO (Double, Double, Double)
+liftedBarColor bc pct =
+  case bc of
+    BarConfig { barColor = c } -> return (c pct)
+    BarConfigIO { barColorIO = c } -> c pct
+
 renderFrame :: Double -> BarConfig -> Int -> Int -> C.Render ()
 renderFrame pct cfg width height = do
   let fwidth = fromIntegral width
       fheight = fromIntegral height
 
   -- Now draw the user's requested background, respecting padding
-  let (bgR, bgG, bgB) = barBackgroundColor cfg pct
-      pad = barPadding cfg
+  (bgR, bgG, bgB) <- C.liftIO $ liftedBackgroundColor cfg pct
+  let pad = barPadding cfg
       fpad = fromIntegral pad
   C.setSourceRGB bgR bgG bgB
   C.rectangle fpad fpad (fwidth - 2 * fpad) (fheight - 2 * fpad)
   C.fill
 
   -- Now draw a nice frame
-  let (frameR, frameG, frameB) = barBorderColor cfg
+  (frameR, frameG, frameB) <- C.liftIO $ liftedBorderColor cfg
   C.setSourceRGB frameR frameG frameB
   C.setLineWidth 1.0
   C.rectangle (fpad + 0.5) (fpad + 0.5) (fwidth - 2 * fpad - 1) (fheight - 2 * fpad - 1)
@@ -101,7 +136,7 @@ renderBar pct cfg width height = do
       yS = fromIntegral (height - 2 * pad - 2) / fromIntegral height
   C.scale xS yS
 
-  let (r, g, b) = (barColor cfg) pct
+  (r, g, b) <- C.liftIO $ liftedBarColor cfg pct
   C.setSourceRGB r g b
   C.translate 0 newOrigin
   C.rectangle 0 0 activeWidth activeHeight
