@@ -13,6 +13,7 @@ module System.Taffybar.Battery (
   defaultBatteryConfig
   ) where
 
+import Control.Applicative
 import qualified Control.Exception.Enclosed as E
 import Data.Int ( Int64 )
 import Data.IORef
@@ -21,6 +22,8 @@ import qualified System.IO as IO
 import Text.Printf ( printf )
 import Text.StringTemplate
 import Safe ( atMay )
+
+import Prelude
 
 import System.Information.Battery
 import System.Taffybar.Widgets.PollingBar
