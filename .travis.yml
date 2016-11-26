@@ -9,7 +9,13 @@ before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-
+addons:
+  apt:
+    packages:
+    - libgmp-dev
+    - libgtk2.0-dev
+    - libcairo2-dev
+    - libglib2.0-dev
 matrix:
   include:
   - env: GHCVER=7.8.4 STACK_YAML=stack-7.8.yaml
