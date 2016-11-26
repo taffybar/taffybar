@@ -9,6 +9,8 @@ before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+- export PATH=/opt/ghc/$GHCVER/bin:$PATH
+
 addons:
   apt:
     packages:
@@ -41,10 +43,6 @@ matrix:
         - ghc-8.0.1
   allow_failures:
     - env: GHCVER=8.0.1 STACK_YAML=stack-8.0.yaml
-
-before_install:
-  # ghc
-  - export PATH=/opt/ghc/$GHCVER/bin:$PATH
 
 install:
  - stack --no-terminal --skip-ghc-check build
