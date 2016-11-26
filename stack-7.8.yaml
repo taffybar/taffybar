@@ -1,0 +1,15 @@
+packages:
+- '.'
+extra-deps:
+  - gtk-traymanager-0.1.6
+  - xmonad-contrib-0.12
+  - X11-xft-0.3.1
+  - gtk-0.13.9
+  - dbus-0.10.12
+  - dyre-0.8.12
+  - xdg-basedir-0.2.2
+  - xmonad-0.12
+  - io-storage-0.3
+  - libxml-sax-0.7.5
+  - setlocale-1.0.0.4
+resolver: lts-2.22
