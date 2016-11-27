@@ -24,6 +24,7 @@ module System.Information.X11DesktopInfo
   , X11Window
   , withDefaultCtx
   , readAsInt
+  , readAsListOfInt
   , readAsString
   , readAsListOfString
   , readAsListOfWindow
@@ -68,6 +69,18 @@ readAsInt window name = do
   case prop of
     Just (x:_) -> return (fromIntegral x)
     _          -> return (-1)
+
+-- | Retrieve the property of the given window (or the root window,
+-- if Nothing) with the given name as a list of Ints. If that
+-- property hasn't been set, then return an empty list.
+readAsListOfInt :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
+                -> String          -- ^ name of the property to retrieve
+                -> X11Property [Int]
+readAsListOfInt window name = do
+  prop <- fetch getWindowProperty32 window name
+  case prop of
+    Just xs -> return (map fromIntegral xs)
+    _       -> return []
 
 -- | Retrieve the property of the given window (or the root window,
 -- if Nothing) with the given name as a String. If the property
