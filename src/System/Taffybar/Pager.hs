@@ -67,6 +67,12 @@ data PagerConfig = PagerConfig
   , visibleWorkspace :: String -> String -- ^ all other visible workspaces (Xinerama or XRandR).
   , urgentWorkspace  :: String -> String -- ^ workspaces containing windows with the urgency hint set.
   , widgetSep        :: String           -- ^ separator to use between desktop widgets in 'TaffyPager'.
+  , useImages        :: Bool             -- ^ use images in the workspace switcher
+  , imageSize        :: Int              -- ^ image height and width in pixels
+  , fillEmptyImages  :: Bool             -- ^ fill empty images instead of clearing them
+  , preferCustomIcon :: Bool             -- ^ use custom icons over EWHMIcons
+  , customIcon       :: String -> String -- ^ get icon based on window title and class
+                     -> Maybe FilePath
   }
 
 -- | Structure containing the state of the Pager.
@@ -86,6 +92,11 @@ defaultPagerConfig   = PagerConfig
   , visibleWorkspace = wrap "(" ")" . escape
   , urgentWorkspace  = colorize "red" "yellow" . escape
   , widgetSep        = " : "
+  , useImages        = False
+  , imageSize        = 16
+  , fillEmptyImages  = False
+  , preferCustomIcon = False
+  , customIcon       = \_ _ -> Nothing
   }
 
 -- | Creates a new Pager component (wrapped in the IO Monad) that can be

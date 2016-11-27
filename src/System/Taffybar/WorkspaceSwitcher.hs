@@ -45,6 +45,7 @@ import System.Information.EWMHDesktopInfo
 
 type Desktop = [Workspace]
 data Workspace = Workspace { label  :: Gtk.Label
+                           , image  :: Gtk.Image
                            , name   :: String
                            , urgent :: Bool
                            }
@@ -124,11 +125,13 @@ getDesktop pager = do
   names  <- map snd <$> withDefaultCtx getWorkspaceNames
   mapM (createWorkspace pager) names
 
--- | Return a Workspace data instance, with the unmarked name and label widget.
+-- | Return a Workspace data instance, with the unmarked name,
+-- label widget, and image widget.
 createWorkspace :: Pager -> String -> IO Workspace
 createWorkspace pager name = do
   label <- createLabel name
-  return $ Workspace label name False
+  image <- Gtk.imageNew
+  return $ Workspace label image name False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
@@ -219,6 +222,7 @@ addButton :: Gtk.BoxClass self
 addButton hbox desktop idx
   | Just ws <- getWS desktop idx = do
     let lbl = label ws
+    let img = image ws
     ebox <- Gtk.eventBoxNew
     Gtk.widgetSetName ebox $ name ws
     Gtk.eventBoxSetVisibleWindow ebox False
@@ -230,7 +234,10 @@ addButton hbox desktop idx
         Gtk.ScrollLeft  -> switchOne True (length desktop - 1)
         Gtk.ScrollDown  -> switchOne False (length desktop - 1)
         Gtk.ScrollRight -> switchOne False (length desktop - 1)
-    Gtk.containerAdd ebox lbl
+    container <- Gtk.hBoxNew False 0
+    Gtk.containerAdd container lbl
+    Gtk.containerAdd container img
+    Gtk.containerAdd ebox container
     Gtk.boxPackStart hbox ebox Gtk.PackNatural 0
   | otherwise = return ()
 
@@ -252,6 +259,23 @@ transition cfg desktop wss = do
       mapM_ (mark desktop $ visibleWorkspace cfg) rest
     _ -> return ()
   mapM_ (mark desktop $ urgentWorkspace cfg) urgentWs
+
+  let useImg = useImages cfg
+      fillEmpty = fillEmptyImages cfg
+      imgSize = imageSize cfg
+      customIconF = customIcon cfg
+      preferCustom = preferCustomIcon cfg
+  when useImg $ updateImages desktop imgSize fillEmpty preferCustom customIconF
+
+-- | Update the GTK images using X properties.
+updateImages :: Desktop -> Int -> Bool -> Bool -> CustomIconF -> IO ()
+updateImages desktop imgSize fillEmpty preferCustom customIconF = do
+  windowSet <- getWindowSet (allWorkspaces desktop)
+  lastWinInfo <- getLastWindowInfo windowSet
+  let images = map image desktop
+      fillColor = if fillEmpty then Just (0, 0, 0, 0) else Nothing
+      imageChoices = getImageChoices lastWinInfo customIconF fillColor imgSize
+  zipWithM_ (setImage imgSize preferCustom) images imageChoices
 
 -- | Get EWMHIcons, custom icon files, and fill colors based on the window info.
 getImageChoices :: [WindowInfo] -> CustomIconF -> Maybe ColorRGBA -> Int -> [ImageChoice]
