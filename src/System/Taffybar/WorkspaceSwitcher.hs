@@ -118,14 +118,17 @@ allWorkspaces desktop = map WSIdx [0 .. length desktop - 1]
 nonEmptyWorkspaces :: IO [WorkspaceIdx]
 nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 
--- | Return a list of two-element tuples, one for every workspace,
--- containing the Label widget used to display the name of that specific
--- workspace and a String with its default (unmarked) representation.
+-- | Return a list of Workspace data instances.
 getDesktop :: Pager -> IO Desktop
 getDesktop pager = do
   names  <- map snd <$> withDefaultCtx getWorkspaceNames
-  labels <- toLabels $ map (hiddenWorkspace $ config pager) names
-  return $ zipWith (\n l -> Workspace l n False) names labels
+  mapM (createWorkspace pager) names
+
+-- | Return a Workspace data instance, with the unmarked name and label widget.
+createWorkspace :: Pager -> String -> IO Workspace
+createWorkspace pager name = do
+  label <- createLabel name
+  return $ Workspace label name False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
@@ -193,13 +196,12 @@ redrawCallback pager deskRef box _ = Gtk.postGUIAsync $ do
 containerClear :: Gtk.ContainerClass self => self -> IO ()
 containerClear container = Gtk.containerForeach container (Gtk.containerRemove container)
 
--- | Convert the given list of Strings to a list of Label widgets.
-toLabels :: [String] -> IO [Gtk.Label]
-toLabels = mapM labelNewMarkup
-  where labelNewMarkup markup = do
-          lbl <- Gtk.labelNew (Nothing :: Maybe String)
-          Gtk.labelSetMarkup lbl markup
-          return lbl
+-- | Create a label widget from the given String.
+createLabel :: String -> IO Gtk.Label
+createLabel markup = do
+  lbl <- Gtk.labelNew (Nothing :: Maybe String)
+  Gtk.labelSetMarkup lbl markup
+  return lbl
 
 -- | Get the workspace corresponding to the given 'WorkspaceIdx' on the given desktop
 getWS :: Desktop -> WorkspaceIdx -> Maybe Workspace
