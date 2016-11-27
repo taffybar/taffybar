@@ -30,7 +30,7 @@ import Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.List ((\\), findIndices)
+import Data.List ((\\), findIndices, sortOn)
 import Data.Maybe (listToMaybe)
 import Data.Word (Word8)
 import Foreign.C.Types (CUChar(..))
@@ -50,6 +50,9 @@ data Workspace = Workspace { label  :: Gtk.Label
                            }
 type WindowSet = [(WorkspaceIdx, [X11Window])]
 type WindowInfo = Maybe (String, String, [EWMHIcon])
+type ColorRGBA = (Word8, Word8, Word8, Word8)
+type CustomIconF = String -> String -> Maybe FilePath
+type ImageChoice = (Maybe EWMHIcon, Maybe FilePath, Maybe ColorRGBA)
 
 -- $usage
 --
@@ -248,6 +251,37 @@ transition cfg desktop wss = do
     _ -> return ()
   mapM_ (mark desktop $ urgentWorkspace cfg) urgentWs
 
+-- | Get EWMHIcons, custom icon files, and fill colors based on the window info.
+getImageChoices :: [WindowInfo] -> CustomIconF -> Maybe ColorRGBA -> Int -> [ImageChoice]
+getImageChoices lastWinInfo customIconF fillColor imgSize = zip3 icons files colors
+  where icons = map (selectEWMHIcon imgSize) lastWinInfo
+        files = map (selectCustomIconFile customIconF) lastWinInfo
+        colors = map (\_ -> fillColor) lastWinInfo
+
+-- | Select the icon with the smallest height that is larger than imgSize,
+-- or if none such icons exist, select the icon with the largest height.
+selectEWMHIcon :: Int -> WindowInfo -> Maybe EWMHIcon
+selectEWMHIcon imgSize (Just (_, _, icons)) = listToMaybe prefIcon
+  where sortedIcons = sortOn height icons
+        smallestLargerIcon = take 1 $ dropWhile ((<=imgSize).height) sortedIcons
+        largestIcon = take 1 $ reverse sortedIcons
+        prefIcon = smallestLargerIcon ++ largestIcon
+selectEWMHIcon _ _ = Nothing
+
+-- | Select a file using customIcon config.
+selectCustomIconFile :: CustomIconF -> WindowInfo -> Maybe FilePath
+selectCustomIconFile customIconF (Just (wTitle, wClass, _)) = customIconF wTitle wClass
+selectCustomIconFile _ _ = Nothing
+
+-- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
+setImage :: Int -> Bool -> Gtk.Image -> ImageChoice -> IO ()
+setImage imgSize preferCustom img imgChoice = setImgAct imgChoice preferCustom
+  where setImgAct (_, Just file, _) True = setImageFromFile img imgSize file
+        setImgAct (Just icon, _, _) _    = setImageFromEWMHIcon img imgSize icon
+        setImgAct (_, Just file, _) _    = setImageFromFile img imgSize file
+        setImgAct (_, _, Just color) _   = setImageFromColor img imgSize color
+        setImgAct _ _                    = Gtk.imageClear img
+
 -- | Create a pixbuf from the pixel data in an EWMHIcon,
 -- scale it square, and set it in a GTK Image.
 setImageFromEWMHIcon :: Gtk.Image -> Int -> EWMHIcon -> IO ()
@@ -261,6 +295,26 @@ setImageFromEWMHIcon img imgSize EWMHIcon {width=w, height=h, pixelsARGB=px} = d
       bytesRGBA = pixelsARGBToBytesRGBA px
   cPtr <- newArray $ map CUChar bytesRGBA
   pixbuf <- Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
+  scaledPixbuf <- scalePixbuf imgSize pixbuf
+  Gtk.imageSetFromPixbuf img scaledPixbuf
+
+-- | Create a pixbuf from a file,
+-- scale it square, and set it in a GTK Image.
+setImageFromFile :: Gtk.Image -> Int -> FilePath -> IO ()
+setImageFromFile img imgSize file = do
+  pixbuf <- Gtk.pixbufNewFromFileAtScale file imgSize imgSize False
+  scaledPixbuf <- scalePixbuf imgSize pixbuf
+  Gtk.imageSetFromPixbuf img scaledPixbuf
+
+-- | Create a pixbuf with the indicated RGBA color,
+-- scale it square, and set it in a GTK Image.
+setImageFromColor :: Gtk.Image -> Int -> ColorRGBA -> IO ()
+setImageFromColor img imgSize (r,g,b,a) = do
+  let sampleBits = 8
+      hasAlpha = True
+      colorspace = Gtk.ColorspaceRgb
+  pixbuf <- Gtk.pixbufNew colorspace hasAlpha sampleBits imgSize imgSize
+  Gtk.pixbufFill pixbuf r g b a
   scaledPixbuf <- scalePixbuf imgSize pixbuf
   Gtk.imageSetFromPixbuf img scaledPixbuf
 
