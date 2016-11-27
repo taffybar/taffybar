@@ -30,8 +30,9 @@ import Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.List ((\\), findIndices, sortOn)
+import Data.List ((\\), findIndices, sortBy)
 import Data.Maybe (listToMaybe)
+import Data.Ord (comparing)
 import Data.Word (Word8)
 import Foreign.C.Types (CUChar(..))
 import Foreign.Marshal.Array (newArray)
@@ -292,6 +293,7 @@ selectEWMHIcon imgSize (Just (_, _, icons)) = listToMaybe prefIcon
         smallestLargerIcon = take 1 $ dropWhile ((<=imgSize).height) sortedIcons
         largestIcon = take 1 $ reverse sortedIcons
         prefIcon = smallestLargerIcon ++ largestIcon
+        sortOn f = sortBy (comparing f)
 selectEWMHIcon _ _ = Nothing
 
 -- | Select a file using customIcon config.
