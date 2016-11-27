@@ -31,6 +31,7 @@ import qualified Control.Concurrent.MVar as MV
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List ((\\), findIndices)
+import Data.Maybe (listToMaybe)
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.X11.Xlib.Extras
 
@@ -44,6 +45,9 @@ data Workspace = Workspace { label  :: Gtk.Label
                            , name   :: String
                            , urgent :: Bool
                            }
+type WindowSet = [(WorkspaceIdx, [X11Window])]
+type WindowInfo = Maybe (String, String, [EWMHIcon])
+
 -- $usage
 --
 -- This widget requires that the EwmhDesktops hook from the XMonadContrib
@@ -240,6 +244,32 @@ transition cfg desktop wss = do
       mapM_ (mark desktop $ visibleWorkspace cfg) rest
     _ -> return ()
   mapM_ (mark desktop $ urgentWorkspace cfg) urgentWs
+
+-- | Get window title, class, and icons for the last window in each workspace.
+getLastWindowInfo :: WindowSet -> IO [WindowInfo]
+getLastWindowInfo windowSet = mapM getWindowInfo lastWins
+  where wsIdxs = map fst windowSet
+        lastWins = map lastWin wsIdxs
+        wins wsIdx = snd $ head $ filter ((==wsIdx).fst) windowSet
+        lastWin wsIdx = listToMaybe $ reverse $ wins wsIdx
+
+-- | Get window title, class, and EWMHIcons for the given window.
+getWindowInfo :: Maybe X11Window -> IO WindowInfo
+getWindowInfo Nothing = return Nothing
+getWindowInfo (Just w) = withDefaultCtx $ do
+  wTitle <- getWindowTitle w
+  wClass <- getWindowClass w
+  wIcon <- getWindowIcons w
+  return $ Just (wTitle, wClass, wIcon)
+
+-- | Get a list of windows for each workspace.
+getWindowSet :: [WorkspaceIdx] -> IO WindowSet
+getWindowSet wsIdxs = do
+  windows <- withDefaultCtx getWindows
+  workspaces <- mapM (withDefaultCtx.getWorkspace) windows
+  let wsWins = zip workspaces windows
+  return $ map (\wsIdx -> (wsIdx, lookupAll wsIdx wsWins)) wsIdxs
+  where lookupAll x xs = map snd $ filter (((==)x).fst) xs
 
 -- | Apply the given marking function to the Label of the workspace with
 -- the given index.
