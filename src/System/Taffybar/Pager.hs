@@ -68,6 +68,7 @@ data PagerConfig = PagerConfig
   , urgentWorkspace  :: String -> String -- ^ workspaces containing windows with the urgency hint set.
   , widgetSep        :: String           -- ^ separator to use between desktop widgets in 'TaffyPager'.
   , workspaceGap     :: Int              -- ^ space in pixels between workspace buttons
+  , workspacePad     :: Bool             -- ^ pad workspace name in button
   , useImages        :: Bool             -- ^ use images in the workspace switcher
   , imageSize        :: Int              -- ^ image height and width in pixels
   , fillEmptyImages  :: Bool             -- ^ fill empty images instead of clearing them
@@ -93,6 +94,7 @@ defaultPagerConfig   = PagerConfig
   , urgentWorkspace  = colorize "red" "yellow" . escape
   , widgetSep        = " : "
   , workspaceGap     = 0
+  , workspacePad     = True
   , useImages        = False
   , imageSize        = 16
   , fillEmptyImages  = False
