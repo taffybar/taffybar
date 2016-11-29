@@ -178,13 +178,14 @@ urgentCallback cfg deskRef event = Gtk.postGUIAsync $ do
   desktop <- MV.readMVar deskRef
   withDefaultCtx $ do
     let window = ev_window event
+        pad = if workspacePad cfg then prefixSpace else id
     isUrgent <- isWindowUrgent window
     when isUrgent $ do
       this <- getCurrentWorkspace
       that <- getWorkspace window
       when (this /= that) $ liftIO $ do
         toggleUrgent deskRef that True
-        mark desktop (urgentWorkspace cfg) that
+        mark desktop pad (urgentWorkspace cfg) that
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_NUMBER_OF_DESKTOPS" standard events. It will handle dynamically
@@ -252,14 +253,15 @@ transition cfg desktop wss = do
   let urgentWs = map WSIdx $ findIndices urgent desktop
       allWs    = (allWorkspaces desktop) \\ urgentWs
       nonEmptyWs = nonEmpty \\ urgentWs
-  mapM_ (mark desktop $ hiddenWorkspace cfg) nonEmptyWs
-  mapM_ (mark desktop $ emptyWorkspace cfg) (allWs \\ nonEmpty)
+      pad = if workspacePad cfg then prefixSpace else id
+  mapM_ (mark desktop pad $ hiddenWorkspace cfg) nonEmptyWs
+  mapM_ (mark desktop pad $ emptyWorkspace cfg) (allWs \\ nonEmpty)
   case wss of
     active:rest -> do
-      mark desktop (activeWorkspace cfg) active
-      mapM_ (mark desktop $ visibleWorkspace cfg) rest
+      mark desktop pad (activeWorkspace cfg) active
+      mapM_ (mark desktop pad $ visibleWorkspace cfg) rest
     _ -> return ()
-  mapM_ (mark desktop $ urgentWorkspace cfg) urgentWs
+  mapM_ (mark desktop pad $ urgentWorkspace cfg) urgentWs
 
   let useImg = useImages cfg
       fillEmpty = fillEmptyImages cfg
@@ -396,16 +398,19 @@ getWindowSet wsIdxs = do
 -- | Apply the given marking function to the Label of the workspace with
 -- the given index.
 mark :: Desktop            -- ^ List of all available labels.
+     -> (String -> String) -- ^ Padding function.
      -> (String -> String) -- ^ Marking function.
      -> WorkspaceIdx       -- ^ Index of the Label to modify.
      -> IO ()
-mark desktop decorate wsIdx
+mark desktop pad decorate wsIdx
   | Just ws <- getWS desktop wsIdx =
-    Gtk.postGUIAsync $ Gtk.labelSetMarkup (label ws) $ decorate' (name ws)
+    Gtk.postGUIAsync $ Gtk.labelSetMarkup (label ws) $ pad $ decorate (name ws)
   | otherwise = return ()
-  where decorate' = pad . decorate
-        pad m | m == [] = m
-              | otherwise = ' ' : m
+
+-- | Prefix the string with a space unless the string is empty.
+prefixSpace :: String -> String
+prefixSpace "" = ""
+prefixSpace s = " " ++ s
 
 -- | Switch to the workspace with the given index.
 switch :: (MonadIO m) => WorkspaceIdx -> m Bool
