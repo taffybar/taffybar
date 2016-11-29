@@ -47,6 +47,7 @@ import System.Information.EWMHDesktopInfo
 type Desktop = [Workspace]
 data Workspace = Workspace { label  :: Gtk.Label
                            , image  :: Gtk.Image
+                           , border :: Maybe Gtk.Frame
                            , name   :: String
                            , urgent :: Bool
                            }
@@ -132,7 +133,10 @@ createWorkspace :: Pager -> String -> IO Workspace
 createWorkspace _pager wname = do
   lbl <- createLabel wname
   img <- Gtk.imageNew
-  return $ Workspace lbl img wname False
+  frm <- if workspaceBorder (config _pager)
+           then fmap Just Gtk.frameNew
+           else return Nothing
+  return $ Workspace lbl img frm wname False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
@@ -225,6 +229,7 @@ addButton hbox desktop idx
   | Just ws <- getWS desktop idx = do
     let lbl = label ws
     let img = image ws
+    let frm = border ws
     ebox <- Gtk.eventBoxNew
     Gtk.widgetSetName ebox $ name ws
     Gtk.eventBoxSetVisibleWindow ebox False
@@ -239,7 +244,11 @@ addButton hbox desktop idx
     container <- Gtk.hBoxNew False 0
     Gtk.containerAdd container lbl
     Gtk.containerAdd container img
-    Gtk.containerAdd ebox container
+    case frm of
+      Just f -> do
+        Gtk.containerAdd f container
+        Gtk.containerAdd ebox f
+      Nothing -> Gtk.containerAdd ebox container
     Gtk.boxPackStart hbox ebox Gtk.PackNatural 0
   | otherwise = return ()
 
@@ -255,13 +264,18 @@ transition cfg desktop wss = do
       nonEmptyWs = nonEmpty \\ urgentWs
       pad = if workspacePad cfg then prefixSpace else id
   mapM_ (mark desktop pad $ hiddenWorkspace cfg) nonEmptyWs
+  mapM_ (setBorderName desktop "hidden") nonEmptyWs
   mapM_ (mark desktop pad $ emptyWorkspace cfg) (allWs \\ nonEmpty)
+  mapM_ (setBorderName desktop "empty") (allWs \\ nonEmpty)
   case wss of
     active:rest -> do
       mark desktop pad (activeWorkspace cfg) active
+      setBorderName desktop "active" active
       mapM_ (mark desktop pad $ visibleWorkspace cfg) rest
+      mapM_ (setBorderName desktop "visible") rest
     _ -> return ()
   mapM_ (mark desktop pad $ urgentWorkspace cfg) urgentWs
+  mapM_ (setBorderName desktop "urgent") urgentWs
 
   let useImg = useImages cfg
       fillEmpty = fillEmptyImages cfg
@@ -411,6 +425,18 @@ mark desktop pad decorate wsIdx
 prefixSpace :: String -> String
 prefixSpace "" = ""
 prefixSpace s = " " ++ s
+
+-- | Set the widget name of the frame to Workspace-<WORKSPACE_NAME>-<WORKSPACE_STATE>
+setBorderName :: Desktop -> String -> WorkspaceIdx -> IO ()
+setBorderName desktop workspaceState wsIdx = do
+  case frame workspace of
+    Just f -> Gtk.widgetSetName f (widgetName workspace)
+    Nothing -> return ()
+  where frame (Just ws) = border ws
+        frame Nothing = Nothing
+        workspace = getWS desktop wsIdx
+        widgetName (Just ws) = "Workspace-" ++ (name ws) ++ "-" ++ workspaceState
+        widgetName Nothing = ""
 
 -- | Switch to the workspace with the given index.
 switch :: (MonadIO m) => WorkspaceIdx -> m Bool
