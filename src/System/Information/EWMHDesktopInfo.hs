@@ -23,6 +23,7 @@ module System.Information.EWMHDesktopInfo
   ( X11Window      -- re-exported from X11DesktopInfo
   , X11WindowHandle
   , WorkspaceIdx(..)
+  , EWMHIcon(..)
   , withDefaultCtx -- re-exported from X11DesktopInfo
   , isWindowUrgent -- re-exported from X11DesktopInfo
   , getCurrentWorkspace
@@ -32,6 +33,7 @@ module System.Information.EWMHDesktopInfo
   , switchOneWorkspace
   , getWindowTitle
   , getWindowClass
+  , getWindowIcons
   , getActiveWindowTitle
   , getWindows
   , getWindowHandles
@@ -51,6 +53,8 @@ type X11WindowHandle = ((WorkspaceIdx, String, String), X11Window)
 
 newtype WorkspaceIdx = WSIdx Int
                      deriving (Show, Read, Ord, Eq)
+
+data EWMHIcon = EWMHIcon {width :: Int, height :: Int, pixelsARGB :: [Int]} deriving Show
 
 noFocus :: String
 noFocus = "..."
@@ -112,6 +116,24 @@ getWindowTitle window = do
 -- | Get the class of the given X11 window.
 getWindowClass :: X11Window -> X11Property String
 getWindowClass window = readAsString (Just window) "WM_CLASS"
+
+-- | Get list of icon ARGB data from EWMH
+getWindowIcons :: X11Window -> X11Property [EWMHIcon]
+getWindowIcons window = do
+  ints <- readAsListOfInt (Just window) "_NET_WM_ICON"
+  return $ parseIcons ints
+
+-- | Split icon raw integer data into EWMHIcons.
+-- Each icon raw data is an integer for width,
+--   followed by height,
+--   followed by exactly (width*height) ARGB pixels,
+--   optionally followed by the next icon.
+parseIcons :: [Int] -> [EWMHIcon]
+parseIcons (w:h:xs) | w>0 && h>0 && length pixels==w*h = icon : parseIcons rest
+  where pixels = take (w*h) xs
+        rest = drop (w*h) xs
+        icon = EWMHIcon {width = w, height = h, pixelsARGB = pixels}
+parseIcons _ = []
 
 withActiveWindow :: (X11Window -> X11Property String) -> X11Property String
 withActiveWindow getProp = do
