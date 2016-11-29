@@ -94,7 +94,7 @@ type ImageChoice = (Maybe EWMHIcon, Maybe FilePath, Maybe ColorRGBA)
 -- its source of events.
 wspaceSwitcherNew :: Pager -> IO Gtk.Widget
 wspaceSwitcherNew pager = do
-  switcher <- Gtk.hBoxNew False 0
+  switcher <- Gtk.hBoxNew False (workspaceGap (config pager))
   desktop  <- getDesktop pager
   deskRef  <- MV.newMVar desktop
   populateSwitcher switcher deskRef
