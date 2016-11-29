@@ -129,10 +129,10 @@ getDesktop pager = do
 -- | Return a Workspace data instance, with the unmarked name,
 -- label widget, and image widget.
 createWorkspace :: Pager -> String -> IO Workspace
-createWorkspace pager name = do
-  label <- createLabel name
-  image <- Gtk.imageNew
-  return $ Workspace label image name False
+createWorkspace _pager wname = do
+  lbl <- createLabel wname
+  img <- Gtk.imageNew
+  return $ Workspace lbl img wname False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False

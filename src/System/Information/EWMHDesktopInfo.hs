@@ -41,9 +41,12 @@ module System.Information.EWMHDesktopInfo
   , focusWindow
   ) where
 
-import Control.Applicative ((<$>))
+import Control.Applicative
 import Data.Tuple (swap)
 import Data.Maybe (listToMaybe, mapMaybe)
+
+import Prelude
+
 import System.Information.X11DesktopInfo
 
 -- | Convenience alias for a pair of the form (props, window), where props is a

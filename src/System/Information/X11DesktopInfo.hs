@@ -44,7 +44,7 @@ import Data.Maybe (fromMaybe)
 import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
 
-data X11Context = X11Context { contextDisplay :: Display, contextRoot :: Window }
+data X11Context = X11Context { contextDisplay :: Display, _contextRoot :: Window }
 type X11Property a = ReaderT X11Context IO a
 type X11Window = Window
 type PropertyFetcher a = Display -> Atom -> Window -> IO (Maybe [a])
