@@ -45,4 +45,4 @@ matrix:
     - env: GHCVER=8.0.1 STACK_YAML=stack-8.0.yaml
 
 script:
- - stack --no-terminal --skip-ghc-check build
+ - stack --no-terminal --system-ghc build
