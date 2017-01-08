@@ -86,17 +86,14 @@ assembleWidget label = do
   Gtk.widgetSetName switcher "WindowSwitcher"
   Gtk.containerAdd switcher title
 
-  Gtk.rcParseString $ unlines [ "style 'WindowSwitcher' {"
-                          , "  xthickness = 0"
-                          , "  GtkMenuBar::internal-padding = 0"
-                          , "}"
-                          , "style 'title' {"
-                          , "  xthickness = 0"
-                          , "  GtkMenuItem::horizontal-padding = 0"
-                          , "}"
-                          , "widget '*WindowSwitcher' style 'WindowSwitcher'"
-                          , "widget '*WindowSwitcher*title' style 'title'"
-                          ]
+  Gtk.rcParseString $ unlines
+         [ "style 'WindowSwitcher' {"
+         , "  xthickness = 0"
+         , "  ythickness = 0"
+         , "  GtkMenuItem::horizontal-padding = 0"
+         , "}"
+         , "widget '*WindowSwitcher*title' style 'WindowSwitcher'"
+         ]
   menu <- Gtk.menuNew
   Gtk.widgetSetName menu "menu"
 
