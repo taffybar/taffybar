@@ -71,8 +71,7 @@ data PagerConfig = PagerConfig
   , imageSize        :: Int              -- ^ image height and width in pixels
   , fillEmptyImages  :: Bool             -- ^ fill empty images instead of clearing them
   , preferCustomIcon :: Bool             -- ^ use custom icons over EWHMIcons
-  , customIcon       :: String -> String -- ^ get icon based on window title and class
-                     -> Maybe FilePath
+  , customIcon       :: String -> String -> Maybe FilePath -- ^ get icon based on window title and class
   }
 
 -- | Structure containing the state of the Pager.
