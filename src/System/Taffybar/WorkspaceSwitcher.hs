@@ -52,7 +52,7 @@ data Workspace = Workspace { label  :: Gtk.Label
                            , urgent :: Bool
                            }
 type WindowSet = [(WorkspaceIdx, [X11Window])]
-type WindowInfo = Maybe (String, String, [EWMHIcon])
+type WindowInfo = (String, String, [EWMHIcon])
 type ColorRGBA = (Word8, Word8, Word8, Word8)
 type CustomIconF = String -> String -> Maybe FilePath
 type ImageChoice = (Maybe EWMHIcon, Maybe FilePath, Maybe ColorRGBA)
@@ -228,7 +228,6 @@ addButton :: Gtk.BoxClass self
 addButton hbox desktop idx
   | Just ws <- getWS desktop idx = do
     let lbl = label ws
-    let img = image ws
     let frm = border ws
     ebox <- Gtk.eventBoxNew
     Gtk.widgetSetName ebox $ name ws
@@ -243,7 +242,7 @@ addButton hbox desktop idx
         Gtk.ScrollRight -> switchOne False (length desktop - 1)
     container <- Gtk.hBoxNew False 0
     Gtk.containerAdd container lbl
-    Gtk.containerAdd container img
+    Gtk.containerAdd container $ image ws
     case frm of
       Just f -> do
         Gtk.containerAdd f container
@@ -288,34 +287,29 @@ transition cfg desktop wss = do
 updateImages :: Desktop -> Int -> Bool -> Bool -> CustomIconF -> IO ()
 updateImages desktop imgSize fillEmpty preferCustom customIconF = do
   windowSet <- getWindowSet (allWorkspaces desktop)
-  lastWinInfo <- getLastWindowInfo windowSet
+  windowInfo <- getWindowInfoByWS windowSet
   let images = map image desktop
       fillColor = if fillEmpty then Just (0, 0, 0, 0) else Nothing
-      imageChoices = getImageChoices lastWinInfo customIconF fillColor imgSize
-  zipWithM_ (setImage imgSize preferCustom) images imageChoices
+      imageChoices = getImageChoices windowInfo customIconF fillColor imgSize
+  zipWithM_ (setImage imgSize preferCustom) images (map last imageChoices)
 
 -- | Get EWMHIcons, custom icon files, and fill colors based on the window info.
-getImageChoices :: [WindowInfo] -> CustomIconF -> Maybe ColorRGBA -> Int -> [ImageChoice]
-getImageChoices lastWinInfo customIconF fillColor imgSize = zip3 icons files colors
-  where icons = map (selectEWMHIcon imgSize) lastWinInfo
-        files = map (selectCustomIconFile customIconF) lastWinInfo
-        colors = map (\_ -> fillColor) lastWinInfo
+getImageChoices :: [[WindowInfo]] -> CustomIconF -> Maybe ColorRGBA -> Int -> [[ImageChoice]]
+getImageChoices windowInfo customIconF fillColor imgSize = map (map getImageInfo) windowInfo
+  where getImageInfo winfo = ( selectEWMHIcon imgSize winfo
+                             , case winfo of
+                                 (wTitle, wClass, _) -> customIconF wTitle wClass
+                             , fillColor)
 
 -- | Select the icon with the smallest height that is larger than imgSize,
 -- or if none such icons exist, select the icon with the largest height.
 selectEWMHIcon :: Int -> WindowInfo -> Maybe EWMHIcon
-selectEWMHIcon imgSize (Just (_, _, icons)) = listToMaybe prefIcon
+selectEWMHIcon imgSize (_, _, icons) = listToMaybe prefIcon
   where sortedIcons = sortOn height icons
         smallestLargerIcon = take 1 $ dropWhile ((<=imgSize).height) sortedIcons
         largestIcon = take 1 $ reverse sortedIcons
         prefIcon = smallestLargerIcon ++ largestIcon
         sortOn f = sortBy (comparing f)
-selectEWMHIcon _ _ = Nothing
-
--- | Select a file using customIcon config.
-selectCustomIconFile :: CustomIconF -> WindowInfo -> Maybe FilePath
-selectCustomIconFile customIconF (Just (wTitle, wClass, _)) = customIconF wTitle wClass
-selectCustomIconFile _ _ = Nothing
 
 -- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
 setImage :: Int -> Bool -> Gtk.Image -> ImageChoice -> IO ()
@@ -383,22 +377,16 @@ pixelsARGBToBytesRGBA (x:xs) = r:g:b:a:pixelsARGBToBytesRGBA xs
         toByte i = (fromIntegral i) :: Word8
 pixelsARGBToBytesRGBA _ = []
 
--- | Get window title, class, and icons for the last window in each workspace.
-getLastWindowInfo :: WindowSet -> IO [WindowInfo]
-getLastWindowInfo windowSet = mapM getWindowInfo lastWins
-  where wsIdxs = map fst windowSet
-        lastWins = map lastWin wsIdxs
-        wins wsIdx = snd $ head $ filter ((==wsIdx).fst) windowSet
-        lastWin wsIdx = listToMaybe $ reverse $ wins wsIdx
+getWindowInfoByWS :: WindowSet -> IO [[WindowInfo]]
+getWindowInfoByWS windowSet = mapM (mapM getWindowInfo) x11WindowsByWorkspace
+  where x11WindowsByWorkspace = map snd windowSet
 
--- | Get window title, class, and EWMHIcons for the given window.
-getWindowInfo :: Maybe X11Window -> IO WindowInfo
-getWindowInfo Nothing = return Nothing
-getWindowInfo (Just w) = withDefaultCtx $ do
+getWindowInfo :: X11Window -> IO WindowInfo
+getWindowInfo w = withDefaultCtx $ do
   wTitle <- getWindowTitle w
   wClass <- getWindowClass w
   wIcon <- getWindowIcons w
-  return $ Just (wTitle, wClass, wIcon)
+  return $ (wTitle, wClass, wIcon)
 
 -- | Get a list of windows for each workspace.
 getWindowSet :: [WorkspaceIdx] -> IO WindowSet
