@@ -21,6 +21,27 @@ style "taffybar-notification-button" = "taffybar-default" {
   fg[NORMAL]   = @red
 }
 
+style "taffybar-workspace-border-active" = "taffybar-default" {
+  bg[NORMAL] = @white
+}
+style "taffybar-workspace-border-visible" = "taffybar-default" {
+  bg[NORMAL] = @white
+}
+style "taffybar-workspace-border-empty" = "taffybar-default" {
+  bg[NORMAL] = @white
+}
+style "taffybar-workspace-border-hidden" = "taffybar-default" {
+  bg[NORMAL] = @white
+}
+style "taffybar-workspace-border-urgent" = "taffybar-default" {
+  bg[NORMAL] = @white
+}
+
 widget "Taffybar*" style "taffybar-default"
 widget "Taffybar*WindowSwitcher*label" style "taffybar-active-window"
 widget "*NotificationCloseButton" style "taffybar-notification-button"
+widget "*Workspace-*-active*" style "taffybar-workspace-border-active"
+widget "*Workspace-*-visible*" style "taffybar-workspace-border-visible"
+widget "*Workspace-*-empty*" style "taffybar-workspace-border-empty"
+widget "*Workspace-*-hidden*" style "taffybar-workspace-border-hidden"
+widget "*Workspace-*-urgent*" style "taffybar-workspace-border-urgent"

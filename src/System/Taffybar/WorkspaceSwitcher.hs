@@ -47,6 +47,7 @@ import System.Information.EWMHDesktopInfo
 type Desktop = [Workspace]
 data Workspace = Workspace { label  :: Gtk.Label
                            , image  :: Gtk.Image
+                           , border :: Maybe Gtk.Frame
                            , name   :: String
                            , urgent :: Bool
                            }
@@ -94,7 +95,7 @@ type ImageChoice = (Maybe EWMHIcon, Maybe FilePath, Maybe ColorRGBA)
 -- its source of events.
 wspaceSwitcherNew :: Pager -> IO Gtk.Widget
 wspaceSwitcherNew pager = do
-  switcher <- Gtk.hBoxNew False 0
+  switcher <- Gtk.hBoxNew False (workspaceGap (config pager))
   desktop  <- getDesktop pager
   deskRef  <- MV.newMVar desktop
   populateSwitcher switcher deskRef
@@ -133,7 +134,10 @@ createWorkspace :: Pager -> String -> IO Workspace
 createWorkspace _pager wname = do
   lbl <- createLabel wname
   img <- Gtk.imageNew
-  return $ Workspace lbl img wname False
+  frm <- if workspaceBorder (config _pager)
+           then fmap Just Gtk.frameNew
+           else return Nothing
+  return $ Workspace lbl img frm wname False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
@@ -179,13 +183,14 @@ urgentCallback cfg deskRef event = Gtk.postGUIAsync $ do
   desktop <- MV.readMVar deskRef
   withDefaultCtx $ do
     let window = ev_window event
+        pad = if workspacePad cfg then prefixSpace else id
     isUrgent <- isWindowUrgent window
     when isUrgent $ do
       this <- getCurrentWorkspace
       that <- getWorkspace window
       when (this /= that) $ liftIO $ do
         toggleUrgent deskRef that True
-        mark desktop (urgentWorkspace cfg) that
+        mark desktop pad (urgentWorkspace cfg) that
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_NUMBER_OF_DESKTOPS" standard events. It will handle dynamically
@@ -225,6 +230,7 @@ addButton hbox desktop idx
   | Just ws <- getWS desktop idx = do
     let lbl = label ws
     let img = image ws
+    let frm = border ws
     ebox <- Gtk.eventBoxNew
     Gtk.widgetSetName ebox $ name ws
     Gtk.eventBoxSetVisibleWindow ebox False
@@ -239,7 +245,11 @@ addButton hbox desktop idx
     container <- Gtk.hBoxNew False 0
     Gtk.containerAdd container lbl
     Gtk.containerAdd container img
-    Gtk.containerAdd ebox container
+    case frm of
+      Just f -> do
+        Gtk.containerAdd f container
+        Gtk.containerAdd ebox f
+      Nothing -> Gtk.containerAdd ebox container
     Gtk.boxPackStart hbox ebox Gtk.PackNatural 0
   | otherwise = return ()
 
@@ -253,14 +263,20 @@ transition cfg desktop wss = do
   let urgentWs = map WSIdx $ findIndices urgent desktop
       allWs    = (allWorkspaces desktop) \\ urgentWs
       nonEmptyWs = nonEmpty \\ urgentWs
-  mapM_ (mark desktop $ hiddenWorkspace cfg) nonEmptyWs
-  mapM_ (mark desktop $ emptyWorkspace cfg) (allWs \\ nonEmpty)
+      pad = if workspacePad cfg then prefixSpace else id
+  mapM_ (mark desktop pad $ hiddenWorkspace cfg) nonEmptyWs
+  mapM_ (setBorderName desktop "hidden") nonEmptyWs
+  mapM_ (mark desktop pad $ emptyWorkspace cfg) (allWs \\ nonEmpty)
+  mapM_ (setBorderName desktop "empty") (allWs \\ nonEmpty)
   case wss of
     active:rest -> do
-      mark desktop (activeWorkspace cfg) active
-      mapM_ (mark desktop $ visibleWorkspace cfg) rest
+      mark desktop pad (activeWorkspace cfg) active
+      setBorderName desktop "active" active
+      mapM_ (mark desktop pad $ visibleWorkspace cfg) rest
+      mapM_ (setBorderName desktop "visible") rest
     _ -> return ()
-  mapM_ (mark desktop $ urgentWorkspace cfg) urgentWs
+  mapM_ (mark desktop pad $ urgentWorkspace cfg) urgentWs
+  mapM_ (setBorderName desktop "urgent") urgentWs
 
   let useImg = useImages cfg
       fillEmpty = fillEmptyImages cfg
@@ -397,16 +413,31 @@ getWindowSet wsIdxs = do
 -- | Apply the given marking function to the Label of the workspace with
 -- the given index.
 mark :: Desktop            -- ^ List of all available labels.
+     -> (String -> String) -- ^ Padding function.
      -> (String -> String) -- ^ Marking function.
      -> WorkspaceIdx       -- ^ Index of the Label to modify.
      -> IO ()
-mark desktop decorate wsIdx
+mark desktop pad decorate wsIdx
   | Just ws <- getWS desktop wsIdx =
-    Gtk.postGUIAsync $ Gtk.labelSetMarkup (label ws) $ decorate' (name ws)
+    Gtk.postGUIAsync $ Gtk.labelSetMarkup (label ws) $ pad $ decorate (name ws)
   | otherwise = return ()
-  where decorate' = pad . decorate
-        pad m | m == [] = m
-              | otherwise = ' ' : m
+
+-- | Prefix the string with a space unless the string is empty.
+prefixSpace :: String -> String
+prefixSpace "" = ""
+prefixSpace s = " " ++ s
+
+-- | Set the widget name of the frame to Workspace-<WORKSPACE_NAME>-<WORKSPACE_STATE>
+setBorderName :: Desktop -> String -> WorkspaceIdx -> IO ()
+setBorderName desktop workspaceState wsIdx = do
+  case frame workspace of
+    Just f -> Gtk.widgetSetName f (widgetName workspace)
+    Nothing -> return ()
+  where frame (Just ws) = border ws
+        frame Nothing = Nothing
+        workspace = getWS desktop wsIdx
+        widgetName (Just ws) = "Workspace-" ++ (name ws) ++ "-" ++ workspaceState
+        widgetName Nothing = ""
 
 -- | Switch to the workspace with the given index.
 switch :: (MonadIO m) => WorkspaceIdx -> m Bool
