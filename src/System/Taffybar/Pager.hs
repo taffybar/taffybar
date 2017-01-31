@@ -76,6 +76,7 @@ data PagerConfig = PagerConfig
   , preferCustomIcon :: Bool             -- ^ use custom icons over EWHMIcons
   , customIcon       :: String -> String -- ^ get icon based on window title and class
                      -> Maybe FilePath
+  , imageCount       :: Int
   }
 
 -- | Structure containing the state of the Pager.
@@ -103,6 +104,7 @@ defaultPagerConfig   = PagerConfig
   , fillEmptyImages  = False
   , preferCustomIcon = False
   , customIcon       = \_ _ -> Nothing
+  , imageCount       = 4
   }
 
 -- | Creates a new Pager component (wrapped in the IO Monad) that can be

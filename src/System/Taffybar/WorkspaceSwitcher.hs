@@ -47,7 +47,7 @@ import System.Information.EWMHDesktopInfo
 type Desktop = [Workspace]
 data Workspace = Workspace { container :: Gtk.HBox
                            , label     :: Gtk.Label
-                           , image     :: Gtk.Image
+                           , images    :: [Gtk.Image]
                            , border    :: Maybe Gtk.Frame
                            , name      :: String
                            , urgent    :: Bool
@@ -133,14 +133,16 @@ getDesktop pager = do
 createWorkspace :: Pager -> String -> IO Workspace
 createWorkspace _pager wname = do
   lbl <- createLabel wname
-  img <- Gtk.imageNew
-  container <- Gtk.hBoxNew False 0
-  Gtk.containerAdd container ws lbl
-  Gtk.containerAdd container $ img
-  frm <- if workspaceBorder (config _pager)
+  contents <- Gtk.hBoxNew False 0
+  let pconfig = config _pager
+      imagesToMake = (imageCount pconfig)
+  imgs <- mapM (\_ -> Gtk.imageNew) [1..imagesToMake]
+  Gtk.containerAdd contents lbl
+  mapM_ (Gtk.containerAdd contents) imgs
+  frm <- if workspaceBorder pconfig
            then fmap Just Gtk.frameNew
            else return Nothing
-  return $ Workspace container lbl img frm wname False
+  return $ Workspace contents lbl imgs frm wname False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
@@ -288,10 +290,10 @@ updateImages :: Desktop -> Int -> Bool -> Bool -> CustomIconF -> IO ()
 updateImages desktop imgSize fillEmpty preferCustom customIconF = do
   windowSet <- getWindowSet (allWorkspaces desktop)
   windowInfo <- getWindowInfoByWS windowSet
-  let images = map image desktop
+  let imageSets = map images desktop
       fillColor = if fillEmpty then Just (0, 0, 0, 0) else Nothing
       imageChoices = getImageChoices windowInfo customIconF fillColor imgSize
-  zipWithM_ (setImage imgSize preferCustom) images (map last imageChoices)
+  zipWithM_ (setImages imgSize preferCustom) imageSets $ map reverse imageChoices
 
 -- | Get EWMHIcons, custom icon files, and fill colors based on the window info.
 getImageChoices :: [[WindowInfo]] -> CustomIconF -> Maybe ColorRGBA -> Int -> [[ImageChoice]]
@@ -310,6 +312,10 @@ selectEWMHIcon imgSize (_, _, icons) = listToMaybe prefIcon
         largestIcon = take 1 $ reverse sortedIcons
         prefIcon = smallestLargerIcon ++ largestIcon
         sortOn f = sortBy (comparing f)
+
+setImages :: Int -> Bool -> [Gtk.Image] -> [ImageChoice] -> IO ()
+setImages imgSize preferCustom images choices =
+  zipWithM_ (setImage imgSize preferCustom) images (choices ++ repeat (Nothing, Nothing, Nothing))
 
 -- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
 setImage :: Int -> Bool -> Gtk.Image -> ImageChoice -> IO ()
