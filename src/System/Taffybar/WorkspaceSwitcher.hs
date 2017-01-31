@@ -104,10 +104,11 @@ wspaceSwitcherNew pager = do
   -- another thread
   let cfg = config pager
       activecb = activeCallback cfg deskRef
+      activefastcb = activeFastCallback cfg deskRef
       redrawcb = redrawCallback pager deskRef switcher
       urgentcb = urgentCallback cfg deskRef
   subscribe pager activecb "_NET_CURRENT_DESKTOP"
-  subscribe pager activecb "_NET_WM_DESKTOP"
+  subscribe pager activefastcb "_NET_WM_DESKTOP"
   subscribe pager redrawcb "_NET_DESKTOP_NAMES"
   subscribe pager redrawcb "_NET_NUMBER_OF_DESKTOPS"
   subscribe pager urgentcb "WM_HINTS"
@@ -172,6 +173,19 @@ activeCallback cfg deskRef _ = Gtk.postGUIAsync $ do
     visible : _ | Just ws <- getWS desktop visible -> do
       when (urgent ws) $ toggleUrgent deskRef visible False
       transition cfg True desktop curr
+    _ -> return ()
+
+-- | Build a suitable callback function that can be registered as Listener
+-- of "_NET_WM_DESKTOP" standard events. It will track the position of
+-- the active workspace in the desktop. It skips updating images.
+activeFastCallback :: PagerConfig -> MV.MVar Desktop -> Event -> IO ()
+activeFastCallback cfg deskRef _ = Gtk.postGUIAsync $ do
+  curr <- withDefaultCtx getVisibleWorkspaces
+  desktop <- MV.readMVar deskRef
+  case curr of
+    visible : _ | Just ws <- getWS desktop visible -> do
+      when (urgent ws) $ toggleUrgent deskRef visible False
+      transition cfg False desktop curr
     _ -> return ()
 
 -- | Build a suitable callback function that can be registered as Listener
