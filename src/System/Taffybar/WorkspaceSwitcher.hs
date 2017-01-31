@@ -313,17 +313,27 @@ selectEWMHIcon imgSize (_, _, icons) = listToMaybe prefIcon
 
 -- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
 setImage :: Int -> Bool -> Gtk.Image -> ImageChoice -> IO ()
-setImage imgSize preferCustom img imgChoice = setImgAct imgChoice preferCustom
-  where setImgAct (_, Just file, _) True = setImageFromFile img imgSize file
-        setImgAct (Just icon, _, _) _    = setImageFromEWMHIcon img imgSize icon
-        setImgAct (_, Just file, _) _    = setImageFromFile img imgSize file
-        setImgAct (_, _, Just color) _   = setImageFromColor img imgSize color
-        setImgAct _ _                    = Gtk.imageClear img
+setImage imgSize preferCustom img imgChoice =
+  case getPixBuf imgSize preferCustom imgChoice of
+    Just getPixbuf -> do
+      pixbuf <- getPixbuf
+      scaledPixbuf <- scalePixbuf imgSize pixbuf
+      Gtk.imageSetFromPixbuf img scaledPixbuf
+    Nothing -> Gtk.imageClear img
+
+-- | Get the appropriate image given an ImageChoice value
+getPixBuf :: Int -> Bool -> ImageChoice -> Maybe (IO Gtk.Pixbuf)
+getPixBuf imgSize preferCustom imgChoice = gpb imgChoice preferCustom
+  where gpb (_, Just file, _) True = Just $ pixBufFromFile imgSize file
+        gpb (Just icon, _, _) _    = Just $ pixBufFromEWMHIcon icon
+        gpb (_, Just file, _) _    = Just $ pixBufFromFile imgSize file
+        gpb (_, _, Just color) _   = Just $ pixBufFromColor imgSize color
+        gpb _ _                    = Nothing
 
 -- | Create a pixbuf from the pixel data in an EWMHIcon,
 -- scale it square, and set it in a GTK Image.
-setImageFromEWMHIcon :: Gtk.Image -> Int -> EWMHIcon -> IO ()
-setImageFromEWMHIcon img imgSize EWMHIcon {width=w, height=h, pixelsARGB=px} = do
+pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
+pixBufFromEWMHIcon EWMHIcon {width=w, height=h, pixelsARGB=px} = do
   let pixelsPerRow = w
       bytesPerPixel = 4
       rowStride = pixelsPerRow * bytesPerPixel
@@ -332,29 +342,23 @@ setImageFromEWMHIcon img imgSize EWMHIcon {width=w, height=h, pixelsARGB=px} = d
       colorspace = Gtk.ColorspaceRgb
       bytesRGBA = pixelsARGBToBytesRGBA px
   cPtr <- newArray $ map CUChar bytesRGBA
-  pixbuf <- Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
-  scaledPixbuf <- scalePixbuf imgSize pixbuf
-  Gtk.imageSetFromPixbuf img scaledPixbuf
+  Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
 
 -- | Create a pixbuf from a file,
 -- scale it square, and set it in a GTK Image.
-setImageFromFile :: Gtk.Image -> Int -> FilePath -> IO ()
-setImageFromFile img imgSize file = do
-  pixbuf <- Gtk.pixbufNewFromFileAtScale file imgSize imgSize False
-  scaledPixbuf <- scalePixbuf imgSize pixbuf
-  Gtk.imageSetFromPixbuf img scaledPixbuf
+pixBufFromFile :: Int -> FilePath -> IO Gtk.Pixbuf
+pixBufFromFile imgSize file = Gtk.pixbufNewFromFileAtScale file imgSize imgSize False
 
 -- | Create a pixbuf with the indicated RGBA color,
 -- scale it square, and set it in a GTK Image.
-setImageFromColor :: Gtk.Image -> Int -> ColorRGBA -> IO ()
-setImageFromColor img imgSize (r,g,b,a) = do
+pixBufFromColor :: Int -> ColorRGBA -> IO Gtk.Pixbuf
+pixBufFromColor imgSize (r,g,b,a) = do
   let sampleBits = 8
       hasAlpha = True
       colorspace = Gtk.ColorspaceRgb
   pixbuf <- Gtk.pixbufNew colorspace hasAlpha sampleBits imgSize imgSize
   Gtk.pixbufFill pixbuf r g b a
-  scaledPixbuf <- scalePixbuf imgSize pixbuf
-  Gtk.imageSetFromPixbuf img scaledPixbuf
+  return pixbuf
 
 -- | Take the passed in pixbuf and ensure its scaled square.
 scalePixbuf :: Int -> Gtk.Pixbuf -> IO Gtk.Pixbuf
