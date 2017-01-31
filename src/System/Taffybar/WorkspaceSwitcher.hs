@@ -108,6 +108,7 @@ wspaceSwitcherNew pager = do
       redrawcb = redrawCallback pager deskRef switcher
       urgentcb = urgentCallback cfg deskRef
   subscribe pager activecb "_NET_CURRENT_DESKTOP"
+  subscribe pager activecb "_NET_WM_DESKTOP"
   subscribe pager redrawcb "_NET_DESKTOP_NAMES"
   subscribe pager redrawcb "_NET_NUMBER_OF_DESKTOPS"
   subscribe pager urgentcb "WM_HINTS"
