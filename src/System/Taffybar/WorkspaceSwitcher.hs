@@ -171,7 +171,7 @@ activeCallback cfg deskRef _ = Gtk.postGUIAsync $ do
   case curr of
     visible : _ | Just ws <- getWS desktop visible -> do
       when (urgent ws) $ toggleUrgent deskRef visible False
-      transition cfg desktop curr
+      transition cfg True desktop curr
     _ -> return ()
 
 -- | Build a suitable callback function that can be registered as Listener
@@ -255,10 +255,11 @@ addButton hbox desktop idx
 
 -- | Re-mark all workspace labels.
 transition :: PagerConfig    -- ^ Configuration settings.
+           -> Bool           -- ^ Update images as well
            -> Desktop        -- ^ All available Labels with their default values.
            -> [WorkspaceIdx] -- ^ Currently visible workspaces (first is active).
            -> IO ()
-transition cfg desktop wss = do
+transition cfg updateImgs desktop wss = do
   nonEmpty <- fmap (filter (>=WSIdx 0)) nonEmptyWorkspaces
   let urgentWs = map WSIdx $ findIndices urgent desktop
       allWs    = (allWorkspaces desktop) \\ urgentWs
@@ -278,7 +279,7 @@ transition cfg desktop wss = do
   mapM_ (mark desktop pad $ urgentWorkspace cfg) urgentWs
   mapM_ (setBorderName desktop "urgent") urgentWs
 
-  let useImg = useImages cfg
+  let useImg = updateImgs && useImages cfg
       fillEmpty = fillEmptyImages cfg
       imgSize = imageSize cfg
       customIconF = customIcon cfg
