@@ -247,7 +247,7 @@ addButton hbox desktop idx
       Just f -> do
         Gtk.containerAdd f $ container ws
         Gtk.containerAdd ebox f
-      Nothing -> Gtk.containerAdd ebox container
+      Nothing -> Gtk.containerAdd ebox $ container ws
     Gtk.boxPackStart hbox ebox Gtk.PackNatural 0
   | otherwise = return ()
 
