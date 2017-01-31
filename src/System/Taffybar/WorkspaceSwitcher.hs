@@ -45,11 +45,12 @@ import System.Taffybar.Pager
 import System.Information.EWMHDesktopInfo
 
 type Desktop = [Workspace]
-data Workspace = Workspace { label  :: Gtk.Label
-                           , image  :: Gtk.Image
-                           , border :: Maybe Gtk.Frame
-                           , name   :: String
-                           , urgent :: Bool
+data Workspace = Workspace { container :: Gtk.HBox
+                           , label     :: Gtk.Label
+                           , image     :: Gtk.Image
+                           , border    :: Maybe Gtk.Frame
+                           , name      :: String
+                           , urgent    :: Bool
                            }
 type WindowSet = [(WorkspaceIdx, [X11Window])]
 type WindowInfo = (String, String, [EWMHIcon])
@@ -133,10 +134,13 @@ createWorkspace :: Pager -> String -> IO Workspace
 createWorkspace _pager wname = do
   lbl <- createLabel wname
   img <- Gtk.imageNew
+  container <- Gtk.hBoxNew False 0
+  Gtk.containerAdd container ws lbl
+  Gtk.containerAdd container $ img
   frm <- if workspaceBorder (config _pager)
            then fmap Just Gtk.frameNew
            else return Nothing
-  return $ Workspace lbl img frm wname False
+  return $ Workspace container lbl img frm wname False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
@@ -227,7 +231,6 @@ addButton :: Gtk.BoxClass self
           -> IO ()
 addButton hbox desktop idx
   | Just ws <- getWS desktop idx = do
-    let lbl = label ws
     let frm = border ws
     ebox <- Gtk.eventBoxNew
     Gtk.widgetSetName ebox $ name ws
@@ -240,12 +243,9 @@ addButton hbox desktop idx
         Gtk.ScrollLeft  -> switchOne True (length desktop - 1)
         Gtk.ScrollDown  -> switchOne False (length desktop - 1)
         Gtk.ScrollRight -> switchOne False (length desktop - 1)
-    container <- Gtk.hBoxNew False 0
-    Gtk.containerAdd container lbl
-    Gtk.containerAdd container $ image ws
     case frm of
       Just f -> do
-        Gtk.containerAdd f container
+        Gtk.containerAdd f $ container ws
         Gtk.containerAdd ebox f
       Nothing -> Gtk.containerAdd ebox container
     Gtk.boxPackStart hbox ebox Gtk.PackNatural 0
