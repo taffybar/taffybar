@@ -31,7 +31,7 @@ import qualified Control.Concurrent.MVar as MV
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List ((\\), findIndices, sortBy)
-import Data.Maybe (listToMaybe)
+import Data.Maybe
 import Data.Ord (comparing)
 import Data.Word (Word8)
 import Foreign.C.Types (CUChar(..))
@@ -45,7 +45,8 @@ import System.Taffybar.Pager
 import System.Information.EWMHDesktopInfo
 
 type Desktop = [Workspace]
-data Workspace = Workspace { container :: Gtk.HBox
+data Workspace = Workspace { button    :: Gtk.EventBox
+                           , container :: Gtk.HBox
                            , label     :: Gtk.Label
                            , images    :: [Gtk.Image]
                            , border    :: Maybe Gtk.Frame
@@ -136,6 +137,7 @@ createWorkspace :: Pager -> String -> IO Workspace
 createWorkspace _pager wname = do
   lbl <- createLabel wname
   contents <- Gtk.hBoxNew False 0
+  ebox <- Gtk.eventBoxNew
   let pconfig = config _pager
       imagesToMake = (imageCount pconfig)
   imgs <- mapM (\_ -> Gtk.imageNew) [1..imagesToMake]
@@ -144,7 +146,7 @@ createWorkspace _pager wname = do
   frm <- if workspaceBorder pconfig
            then fmap Just Gtk.frameNew
            else return Nothing
-  return $ Workspace contents lbl imgs frm wname False
+  return $ Workspace ebox contents lbl imgs frm wname False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
@@ -224,7 +226,7 @@ redrawCallback pager deskRef box _ = Gtk.postGUIAsync $ do
 
 -- | Remove all children of a container.
 containerClear :: Gtk.ContainerClass self => self -> IO ()
-containerClear container = Gtk.containerForeach container (Gtk.containerRemove container)
+containerClear cont = Gtk.containerForeach cont (Gtk.containerRemove cont)
 
 -- | Create a label widget from the given String.
 createLabel :: String -> IO Gtk.Label
@@ -249,9 +251,7 @@ addButton :: Gtk.BoxClass self
 addButton hbox desktop idx
   | Just ws <- getWS desktop idx = do
     let frm = border ws
-    ebox <- Gtk.eventBoxNew
-    Gtk.widgetSetName ebox $ name ws
-    Gtk.eventBoxSetVisibleWindow ebox False
+        ebox = button ws
     _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch idx
     _ <- Gtk.on ebox Gtk.scrollEvent $ do
       dir <- Gtk.eventScrollDirection
@@ -276,23 +276,26 @@ transition :: PagerConfig    -- ^ Configuration settings.
            -> IO ()
 transition cfg updateImgs desktop wss = do
   nonEmpty <- fmap (filter (>=WSIdx 0)) nonEmptyWorkspaces
+
   let urgentWs = map WSIdx $ findIndices urgent desktop
       allWs    = (allWorkspaces desktop) \\ urgentWs
       nonEmptyWs = nonEmpty \\ urgentWs
       pad = if workspacePad cfg then prefixSpace else id
+
   mapM_ (mark desktop pad $ hiddenWorkspace cfg) nonEmptyWs
-  mapM_ (setBorderName desktop "hidden") nonEmptyWs
+  mapM_ (setWidgetNamesByIndex desktop "hidden") nonEmptyWs
   mapM_ (mark desktop pad $ emptyWorkspace cfg) (allWs \\ nonEmpty)
-  mapM_ (setBorderName desktop "empty") (allWs \\ nonEmpty)
+  mapM_ (setWidgetNamesByIndex desktop "empty") (allWs \\ nonEmpty)
+
   case wss of
     active:rest -> do
       mark desktop pad (activeWorkspace cfg) active
-      setBorderName desktop "active" active
+      setWidgetNamesByIndex desktop "active" active
       mapM_ (mark desktop pad $ visibleWorkspace cfg) rest
-      mapM_ (setBorderName desktop "visible") rest
+      mapM_ (setWidgetNamesByIndex desktop "visible") rest
     _ -> return ()
   mapM_ (mark desktop pad $ urgentWorkspace cfg) urgentWs
-  mapM_ (setBorderName desktop "urgent") urgentWs
+  mapM_ (setWidgetNamesByIndex desktop "urgent") urgentWs
 
   let useImg = updateImgs && useImages cfg
       fillEmpty = fillEmptyImages cfg
@@ -330,8 +333,8 @@ selectEWMHIcon imgSize (_, _, icons) = listToMaybe prefIcon
         sortOn f = sortBy (comparing f)
 
 setImages :: Int -> Bool -> [Gtk.Image] -> [ImageChoice] -> IO ()
-setImages imgSize preferCustom images choices =
-  zipWithM_ (setImage imgSize preferCustom) images (choices ++ repeat (Nothing, Nothing, Nothing))
+setImages imgSize preferCustom imgs choices =
+  zipWithM_ (setImage imgSize preferCustom) imgs (choices ++ repeat (Nothing, Nothing, Nothing))
 
 -- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
 setImage :: Int -> Bool -> Gtk.Image -> ImageChoice -> IO ()
@@ -441,16 +444,15 @@ prefixSpace "" = ""
 prefixSpace s = " " ++ s
 
 -- | Set the widget name of the frame to Workspace-<WORKSPACE_NAME>-<WORKSPACE_STATE>
-setBorderName :: Desktop -> String -> WorkspaceIdx -> IO ()
-setBorderName desktop workspaceState wsIdx = do
-  case frame workspace of
-    Just f -> Gtk.widgetSetName f (widgetName workspace)
-    Nothing -> return ()
-  where frame (Just ws) = border ws
-        frame Nothing = Nothing
-        workspace = getWS desktop wsIdx
-        widgetName (Just ws) = "Workspace-" ++ (name ws) ++ "-" ++ workspaceState
-        widgetName Nothing = ""
+setWidgetNamesByIndex :: Desktop -> String -> WorkspaceIdx -> IO ()
+setWidgetNamesByIndex desktop workspaceState wsIdx =
+  fromMaybe (return ()) $ setWidgetNames workspaceState <$> getWS desktop wsIdx
+
+setWidgetNames ::  String -> Workspace -> IO ()
+setWidgetNames state workspace = do
+  fromMaybe (return ()) $ fmap (flip Gtk.widgetSetName widgetName) $ border workspace
+  Gtk.widgetSetName (button workspace) widgetName
+    where widgetName = "Workspace-" ++ (name workspace) ++ "-" ++ state
 
 -- | Switch to the workspace with the given index.
 switch :: (MonadIO m) => WorkspaceIdx -> m Bool
