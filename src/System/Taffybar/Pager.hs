@@ -77,6 +77,7 @@ data PagerConfig = PagerConfig
   , customIcon       :: String -> String -- ^ get icon based on window title and class
                      -> Maybe FilePath
   , imageCount       :: Int
+  , wsMinWidth       :: Int
   }
 
 -- | Structure containing the state of the Pager.
@@ -105,6 +106,7 @@ defaultPagerConfig   = PagerConfig
   , preferCustomIcon = False
   , customIcon       = \_ _ -> Nothing
   , imageCount       = 4
+  , wsMinWidth       = 64
   }
 
 -- | Creates a new Pager component (wrapped in the IO Monad) that can be

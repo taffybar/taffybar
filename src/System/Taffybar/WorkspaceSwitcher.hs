@@ -37,6 +37,7 @@ import Data.Word (Word8)
 import Foreign.C.Types (CUChar(..))
 import Foreign.Marshal.Array (newArray)
 import qualified Graphics.UI.Gtk as Gtk
+import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import Graphics.X11.Xlib.Extras
 
 import Prelude
@@ -303,6 +304,15 @@ transition cfg updateImgs desktop wss = do
       customIconF = customIcon cfg
       preferCustom = preferCustomIcon cfg
   when useImg $ updateImages desktop imgSize fillEmpty preferCustom customIconF
+
+  mapM_ (flip updateMinSize $ wsMinWidth cfg) desktop
+
+updateMinSize :: Workspace -> Int -> IO ()
+updateMinSize workspace minWidth = do
+  let ebox = button workspace
+  W.widgetSetSizeRequest ebox (-1) (-1)
+  W.Requisition w _ <- W.widgetSizeRequest ebox
+  when (w < minWidth) $ W.widgetSetSizeRequest ebox minWidth  $ -1
 
 -- | Update the GTK images using X properties.
 updateImages :: Desktop -> Int -> Bool -> Bool -> CustomIconF -> IO ()
