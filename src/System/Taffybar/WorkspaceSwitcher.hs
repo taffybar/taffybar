@@ -154,8 +154,8 @@ createWorkspace _pager wname = do
   frm <- if workspaceBorder pconfig
            then fmap Just Gtk.frameNew
            else return Nothing
-  T.tableAttachDefaults t contents 0 1 0 1
-  T.tableAttachDefaults t u 0 1 1 2
+  T.tableAttach t contents 0 1 0 1 [T.Expand] [T.Expand] 0 0
+  T.tableAttach t u 0 1 1 2 [T.Fill] [T.Shrink] 1 0
   return $ Workspace ebox contents u t lbl imgs frm wname False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
