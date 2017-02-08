@@ -26,33 +26,40 @@ module System.Taffybar.WorkspaceSwitcher (
   wspaceSwitcherNew
 ) where
 
-import Control.Applicative
+import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
-import Control.Monad
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.List ((\\), findIndices, sortBy)
-import Data.Maybe (listToMaybe)
-import Data.Ord (comparing)
-import Data.Word (Word8)
-import Foreign.C.Types (CUChar(..))
-import Foreign.Marshal.Array (newArray)
+import           Control.Monad
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Data.List ((\\), findIndices, sortBy)
+import           Data.Maybe
+import           Data.Ord (comparing)
+import           Data.Word (Word8)
+import           Foreign.C.Types (CUChar(..))
+import           Foreign.Marshal.Array (newArray)
 import qualified Graphics.UI.Gtk as Gtk
-import Graphics.X11.Xlib.Extras
+import qualified Graphics.UI.Gtk.Abstract.Widget as W
+import qualified Graphics.UI.Gtk.Layout.Table as T
+import           Graphics.X11.Xlib.Extras
 
-import Prelude
+import           Prelude
 
-import System.Taffybar.Pager
-import System.Information.EWMHDesktopInfo
+import           System.Taffybar.Pager
+import           System.Information.EWMHDesktopInfo
+
 
 type Desktop = [Workspace]
-data Workspace = Workspace { label  :: Gtk.Label
-                           , image  :: Gtk.Image
-                           , border :: Maybe Gtk.Frame
-                           , name   :: String
-                           , urgent :: Bool
+data Workspace = Workspace { button    :: Gtk.EventBox
+                           , container :: Gtk.HBox
+                           , underline :: Gtk.EventBox
+                           , table     :: T.Table
+                           , label     :: Gtk.Label
+                           , images    :: [Gtk.Image]
+                           , border    :: Maybe Gtk.Frame
+                           , name      :: String
+                           , urgent    :: Bool
                            }
 type WindowSet = [(WorkspaceIdx, [X11Window])]
-type WindowInfo = Maybe (String, String, [EWMHIcon])
+type WindowInfo = (String, String, [EWMHIcon])
 type ColorRGBA = (Word8, Word8, Word8, Word8)
 type CustomIconF = String -> String -> Maybe FilePath
 type ImageChoice = (Maybe EWMHIcon, Maybe FilePath, Maybe ColorRGBA)
@@ -104,10 +111,11 @@ wspaceSwitcherNew pager = do
   -- another thread
   let cfg = config pager
       activecb = activeCallback cfg deskRef
+      activefastcb = activeFastCallback cfg deskRef
       redrawcb = redrawCallback pager deskRef switcher
       urgentcb = urgentCallback cfg deskRef
   subscribe pager activecb "_NET_CURRENT_DESKTOP"
-  subscribe pager activecb "_NET_WM_DESKTOP"
+  subscribe pager activefastcb "_NET_WM_DESKTOP"
   subscribe pager redrawcb "_NET_DESKTOP_NAMES"
   subscribe pager redrawcb "_NET_NUMBER_OF_DESKTOPS"
   subscribe pager urgentcb "WM_HINTS"
@@ -125,7 +133,7 @@ nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 -- | Return a list of Workspace data instances.
 getDesktop :: Pager -> IO Desktop
 getDesktop pager = do
-  names  <- map snd <$> withDefaultCtx getWorkspaceNames
+  names <- map snd <$> withDefaultCtx getWorkspaceNames
   mapM (createWorkspace pager) names
 
 -- | Return a Workspace data instance, with the unmarked name,
@@ -133,11 +141,22 @@ getDesktop pager = do
 createWorkspace :: Pager -> String -> IO Workspace
 createWorkspace _pager wname = do
   lbl <- createLabel wname
-  img <- Gtk.imageNew
-  frm <- if workspaceBorder (config _pager)
+  contents <- Gtk.hBoxNew False 0
+  ebox <- Gtk.eventBoxNew
+  let pconfig = config _pager
+      imagesToMake = (imageCount pconfig)
+  imgs <- mapM (\_ -> Gtk.imageNew) [1..imagesToMake]
+  Gtk.containerAdd contents lbl
+  mapM_ (Gtk.containerAdd contents) imgs
+  t <- T.tableNew 2 1 False
+  u <- Gtk.eventBoxNew
+  W.widgetSetSizeRequest u (-1) 3
+  frm <- if workspaceBorder pconfig
            then fmap Just Gtk.frameNew
            else return Nothing
-  return $ Workspace lbl img frm wname False
+  T.tableAttach t contents 0 1 0 1 [T.Expand] [T.Expand] 0 0
+  T.tableAttach t u 0 1 1 2 [T.Fill] [T.Shrink] 1 0
+  return $ Workspace ebox contents u t lbl imgs frm wname False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
@@ -171,7 +190,20 @@ activeCallback cfg deskRef _ = Gtk.postGUIAsync $ do
   case curr of
     visible : _ | Just ws <- getWS desktop visible -> do
       when (urgent ws) $ toggleUrgent deskRef visible False
-      transition cfg desktop curr
+      transition cfg True desktop curr
+    _ -> return ()
+
+-- | Build a suitable callback function that can be registered as Listener
+-- of "_NET_WM_DESKTOP" standard events. It will track the position of
+-- the active workspace in the desktop. It skips updating images.
+activeFastCallback :: PagerConfig -> MV.MVar Desktop -> Event -> IO ()
+activeFastCallback cfg deskRef _ = Gtk.postGUIAsync $ do
+  curr <- withDefaultCtx getVisibleWorkspaces
+  desktop <- MV.readMVar deskRef
+  case curr of
+    visible : _ | Just ws <- getWS desktop visible -> do
+      when (urgent ws) $ toggleUrgent deskRef visible False
+      transition cfg False desktop curr
     _ -> return ()
 
 -- | Build a suitable callback function that can be registered as Listener
@@ -204,7 +236,7 @@ redrawCallback pager deskRef box _ = Gtk.postGUIAsync $ do
 
 -- | Remove all children of a container.
 containerClear :: Gtk.ContainerClass self => self -> IO ()
-containerClear container = Gtk.containerForeach container (Gtk.containerRemove container)
+containerClear cont = Gtk.containerForeach cont (Gtk.containerRemove cont)
 
 -- | Create a label widget from the given String.
 createLabel :: String -> IO Gtk.Label
@@ -228,12 +260,8 @@ addButton :: Gtk.BoxClass self
           -> IO ()
 addButton hbox desktop idx
   | Just ws <- getWS desktop idx = do
-    let lbl = label ws
-    let img = image ws
     let frm = border ws
-    ebox <- Gtk.eventBoxNew
-    Gtk.widgetSetName ebox $ name ws
-    Gtk.eventBoxSetVisibleWindow ebox False
+        ebox = button ws
     _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch idx
     _ <- Gtk.on ebox Gtk.scrollEvent $ do
       dir <- Gtk.eventScrollDirection
@@ -242,95 +270,114 @@ addButton hbox desktop idx
         Gtk.ScrollLeft  -> switchOne True (length desktop - 1)
         Gtk.ScrollDown  -> switchOne False (length desktop - 1)
         Gtk.ScrollRight -> switchOne False (length desktop - 1)
-    container <- Gtk.hBoxNew False 0
-    Gtk.containerAdd container lbl
-    Gtk.containerAdd container img
     case frm of
       Just f -> do
-        Gtk.containerAdd f container
+        Gtk.containerAdd f $ table ws
         Gtk.containerAdd ebox f
-      Nothing -> Gtk.containerAdd ebox container
+      Nothing -> Gtk.containerAdd ebox $ table ws
     Gtk.boxPackStart hbox ebox Gtk.PackNatural 0
   | otherwise = return ()
 
 -- | Re-mark all workspace labels.
 transition :: PagerConfig    -- ^ Configuration settings.
+           -> Bool           -- ^ Update images as well
            -> Desktop        -- ^ All available Labels with their default values.
            -> [WorkspaceIdx] -- ^ Currently visible workspaces (first is active).
            -> IO ()
-transition cfg desktop wss = do
+transition cfg updateImgs desktop wss = do
   nonEmpty <- fmap (filter (>=WSIdx 0)) nonEmptyWorkspaces
+
   let urgentWs = map WSIdx $ findIndices urgent desktop
       allWs    = (allWorkspaces desktop) \\ urgentWs
       nonEmptyWs = nonEmpty \\ urgentWs
       pad = if workspacePad cfg then prefixSpace else id
+
   mapM_ (mark desktop pad $ hiddenWorkspace cfg) nonEmptyWs
-  mapM_ (setBorderName desktop "hidden") nonEmptyWs
+  mapM_ (setWidgetNamesByIndex desktop "hidden") nonEmptyWs
   mapM_ (mark desktop pad $ emptyWorkspace cfg) (allWs \\ nonEmpty)
-  mapM_ (setBorderName desktop "empty") (allWs \\ nonEmpty)
+  mapM_ (setWidgetNamesByIndex desktop "empty") (allWs \\ nonEmpty)
+
   case wss of
     active:rest -> do
       mark desktop pad (activeWorkspace cfg) active
-      setBorderName desktop "active" active
+      setWidgetNamesByIndex desktop "active" active
       mapM_ (mark desktop pad $ visibleWorkspace cfg) rest
-      mapM_ (setBorderName desktop "visible") rest
+      mapM_ (setWidgetNamesByIndex desktop "visible") rest
     _ -> return ()
   mapM_ (mark desktop pad $ urgentWorkspace cfg) urgentWs
-  mapM_ (setBorderName desktop "urgent") urgentWs
+  mapM_ (setWidgetNamesByIndex desktop "urgent") urgentWs
 
-  let useImg = useImages cfg
+  let useImg = updateImgs && useImages cfg
       fillEmpty = fillEmptyImages cfg
       imgSize = imageSize cfg
       customIconF = customIcon cfg
       preferCustom = preferCustomIcon cfg
   when useImg $ updateImages desktop imgSize fillEmpty preferCustom customIconF
 
+  mapM_ (flip updateMinSize $ wsMinWidth cfg) desktop
+
+updateMinSize :: Workspace -> Int -> IO ()
+updateMinSize workspace minWidth = do
+  let ebox = button workspace
+  W.widgetSetSizeRequest ebox (-1) (-1)
+  W.Requisition w _ <- W.widgetSizeRequest ebox
+  when (w < minWidth) $ W.widgetSetSizeRequest ebox minWidth  $ -1
+
 -- | Update the GTK images using X properties.
 updateImages :: Desktop -> Int -> Bool -> Bool -> CustomIconF -> IO ()
 updateImages desktop imgSize fillEmpty preferCustom customIconF = do
   windowSet <- getWindowSet (allWorkspaces desktop)
-  lastWinInfo <- getLastWindowInfo windowSet
-  let images = map image desktop
+  windowInfo <- getWindowInfoByWS windowSet
+  let imageSets = map images desktop
       fillColor = if fillEmpty then Just (0, 0, 0, 0) else Nothing
-      imageChoices = getImageChoices lastWinInfo customIconF fillColor imgSize
-  zipWithM_ (setImage imgSize preferCustom) images imageChoices
+      imageChoices = getImageChoices windowInfo customIconF fillColor imgSize
+  zipWithM_ (setImages imgSize preferCustom) imageSets $ map reverse imageChoices
 
 -- | Get EWMHIcons, custom icon files, and fill colors based on the window info.
-getImageChoices :: [WindowInfo] -> CustomIconF -> Maybe ColorRGBA -> Int -> [ImageChoice]
-getImageChoices lastWinInfo customIconF fillColor imgSize = zip3 icons files colors
-  where icons = map (selectEWMHIcon imgSize) lastWinInfo
-        files = map (selectCustomIconFile customIconF) lastWinInfo
-        colors = map (\_ -> fillColor) lastWinInfo
+getImageChoices :: [[WindowInfo]] -> CustomIconF -> Maybe ColorRGBA -> Int -> [[ImageChoice]]
+getImageChoices windowInfo customIconF fillColor imgSize = map (map getImageInfo) windowInfo
+  where getImageInfo winfo = ( selectEWMHIcon imgSize winfo
+                             , case winfo of
+                                 (wTitle, wClass, _) -> customIconF wTitle wClass
+                             , fillColor)
 
 -- | Select the icon with the smallest height that is larger than imgSize,
 -- or if none such icons exist, select the icon with the largest height.
 selectEWMHIcon :: Int -> WindowInfo -> Maybe EWMHIcon
-selectEWMHIcon imgSize (Just (_, _, icons)) = listToMaybe prefIcon
+selectEWMHIcon imgSize (_, _, icons) = listToMaybe prefIcon
   where sortedIcons = sortOn height icons
         smallestLargerIcon = take 1 $ dropWhile ((<=imgSize).height) sortedIcons
         largestIcon = take 1 $ reverse sortedIcons
         prefIcon = smallestLargerIcon ++ largestIcon
         sortOn f = sortBy (comparing f)
-selectEWMHIcon _ _ = Nothing
 
--- | Select a file using customIcon config.
-selectCustomIconFile :: CustomIconF -> WindowInfo -> Maybe FilePath
-selectCustomIconFile customIconF (Just (wTitle, wClass, _)) = customIconF wTitle wClass
-selectCustomIconFile _ _ = Nothing
+setImages :: Int -> Bool -> [Gtk.Image] -> [ImageChoice] -> IO ()
+setImages imgSize preferCustom imgs choices =
+  zipWithM_ (setImage imgSize preferCustom) imgs (choices ++ repeat (Nothing, Nothing, Nothing))
 
 -- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
 setImage :: Int -> Bool -> Gtk.Image -> ImageChoice -> IO ()
-setImage imgSize preferCustom img imgChoice = setImgAct imgChoice preferCustom
-  where setImgAct (_, Just file, _) True = setImageFromFile img imgSize file
-        setImgAct (Just icon, _, _) _    = setImageFromEWMHIcon img imgSize icon
-        setImgAct (_, Just file, _) _    = setImageFromFile img imgSize file
-        setImgAct (_, _, Just color) _   = setImageFromColor img imgSize color
-        setImgAct _ _                    = Gtk.imageClear img
+setImage imgSize preferCustom img imgChoice =
+  case getPixBuf imgSize preferCustom imgChoice of
+    Just getPixbuf -> do
+      pixbuf <- getPixbuf
+      scaledPixbuf <- scalePixbuf imgSize pixbuf
+      Gtk.imageSetFromPixbuf img scaledPixbuf
+    Nothing -> Gtk.imageClear img
+
+-- | Get the appropriate image given an ImageChoice value
+getPixBuf :: Int -> Bool -> ImageChoice -> Maybe (IO Gtk.Pixbuf)
+getPixBuf imgSize preferCustom imgChoice = gpb imgChoice preferCustom
+  where gpb (_, Just file, _) True = Just $ pixBufFromFile imgSize file
+        gpb (Just icon, _, _) _    = Just $ pixBufFromEWMHIcon icon
+        gpb (_, Just file, _) _    = Just $ pixBufFromFile imgSize file
+        gpb (_, _, Just color) _   = Just $ pixBufFromColor imgSize color
+        gpb _ _                    = Nothing
 
 -- | Create a pixbuf from the pixel data in an EWMHIcon,
 -- scale it square, and set it in a GTK Image.
-setImageFromEWMHIcon :: Gtk.Image -> Int -> EWMHIcon -> IO ()
-setImageFromEWMHIcon img imgSize EWMHIcon {width=w, height=h, pixelsARGB=px} = do
+pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
+pixBufFromEWMHIcon EWMHIcon {width=w, height=h, pixelsARGB=px} = do
   let pixelsPerRow = w
       bytesPerPixel = 4
       rowStride = pixelsPerRow * bytesPerPixel
@@ -339,29 +386,23 @@ setImageFromEWMHIcon img imgSize EWMHIcon {width=w, height=h, pixelsARGB=px} = d
       colorspace = Gtk.ColorspaceRgb
       bytesRGBA = pixelsARGBToBytesRGBA px
   cPtr <- newArray $ map CUChar bytesRGBA
-  pixbuf <- Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
-  scaledPixbuf <- scalePixbuf imgSize pixbuf
-  Gtk.imageSetFromPixbuf img scaledPixbuf
+  Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
 
 -- | Create a pixbuf from a file,
 -- scale it square, and set it in a GTK Image.
-setImageFromFile :: Gtk.Image -> Int -> FilePath -> IO ()
-setImageFromFile img imgSize file = do
-  pixbuf <- Gtk.pixbufNewFromFileAtScale file imgSize imgSize False
-  scaledPixbuf <- scalePixbuf imgSize pixbuf
-  Gtk.imageSetFromPixbuf img scaledPixbuf
+pixBufFromFile :: Int -> FilePath -> IO Gtk.Pixbuf
+pixBufFromFile imgSize file = Gtk.pixbufNewFromFileAtScale file imgSize imgSize False
 
 -- | Create a pixbuf with the indicated RGBA color,
 -- scale it square, and set it in a GTK Image.
-setImageFromColor :: Gtk.Image -> Int -> ColorRGBA -> IO ()
-setImageFromColor img imgSize (r,g,b,a) = do
+pixBufFromColor :: Int -> ColorRGBA -> IO Gtk.Pixbuf
+pixBufFromColor imgSize (r,g,b,a) = do
   let sampleBits = 8
       hasAlpha = True
       colorspace = Gtk.ColorspaceRgb
   pixbuf <- Gtk.pixbufNew colorspace hasAlpha sampleBits imgSize imgSize
   Gtk.pixbufFill pixbuf r g b a
-  scaledPixbuf <- scalePixbuf imgSize pixbuf
-  Gtk.imageSetFromPixbuf img scaledPixbuf
+  return pixbuf
 
 -- | Take the passed in pixbuf and ensure its scaled square.
 scalePixbuf :: Int -> Gtk.Pixbuf -> IO Gtk.Pixbuf
@@ -384,22 +425,16 @@ pixelsARGBToBytesRGBA (x:xs) = r:g:b:a:pixelsARGBToBytesRGBA xs
         toByte i = (fromIntegral i) :: Word8
 pixelsARGBToBytesRGBA _ = []
 
--- | Get window title, class, and icons for the last window in each workspace.
-getLastWindowInfo :: WindowSet -> IO [WindowInfo]
-getLastWindowInfo windowSet = mapM getWindowInfo lastWins
-  where wsIdxs = map fst windowSet
-        lastWins = map lastWin wsIdxs
-        wins wsIdx = snd $ head $ filter ((==wsIdx).fst) windowSet
-        lastWin wsIdx = listToMaybe $ reverse $ wins wsIdx
+getWindowInfoByWS :: WindowSet -> IO [[WindowInfo]]
+getWindowInfoByWS windowSet = mapM (mapM getWindowInfo) x11WindowsByWorkspace
+  where x11WindowsByWorkspace = map snd windowSet
 
--- | Get window title, class, and EWMHIcons for the given window.
-getWindowInfo :: Maybe X11Window -> IO WindowInfo
-getWindowInfo Nothing = return Nothing
-getWindowInfo (Just w) = withDefaultCtx $ do
+getWindowInfo :: X11Window -> IO WindowInfo
+getWindowInfo w = withDefaultCtx $ do
   wTitle <- getWindowTitle w
   wClass <- getWindowClass w
   wIcon <- getWindowIcons w
-  return $ Just (wTitle, wClass, wIcon)
+  return $ (wTitle, wClass, wIcon)
 
 -- | Get a list of windows for each workspace.
 getWindowSet :: [WorkspaceIdx] -> IO WindowSet
@@ -428,16 +463,16 @@ prefixSpace "" = ""
 prefixSpace s = " " ++ s
 
 -- | Set the widget name of the frame to Workspace-<WORKSPACE_NAME>-<WORKSPACE_STATE>
-setBorderName :: Desktop -> String -> WorkspaceIdx -> IO ()
-setBorderName desktop workspaceState wsIdx = do
-  case frame workspace of
-    Just f -> Gtk.widgetSetName f (widgetName workspace)
-    Nothing -> return ()
-  where frame (Just ws) = border ws
-        frame Nothing = Nothing
-        workspace = getWS desktop wsIdx
-        widgetName (Just ws) = "Workspace-" ++ (name ws) ++ "-" ++ workspaceState
-        widgetName Nothing = ""
+setWidgetNamesByIndex :: Desktop -> String -> WorkspaceIdx -> IO ()
+setWidgetNamesByIndex desktop workspaceState wsIdx =
+  fromMaybe (return ()) $ setWidgetNames workspaceState <$> getWS desktop wsIdx
+
+setWidgetNames ::  String -> Workspace -> IO ()
+setWidgetNames state workspace = do
+  Gtk.widgetSetName (button workspace) widgetName
+  Gtk.widgetSetName (underline workspace) underlineName
+    where widgetName = "Workspace-container" ++ (name workspace) ++ "-" ++ state
+          underlineName = "Workspace-underline" ++ (name workspace) ++ "-" ++ state
 
 -- | Switch to the workspace with the given index.
 switch :: (MonadIO m) => WorkspaceIdx -> m Bool
