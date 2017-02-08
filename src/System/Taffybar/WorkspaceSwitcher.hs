@@ -26,28 +26,32 @@ module System.Taffybar.WorkspaceSwitcher (
   wspaceSwitcherNew
 ) where
 
-import Control.Applicative
+import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
-import Control.Monad
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.List ((\\), findIndices, sortBy)
-import Data.Maybe
-import Data.Ord (comparing)
-import Data.Word (Word8)
-import Foreign.C.Types (CUChar(..))
-import Foreign.Marshal.Array (newArray)
+import           Control.Monad
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Data.List ((\\), findIndices, sortBy)
+import           Data.Maybe
+import           Data.Ord (comparing)
+import           Data.Word (Word8)
+import           Foreign.C.Types (CUChar(..))
+import           Foreign.Marshal.Array (newArray)
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
-import Graphics.X11.Xlib.Extras
+import qualified Graphics.UI.Gtk.Layout.Table as T
+import           Graphics.X11.Xlib.Extras
 
-import Prelude
+import           Prelude
 
-import System.Taffybar.Pager
-import System.Information.EWMHDesktopInfo
+import           System.Taffybar.Pager
+import           System.Information.EWMHDesktopInfo
+
 
 type Desktop = [Workspace]
 data Workspace = Workspace { button    :: Gtk.EventBox
                            , container :: Gtk.HBox
+                           , underline :: Gtk.EventBox
+                           , table     :: T.Table
                            , label     :: Gtk.Label
                            , images    :: [Gtk.Image]
                            , border    :: Maybe Gtk.Frame
@@ -129,7 +133,7 @@ nonEmptyWorkspaces = withDefaultCtx $ mapM getWorkspace =<< getWindows
 -- | Return a list of Workspace data instances.
 getDesktop :: Pager -> IO Desktop
 getDesktop pager = do
-  names  <- map snd <$> withDefaultCtx getWorkspaceNames
+  names <- map snd <$> withDefaultCtx getWorkspaceNames
   mapM (createWorkspace pager) names
 
 -- | Return a Workspace data instance, with the unmarked name,
@@ -144,10 +148,15 @@ createWorkspace _pager wname = do
   imgs <- mapM (\_ -> Gtk.imageNew) [1..imagesToMake]
   Gtk.containerAdd contents lbl
   mapM_ (Gtk.containerAdd contents) imgs
+  t <- T.tableNew 2 1 False
+  u <- Gtk.eventBoxNew
+  W.widgetSetSizeRequest u (-1) 3
   frm <- if workspaceBorder pconfig
            then fmap Just Gtk.frameNew
            else return Nothing
-  return $ Workspace ebox contents lbl imgs frm wname False
+  T.tableAttachDefaults t contents 0 1 0 1
+  T.tableAttachDefaults t u 0 1 1 2
+  return $ Workspace ebox contents u t lbl imgs frm wname False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
@@ -263,9 +272,9 @@ addButton hbox desktop idx
         Gtk.ScrollRight -> switchOne False (length desktop - 1)
     case frm of
       Just f -> do
-        Gtk.containerAdd f $ container ws
+        Gtk.containerAdd f $ table ws
         Gtk.containerAdd ebox f
-      Nothing -> Gtk.containerAdd ebox $ container ws
+      Nothing -> Gtk.containerAdd ebox $ table ws
     Gtk.boxPackStart hbox ebox Gtk.PackNatural 0
   | otherwise = return ()
 
@@ -460,9 +469,10 @@ setWidgetNamesByIndex desktop workspaceState wsIdx =
 
 setWidgetNames ::  String -> Workspace -> IO ()
 setWidgetNames state workspace = do
-  fromMaybe (return ()) $ fmap (flip Gtk.widgetSetName widgetName) $ border workspace
   Gtk.widgetSetName (button workspace) widgetName
-    where widgetName = "Workspace-" ++ (name workspace) ++ "-" ++ state
+  Gtk.widgetSetName (underline workspace) underlineName
+    where widgetName = "Workspace-container" ++ (name workspace) ++ "-" ++ state
+          underlineName = "Workspace-underline" ++ (name workspace) ++ "-" ++ state
 
 -- | Switch to the workspace with the given index.
 switch :: (MonadIO m) => WorkspaceIdx -> m Bool
