@@ -104,7 +104,7 @@ library
                  Paths_taffybar
 
   c-sources: src/gdk_property_change_wrapper.c
-
+  cc-options: -fPIC
   ghc-options: -Wall -funbox-strict-fields
 
 executable taffybar
