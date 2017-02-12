@@ -139,12 +139,15 @@ updateImages wcc ws = do
           then iconInfos_
           else (iconInfos_ ++ repeat IINone)
 
+
+  newImgs <- zipWithM setImageFromIO getImgs iconInfos
   putStrLn $
-    printf "Attempt to set %s icons for %s"
+    printf "Attempt to set %s icons for %s. len newImgs %s"
       (show (length $ windowIds ws))
       (show $ workspaceIdx ws)
-
-  zipWithM setImageFromIO getImgs iconInfos
+      (show $ length newImgs)
+  when newImagesNeeded $ Gtk.widgetShowAll $ container wcc
+  return newImgs
   where
     imgSize = windowIconSize $ contentsConfig wcc
     preferCustom = False
