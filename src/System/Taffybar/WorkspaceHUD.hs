@@ -29,6 +29,7 @@ module System.Taffybar.WorkspaceHUD (
 
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
+import           Control.Monad.IO.Class
 import qualified Data.Char as S
 import           Data.List
 import qualified Data.Map as M
@@ -141,11 +142,6 @@ updateImages wcc ws = do
 
 
   newImgs <- zipWithM setImageFromIO getImgs iconInfos
-  putStrLn $
-    printf "Attempt to set %s icons for %s. len newImgs %s"
-      (show (length $ windowIds ws))
-      (show $ workspaceIdx ws)
-      (show $ length newImgs)
   when newImagesNeeded $ Gtk.widgetShowAll $ container wcc
   return newImgs
   where
@@ -342,6 +338,11 @@ data WorkspaceButtonController =
                             , contentsController :: WWC
                             }
 
+switch :: (MonadIO m) => WorkspaceIdx -> m Bool
+switch idx = do
+  liftIO $ withDefaultCtx (switchToWorkspace idx)
+  return True
+
 instance WorkspaceWidgetController WorkspaceButtonController
   where
     getWidget wbc = Gtk.toWidget $ button wbc
@@ -359,6 +360,7 @@ buildButtonController contentsBuilder cfg workspace = do
   ebox <- Gtk.eventBoxNew
   cc <- contentsBuilder cfg workspace
   Gtk.containerAdd ebox $ getWidget cc
+  _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch $ workspaceIdx workspace
   return $ WWC WorkspaceButtonController { button = ebox
                                          , buttonWorkspace = workspace
                                          , contentsController = cc
@@ -425,3 +427,9 @@ updateMinSize minWidth widget = do
   W.widgetSetSizeRequest widget (-1) (-1)
   W.Requisition w _ <- W.widgetSizeRequest widget
   when (w < minWidth) $ W.widgetSetSizeRequest widget minWidth  $ -1
+
+-- TODO:
+-- * Handle urgent
+-- * Custom Files/Colors
+-- * Handle redraw for new workspace
+-- * scoll on button for switch
