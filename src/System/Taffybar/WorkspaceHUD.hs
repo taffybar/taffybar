@@ -67,9 +67,7 @@ class WorkspaceWidgetController wc where
   updateWidget :: wc -> Workspace -> IO wc
   getWidget :: wc -> Gtk.Widget
 
-data WWC =
-  forall a. WorkspaceWidgetController a =>
-            WWC a
+data WWC = forall a. WorkspaceWidgetController a => WWC a
 
 instance WorkspaceWidgetController WWC where
   getWidget (WWC wc) = getWidget wc
@@ -79,7 +77,7 @@ instance WorkspaceWidgetController WWC where
 data WorkspaceContentsController = WorkspaceContentsController
   { container :: Gtk.HBox
   , label :: Gtk.Label
-  , images :: [Gtk.Image]
+  , iconImages :: [Gtk.Image]
   , contentsWorkspace :: Workspace
   , contentsConfig :: WorkspaceHUDConfig
   }
@@ -92,7 +90,7 @@ buildContentsController cfg ws = do
   let tempController =
         WorkspaceContentsController { container = hbox
                                     , label = lbl
-                                    , images = []
+                                    , iconImages = []
                                     , contentsWorkspace =
                                       ws { windowIds = []
                                          , workspaceName = workspaceName ws ++ "fake"
@@ -105,6 +103,7 @@ instance WorkspaceWidgetController WorkspaceContentsController where
   getWidget cc = Gtk.toWidget $ container cc
   updateWidget cc newWorkspace = do
     let currentWorkspace = contentsWorkspace cc
+        cfg = contentsConfig cc
 
     when ((workspaceName currentWorkspace) /= (workspaceName newWorkspace)) $
          Gtk.labelSetMarkup (label cc) (workspaceName newWorkspace)
@@ -114,13 +113,22 @@ instance WorkspaceWidgetController WorkspaceContentsController where
       then
         updateImages cc newWorkspace
       else
-        return $ images cc
+        return $ iconImages cc
 
     Gtk.widgetSetName (container cc) $ getWidgetName newWorkspace "contents"
 
+    maybe (return ()) (updateMinSize $ Gtk.toWidget $ container cc) $
+          minWSWidgetSize cfg
+
     return cc { contentsWorkspace = newWorkspace
-              , images = newImages
+              , iconImages = newImages
               }
+
+updateMinSize :: Gtk.Widget -> Int  -> IO ()
+updateMinSize widget minWidth = do
+  W.widgetSetSizeRequest widget (-1) (-1)
+  W.Requisition w _ <- W.widgetSizeRequest widget
+  when (w < minWidth) $ W.widgetSetSizeRequest widget minWidth  $ -1
 
 getIconInfo :: WorkspaceHUDConfig -> X11Window -> IO IconInfo
 getIconInfo cfg w = do
@@ -140,10 +148,10 @@ updateImages wcc ws = do
           then iconInfos_
           else (iconInfos_ ++ repeat IINone)
 
-
   newImgs <- zipWithM setImageFromIO getImgs iconInfos
   when newImagesNeeded $ Gtk.widgetShowAll $ container wcc
   return newImgs
+
   where
     imgSize = windowIconSize $ contentsConfig wcc
     preferCustom = False
@@ -152,16 +160,19 @@ updateImages wcc ws = do
       setImage imgSize preferCustom img iconInfo
       return img
     infiniteImages =
-      (map return $ images wcc) ++
+      (map return $ iconImages wcc) ++
       (repeat $ do
          img <- Gtk.imageNew
          Gtk.containerAdd (container wcc) img
          return img)
-    newImagesNeeded = (length $ images wcc) < (length $ windowIds ws)
-    getImgs =
+    newImagesNeeded = (length $ iconImages wcc) < (length $ windowIds ws)
+    imgSrcs =
       if newImagesNeeded
         then infiniteImages
-        else (map return $ images wcc)
+        else (map return $ iconImages wcc)
+    getImgs = case maxIcons $ contentsConfig wcc of
+                Just theMax -> take theMax imgSrcs
+                Nothing -> imgSrcs
 
 -- | Take the passed in pixbuf and ensure its scaled square.
 scalePixbuf :: Int -> Gtk.Pixbuf -> IO Gtk.Pixbuf
@@ -233,6 +244,10 @@ data WorkspaceHUDConfig =
   { widgetBuilder :: WorkspaceHUDConfig -> Workspace -> IO WWC
   , widgetGap :: Int
   , windowIconSize :: Int
+  , underlineHeight :: Int
+  , minWSWidgetSize :: Maybe Int
+  , underlinePadding :: Int
+  , maxIcons :: Maybe Int
   }
 
 getWorkspaceToWindows :: IO (MM.MultiMap WorkspaceIdx X11Window)
@@ -348,7 +363,6 @@ instance WorkspaceWidgetController WorkspaceButtonController
     getWidget wbc = Gtk.toWidget $ button wbc
     updateWidget wbc workspace = do
       newContents <- updateWidget (contentsController wbc) workspace
-      updateMinSize 60 $ Gtk.toWidget $ button wbc
       return wbc { contentsController = newContents }
 
 buildButtonController
@@ -384,11 +398,10 @@ buildUnderlineController contentsBuilder cfg workspace = do
   u <- Gtk.eventBoxNew
   cc <- contentsBuilder cfg workspace
 
-  -- TODO: make this size configurable
-  W.widgetSetSizeRequest u (-1) 3
+  W.widgetSetSizeRequest u (-1) $ underlineHeight cfg
 
   T.tableAttach t (getWidget cc) 0 1 0 1 [T.Expand] [T.Expand] 0 0
-  T.tableAttach t u 0 1 1 2 [T.Fill] [T.Shrink] 1 0
+  T.tableAttach t u 0 1 1 2 [T.Fill] [T.Shrink] (underlinePadding cfg) 0
 
   return $ WWC UnderlineController { table = t
                                    , underline = u
@@ -420,13 +433,11 @@ defaultWorkspaceHUDConfig =
   WorkspaceHUDConfig { widgetBuilder = buildUnderlineButtonController
                      , widgetGap = 0
                      , windowIconSize = 16
+                     , underlineHeight = 4
+                     , minWSWidgetSize = Just 30
+                     , underlinePadding = 1
+                     , maxIcons = Nothing
                      }
-
-updateMinSize :: Int -> Gtk.Widget -> IO ()
-updateMinSize minWidth widget = do
-  W.widgetSetSizeRequest widget (-1) (-1)
-  W.Requisition w _ <- W.widgetSizeRequest widget
-  when (w < minWidth) $ W.widgetSetSizeRequest widget minWidth  $ -1
 
 -- TODO:
 -- * Handle urgent
