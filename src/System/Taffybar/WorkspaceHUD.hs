@@ -250,6 +250,17 @@ data WorkspaceHUDConfig =
   , maxIcons :: Maybe Int
   }
 
+defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
+defaultWorkspaceHUDConfig =
+  WorkspaceHUDConfig { widgetBuilder = buildUnderlineButtonController
+                     , widgetGap = 0
+                     , windowIconSize = 16
+                     , underlineHeight = 4
+                     , minWSWidgetSize = Just 30
+                     , underlinePadding = 1
+                     , maxIcons = Nothing
+                     }
+
 getWorkspaceToWindows :: IO (MM.MultiMap WorkspaceIdx X11Window)
 getWorkspaceToWindows =
   withDefaultCtx getWindows >>=
@@ -259,14 +270,19 @@ getWorkspaceToWindows =
                  <*> pure window <*> pure theMap)
     MM.empty
 
-buildWorkspaces :: IO (M.Map WorkspaceIdx Workspace)
-buildWorkspaces = do
+buildWorkspaces :: M.Map WorkspaceIdx Workspace -> IO (M.Map WorkspaceIdx Workspace)
+buildWorkspaces currentWorkspaces = do
   names <- withDefaultCtx getWorkspaceNames
   workspaceToWindows <- getWorkspaceToWindows
   active:visible <- withDefaultCtx getVisibleWorkspaces
 
-  let getWorkspaceState idx windows
+  let
+    isCurrentlyUrgent idx =
+      maybe False ((== Urgent) . workspaceState) $
+            M.lookup idx currentWorkspaces
+    getWorkspaceState idx windows
         | idx == active = Active
+        | isCurrentlyUrgent idx = Urgent
         | elem idx visible = Visible
         | null windows = Empty
         | otherwise = Hidden
@@ -286,7 +302,7 @@ buildWorkspaceWidgets
   -> MV.MVar (M.Map WorkspaceIdx WWC)
   -> IO ()
 buildWorkspaceWidgets cfg cont controllersRef = do
-  workspacesMap <- buildWorkspaces
+  workspacesMap <- buildWorkspaces M.empty
   let builder = (widgetBuilder cfg)
       workspaces = M.elems workspacesMap
 
@@ -309,7 +325,7 @@ buildWorkspaceHUD :: WorkspaceHUDConfig -> Pager -> IO Gtk.Widget
 buildWorkspaceHUD cfg pager = do
   cont <- Gtk.hBoxNew False (widgetGap cfg)
   controllersRef <- MV.newMVar M.empty
-  buildWorkspaceWidgets cfg cont controllersRef
+
   subscribe pager (onActiveChanged controllersRef) "_NET_CURRENT_DESKTOP"
   subscribe pager (onActiveChanged controllersRef) "_NET_WM_DESKTOP"
   subscribe pager (onActiveChanged controllersRef) "_NET_DESKTOP_NAMES"
@@ -343,9 +359,29 @@ updateAllWorkspaceWidgets controllersRef = do
     return $ M.fromList controllersList
   return ()
 
-onActiveChanged :: MV.MVar (M.Map WorkspaceIdx WWC) -> Event -> IO ()
+onActiveChanged :: MV.MVar (M.Map WorkspaceIdx Workspace) -> MV.MVar (M.Map WorkspaceIdx WWC) -> Event -> IO ()
 onActiveChanged controllersRef _ =
   Gtk.postGUIAsync $ updateAllWorkspaceWidgets controllersRef
+
+onWMHint :: MV.MVar (M.Map WorkspaceIdx WWC) -> Event -> IO ()
+onWMHint controllersRef event =
+  Gtk.postGUIAsync $ withDefaultCtx $ do
+    let window = ev_window event
+    isUrgent <- isWindowUrgent window
+    when isUrgent $ do
+      this <- getCurrentWorkspace
+      that <- getWorkspace window
+      when (this /= that) $ liftIO $ do
+        setUrgent controllersRef that True
+
+setUrgent :: MV.MVar (M.Map WorkspaceIdx WWC) -> WorkspaceIdx -> Bool -> IO ()
+setUrgent controllersRef idx urgent = return ()
+  -- do
+  -- MV.modifyMVar_ controllersRef $ \controllers ->
+  --     return $ map maybeUpdateController controllers
+  --   where
+  --     maybeUpdateController cont =
+  --       if (workspaceIdx cont == idx) then
 
 data WorkspaceButtonController =
   WorkspaceButtonController { button :: Gtk.EventBox
@@ -427,17 +463,6 @@ getWidgetName ws wname =
 buildUnderlineButtonController :: WorkspaceHUDConfig -> Workspace -> IO WWC
 buildUnderlineButtonController =
   buildButtonController (buildUnderlineController buildContentsController)
-
-defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
-defaultWorkspaceHUDConfig =
-  WorkspaceHUDConfig { widgetBuilder = buildUnderlineButtonController
-                     , widgetGap = 0
-                     , windowIconSize = 16
-                     , underlineHeight = 4
-                     , minWSWidgetSize = Just 30
-                     , underlinePadding = 1
-                     , maxIcons = Nothing
-                     }
 
 -- TODO:
 -- * Handle urgent
