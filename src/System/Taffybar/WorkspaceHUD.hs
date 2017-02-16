@@ -31,18 +31,14 @@ import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Char as S
-import           Data.List
 import qualified Data.Map as M
 import qualified Data.MultiMap as MM
-import           Data.Ord
-import           Data.Word (Word8)
-import           Foreign.C.Types (CUChar(..))
-import           Foreign.Marshal.Array (newArray)
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import qualified Graphics.UI.Gtk.Layout.Table as T
 import           Graphics.X11.Xlib.Extras
 import           System.Information.EWMHDesktopInfo
+import           System.Taffybar.IconImages
 import           System.Taffybar.Pager
 import           Text.Printf
 
@@ -174,17 +170,6 @@ updateImages wcc ws = do
                 Just theMax -> take theMax imgSrcs
                 Nothing -> imgSrcs
 
--- | Take the passed in pixbuf and ensure its scaled square.
-scalePixbuf :: Int -> Gtk.Pixbuf -> IO Gtk.Pixbuf
-scalePixbuf imgSize pixbuf = do
-  h <- Gtk.pixbufGetHeight pixbuf
-  w <- Gtk.pixbufGetWidth pixbuf
-  if h /= imgSize || w /= imgSize
-  then
-    Gtk.pixbufScaleSimple pixbuf imgSize imgSize Gtk.InterpBilinear
-  else
-    return pixbuf
-
 -- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
 setImage :: Int -> Bool -> Gtk.Image -> IconInfo -> IO ()
 setImage imgSize preferCustom img imgChoice =
@@ -202,42 +187,6 @@ getPixBuf imgSize preferCustom imgChoice = gpb imgChoice preferCustom
         gpb (IIEWMH icon) _ = Just $ pixBufFromEWMHIcon icon
         gpb (IIFilePath file) _ = Just $ pixBufFromFile imgSize file
         gpb _ _ = Nothing
-
--- | Create a pixbuf from the pixel data in an EWMHIcon,
--- scale it square, and set it in a GTK Image.
-pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
-pixBufFromEWMHIcon EWMHIcon {width=w, height=h, pixelsARGB=px} = do
-  let pixelsPerRow = w
-      bytesPerPixel = 4
-      rowStride = pixelsPerRow * bytesPerPixel
-      sampleBits = 8
-      hasAlpha = True
-      colorspace = Gtk.ColorspaceRgb
-      bytesRGBA = pixelsARGBToBytesRGBA px
-  cPtr <- newArray $ map CUChar bytesRGBA
-  Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
-
--- | Convert a list of integer pixels to a bytestream with 4 channels.
-pixelsARGBToBytesRGBA :: [Int] -> [Word8]
-pixelsARGBToBytesRGBA (x:xs) = r:g:b:a:pixelsARGBToBytesRGBA xs
-  where r = toByte $ x `div` 0x10000   `mod` 0x100
-        g = toByte $ x `div` 0x100     `mod` 0x100
-        b = toByte $ x                 `mod` 0x100
-        a = toByte $ x `div` 0x1000000 `mod` 0x100
-        toByte i = (fromIntegral i) :: Word8
-pixelsARGBToBytesRGBA _ = []
-
--- | Create a pixbuf from a file,
--- scale it square, and set it in a GTK Image.
-pixBufFromFile :: Int -> FilePath -> IO Gtk.Pixbuf
-pixBufFromFile imgSize file = Gtk.pixbufNewFromFileAtScale file imgSize imgSize False
-
-selectEWMHIcon :: Int -> [EWMHIcon] -> EWMHIcon
-selectEWMHIcon imgSize icons = head prefIcon
-  where sortedIcons = sortBy (comparing height) icons
-        smallestLargerIcon = take 1 $ dropWhile ((<= imgSize) . height) sortedIcons
-        largestIcon = take 1 $ reverse sortedIcons
-        prefIcon = smallestLargerIcon ++ largestIcon
 
 data WorkspaceHUDConfig =
   WorkspaceHUDConfig
@@ -270,19 +219,14 @@ getWorkspaceToWindows =
                  <*> pure window <*> pure theMap)
     MM.empty
 
-buildWorkspaces :: M.Map WorkspaceIdx Workspace -> IO (M.Map WorkspaceIdx Workspace)
-buildWorkspaces currentWorkspaces = do
+buildWorkspaces :: IO (M.Map WorkspaceIdx Workspace)
+buildWorkspaces = do
   names <- withDefaultCtx getWorkspaceNames
   workspaceToWindows <- getWorkspaceToWindows
   active:visible <- withDefaultCtx getVisibleWorkspaces
 
-  let
-    isCurrentlyUrgent idx =
-      maybe False ((== Urgent) . workspaceState) $
-            M.lookup idx currentWorkspaces
-    getWorkspaceState idx windows
+  let getWorkspaceState idx windows
         | idx == active = Active
-        | isCurrentlyUrgent idx = Urgent
         | elem idx visible = Visible
         | null windows = Empty
         | otherwise = Hidden
@@ -302,7 +246,7 @@ buildWorkspaceWidgets
   -> MV.MVar (M.Map WorkspaceIdx WWC)
   -> IO ()
 buildWorkspaceWidgets cfg cont controllersRef = do
-  workspacesMap <- buildWorkspaces M.empty
+  workspacesMap <- buildWorkspaces
   let builder = (widgetBuilder cfg)
       workspaces = M.elems workspacesMap
 
@@ -325,7 +269,7 @@ buildWorkspaceHUD :: WorkspaceHUDConfig -> Pager -> IO Gtk.Widget
 buildWorkspaceHUD cfg pager = do
   cont <- Gtk.hBoxNew False (widgetGap cfg)
   controllersRef <- MV.newMVar M.empty
-
+  buildWorkspaceWidgets cfg cont controllersRef
   subscribe pager (onActiveChanged controllersRef) "_NET_CURRENT_DESKTOP"
   subscribe pager (onActiveChanged controllersRef) "_NET_WM_DESKTOP"
   subscribe pager (onActiveChanged controllersRef) "_NET_DESKTOP_NAMES"
@@ -359,29 +303,9 @@ updateAllWorkspaceWidgets controllersRef = do
     return $ M.fromList controllersList
   return ()
 
-onActiveChanged :: MV.MVar (M.Map WorkspaceIdx Workspace) -> MV.MVar (M.Map WorkspaceIdx WWC) -> Event -> IO ()
+onActiveChanged :: MV.MVar (M.Map WorkspaceIdx WWC) -> Event -> IO ()
 onActiveChanged controllersRef _ =
   Gtk.postGUIAsync $ updateAllWorkspaceWidgets controllersRef
-
-onWMHint :: MV.MVar (M.Map WorkspaceIdx WWC) -> Event -> IO ()
-onWMHint controllersRef event =
-  Gtk.postGUIAsync $ withDefaultCtx $ do
-    let window = ev_window event
-    isUrgent <- isWindowUrgent window
-    when isUrgent $ do
-      this <- getCurrentWorkspace
-      that <- getWorkspace window
-      when (this /= that) $ liftIO $ do
-        setUrgent controllersRef that True
-
-setUrgent :: MV.MVar (M.Map WorkspaceIdx WWC) -> WorkspaceIdx -> Bool -> IO ()
-setUrgent controllersRef idx urgent = return ()
-  -- do
-  -- MV.modifyMVar_ controllersRef $ \controllers ->
-  --     return $ map maybeUpdateController controllers
-  --   where
-  --     maybeUpdateController cont =
-  --       if (workspaceIdx cont == idx) then
 
 data WorkspaceButtonController =
   WorkspaceButtonController { button :: Gtk.EventBox
