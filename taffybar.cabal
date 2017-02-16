@@ -84,6 +84,7 @@ library
                    System.Taffybar.Widgets.Graph,
                    System.Taffybar.Widgets.PollingBar,
                    System.Taffybar.WindowSwitcher,
+                   System.Taffybar.IconImages,
                    System.Taffybar.WorkspaceHUD,
                    System.Taffybar.WorkspaceSwitcher,
                    System.Taffybar.Widgets.PollingGraph,

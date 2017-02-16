@@ -31,6 +31,7 @@ import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Char as S
+import           Data.List
 import qualified Data.Map as M
 import qualified Data.MultiMap as MM
 import qualified Graphics.UI.Gtk as Gtk
@@ -47,7 +48,6 @@ data WorkspaceState
   | Visible
   | Hidden
   | Empty
-  | Urgent
   deriving (Show, Eq)
 
 data IconInfo = IIEWMH EWMHIcon | IIFilePath FilePath | IINone
@@ -57,6 +57,7 @@ data Workspace =
             , workspaceName :: String
             , workspaceState :: WorkspaceState
             , windowIds :: [X11Window]
+            , urgentIds :: [X11Window]
             } deriving (Show, Eq)
 
 class WorkspaceWidgetController wc where
@@ -113,19 +114,19 @@ getWorkspaceToWindows =
                  <*> pure window <*> pure theMap)
     MM.empty
 
+getUrgentWindows :: IO [X11Window]
+getUrgentWindows = withDefaultCtx (getWindows >>= filterM isWindowUrgent)
+
 buildWorkspaces :: M.Map WorkspaceIdx Workspace -> IO (M.Map WorkspaceIdx Workspace)
-buildWorkspaces currentWorkspaces = do
+buildWorkspaces _ = do
   names <- withDefaultCtx getWorkspaceNames
   workspaceToWindows <- getWorkspaceToWindows
+  urgentWindows <- getUrgentWindows
   active:visible <- withDefaultCtx getVisibleWorkspaces
 
   let
-    isCurrentlyUrgent idx =
-      maybe False ((== Urgent) . workspaceState) $
-            M.lookup idx currentWorkspaces
     getWorkspaceState idx windows
         | idx == active = Active
-        | isCurrentlyUrgent idx = Urgent
         | elem idx visible = Visible
         | null windows = Empty
         | otherwise = Hidden
@@ -137,6 +138,7 @@ buildWorkspaces currentWorkspaces = do
                                , workspaceName = name
                                , workspaceState = getWorkspaceState idx windows
                                , windowIds = windows
+                               , urgentIds = intersect windows urgentWindows
                                } theMap) M.empty names
 
 buildWorkspaceWidgets
@@ -181,20 +183,11 @@ buildWorkspaceHUD cfg pager = do
         [ "_NET_CURRENT_DESKTOP"
         , "_NET_WM_DESKTOP"
         , "_NET_DESKTOP_NAMES"
+        , "WM_HINTS"
         ]
 
   return $ Gtk.toWidget cont
-
-  -- let cfg = config pager
-  --     activecb = activeCallback cfg deskRef
-  --     activefastcb = activeFastCallback cfg deskRef
-  --     redrawcb = redrawCallback pager deskRef switcher
-  --     urgentcb = urgentCallback cfg deskRef
-  -- subscribe pager activecb "_NET_CURRENT_DESKTOP"
-  -- subscribe pager activefastcb "_NET_WM_DESKTOP"
-  -- subscribe pager redrawcb "_NET_DESKTOP_NAMES"
   -- subscribe pager redrawcb "_NET_NUMBER_OF_DESKTOPS"
-  -- subscribe pager urgentcb "WM_HINTS"
 
 updateAllWorkspaceWidgets :: Context -> IO ()
 updateAllWorkspaceWidgets Context { controllersVar = controllersRef
