@@ -92,6 +92,18 @@ defaultWorkspaceHUDConfig =
                      , maxIcons = Nothing
                      }
 
+data Context =
+  Context { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
+          , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
+          }
+
+updateVar :: MV.MVar a -> (a -> IO a) -> IO a
+updateVar var modify = MV.modifyMVar var $ fmap (\a -> (a, a)) . modify
+
+updateWorkspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
+                    -> IO (M.Map WorkspaceIdx Workspace)
+updateWorkspacesVar workspacesRef = updateVar workspacesRef buildWorkspaces
+
 getWorkspaceToWindows :: IO (MM.MultiMap WorkspaceIdx X11Window)
 getWorkspaceToWindows =
   withDefaultCtx getWindows >>=
@@ -101,14 +113,19 @@ getWorkspaceToWindows =
                  <*> pure window <*> pure theMap)
     MM.empty
 
-buildWorkspaces :: IO (M.Map WorkspaceIdx Workspace)
-buildWorkspaces = do
+buildWorkspaces :: M.Map WorkspaceIdx Workspace -> IO (M.Map WorkspaceIdx Workspace)
+buildWorkspaces currentWorkspaces = do
   names <- withDefaultCtx getWorkspaceNames
   workspaceToWindows <- getWorkspaceToWindows
   active:visible <- withDefaultCtx getVisibleWorkspaces
 
-  let getWorkspaceState idx windows
+  let
+    isCurrentlyUrgent idx =
+      maybe False ((== Urgent) . workspaceState) $
+            M.lookup idx currentWorkspaces
+    getWorkspaceState idx windows
         | idx == active = Active
+        | isCurrentlyUrgent idx = Urgent
         | elem idx visible = Visible
         | null windows = Empty
         | otherwise = Hidden
@@ -125,10 +142,13 @@ buildWorkspaces = do
 buildWorkspaceWidgets
   :: WorkspaceHUDConfig
   -> Gtk.HBox
-  -> MV.MVar (M.Map WorkspaceIdx WWC)
+  -> Context
   -> IO ()
-buildWorkspaceWidgets cfg cont controllersRef = do
-  workspacesMap <- buildWorkspaces
+buildWorkspaceWidgets cfg cont
+                      Context { controllersVar = controllersRef
+                              , workspacesVar = workspacesRef
+                              } = do
+  workspacesMap <- updateWorkspacesVar workspacesRef
   let builder = (widgetBuilder cfg)
       workspaces = M.elems workspacesMap
 
@@ -151,10 +171,18 @@ buildWorkspaceHUD :: WorkspaceHUDConfig -> Pager -> IO Gtk.Widget
 buildWorkspaceHUD cfg pager = do
   cont <- Gtk.hBoxNew False (widgetGap cfg)
   controllersRef <- MV.newMVar M.empty
-  buildWorkspaceWidgets cfg cont controllersRef
-  subscribe pager (onActiveChanged controllersRef) "_NET_CURRENT_DESKTOP"
-  subscribe pager (onActiveChanged controllersRef) "_NET_WM_DESKTOP"
-  subscribe pager (onActiveChanged controllersRef) "_NET_DESKTOP_NAMES"
+  workspacesRef <- MV.newMVar M.empty
+  let context = Context { controllersVar = controllersRef
+                        , workspacesVar = workspacesRef
+                        }
+  buildWorkspaceWidgets cfg cont context
+
+  mapM_ (subscribe pager (onActiveChanged context))
+        [ "_NET_CURRENT_DESKTOP"
+        , "_NET_WM_DESKTOP"
+        , "_NET_DESKTOP_NAMES"
+        ]
+
   return $ Gtk.toWidget cont
 
   -- let cfg = config pager
@@ -168,9 +196,12 @@ buildWorkspaceHUD cfg pager = do
   -- subscribe pager redrawcb "_NET_NUMBER_OF_DESKTOPS"
   -- subscribe pager urgentcb "WM_HINTS"
 
-updateAllWorkspaceWidgets :: MV.MVar (M.Map WorkspaceIdx WWC) -> IO ()
-updateAllWorkspaceWidgets controllersRef = do
-  workspacesMap <- buildWorkspaces
+updateAllWorkspaceWidgets :: Context -> IO ()
+updateAllWorkspaceWidgets Context { controllersVar = controllersRef
+                                  , workspacesVar = workspacesRef
+                                  } = do
+  workspacesMap <- updateWorkspacesVar workspacesRef
+
   let updateController idx controller =
         maybe (return controller) (updateWidget controller) $
         M.lookup idx workspacesMap
@@ -185,9 +216,11 @@ updateAllWorkspaceWidgets controllersRef = do
     return $ M.fromList controllersList
   return ()
 
-onActiveChanged :: MV.MVar (M.Map WorkspaceIdx WWC) -> Event -> IO ()
-onActiveChanged controllersRef _ =
-  Gtk.postGUIAsync $ updateAllWorkspaceWidgets controllersRef
+onActiveChanged :: Context -> Event -> IO ()
+onActiveChanged context _ =
+  Gtk.postGUIAsync $ updateAllWorkspaceWidgets context
+
+
 
 data WorkspaceContentsController = WorkspaceContentsController
   { container :: Gtk.HBox
