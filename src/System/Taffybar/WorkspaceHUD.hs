@@ -215,10 +215,15 @@ onActiveChanged context _ =
 
 
 
+data IconWidget = IconWidget { iconContainer :: Gtk.EventBox
+                             , iconImage :: Gtk.Image
+                             , iconWindow :: MV.MVar X11Window
+                             }
+
 data WorkspaceContentsController = WorkspaceContentsController
   { container :: Gtk.HBox
   , label :: Gtk.Label
-  , iconImages :: [Gtk.Image]
+  , iconImages :: [IconWidget]
   , contentsWorkspace :: Workspace
   , contentsConfig :: WorkspaceHUDConfig
   }
@@ -250,7 +255,8 @@ instance WorkspaceWidgetController WorkspaceContentsController where
          Gtk.labelSetMarkup (label cc) (workspaceName newWorkspace)
 
     newImages <-
-      if ((windowIds currentWorkspace) /= (windowIds newWorkspace))
+      if ((windowIds currentWorkspace) /= (windowIds newWorkspace) ||
+          (urgentIds currentWorkspace) /= (urgentIds newWorkspace))
       then
         updateImages cc newWorkspace
       else
@@ -279,33 +285,37 @@ getIconInfo cfg w = do
            then IINone
            else IIEWMH $ selectEWMHIcon (windowIconSize cfg) icons
 
-updateImages :: WorkspaceContentsController -> Workspace -> IO [Gtk.Image]
+forkM :: Monad m => (i -> m a) -> (i -> m b) -> i -> m (a, b)
+forkM a b input = do
+  resA <- a input
+  resB <- b input
+  return (resA, resB)
+
+updateImages :: WorkspaceContentsController -> Workspace -> IO [IconWidget]
 updateImages wcc ws = do
-  iconInfos_ <- mapM (getIconInfo (contentsConfig wcc)) $ windowIds ws
+  iconInfos_ <- mapM (forkM (getIconInfo $ contentsConfig wcc) return) $ windowIds ws
   -- XXX: Only one of the two things being zipped can be an infinite list, which
   -- is why this newImagesNeeded contortion is needed.
   let iconInfos =
         if newImagesNeeded
           then iconInfos_
-          else (iconInfos_ ++ repeat IINone)
+          else (iconInfos_ ++ repeat (IINone, 0))
 
-  newImgs <- zipWithM setImageFromIO getImgs iconInfos
+  newImgs <- zipWithM updateIconWidget' getImgs iconInfos
   when newImagesNeeded $ Gtk.widgetShowAll $ container wcc
   return newImgs
 
   where
-    imgSize = windowIconSize $ contentsConfig wcc
-    preferCustom = False
-    setImageFromIO getImage iconInfo = do
-      img <- getImage
-      setImage imgSize preferCustom img iconInfo
-      return img
+    updateIconWidget' getImage (iconInfo, windowId)  = do
+      iconWidget <- getImage
+      _ <- updateIconWidget wcc ws iconWidget iconInfo windowId
+      return iconWidget
     infiniteImages =
       (map return $ iconImages wcc) ++
       (repeat $ do
-         img <- Gtk.imageNew
-         Gtk.containerAdd (container wcc) img
-         return img)
+         iw <- buildIconWidget
+         Gtk.containerAdd (container wcc) $ iconContainer iw
+         return iw)
     newImagesNeeded = (length $ iconImages wcc) < (length $ windowIds ws)
     imgSrcs =
       if newImagesNeeded
@@ -314,6 +324,47 @@ updateImages wcc ws = do
     getImgs = case maxIcons $ contentsConfig wcc of
                 Just theMax -> take theMax imgSrcs
                 Nothing -> imgSrcs
+
+buildIconWidget :: IO IconWidget
+buildIconWidget = do
+  img <- Gtk.imageNew
+  ebox <- Gtk.eventBoxNew
+  windowVar <- MV.newMVar 0
+  Gtk.containerAdd ebox img
+  _ <- Gtk.on ebox Gtk.buttonPressEvent $ liftIO $ do
+                    window <- MV.readMVar windowVar
+                    withDefaultCtx $ focusWindow window
+                    return True
+  return IconWidget { iconContainer = ebox
+                    , iconImage = img
+                    , iconWindow = windowVar
+                    }
+
+updateIconWidget
+  :: WorkspaceContentsController
+  -> Workspace
+  -> IconWidget
+  -> IconInfo
+  -> X11Window
+  -> IO IconWidget
+updateIconWidget wcc ws iw@IconWidget { iconContainer = iconButton
+                                      , iconImage = image
+                                      , iconWindow = windowRef
+                                      } info windowId  =
+  do
+    let imgSize = windowIconSize $ contentsConfig wcc
+        preferCustom = False
+        urgent = elem windowId $ urgentIds ws
+        urgentStr = if urgent then "urgent" else "normal"
+
+    setImage imgSize preferCustom image info
+
+    let widgetName = printf "Workspace-icon-%s-%s" (show windowId) urgentStr
+    Gtk.widgetSetName iconButton (widgetName :: String)
+
+    MV.modifyMVar_ windowRef $ const $ return windowId
+
+    return iw
 
 -- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
 setImage :: Int -> Bool -> Gtk.Image -> IconInfo -> IO ()
@@ -415,7 +466,6 @@ buildUnderlineButtonController =
   buildButtonController (buildUnderlineController buildContentsController)
 
 -- TODO:
--- * Handle urgent
 -- * Custom Files/Colors
 -- * Handle redraw for new workspace
 -- * scoll on button for switch
