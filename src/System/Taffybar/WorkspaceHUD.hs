@@ -21,7 +21,6 @@ module System.Taffybar.WorkspaceHUD (
   buildUnderlineButtonController,
   buildUnderlineController,
   buildWorkspaceHUD,
-  buildWorkspaceWidgets,
   buildWorkspaces,
   defaultWorkspaceHUDConfig,
   getWorkspaceToWindows
@@ -33,6 +32,7 @@ import           Control.Monad.IO.Class
 import qualified Data.Char as S
 import           Data.List
 import qualified Data.Map as M
+import qualified Data.Set as Set
 import qualified Data.MultiMap as MM
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
@@ -96,6 +96,8 @@ defaultWorkspaceHUDConfig =
 data Context =
   Context { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
           , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
+          , hudWidget :: Gtk.HBox
+          , hudConfig :: WorkspaceHUDConfig
           }
 
 updateVar :: MV.MVar a -> (a -> IO a) -> IO a
@@ -141,26 +143,14 @@ buildWorkspaces _ = do
                                , urgentIds = intersect windows urgentWindows
                                } theMap) M.empty names
 
-buildWorkspaceWidgets
-  :: WorkspaceHUDConfig
-  -> Gtk.HBox
-  -> Context
-  -> IO ()
-buildWorkspaceWidgets cfg cont
-                      Context { controllersVar = controllersRef
-                              , workspacesVar = workspacesRef
-                              } = do
-  workspacesMap <- updateWorkspacesVar workspacesRef
-  let builder = (widgetBuilder cfg)
-      workspaces = M.elems workspacesMap
-
-  workspaceIDToController <-
-    M.fromList <$>
-    mapM (((liftM2 . liftM2) (,)) (return . workspaceIdx) $ builder cfg) workspaces
-
-  MV.modifyMVar_ controllersRef $ const (return workspaceIDToController)
-
-  mapM_ addWidget $ M.elems workspaceIDToController
+addWidgetsToTopLevel :: Context -> IO ()
+addWidgetsToTopLevel Context { controllersVar = controllersRef
+                             , hudWidget = cont
+                             } = do
+  controllersMap <- MV.readMVar controllersRef
+  -- Elems returns elements in ascending order of their keys so this will always
+  -- add the widgets in the correct order
+  mapM_ addWidget $ M.elems controllersMap
   -- XXX: Does this belong somewhere else
   Gtk.widgetShowAll cont
     where addWidget controller =
@@ -176,24 +166,29 @@ buildWorkspaceHUD cfg pager = do
   workspacesRef <- MV.newMVar M.empty
   let context = Context { controllersVar = controllersRef
                         , workspacesVar = workspacesRef
+                        , hudWidget = cont
+                        , hudConfig = cfg
                         }
-  buildWorkspaceWidgets cfg cont context
+
+  -- This will actually create all the widgets
+  updateAllWorkspaceWidgets context
 
   mapM_ (subscribe pager (onActiveChanged context))
         [ "_NET_CURRENT_DESKTOP"
         , "_NET_WM_DESKTOP"
         , "_NET_DESKTOP_NAMES"
+        , "_NET_NUMBER_OF_DESKTOPS"
         , "WM_HINTS"
         ]
 
   return $ Gtk.toWidget cont
-  -- subscribe pager redrawcb "_NET_NUMBER_OF_DESKTOPS"
 
 updateAllWorkspaceWidgets :: Context -> IO ()
-updateAllWorkspaceWidgets Context { controllersVar = controllersRef
-                                  , workspacesVar = workspacesRef
-                                  } = do
+updateAllWorkspaceWidgets c@Context { controllersVar = controllersRef
+                                    , workspacesVar = workspacesRef
+                                    } = do
   workspacesMap <- updateWorkspacesVar workspacesRef
+  updateWorkspaceControllers c
 
   let updateController idx controller =
         maybe (return controller) (updateWidget controller) $
@@ -207,7 +202,31 @@ updateAllWorkspaceWidgets Context { controllersVar = controllersRef
          return (idx, newController)) $
       M.toList controllers
     return $ M.fromList controllersList
-  return ()
+
+updateWorkspaceControllers :: Context -> IO ()
+updateWorkspaceControllers c@Context { controllersVar = controllersRef
+                                     , workspacesVar = workspacesRef
+                                     , hudWidget = cont
+                                     , hudConfig = cfg
+                                     }  = do
+  workspacesMap <- MV.readMVar workspacesRef
+  controllersMap <- MV.readMVar controllersRef
+  let newWorkspacesSet = M.keysSet workspacesMap
+      existingWorkspacesSet = M.keysSet controllersMap
+  when (existingWorkspacesSet /= newWorkspacesSet) $ do
+    let addWorkspaces = (Set.difference newWorkspacesSet existingWorkspacesSet)
+        removeWorkspaces = (Set.difference existingWorkspacesSet newWorkspacesSet)
+        builder = (widgetBuilder cfg) cfg
+    MV.modifyMVar_ controllersRef $ \controllers -> do
+      let oldRemoved = foldl (flip M.delete) controllers removeWorkspaces
+          buildController idx =
+              case (M.lookup idx workspacesMap) of
+                Just ws -> builder ws
+          buildAndAddController theMap idx = M.insert idx <$> buildController idx <*> pure theMap
+      foldM buildAndAddController oldRemoved addWorkspaces
+    -- Clear the container and repopulate it
+    Gtk.containerForeach cont (Gtk.containerRemove cont)
+    addWidgetsToTopLevel c
 
 onActiveChanged :: Context -> Event -> IO ()
 onActiveChanged context _ =
@@ -286,10 +305,7 @@ getIconInfo cfg w = do
            else IIEWMH $ selectEWMHIcon (windowIconSize cfg) icons
 
 forkM :: Monad m => (i -> m a) -> (i -> m b) -> i -> m (a, b)
-forkM a b input = do
-  resA <- a input
-  resB <- b input
-  return (resA, resB)
+forkM = ((liftM2 . liftM2) (,))
 
 updateImages :: WorkspaceContentsController -> Workspace -> IO [IconWidget]
 updateImages wcc ws = do
@@ -467,5 +483,4 @@ buildUnderlineButtonController =
 
 -- TODO:
 -- * Custom Files/Colors
--- * Handle redraw for new workspace
 -- * scoll on button for switch
