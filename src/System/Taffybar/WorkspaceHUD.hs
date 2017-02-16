@@ -15,6 +15,8 @@ module System.Taffybar.WorkspaceHUD (
   WWC(..),
   Workspace(..),
   WorkspaceContentsController(..),
+  WorkspaceButtonController(..),
+  WorkspaceUnderlineController(..),
   WorkspaceHUDConfig(..),
   WorkspaceWidgetController(..),
   buildButtonController,
@@ -452,8 +454,8 @@ instance WorkspaceWidgetController WorkspaceButtonController
       newContents <- updateWidget (contentsController wbc) workspace
       return wbc { contentsController = newContents }
 
-data UnderlineController =
-  UnderlineController { table :: T.Table
+data WorkspaceUnderlineController =
+  WorkspaceUnderlineController { table :: T.Table
                       -- XXX: An event box is used here because we need to
                       -- change the background
                       , underline :: Gtk.EventBox
@@ -475,12 +477,12 @@ buildUnderlineController contentsBuilder cfg workspace = do
   T.tableAttach t (getWidget cc) 0 1 0 1 [T.Expand] [T.Expand] 0 0
   T.tableAttach t u 0 1 1 2 [T.Fill] [T.Shrink] (underlinePadding cfg) 0
 
-  return $ WWC UnderlineController { table = t
+  return $ WWC WorkspaceUnderlineController { table = t
                                    , underline = u
                                    , overlineController = cc
                                    }
 
-instance WorkspaceWidgetController UnderlineController
+instance WorkspaceWidgetController WorkspaceUnderlineController
   where
     getWidget uc = Gtk.toWidget $ table uc
     updateWidget uc workspace = do
