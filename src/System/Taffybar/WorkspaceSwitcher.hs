@@ -33,7 +33,6 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List ((\\), findIndices, sortBy)
 import Data.Maybe (listToMaybe)
 import Data.Ord (comparing)
-import Data.Word (Word8)
 import Foreign.C.Types (CUChar(..))
 import Foreign.Marshal.Array (newArray)
 import qualified Graphics.UI.Gtk as Gtk
@@ -41,6 +40,7 @@ import Graphics.X11.Xlib.Extras
 
 import Prelude
 
+import System.Taffybar.IconImages hiding (selectEWMHIcon)
 import System.Taffybar.Pager
 import System.Information.EWMHDesktopInfo
 
@@ -53,7 +53,6 @@ data Workspace = Workspace { label  :: Gtk.Label
                            }
 type WindowSet = [(WorkspaceIdx, [X11Window])]
 type WindowInfo = Maybe (String, String, [EWMHIcon])
-type ColorRGBA = (Word8, Word8, Word8, Word8)
 type CustomIconF = String -> String -> Maybe FilePath
 type ImageChoice = (Maybe EWMHIcon, Maybe FilePath, Maybe ColorRGBA)
 
@@ -362,27 +361,6 @@ setImageFromColor img imgSize (r,g,b,a) = do
   Gtk.pixbufFill pixbuf r g b a
   scaledPixbuf <- scalePixbuf imgSize pixbuf
   Gtk.imageSetFromPixbuf img scaledPixbuf
-
--- | Take the passed in pixbuf and ensure its scaled square.
-scalePixbuf :: Int -> Gtk.Pixbuf -> IO Gtk.Pixbuf
-scalePixbuf imgSize pixbuf = do
-  h <- Gtk.pixbufGetHeight pixbuf
-  w <- Gtk.pixbufGetWidth pixbuf
-  if h /= imgSize || w /= imgSize
-  then
-    Gtk.pixbufScaleSimple pixbuf imgSize imgSize Gtk.InterpBilinear
-  else
-    return pixbuf
-
--- | Convert a list of integer pixels to a bytestream with 4 channels.
-pixelsARGBToBytesRGBA :: [Int] -> [Word8]
-pixelsARGBToBytesRGBA (x:xs) = r:g:b:a:pixelsARGBToBytesRGBA xs
-  where r = toByte $ x `div` 0x10000   `mod` 0x100
-        g = toByte $ x `div` 0x100     `mod` 0x100
-        b = toByte $ x                 `mod` 0x100
-        a = toByte $ x `div` 0x1000000 `mod` 0x100
-        toByte i = (fromIntegral i) :: Word8
-pixelsARGBToBytesRGBA _ = []
 
 -- | Get window title, class, and icons for the last window in each workspace.
 getLastWindowInfo :: WindowSet -> IO [WindowInfo]
