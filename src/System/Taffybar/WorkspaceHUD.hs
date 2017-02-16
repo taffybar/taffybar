@@ -70,124 +70,6 @@ instance WorkspaceWidgetController WWC where
   updateWidget (WWC wc) workspace =
     WWC <$> updateWidget wc workspace
 
-data WorkspaceContentsController = WorkspaceContentsController
-  { container :: Gtk.HBox
-  , label :: Gtk.Label
-  , iconImages :: [Gtk.Image]
-  , contentsWorkspace :: Workspace
-  , contentsConfig :: WorkspaceHUDConfig
-  }
-
-buildContentsController :: WorkspaceHUDConfig -> Workspace -> IO WWC
-buildContentsController cfg ws = do
-  lbl <- Gtk.labelNew (Nothing :: Maybe String)
-  hbox <- Gtk.hBoxNew False 0
-  Gtk.containerAdd hbox lbl
-  let tempController =
-        WorkspaceContentsController { container = hbox
-                                    , label = lbl
-                                    , iconImages = []
-                                    , contentsWorkspace =
-                                      ws { windowIds = []
-                                         , workspaceName = workspaceName ws ++ "fake"
-                                         }
-                                    , contentsConfig = cfg
-                                    }
-  WWC <$> updateWidget tempController ws
-
-instance WorkspaceWidgetController WorkspaceContentsController where
-  getWidget cc = Gtk.toWidget $ container cc
-  updateWidget cc newWorkspace = do
-    let currentWorkspace = contentsWorkspace cc
-        cfg = contentsConfig cc
-
-    when ((workspaceName currentWorkspace) /= (workspaceName newWorkspace)) $
-         Gtk.labelSetMarkup (label cc) (workspaceName newWorkspace)
-
-    newImages <-
-      if ((windowIds currentWorkspace) /= (windowIds newWorkspace))
-      then
-        updateImages cc newWorkspace
-      else
-        return $ iconImages cc
-
-    Gtk.widgetSetName (container cc) $ getWidgetName newWorkspace "contents"
-
-    maybe (return ()) (updateMinSize $ Gtk.toWidget $ container cc) $
-          minWSWidgetSize cfg
-
-    return cc { contentsWorkspace = newWorkspace
-              , iconImages = newImages
-              }
-
-updateMinSize :: Gtk.Widget -> Int  -> IO ()
-updateMinSize widget minWidth = do
-  W.widgetSetSizeRequest widget (-1) (-1)
-  W.Requisition w _ <- W.widgetSizeRequest widget
-  when (w < minWidth) $ W.widgetSetSizeRequest widget minWidth  $ -1
-
-getIconInfo :: WorkspaceHUDConfig -> X11Window -> IO IconInfo
-getIconInfo cfg w = do
-  -- TODO: handle custom files
-  icons <- withDefaultCtx $ getWindowIcons w
-  return $ if (null icons)
-           then IINone
-           else IIEWMH $ selectEWMHIcon (windowIconSize cfg) icons
-
-updateImages :: WorkspaceContentsController -> Workspace -> IO [Gtk.Image]
-updateImages wcc ws = do
-  iconInfos_ <- mapM (getIconInfo (contentsConfig wcc)) $ windowIds ws
-  -- XXX: Only one of the two things being zipped can be an infinite list, which
-  -- is why this newImagesNeeded contortion is needed.
-  let iconInfos =
-        if newImagesNeeded
-          then iconInfos_
-          else (iconInfos_ ++ repeat IINone)
-
-  newImgs <- zipWithM setImageFromIO getImgs iconInfos
-  when newImagesNeeded $ Gtk.widgetShowAll $ container wcc
-  return newImgs
-
-  where
-    imgSize = windowIconSize $ contentsConfig wcc
-    preferCustom = False
-    setImageFromIO getImage iconInfo = do
-      img <- getImage
-      setImage imgSize preferCustom img iconInfo
-      return img
-    infiniteImages =
-      (map return $ iconImages wcc) ++
-      (repeat $ do
-         img <- Gtk.imageNew
-         Gtk.containerAdd (container wcc) img
-         return img)
-    newImagesNeeded = (length $ iconImages wcc) < (length $ windowIds ws)
-    imgSrcs =
-      if newImagesNeeded
-        then infiniteImages
-        else (map return $ iconImages wcc)
-    getImgs = case maxIcons $ contentsConfig wcc of
-                Just theMax -> take theMax imgSrcs
-                Nothing -> imgSrcs
-
--- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
-setImage :: Int -> Bool -> Gtk.Image -> IconInfo -> IO ()
-setImage imgSize preferCustom img imgChoice =
-  case getPixBuf imgSize preferCustom imgChoice of
-    Just getPixbuf -> do
-      pixbuf <- getPixbuf
-      scaledPixbuf <- scalePixbuf imgSize pixbuf
-      Gtk.imageSetFromPixbuf img scaledPixbuf
-    Nothing -> Gtk.imageClear img
-
--- | Get the appropriate im\age given an ImageChoice value
-getPixBuf :: Int -> Bool -> IconInfo -> Maybe (IO Gtk.Pixbuf)
-getPixBuf imgSize preferCustom imgChoice = gpb imgChoice preferCustom
-  where gpb (IIFilePath file) True = Just $ pixBufFromFile imgSize file
-        gpb (IIEWMH icon) _ = Just $ pixBufFromEWMHIcon icon
-        gpb (IIFilePath file) _ = Just $ pixBufFromFile imgSize file
-        gpb _ _ = Nothing
-
 data WorkspaceHUDConfig =
   WorkspaceHUDConfig
   { widgetBuilder :: WorkspaceHUDConfig -> Workspace -> IO WWC
@@ -307,23 +189,129 @@ onActiveChanged :: MV.MVar (M.Map WorkspaceIdx WWC) -> Event -> IO ()
 onActiveChanged controllersRef _ =
   Gtk.postGUIAsync $ updateAllWorkspaceWidgets controllersRef
 
+data WorkspaceContentsController = WorkspaceContentsController
+  { container :: Gtk.HBox
+  , label :: Gtk.Label
+  , iconImages :: [Gtk.Image]
+  , contentsWorkspace :: Workspace
+  , contentsConfig :: WorkspaceHUDConfig
+  }
+
+buildContentsController :: WorkspaceHUDConfig -> Workspace -> IO WWC
+buildContentsController cfg ws = do
+  lbl <- Gtk.labelNew (Nothing :: Maybe String)
+  hbox <- Gtk.hBoxNew False 0
+  Gtk.containerAdd hbox lbl
+  let tempController =
+        WorkspaceContentsController { container = hbox
+                                    , label = lbl
+                                    , iconImages = []
+                                    , contentsWorkspace =
+                                      ws { windowIds = []
+                                         , workspaceName = workspaceName ws ++ "fake"
+                                         }
+                                    , contentsConfig = cfg
+                                    }
+  WWC <$> updateWidget tempController ws
+
+instance WorkspaceWidgetController WorkspaceContentsController where
+  getWidget cc = Gtk.toWidget $ container cc
+  updateWidget cc newWorkspace = do
+    let currentWorkspace = contentsWorkspace cc
+        cfg = contentsConfig cc
+
+    when ((workspaceName currentWorkspace) /= (workspaceName newWorkspace)) $
+         Gtk.labelSetMarkup (label cc) (workspaceName newWorkspace)
+
+    newImages <-
+      if ((windowIds currentWorkspace) /= (windowIds newWorkspace))
+      then
+        updateImages cc newWorkspace
+      else
+        return $ iconImages cc
+
+    Gtk.widgetSetName (container cc) $ getWidgetName newWorkspace "contents"
+
+    maybe (return ()) (updateMinSize $ Gtk.toWidget $ container cc) $
+          minWSWidgetSize cfg
+
+    return cc { contentsWorkspace = newWorkspace
+              , iconImages = newImages
+              }
+
+updateMinSize :: Gtk.Widget -> Int  -> IO ()
+updateMinSize widget minWidth = do
+  W.widgetSetSizeRequest widget (-1) (-1)
+  W.Requisition w _ <- W.widgetSizeRequest widget
+  when (w < minWidth) $ W.widgetSetSizeRequest widget minWidth  $ -1
+
+getIconInfo :: WorkspaceHUDConfig -> X11Window -> IO IconInfo
+getIconInfo cfg w = do
+  -- TODO: handle custom files
+  icons <- withDefaultCtx $ getWindowIcons w
+  return $ if (null icons)
+           then IINone
+           else IIEWMH $ selectEWMHIcon (windowIconSize cfg) icons
+
+updateImages :: WorkspaceContentsController -> Workspace -> IO [Gtk.Image]
+updateImages wcc ws = do
+  iconInfos_ <- mapM (getIconInfo (contentsConfig wcc)) $ windowIds ws
+  -- XXX: Only one of the two things being zipped can be an infinite list, which
+  -- is why this newImagesNeeded contortion is needed.
+  let iconInfos =
+        if newImagesNeeded
+          then iconInfos_
+          else (iconInfos_ ++ repeat IINone)
+
+  newImgs <- zipWithM setImageFromIO getImgs iconInfos
+  when newImagesNeeded $ Gtk.widgetShowAll $ container wcc
+  return newImgs
+
+  where
+    imgSize = windowIconSize $ contentsConfig wcc
+    preferCustom = False
+    setImageFromIO getImage iconInfo = do
+      img <- getImage
+      setImage imgSize preferCustom img iconInfo
+      return img
+    infiniteImages =
+      (map return $ iconImages wcc) ++
+      (repeat $ do
+         img <- Gtk.imageNew
+         Gtk.containerAdd (container wcc) img
+         return img)
+    newImagesNeeded = (length $ iconImages wcc) < (length $ windowIds ws)
+    imgSrcs =
+      if newImagesNeeded
+        then infiniteImages
+        else (map return $ iconImages wcc)
+    getImgs = case maxIcons $ contentsConfig wcc of
+                Just theMax -> take theMax imgSrcs
+                Nothing -> imgSrcs
+
+-- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
+setImage :: Int -> Bool -> Gtk.Image -> IconInfo -> IO ()
+setImage imgSize preferCustom img imgChoice =
+  case getPixBuf imgSize preferCustom imgChoice of
+    Just getPixbuf -> do
+      pixbuf <- getPixbuf
+      scaledPixbuf <- scalePixbuf imgSize pixbuf
+      Gtk.imageSetFromPixbuf img scaledPixbuf
+    Nothing -> Gtk.imageClear img
+
+-- | Get the appropriate im\age given an ImageChoice value
+getPixBuf :: Int -> Bool -> IconInfo -> Maybe (IO Gtk.Pixbuf)
+getPixBuf imgSize preferCustom imgChoice = gpb imgChoice preferCustom
+  where gpb (IIFilePath file) True = Just $ pixBufFromFile imgSize file
+        gpb (IIEWMH icon) _ = Just $ pixBufFromEWMHIcon icon
+        gpb (IIFilePath file) _ = Just $ pixBufFromFile imgSize file
+        gpb _ _ = Nothing
+
 data WorkspaceButtonController =
   WorkspaceButtonController { button :: Gtk.EventBox
                             , buttonWorkspace :: Workspace
                             , contentsController :: WWC
                             }
-
-switch :: (MonadIO m) => WorkspaceIdx -> m Bool
-switch idx = do
-  liftIO $ withDefaultCtx (switchToWorkspace idx)
-  return True
-
-instance WorkspaceWidgetController WorkspaceButtonController
-  where
-    getWidget wbc = Gtk.toWidget $ button wbc
-    updateWidget wbc workspace = do
-      newContents <- updateWidget (contentsController wbc) workspace
-      return wbc { contentsController = newContents }
 
 buildButtonController
   :: (WorkspaceHUDConfig -> Workspace -> IO WWC)
@@ -339,6 +327,18 @@ buildButtonController contentsBuilder cfg workspace = do
                                          , buttonWorkspace = workspace
                                          , contentsController = cc
                                          }
+
+switch :: (MonadIO m) => WorkspaceIdx -> m Bool
+switch idx = do
+  liftIO $ withDefaultCtx (switchToWorkspace idx)
+  return True
+
+instance WorkspaceWidgetController WorkspaceButtonController
+  where
+    getWidget wbc = Gtk.toWidget $ button wbc
+    updateWidget wbc workspace = do
+      newContents <- updateWidget (contentsController wbc) workspace
+      return wbc { contentsController = newContents }
 
 data UnderlineController =
   UnderlineController { table :: T.Table
