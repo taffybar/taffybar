@@ -11,10 +11,11 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.WorkspaceHUD (
+  IconInfo(..),
   WWC(..),
   Workspace(..),
-  WorkspaceHUDConfig(..),
   WorkspaceContentsController(..),
+  WorkspaceHUDConfig(..),
   WorkspaceWidgetController(..),
   buildButtonController,
   buildContentsController,
@@ -23,7 +24,8 @@ module System.Taffybar.WorkspaceHUD (
   buildWorkspaceHUD,
   buildWorkspaces,
   defaultWorkspaceHUDConfig,
-  getWorkspaceToWindows
+  getWorkspaceToWindows,
+  windowTitleClassIconGetter
 ) where
 
 import qualified Control.Concurrent.MVar as MV
@@ -50,7 +52,7 @@ data WorkspaceState
   | Empty
   deriving (Show, Eq)
 
-data IconInfo = IIEWMH EWMHIcon | IIFilePath FilePath | IINone
+data IconInfo = IIEWMH EWMHIcon | IIFilePath FilePath | IIColor ColorRGBA | IINone
 
 data Workspace =
   Workspace { workspaceIdx :: WorkspaceIdx
@@ -80,6 +82,7 @@ data WorkspaceHUDConfig =
   , minWSWidgetSize :: Maybe Int
   , underlinePadding :: Int
   , maxIcons :: Maybe Int
+  , getIconInfo :: WorkspaceHUDConfig -> X11Window -> IO IconInfo
   }
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
@@ -91,6 +94,7 @@ defaultWorkspaceHUDConfig =
                      , minWSWidgetSize = Just 30
                      , underlinePadding = 1
                      , maxIcons = Nothing
+                     , getIconInfo = defaultGetIconInfo
                      }
 
 data Context =
@@ -296,20 +300,35 @@ updateMinSize widget minWidth = do
   W.Requisition w _ <- W.widgetSizeRequest widget
   when (w < minWidth) $ W.widgetSetSizeRequest widget minWidth  $ -1
 
-getIconInfo :: WorkspaceHUDConfig -> X11Window -> IO IconInfo
-getIconInfo cfg w = do
+defaultGetIconInfo :: WorkspaceHUDConfig -> X11Window -> IO IconInfo
+defaultGetIconInfo cfg w = do
   -- TODO: handle custom files
   icons <- withDefaultCtx $ getWindowIcons w
   return $ if (null icons)
            then IINone
            else IIEWMH $ selectEWMHIcon (windowIconSize cfg) icons
 
+windowTitleClassIconGetter :: Bool -> (String -> String -> IconInfo) ->
+                              (WorkspaceHUDConfig -> X11Window -> IO IconInfo)
+windowTitleClassIconGetter preferCustom customIconF = fn
+    where fn cfg w = do
+            wTitle <- withDefaultCtx $ getWindowTitle w
+            wClass <- withDefaultCtx $ getWindowClass w
+            let customResult = customIconF wTitle wClass
+            defaultResult <- defaultGetIconInfo cfg w
+            let first = if preferCustom then customResult else defaultResult
+            let second = if preferCustom then defaultResult else customResult
+            return $ case first of
+                       IINone -> second
+                       _ -> first
+
 forkM :: Monad m => (i -> m a) -> (i -> m b) -> i -> m (a, b)
 forkM = ((liftM2 . liftM2) (,))
 
 updateImages :: WorkspaceContentsController -> Workspace -> IO [IconWidget]
 updateImages wcc ws = do
-  iconInfos_ <- mapM (forkM (getIconInfo $ contentsConfig wcc) return) $ windowIds ws
+  let cfg = contentsConfig wcc
+  iconInfos_ <- mapM (forkM (getIconInfo cfg $ cfg) return) $ windowIds ws
   -- XXX: Only one of the two things being zipped can be an infinite list, which
   -- is why this newImagesNeeded contortion is needed.
   let iconInfos =
@@ -369,11 +388,10 @@ updateIconWidget wcc ws iw@IconWidget { iconContainer = iconButton
                                       } info windowId  =
   do
     let imgSize = windowIconSize $ contentsConfig wcc
-        preferCustom = False
         urgent = elem windowId $ urgentIds ws
         urgentStr = if urgent then "urgent" else "normal"
 
-    setImage imgSize preferCustom image info
+    setImage imgSize image info
 
     let widgetName = printf "Workspace-icon-%s-%s" (show windowId) urgentStr
     Gtk.widgetSetName iconButton (widgetName :: String)
@@ -383,9 +401,9 @@ updateIconWidget wcc ws iw@IconWidget { iconContainer = iconButton
     return iw
 
 -- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
-setImage :: Int -> Bool -> Gtk.Image -> IconInfo -> IO ()
-setImage imgSize preferCustom img imgChoice =
-  case getPixBuf imgSize preferCustom imgChoice of
+setImage :: Int -> Gtk.Image -> IconInfo -> IO ()
+setImage imgSize img imgChoice =
+  case getPixBuf imgSize imgChoice of
     Just getPixbuf -> do
       pixbuf <- getPixbuf
       scaledPixbuf <- scalePixbuf imgSize pixbuf
@@ -393,12 +411,13 @@ setImage imgSize preferCustom img imgChoice =
     Nothing -> Gtk.imageClear img
 
 -- | Get the appropriate im\age given an ImageChoice value
-getPixBuf :: Int -> Bool -> IconInfo -> Maybe (IO Gtk.Pixbuf)
-getPixBuf imgSize preferCustom imgChoice = gpb imgChoice preferCustom
-  where gpb (IIFilePath file) True = Just $ pixBufFromFile imgSize file
-        gpb (IIEWMH icon) _ = Just $ pixBufFromEWMHIcon icon
-        gpb (IIFilePath file) _ = Just $ pixBufFromFile imgSize file
-        gpb _ _ = Nothing
+getPixBuf :: Int -> IconInfo -> Maybe (IO Gtk.Pixbuf)
+getPixBuf imgSize imgChoice = gpb imgChoice
+  where
+    gpb (IIEWMH icon) = Just $ pixBufFromEWMHIcon icon
+    gpb (IIFilePath file) = Just $ pixBufFromFile imgSize file
+    gpb (IIColor color) = Just $ pixBufFromColor imgSize color
+    gpb _ = Nothing
 
 data WorkspaceButtonController =
   WorkspaceButtonController { button :: Gtk.EventBox
@@ -480,7 +499,3 @@ getWidgetName ws wname =
 buildUnderlineButtonController :: WorkspaceHUDConfig -> Workspace -> IO WWC
 buildUnderlineButtonController =
   buildButtonController (buildUnderlineController buildContentsController)
-
--- TODO:
--- * Custom Files/Colors
--- * scoll on button for switch

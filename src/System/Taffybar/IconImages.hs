@@ -10,9 +10,11 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.IconImages (
+  ColorRGBA,
   scalePixbuf,
   pixBufFromEWMHIcon,
   pixelsARGBToBytesRGBA,
+  pixBufFromColor,
   pixBufFromFile,
   selectEWMHIcon
 ) where
@@ -24,6 +26,8 @@ import           Foreign.C.Types (CUChar(..))
 import           Foreign.Marshal.Array (newArray)
 import qualified Graphics.UI.Gtk as Gtk
 import           System.Information.EWMHDesktopInfo
+
+type ColorRGBA = (Word8, Word8, Word8, Word8)
 
 -- | Take the passed in pixbuf and ensure its scaled square.
 scalePixbuf :: Int -> Gtk.Pixbuf -> IO Gtk.Pixbuf
@@ -49,6 +53,17 @@ pixBufFromEWMHIcon EWMHIcon {width=w, height=h, pixelsARGB=px} = do
       bytesRGBA = pixelsARGBToBytesRGBA px
   cPtr <- newArray $ map CUChar bytesRGBA
   Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
+
+-- | Create a pixbuf with the indicated RGBA color,
+-- scale it square, and set it in a GTK Image.
+pixBufFromColor :: Int -> ColorRGBA -> IO Gtk.Pixbuf
+pixBufFromColor imgSize (r,g,b,a) = do
+  let sampleBits = 8
+      hasAlpha = True
+      colorspace = Gtk.ColorspaceRgb
+  pixbuf <- Gtk.pixbufNew colorspace hasAlpha sampleBits imgSize imgSize
+  Gtk.pixbufFill pixbuf r g b a
+  return pixbuf
 
 -- | Convert a list of integer pixels to a bytestream with 4 channels.
 pixelsARGBToBytesRGBA :: [Int] -> [Word8]
