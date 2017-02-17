@@ -30,14 +30,15 @@ module System.Taffybar.WorkspaceHUD (
   windowTitleClassIconGetter
 ) where
 
+import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Char as S
 import           Data.List
 import qualified Data.Map as M
-import qualified Data.Set as Set
 import qualified Data.MultiMap as MM
+import qualified Data.Set as Set
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import qualified Graphics.UI.Gtk.Layout.Table as T
