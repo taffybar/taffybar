@@ -80,7 +80,7 @@ netMonitorMultiNewWith interval interfaces prec template = do
         mInfos :: [Maybe [Int]] <- traverse getNetInfo interfaces
         let
           results :: [(IORef [Int], [Int])]
-          results = catMaybes . fmap sequence $ zip refs mInfos
+          results = catMaybes . fmap sequenceMaybePair $ zip refs mInfos
         speeds <- traverse (uncurry $ calcSpeed interval) results
         return $ foldr (\[d,u] [dsum,usum] -> [dsum + d, usum + u]) [0,0] speeds
 
@@ -118,3 +118,10 @@ square x = x ^ (2 :: Int)
 setDigits :: Int -> Double -> String
 setDigits dig a = printf format a
     where format = "%." ++ show dig ++ "f"
+
+-- Needed for ghc-7.8:
+sequenceMaybePair :: (a, Maybe b) -> Maybe (a,b)
+sequenceMaybePair (_, Nothing) = Nothing
+sequenceMaybePair (a, Just b) = Just (a, b)
+
+
