@@ -30,6 +30,8 @@ import           System.Taffybar.Widgets.PollingLabel
 import           Text.Printf                          (printf)
 import           Text.StringTemplate
 import           Data.Maybe                           (catMaybes)
+import           Data.Traversable                     (traverse)
+import           Control.Applicative                     ((<$>))
 
 defaultNetFormat :: String
 defaultNetFormat = "▼ $inKB$kb/s ▲ $outKB$kb/s"
@@ -80,7 +82,7 @@ netMonitorMultiNewWith interval interfaces prec template = do
           results :: [(IORef [Int], [Int])]
           results = catMaybes . fmap sequence $ zip refs mInfos
         speeds <- traverse (uncurry $ calcSpeed interval) results
-        pure $ foldr (\[d,u] [dsum,usum] -> [dsum + d, usum + u]) [0,0] speeds
+        return $ foldr (\[d,u] [dsum,usum] -> [dsum + d, usum + u]) [0,0] speeds
 
       showResult = showInfo template prec <$> calcResult
 
@@ -93,7 +95,7 @@ calcSpeed interval sample result = do
     lastSample <- readIORef sample
     writeIORef sample result
     let deltas = map (max 0 . fromIntegral) $ zipWith (-) result lastSample
-    pure $ map (/interval) deltas
+    return $ map (/interval) deltas
 
 showInfo :: String -> Int -> [Double] -> String
 showInfo template prec speed@[incomingb, outgoingb] =
