@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.NetMonitor
@@ -17,6 +18,8 @@
 module System.Taffybar.NetMonitor (
   netMonitorNew,
   netMonitorNewWith,
+  netMonitorMultiNew,
+  netMonitorMultiNewWith,
   defaultNetFormat
   ) where
 
@@ -26,6 +29,7 @@ import           System.Information.Network           (getNetInfo)
 import           System.Taffybar.Widgets.PollingLabel
 import           Text.Printf                          (printf)
 import           Text.StringTemplate
+import           Data.Maybe                           (catMaybes)
 
 defaultNetFormat :: String
 defaultNetFormat = "▼ $inKB$kb/s ▲ $outKB$kb/s"
@@ -36,8 +40,7 @@ defaultNetFormat = "▼ $inKB$kb/s ▲ $outKB$kb/s"
 netMonitorNew :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
               -> String -- ^ Name of the network interface to monitor (e.g. \"eth0\", \"wlan1\")
               -> IO Widget
-netMonitorNew interval interface =
-  netMonitorNewWith interval interface 2 defaultNetFormat
+netMonitorNew interval interface = netMonitorMultiNew interval [interface]
 
 -- | Creates a new network monitor widget with custom template and precision.
 -- Similar to 'netMonitorNew'.
@@ -47,39 +50,69 @@ netMonitorNew interval interface =
 -- planned, eventually.
 netMonitorNewWith :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
                   -> String -- ^ Name of the network interface to monitor (e.g. \"eth0\", \"wlan1\")
-                  -> Integer -- ^ Precision for an output
+                  -> Int -- ^ Precision for an output
                   -> String -- ^ Template for an output. You can use variables: $inB$, $inKB$, $inMB$, $outB$, $outKB$, $outMB$
                   -> IO Widget
-netMonitorNewWith interval interface prec template = do
-    sample <- newIORef [0, 0]
-    label  <- pollingLabelNew "" interval $ showInfo sample interval interface template prec
+netMonitorNewWith interval interface prec template = netMonitorMultiNewWith interval [interface] prec template
+
+-- | Like `netMonitorNew` but allows specification of multiple interfaces.
+--   Interfaces are allowed to not exist at all (e.g. unplugged usb ethernet),
+--   the resulting speed is the speed of all available interfaces summed up. So
+--   you get your network speed regardless of which interface you are currently
+--   using.
+netMonitorMultiNew :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
+              -> [String] -- ^ Name of the network interfaces to monitor (e.g. \"eth0\", \"wlan1\")
+              -> IO Widget
+netMonitorMultiNew interval interfaces = netMonitorMultiNewWith interval interfaces 2 defaultNetFormat
+
+-- | Like `newMonitorNewWith` but for multiple interfaces.
+netMonitorMultiNewWith :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
+                  -> [String] -- ^ Name of the network interfaces to monitor (e.g. \"eth0\", \"wlan1\")
+                  -> Int -- ^ Precision for an output
+                  -> String -- ^ Template for an output. You can use variables: $inB$, $inKB$, $inMB$, $outB$, $outKB$, $outMB$
+                  -> IO Widget
+netMonitorMultiNewWith interval interfaces prec template = do
+    refs :: [IORef [Int]] <- traverse (const $ newIORef [0,0]) interfaces
+    let
+      calcResult = do
+        mInfos :: [Maybe [Int]] <- traverse getNetInfo interfaces
+        let
+          results :: [(IORef [Int], [Int])]
+          results = catMaybes . fmap sequence $ zip refs mInfos
+        speeds <- traverse (uncurry $ calcSpeed interval) results
+        pure $ foldr (\[d,u] [dsum,usum] -> [dsum + d, usum + u]) [0,0] speeds
+
+      showResult = showInfo template prec <$> calcResult
+
+    label  <- pollingLabelNew "" interval $ showResult
     widgetShowAll label
     return $ toWidget label
 
-showInfo :: IORef [Integer] -> Double -> String -> String -> Integer -> IO String
-showInfo sample interval interface template prec = do
-    maybeThisSample <- getNetInfo interface
-    case maybeThisSample of
-      Nothing -> return ""
-      Just thisSample -> do
-        lastSample <- readIORef sample
-        writeIORef sample thisSample
-        let deltas = map (max 0 . fromIntegral) $ zipWith (-) thisSample lastSample
-            speed@[incomingb, outgoingb] = map (/(interval)) deltas
-            [incomingkb, outgoingkb] = map (setDigits prec . (/1024)) speed
-            [incomingmb, outgoingmb] = map (setDigits prec . (/square 1024)) speed
-            attribs = [ ("inB", show incomingb)
-                      , ("inKB", incomingkb)
-                      , ("inMB", incomingmb)
-                      , ("outB", show outgoingb)
-                      , ("outKB", outgoingkb)
-                      , ("outMB", outgoingmb)
-                      ]
-        return . render . setManyAttrib attribs $ newSTMP template
+calcSpeed :: Double -> IORef [Int] -> [Int] -> IO [Double]
+calcSpeed interval sample result = do
+    lastSample <- readIORef sample
+    writeIORef sample result
+    let deltas = map (max 0 . fromIntegral) $ zipWith (-) result lastSample
+    pure $ map (/interval) deltas
+
+showInfo :: String -> Int -> [Double] -> String
+showInfo template prec speed@[incomingb, outgoingb] =
+  let
+    [incomingkb, outgoingkb] = map (setDigits prec . (/1024)) speed
+    [incomingmb, outgoingmb] = map (setDigits prec . (/square 1024)) speed
+    attribs = [ ("inB", show incomingb)
+              , ("inKB", incomingkb)
+              , ("inMB", incomingmb)
+              , ("outB", show outgoingb)
+              , ("outKB", outgoingkb)
+              , ("outMB", outgoingmb)
+              ]
+  in
+    render . setManyAttrib attribs $ newSTMP template
 
 square :: Double -> Double
 square x = x ^ (2 :: Int)
 
-setDigits :: Integer -> Double -> String
+setDigits :: Int -> Double -> String
 setDigits dig a = printf format a
     where format = "%." ++ show dig ++ "f"

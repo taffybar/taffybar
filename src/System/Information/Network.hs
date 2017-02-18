@@ -17,26 +17,27 @@
 module System.Information.Network ( getNetInfo ) where
 
 import Control.Applicative
+import Control.Monad
+import Control.Exception (catch, SomeException)
 import Data.Maybe ( mapMaybe )
 import Safe ( atMay, initSafe, readDef )
 import System.Information.StreamInfo ( getParsedInfo )
+import Control.Monad.Trans.Maybe (MaybeT(..))
 
 import Prelude
 
 -- | Returns a two-element list containing the current number of bytes
 -- received and transmitted via the given network interface (e.g. \"wlan0\"),
 -- according to the contents of the @\/proc\/dev\/net@ file.
-getNetInfo :: String -> IO (Maybe [Integer])
-getNetInfo iface = do
-  isUp <- isInterfaceUp iface
-  case isUp of
-    True -> Just <$> getParsedInfo "/proc/net/dev" parse iface
-    False -> return Nothing
+getNetInfo :: String -> IO (Maybe [Int])
+getNetInfo iface = runMaybeT $ do
+  isInterfaceUp iface
+  handleFailure $ getParsedInfo "/proc/net/dev" parse iface
 
-parse :: String -> [(String, [Integer])]
+parse :: String -> [(String, [Int])]
 parse = mapMaybe tuplize . map words . drop 2 . lines
 
-tuplize :: [String] -> Maybe (String, [Integer])
+tuplize :: [String] -> Maybe (String, [Int])
 tuplize s = do
   dev <- initSafe <$> s `atMay` 0
   down <- readDef (-1) <$> s `atMay` 1
@@ -45,9 +46,16 @@ tuplize s = do
   where
     out = (length s) - 8
 
-isInterfaceUp :: String -> IO Bool
+-- Nothing if interface does not exist or is down
+isInterfaceUp :: String -> MaybeT IO ()
 isInterfaceUp iface = do
-  state <- readFile $ "/sys/class/net/" ++ iface ++ "/operstate"
+  state <- handleFailure $ readFile $ "/sys/class/net/" ++ iface ++ "/operstate"
   case state of
-    'u' : _ -> return True
-    _ -> return False
+    'u' : _ -> return ()
+    _ -> mzero
+
+handleFailure :: IO a -> MaybeT IO a
+handleFailure action = MaybeT $ catch (Just <$> action) eToNothing
+  where
+    eToNothing :: SomeException -> IO (Maybe a)
+    eToNothing _ = pure Nothing
