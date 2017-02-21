@@ -128,7 +128,26 @@ hudFromPagerConfig pagerConfig =
             ws = windows workspace
             name = workspaceName workspace
             state = workspaceState workspace
-  in defaultWorkspaceHUDConfig { labelSetter = updater }
+      padded = if workspacePad pagerConfig then prefixSpace . updater else updater
+      getCustomImage wt wc = case (customIcon pagerConfig wt wc) of
+                               Just fp -> IIFilePath fp
+                               Nothing -> IINone
+  in defaultWorkspaceHUDConfig { labelSetter = padded
+                               , minIcons = if (fillEmptyImages pagerConfig) then 1 else 0
+                               , maxIcons = Just $ if (useImages pagerConfig) then 1 else 0
+                               , getIconInfo = windowTitleClassIconGetter (preferCustomIcon pagerConfig) getCustomImage
+                               , widgetGap = workspaceGap pagerConfig
+                               , windowIconSize = imageSize pagerConfig
+                               , widgetBuilder = if (workspaceBorder pagerConfig)
+                                                 then
+                                                   buildBorderButtonController
+                                                 else
+                                                   buildButtonController buildContentsController
+                               , minWSWidgetSize = Nothing
+                               }
+    where
+      prefixSpace "" = ""
+      prefixSpace s = " " ++ s
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
 defaultWorkspaceHUDConfig =
