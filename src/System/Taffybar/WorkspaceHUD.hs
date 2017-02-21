@@ -35,8 +35,7 @@ import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Char as S
-import           Data.Foldable (foldl)
-import           Data.List hiding (foldl)
+import           Data.Foldable as F
 import qualified Data.Map as M
 import qualified Data.MultiMap as MM
 import qualified Data.Set as Set
@@ -58,12 +57,17 @@ data WorkspaceState
 
 data IconInfo = IIEWMH EWMHIcon | IIFilePath FilePath | IIColor ColorRGBA | IINone
 
+data WindowInfo = WindowInfo { windowId :: X11Window
+                             , windowTitle :: String
+                             , windowClass :: String
+                             , windowUrgent :: Bool
+                             } deriving (Show, Eq)
+
 data Workspace =
   Workspace { workspaceIdx :: WorkspaceIdx
             , workspaceName :: String
             , workspaceState :: WorkspaceState
-            , windowIds :: [X11Window]
-            , urgentIds :: [X11Window]
+            , windows :: [WindowInfo]
             } deriving (Show, Eq)
 
 class WorkspaceWidgetController wc where
@@ -86,7 +90,7 @@ data WorkspaceHUDConfig =
   , minWSWidgetSize :: Maybe Int
   , underlinePadding :: Int
   , maxIcons :: Maybe Int
-  , getIconInfo :: WorkspaceHUDConfig -> X11Window -> IO IconInfo
+  , getIconInfo :: WorkspaceHUDConfig -> WindowInfo -> IO IconInfo
   , labelSetter :: Workspace -> String
   }
 
@@ -129,6 +133,17 @@ getWorkspaceToWindows =
 getUrgentWindows :: IO [X11Window]
 getUrgentWindows = withDefaultCtx (getWindows >>= filterM isWindowUrgent)
 
+getWindowInfo :: [X11Window] -> X11Window -> IO WindowInfo
+getWindowInfo urgentWindows window = withDefaultCtx $
+  do
+    wTitle <- getWindowTitle window
+    wClass <- getWindowClass window
+    return $ WindowInfo { windowId = window
+                        , windowTitle = wTitle
+                        , windowClass = wClass
+                        , windowUrgent = elem window urgentWindows
+                        }
+
 buildWorkspaces :: M.Map WorkspaceIdx Workspace -> IO (M.Map WorkspaceIdx Workspace)
 buildWorkspaces _ = do
   names <- withDefaultCtx getWorkspaceNames
@@ -137,21 +152,22 @@ buildWorkspaces _ = do
   active:visible <- withDefaultCtx getVisibleWorkspaces
 
   let
-    getWorkspaceState idx windows
+    getWorkspaceState idx ws
         | idx == active = Active
         | elem idx visible = Visible
-        | null windows = Empty
+        | null ws = Empty
         | otherwise = Hidden
 
-  return $ foldl (\theMap (idx, name) ->
-                    let windows = MM.lookup idx workspaceToWindows in
-                    M.insert idx
-                     Workspace { workspaceIdx = idx
-                               , workspaceName = name
-                               , workspaceState = getWorkspaceState idx windows
-                               , windowIds = windows
-                               , urgentIds = intersect windows urgentWindows
-                               } theMap) M.empty names
+  foldM (\theMap (idx, name) ->
+           do
+             let ws = MM.lookup idx workspaceToWindows
+             windowInfos <- mapM (getWindowInfo urgentWindows) ws
+             return $ M.insert idx
+                    Workspace { workspaceIdx = idx
+                              , workspaceName = name
+                              , workspaceState = getWorkspaceState idx ws
+                              , windows = windowInfos
+                              } theMap) M.empty names
 
 addWidgetsToTopLevel :: Context -> IO ()
 addWidgetsToTopLevel Context { controllersVar = controllersRef
@@ -271,7 +287,7 @@ buildContentsController cfg ws = do
                                     , label = lbl
                                     , iconImages = []
                                     , contentsWorkspace =
-                                      ws { windowIds = []
+                                      ws { windows = []
                                          , workspaceName = workspaceName ws ++ "fake"
                                          }
                                     , contentsConfig = cfg
@@ -289,8 +305,7 @@ instance WorkspaceWidgetController WorkspaceContentsController where
          Gtk.labelSetMarkup (label cc) (getLabel newWorkspace)
 
     newImages <-
-      if ((windowIds currentWorkspace) /= (windowIds newWorkspace) ||
-          (urgentIds currentWorkspace) /= (urgentIds newWorkspace))
+      if ((windows currentWorkspace) /= (windows newWorkspace))
       then
         updateImages cc newWorkspace
       else
@@ -319,9 +334,9 @@ updateMinSize widget minWidth = do
   W.Requisition w _ <- W.widgetSizeRequest widget
   when (w < minWidth) $ W.widgetSetSizeRequest widget minWidth  $ -1
 
-defaultGetIconInfo :: WorkspaceHUDConfig -> X11Window -> IO IconInfo
+defaultGetIconInfo :: WorkspaceHUDConfig -> WindowInfo -> IO IconInfo
 defaultGetIconInfo cfg w = do
-  icons <- withDefaultCtx $ getWindowIcons w
+  icons <- withDefaultCtx $ getWindowIcons $ windowId w
   return $ if (null icons)
            then IINone
            else IIEWMH $ selectEWMHIcon (windowIconSize cfg) icons
@@ -329,18 +344,19 @@ defaultGetIconInfo cfg w = do
 windowTitleClassIconGetter
   :: Bool
   -> (String -> String -> IconInfo)
-  -> (WorkspaceHUDConfig -> X11Window -> IO IconInfo)
+  -> (WorkspaceHUDConfig -> WindowInfo -> IO IconInfo)
 windowTitleClassIconGetter preferCustom customIconF = fn
-    where fn cfg w = do
-            wTitle <- withDefaultCtx $ getWindowTitle w
-            wClass <- withDefaultCtx $ getWindowClass w
-            let customResult = customIconF wTitle wClass
-            defaultResult <- defaultGetIconInfo cfg w
-            let first = if preferCustom then customResult else defaultResult
-            let second = if preferCustom then defaultResult else customResult
-            return $ case first of
-                       IINone -> second
-                       _ -> first
+    where fn cfg w@WindowInfo { windowTitle = wTitle
+                              , windowClass = wClass
+                              } =
+            do
+              let customResult = customIconF wTitle wClass
+              defaultResult <- defaultGetIconInfo cfg w
+              let first = if preferCustom then customResult else defaultResult
+              let second = if preferCustom then defaultResult else customResult
+              return $ case first of
+                         IINone -> second
+                         _ -> first
 
 splitM :: Monad m => (i -> m a) -> (i -> m b) -> i -> m (a, b)
 splitM = ((liftM2 . liftM2) (,))
@@ -348,22 +364,26 @@ splitM = ((liftM2 . liftM2) (,))
 updateImages :: WorkspaceContentsController -> Workspace -> IO [IconWidget]
 updateImages wcc ws = do
   let cfg = contentsConfig wcc
-  iconInfos_ <- mapM (splitM (getIconInfo cfg $ cfg) return) $ windowIds ws
+  iconInfos_ <- mapM (splitM (getIconInfo cfg $ cfg) return) $ windows ws
   -- XXX: Only one of the two things being zipped can be an infinite list, which
   -- is why this newImagesNeeded contortion is needed.
   let iconInfos =
         if newImagesNeeded
           then iconInfos_
-          else (iconInfos_ ++ repeat (IINone, 0))
+          else (iconInfos_ ++ repeat (IINone, WindowInfo { windowTitle = ""
+                                                         , windowClass = ""
+                                                         , windowUrgent = False
+                                                         , windowId = 0
+                                                         }))
 
   newImgs <- zipWithM updateIconWidget' getImgs iconInfos
   when newImagesNeeded $ Gtk.widgetShowAll $ container wcc
   return newImgs
 
   where
-    updateIconWidget' getImage (iconInfo, windowId)  = do
+    updateIconWidget' getImage (iconInfo, winfo)  = do
       iconWidget <- getImage
-      _ <- updateIconWidget wcc ws iconWidget iconInfo windowId
+      _ <- updateIconWidget wcc ws iconWidget iconInfo winfo
       return iconWidget
     infiniteImages =
       (map return $ iconImages wcc) ++
@@ -371,7 +391,7 @@ updateImages wcc ws = do
          iw <- buildIconWidget
          Gtk.containerAdd (container wcc) $ iconContainer iw
          return iw)
-    newImagesNeeded = (length $ iconImages wcc) < (length $ windowIds ws)
+    newImagesNeeded = (length $ iconImages wcc) < (length $ windows ws)
     imgSrcs =
       if newImagesNeeded
         then infiniteImages
@@ -400,23 +420,22 @@ updateIconWidget
   -> Workspace
   -> IconWidget
   -> IconInfo
-  -> X11Window
+  -> WindowInfo
   -> IO IconWidget
-updateIconWidget wcc ws iw@IconWidget { iconContainer = iconButton
+updateIconWidget wcc _ iw@IconWidget { iconContainer = iconButton
                                       , iconImage = image
                                       , iconWindow = windowRef
-                                      } info windowId  =
+                                      } info windowInfo  =
   do
     let imgSize = windowIconSize $ contentsConfig wcc
-        urgent = elem windowId $ urgentIds ws
-        urgentStr = if urgent then "urgent" else "normal"
+        urgentStr = if windowUrgent windowInfo then "urgent" else "normal"
 
     setImage imgSize image info
 
-    let widgetName = printf "Workspace-icon-%s-%s" (show windowId) urgentStr
+    let widgetName = printf "Workspace-icon-%s-%s" (show $ windowId windowInfo) urgentStr
     Gtk.widgetSetName iconButton (widgetName :: String)
 
-    MV.modifyMVar_ windowRef $ const $ return windowId
+    MV.modifyMVar_ windowRef $ const $ return $ windowId windowInfo
 
     return iw
 
