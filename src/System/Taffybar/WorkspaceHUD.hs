@@ -27,6 +27,7 @@ module System.Taffybar.WorkspaceHUD (
   buildWorkspaces,
   defaultWorkspaceHUDConfig,
   getWorkspaceToWindows,
+  hideEmpty,
   windowTitleClassIconGetter
 ) where
 
@@ -107,6 +108,7 @@ data WorkspaceHUDConfig =
   , getIconInfo :: WorkspaceHUDConfig -> WindowData -> IO IconInfo
   , labelSetter :: Workspace -> String
   , updateIconsOnTitleChange :: Bool
+  , showWorkspaceFn :: Workspace -> Bool
   }
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
@@ -122,7 +124,12 @@ defaultWorkspaceHUDConfig =
                      , getIconInfo = defaultGetIconInfo
                      , labelSetter = workspaceName
                      , updateIconsOnTitleChange = True
+                     , showWorkspaceFn = const True
                      }
+
+hideEmpty :: Workspace -> Bool
+hideEmpty Workspace { workspaceState = Empty } = False
+hideEmpty _ = True
 
 data Context =
   Context { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
@@ -239,7 +246,27 @@ updateAllWorkspaceWidgets c@Context { workspacesVar = workspacesRef} = do
         maybe (return controller)
               (updateWidget controller . WorkspaceUpdate) $
               M.lookup idx workspacesMap
+
   doWidgetUpdate c updateController
+
+  showControllers c
+
+showControllers :: Context -> IO ()
+showControllers Context { workspacesVar = workspacesRef
+                        , controllersVar = controllersRef
+                        , hudConfig = cfg
+                        } = do
+  let shouldShow = showWorkspaceFn cfg
+  workspacesMap <- MV.readMVar workspacesRef
+  controllersMap <- MV.readMVar controllersRef
+  flip mapM_ (M.elems workspacesMap) $ \ws ->
+    let c = M.lookup (workspaceIdx ws) controllersMap
+        widget = case c of
+                   Just controller -> getWidget controller
+    in
+      if (shouldShow ws)
+      then Gtk.widgetShow widget
+      else Gtk.widgetHide widget
 
 doWidgetUpdate :: Context -> (WorkspaceIdx -> WWC -> IO WWC) -> IO ()
 doWidgetUpdate Context { controllersVar = controllersRef } updateController =
