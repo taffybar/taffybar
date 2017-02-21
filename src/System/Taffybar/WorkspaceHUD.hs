@@ -97,6 +97,7 @@ data WorkspaceHUDConfig =
   , maxIcons :: Maybe Int
   , getIconInfo :: WorkspaceHUDConfig -> WindowData -> IO IconInfo
   , labelSetter :: Workspace -> String
+  , updateIconsOnTitleChange :: Bool
   }
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
@@ -110,6 +111,7 @@ defaultWorkspaceHUDConfig =
                      , maxIcons = Nothing
                      , getIconInfo = defaultGetIconInfo
                      , labelSetter = workspaceName
+                     , updateIconsOnTitleChange = True
                      }
 
 data Context =
@@ -441,7 +443,6 @@ buildIconWidget = do
                     , iconWindow = windowVar
                     }
 
-
 updateIconWidget
   :: WorkspaceContentsController
   -> IconWidget
@@ -453,7 +454,13 @@ updateIconWidget wcc IconWidget { iconContainer = iconButton
                                 , iconWindow = windowRef
                                 } windowData forceUpdate =
   MV.modifyMVar_ windowRef $ \currentData ->
-    (when (forceUpdate || (currentData /= windowData)) setIconWidgetProperties)
+    let requireFullEqualityForSkip = updateIconsOnTitleChange $ contentsConfig wcc
+        sameWindow = (windowId <$> currentData) == (windowId <$> windowData)
+        dataRequiresUpdate =
+          (requireFullEqualityForSkip && (currentData /= windowData)) ||
+          not sameWindow
+    in
+    (when (forceUpdate || dataRequiresUpdate) setIconWidgetProperties)
     >> return windowData
       where
         setIconWidgetProperties = do
@@ -480,7 +487,7 @@ setImage imgSize img imgChoice =
       Gtk.imageSetFromPixbuf img scaledPixbuf
     Nothing -> Gtk.imageClear img
 
--- | Get the appropriate im\age given an ImageChoice value
+-- | Get the appropriate image given an ImageChoice value
 getPixBuf :: Int -> IconInfo -> Maybe (IO Gtk.Pixbuf)
 getPixBuf imgSize imgChoice = gpb imgChoice
   where
