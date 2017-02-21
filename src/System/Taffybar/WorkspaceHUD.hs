@@ -55,7 +55,15 @@ data WorkspaceState
   | Empty
   deriving (Show, Eq)
 
-data IconInfo = IIEWMH EWMHIcon | IIFilePath FilePath | IIColor ColorRGBA | IINone
+data IconInfo
+  = IIEWMH EWMHIcon
+  | IIFilePath FilePath
+  | IIColor ColorRGBA
+  | IINone
+  deriving (Eq, Show)
+
+transparentInfo :: IconInfo
+transparentInfo = IIColor $ (0, 0, 0, 0)
 
 data WindowData = WindowData { windowId :: X11Window
                              , windowTitle :: String
@@ -95,6 +103,7 @@ data WorkspaceHUDConfig =
   , minWSWidgetSize :: Maybe Int
   , underlinePadding :: Int
   , maxIcons :: Maybe Int
+  , minIcons :: Int
   , getIconInfo :: WorkspaceHUDConfig -> WindowData -> IO IconInfo
   , labelSetter :: Workspace -> String
   , updateIconsOnTitleChange :: Bool
@@ -109,6 +118,7 @@ defaultWorkspaceHUDConfig =
                      , minWSWidgetSize = Just 30
                      , underlinePadding = 1
                      , maxIcons = Nothing
+                     , minIcons = 0
                      , getIconInfo = defaultGetIconInfo
                      , labelSetter = workspaceName
                      , updateIconsOnTitleChange = True
@@ -351,7 +361,7 @@ updateWindowIconsById wcc windowIds =
       do
         info <- MV.readMVar $ iconWindow widget
         when (maybe False ((flip elem windowIds) . windowId) info) $
-         updateIconWidget wcc widget info True
+         updateIconWidget wcc widget info True False
 
 setContainerWidgetNames :: WorkspaceContentsController -> Workspace -> IO ()
 setContainerWidgetNames wcc ws = do
@@ -398,29 +408,38 @@ updateImages wcc ws = do
   let justWindows = map Just $ windows ws
       windowDatas =
         if newImagesNeeded
-          then justWindows
+          then justWindows ++ (replicate (minIcons cfg - length justWindows) Nothing)
           else (justWindows ++ repeat Nothing)
+      transparentOnNones = (replicate (minIcons cfg) True) ++ repeat False
 
-  newImgs <- zipWithM updateIconWidget' getImgs windowDatas
+  newImgs <- sequence $ zipWith3 updateIconWidget' getImgs windowDatas transparentOnNones
   when newImagesNeeded $ Gtk.widgetShowAll $ container wcc
+
   return newImgs
 
   where
-    updateIconWidget' getImage wdata = do
+    cfg = contentsConfig wcc
+    updateIconWidget' getImage wdata ton = do
+      -- XXX: This is a hack to make sure that transparent minIcons images get
+      -- populated
+      let force = wdata == Nothing && newImagesNeeded && ton
       iconWidget <- getImage
-      _ <- updateIconWidget wcc iconWidget wdata False
+      _ <- updateIconWidget wcc iconWidget wdata force ton
       return iconWidget
+    existingImages = (map return $ iconImages wcc)
     infiniteImages =
-      (map return $ iconImages wcc) ++
+      existingImages ++
       (repeat $ do
          iw <- buildIconWidget
          Gtk.containerAdd (container wcc) $ iconContainer iw
          return iw)
-    newImagesNeeded = (length $ iconImages wcc) < (length $ windows ws)
+    windowCount = length $ windows ws
+    maxNeeded = maybe windowCount (min windowCount) $ maxIcons cfg
+    newImagesNeeded = length existingImages < max (minIcons cfg) maxNeeded
     imgSrcs =
       if newImagesNeeded
         then infiniteImages
-        else (map return $ iconImages wcc)
+        else existingImages
     getImgs = case maxIcons $ contentsConfig wcc of
                 Just theMax -> take theMax imgSrcs
                 Nothing -> imgSrcs
@@ -448,11 +467,12 @@ updateIconWidget
   -> IconWidget
   -> Maybe WindowData
   -> Bool
+  -> Bool
   -> IO ()
 updateIconWidget wcc IconWidget { iconContainer = iconButton
                                 , iconImage = image
                                 , iconWindow = windowRef
-                                } windowData forceUpdate =
+                                } windowData forceUpdate transparentOnNone =
   MV.modifyMVar_ windowRef $ \currentData ->
     let requireFullEqualityForSkip = updateIconsOnTitleChange $ contentsConfig wcc
         sameWindow = (windowId <$> currentData) == (windowId <$> windowData)
@@ -472,29 +492,37 @@ updateIconWidget wcc IconWidget { iconContainer = iconButton
               urgentStr = if (maybe False windowUrgent windowData)
                           then "urgent"
                           else "normal"
-          setImage imgSize image info
+
+              iconInfo = case info of
+                           IINone -> if transparentOnNone
+                                     then transparentInfo
+                                     else IINone
+                           _ -> info
+
+          mpixBuf <- getPixBuf imgSize iconInfo
+          setImage imgSize image mpixBuf
+
           let widgetName = printf "Workspace-icon-%s-%s"
                            (show $ maybe 0 windowId windowData) urgentStr
           Gtk.widgetSetName iconButton (widgetName :: String)
 
 -- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
-setImage :: Int -> Gtk.Image -> IconInfo -> IO ()
-setImage imgSize img imgChoice =
-  case getPixBuf imgSize imgChoice of
-    Just getPixbuf -> do
-      pixbuf <- getPixbuf
+setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
+setImage imgSize img pixBuf =
+  case pixBuf of
+    Just pixbuf -> do
       scaledPixbuf <- scalePixbuf imgSize pixbuf
       Gtk.imageSetFromPixbuf img scaledPixbuf
     Nothing -> Gtk.imageClear img
 
 -- | Get the appropriate image given an ImageChoice value
-getPixBuf :: Int -> IconInfo -> Maybe (IO Gtk.Pixbuf)
+getPixBuf :: Int -> IconInfo -> IO (Maybe Gtk.Pixbuf)
 getPixBuf imgSize imgChoice = gpb imgChoice
   where
-    gpb (IIEWMH icon) = Just $ pixBufFromEWMHIcon icon
-    gpb (IIFilePath file) = Just $ pixBufFromFile imgSize file
-    gpb (IIColor color) = Just $ pixBufFromColor imgSize color
-    gpb _ = Nothing
+    gpb (IIEWMH icon) = Just <$> pixBufFromEWMHIcon icon
+    gpb (IIFilePath file) = Just <$> pixBufFromFile imgSize file
+    gpb (IIColor color) = Just <$> pixBufFromColor imgSize color
+    gpb _ = return Nothing
 
 data WorkspaceButtonController =
   WorkspaceButtonController { button :: Gtk.EventBox
