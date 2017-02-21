@@ -28,6 +28,7 @@ module System.Taffybar.WorkspaceHUD (
   defaultWorkspaceHUDConfig,
   getWorkspaceToWindows,
   hideEmpty,
+  hudFromPagerConfig,
   windowTitleClassIconGetter
 ) where
 
@@ -110,6 +111,22 @@ data WorkspaceHUDConfig =
   , updateIconsOnTitleChange :: Bool
   , showWorkspaceFn :: Workspace -> Bool
   }
+
+hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
+hudFromPagerConfig pagerConfig =
+  let updater workspace
+        | any windowUrgent ws = urgentWorkspace pagerConfig $ name
+        | otherwise = let getter = case state of
+                                     Visible -> visibleWorkspace
+                                     Active -> activeWorkspace
+                                     Hidden -> hiddenWorkspace
+                                     Empty -> emptyWorkspace
+                          in getter pagerConfig $ name
+          where
+            ws = windows workspace
+            name = workspaceName workspace
+            state = workspaceState workspace
+  in defaultWorkspaceHUDConfig { labelSetter = updater }
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
 defaultWorkspaceHUDConfig =
