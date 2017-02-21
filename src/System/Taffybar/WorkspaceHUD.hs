@@ -36,7 +36,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Char as S
 import           Data.Foldable (foldl)
-import           Data.List
+import           Data.List hiding (foldl)
 import qualified Data.Map as M
 import qualified Data.MultiMap as MM
 import qualified Data.Set as Set
@@ -250,7 +250,8 @@ data IconWidget = IconWidget { iconContainer :: Gtk.EventBox
                              }
 
 data WorkspaceContentsController = WorkspaceContentsController
-  { container :: Gtk.HBox
+  { containerEbox :: Gtk.EventBox
+  , container :: Gtk.HBox
   , label :: Gtk.Label
   , iconImages :: [IconWidget]
   , contentsWorkspace :: Workspace
@@ -261,9 +262,12 @@ buildContentsController :: WorkspaceHUDConfig -> Workspace -> IO WWC
 buildContentsController cfg ws = do
   lbl <- Gtk.labelNew (Nothing :: Maybe String)
   hbox <- Gtk.hBoxNew False 0
+  ebox <- Gtk.eventBoxNew
   Gtk.containerAdd hbox lbl
+  Gtk.containerAdd ebox hbox
   let tempController =
-        WorkspaceContentsController { container = hbox
+        WorkspaceContentsController { containerEbox = ebox
+                                    , container = hbox
                                     , label = lbl
                                     , iconImages = []
                                     , contentsWorkspace =
@@ -275,7 +279,7 @@ buildContentsController cfg ws = do
   WWC <$> updateWidget tempController ws
 
 instance WorkspaceWidgetController WorkspaceContentsController where
-  getWidget cc = Gtk.toWidget $ container cc
+  getWidget cc = Gtk.toWidget $ containerEbox cc
   updateWidget cc newWorkspace = do
     let currentWorkspace = contentsWorkspace cc
         cfg = contentsConfig cc
@@ -292,7 +296,7 @@ instance WorkspaceWidgetController WorkspaceContentsController where
       else
         return $ iconImages cc
 
-    Gtk.widgetSetName (container cc) $ getWidgetName newWorkspace "contents"
+    setContainerWidgetNames cc newWorkspace
 
     maybe (return ()) (updateMinSize $ Gtk.toWidget $ container cc) $
           minWSWidgetSize cfg
@@ -300,6 +304,14 @@ instance WorkspaceWidgetController WorkspaceContentsController where
     return cc { contentsWorkspace = newWorkspace
               , iconImages = newImages
               }
+
+setContainerWidgetNames :: WorkspaceContentsController -> Workspace -> IO ()
+setContainerWidgetNames wcc ws = do
+  let getWName = getWidgetName ws
+      contentsName = getWName "contents"
+      labelName = getWName "label"
+  Gtk.widgetSetName (containerEbox wcc) contentsName
+  Gtk.widgetSetName (label wcc) labelName
 
 updateMinSize :: Gtk.Widget -> Int  -> IO ()
 updateMinSize widget minWidth = do
