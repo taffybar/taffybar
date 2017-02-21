@@ -306,7 +306,6 @@ updateMinSize widget minWidth = do
 
 defaultGetIconInfo :: WorkspaceHUDConfig -> X11Window -> IO IconInfo
 defaultGetIconInfo cfg w = do
-  -- TODO: handle custom files
   icons <- withDefaultCtx $ getWindowIcons w
   return $ if (null icons)
            then IINone
@@ -328,13 +327,13 @@ windowTitleClassIconGetter preferCustom customIconF = fn
                        IINone -> second
                        _ -> first
 
-forkM :: Monad m => (i -> m a) -> (i -> m b) -> i -> m (a, b)
-forkM = ((liftM2 . liftM2) (,))
+splitM :: Monad m => (i -> m a) -> (i -> m b) -> i -> m (a, b)
+splitM = ((liftM2 . liftM2) (,))
 
 updateImages :: WorkspaceContentsController -> Workspace -> IO [IconWidget]
 updateImages wcc ws = do
   let cfg = contentsConfig wcc
-  iconInfos_ <- mapM (forkM (getIconInfo cfg $ cfg) return) $ windowIds ws
+  iconInfos_ <- mapM (splitM (getIconInfo cfg $ cfg) return) $ windowIds ws
   -- XXX: Only one of the two things being zipped can be an infinite list, which
   -- is why this newImagesNeeded contortion is needed.
   let iconInfos =

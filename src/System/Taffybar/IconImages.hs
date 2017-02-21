@@ -43,7 +43,7 @@ scalePixbuf imgSize pixbuf = do
 -- | Create a pixbuf from the pixel data in an EWMHIcon,
 -- scale it square, and set it in a GTK Image.
 pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
-pixBufFromEWMHIcon EWMHIcon {width=w, height=h, pixelsARGB=px} = do
+pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
   let pixelsPerRow = w
       bytesPerPixel = 4
       rowStride = pixelsPerRow * bytesPerPixel
@@ -57,7 +57,7 @@ pixBufFromEWMHIcon EWMHIcon {width=w, height=h, pixelsARGB=px} = do
 -- | Create a pixbuf with the indicated RGBA color,
 -- scale it square, and set it in a GTK Image.
 pixBufFromColor :: Int -> ColorRGBA -> IO Gtk.Pixbuf
-pixBufFromColor imgSize (r,g,b,a) = do
+pixBufFromColor imgSize (r, g, b, a) = do
   let sampleBits = 8
       hasAlpha = True
       colorspace = Gtk.ColorspaceRgb
