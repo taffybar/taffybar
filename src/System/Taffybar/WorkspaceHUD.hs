@@ -430,7 +430,7 @@ updateImages wcc ws = do
     infiniteImages =
       existingImages ++
       (repeat $ do
-         iw <- buildIconWidget
+         iw <- buildIconWidget ws
          Gtk.containerAdd (container wcc) $ iconContainer iw
          return iw)
     windowCount = length $ windows ws
@@ -444,8 +444,8 @@ updateImages wcc ws = do
                 Just theMax -> take theMax imgSrcs
                 Nothing -> imgSrcs
 
-buildIconWidget :: IO IconWidget
-buildIconWidget = do
+buildIconWidget :: Workspace -> IO IconWidget
+buildIconWidget ws = do
   img <- Gtk.imageNew
   ebox <- Gtk.eventBoxNew
   windowVar <- MV.newMVar Nothing
@@ -455,7 +455,7 @@ buildIconWidget = do
                     case info of
                       Just updatedInfo ->
                         withDefaultCtx $ focusWindow $ windowId updatedInfo
-                      _ -> return ()
+                      _ -> liftIO $ switch (workspaceIdx ws) >> return ()
                     return True
   return IconWidget { iconContainer = ebox
                     , iconImage = img
