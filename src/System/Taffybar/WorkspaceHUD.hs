@@ -35,6 +35,7 @@ import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Char as S
+import           Data.Foldable (foldl)
 import           Data.List
 import qualified Data.Map as M
 import qualified Data.MultiMap as MM
@@ -311,8 +312,10 @@ defaultGetIconInfo cfg w = do
            then IINone
            else IIEWMH $ selectEWMHIcon (windowIconSize cfg) icons
 
-windowTitleClassIconGetter :: Bool -> (String -> String -> IconInfo) ->
-                              (WorkspaceHUDConfig -> X11Window -> IO IconInfo)
+windowTitleClassIconGetter
+  :: Bool
+  -> (String -> String -> IconInfo)
+  -> (WorkspaceHUDConfig -> X11Window -> IO IconInfo)
 windowTitleClassIconGetter preferCustom customIconF = fn
     where fn cfg w = do
             wTitle <- withDefaultCtx $ getWindowTitle w
