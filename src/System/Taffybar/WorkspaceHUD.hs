@@ -35,7 +35,7 @@ import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Char as S
-import           Data.Foldable as F
+import qualified Data.Foldable as F
 import qualified Data.Map as M
 import qualified Data.MultiMap as MM
 import qualified Data.Set as Set
