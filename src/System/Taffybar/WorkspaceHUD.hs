@@ -19,6 +19,7 @@ module System.Taffybar.WorkspaceHUD (
   WorkspaceUnderlineController(..),
   WorkspaceHUDConfig(..),
   WorkspaceWidgetController(..),
+  buildBorderButtonController,
   buildButtonController,
   buildContentsController,
   buildUnderlineButtonController,
@@ -110,6 +111,7 @@ data WorkspaceHUDConfig =
   , labelSetter :: Workspace -> String
   , updateIconsOnTitleChange :: Bool
   , showWorkspaceFn :: Workspace -> Bool
+  , borderWidth :: Int
   }
 
 hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
@@ -142,6 +144,7 @@ defaultWorkspaceHUDConfig =
                      , labelSetter = workspaceName
                      , updateIconsOnTitleChange = True
                      , showWorkspaceFn = const True
+                     , borderWidth = 2
                      }
 
 hideEmpty :: Workspace -> Bool
@@ -616,11 +619,11 @@ instance WorkspaceWidgetController WorkspaceButtonController
 
 data WorkspaceUnderlineController =
   WorkspaceUnderlineController { table :: T.Table
-                      -- XXX: An event box is used here because we need to
-                      -- change the background
-                      , underline :: Gtk.EventBox
-                      , overlineController :: WWC
-                      }
+                               -- XXX: An event box is used here because we need to
+                               -- change the background
+                               , underline :: Gtk.EventBox
+                               , overlineController :: WWC
+                               }
 
 buildUnderlineController :: ParentControllerConstructor
 buildUnderlineController contentsBuilder context workspace = do
@@ -652,6 +655,40 @@ updateUnderline uc u = do
   newContents <- updateWidget (overlineController uc) u
   return uc { overlineController = newContents }
 
+data WorkspaceBorderController =
+  WorkspaceBorderController { border :: Gtk.EventBox
+                            , borderContents :: Gtk.EventBox
+                            , insideController :: WWC
+                            }
+
+buildBorderController :: ParentControllerConstructor
+buildBorderController contentsBuilder context workspace = do
+  cc <- contentsBuilder context workspace
+  brd <- Gtk.eventBoxNew
+  cnt <- Gtk.eventBoxNew
+  Gtk.eventBoxSetVisibleWindow brd True
+  Gtk.containerSetBorderWidth cnt (borderWidth $ hudConfig context)
+  Gtk.containerAdd brd cnt
+  Gtk.containerAdd cnt $ getWidget cc
+  return $ WWC $ WorkspaceBorderController { border = brd
+                                           , borderContents = cnt
+                                           , insideController = cc
+                                           }
+
+instance WorkspaceWidgetController WorkspaceBorderController
+  where
+    getWidget bc = Gtk.toWidget $ border bc
+    updateWidget bc wu@(WorkspaceUpdate workspace) =
+      (Gtk.widgetSetName (border bc) $ getWidgetName workspace "Border") >>
+      (Gtk.widgetSetName (borderContents bc) $ getWidgetName workspace "Container") >>
+      (updateBorder bc wu)
+    updateWidget a b = updateBorder a b
+
+updateBorder :: WorkspaceBorderController -> WidgetUpdate -> IO WorkspaceBorderController
+updateBorder bc update = do
+  newContents <- updateWidget (insideController bc) update
+  return bc { insideController = newContents }
+
 getWidgetName :: Workspace -> String -> String
 getWidgetName ws wname =
   printf
@@ -663,3 +700,7 @@ getWidgetName ws wname =
 buildUnderlineButtonController :: ControllerConstructor
 buildUnderlineButtonController =
   buildButtonController (buildUnderlineController buildContentsController)
+
+buildBorderButtonController :: ControllerConstructor
+buildBorderButtonController =
+  buildButtonController (buildBorderController buildContentsController)
