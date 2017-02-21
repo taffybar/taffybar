@@ -262,7 +262,7 @@ updateWorkspaceControllers c@Context { controllersVar = controllersRef
               case (M.lookup idx workspacesMap) of
                 Just ws -> builder ws
           buildAndAddController theMap idx = M.insert idx <$> buildController idx <*> pure theMap
-      foldM buildAndAddController oldRemoved addWorkspaces
+      foldM buildAndAddController oldRemoved $ Set.toList addWorkspaces
     -- Clear the container and repopulate it
     Gtk.containerForeach cont (Gtk.containerRemove cont)
     addWidgetsToTopLevel c
