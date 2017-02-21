@@ -81,9 +81,12 @@ instance WorkspaceWidgetController WWC where
   updateWidget (WWC wc) workspace =
     WWC <$> updateWidget wc workspace
 
+type ControllerConstructor = Context -> Workspace -> IO WWC
+type ParentControllerConstructor = ControllerConstructor -> ControllerConstructor
+
 data WorkspaceHUDConfig =
   WorkspaceHUDConfig
-  { widgetBuilder :: WorkspaceHUDConfig -> Workspace -> IO WWC
+  { widgetBuilder :: ControllerConstructor
   , widgetGap :: Int
   , windowIconSize :: Int
   , underlineHeight :: Int
@@ -112,6 +115,7 @@ data Context =
           , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
           , hudWidget :: Gtk.HBox
           , hudConfig :: WorkspaceHUDConfig
+          , hudPager :: Pager
           }
 
 updateVar :: MV.MVar a -> (a -> IO a) -> IO a
@@ -194,6 +198,7 @@ buildWorkspaceHUD cfg pager = do
                         , workspacesVar = workspacesRef
                         , hudWidget = cont
                         , hudConfig = cfg
+                        , hudPager = pager
                         }
 
   -- This will actually create all the widgets
@@ -242,7 +247,7 @@ updateWorkspaceControllers c@Context { controllersVar = controllersRef
   when (existingWorkspacesSet /= newWorkspacesSet) $ do
     let addWorkspaces = (Set.difference newWorkspacesSet existingWorkspacesSet)
         removeWorkspaces = (Set.difference existingWorkspacesSet newWorkspacesSet)
-        builder = (widgetBuilder cfg) cfg
+        builder = (widgetBuilder cfg) c
     MV.modifyMVar_ controllersRef $ \controllers -> do
       let oldRemoved = F.foldl (flip M.delete) controllers removeWorkspaces
           buildController idx =
@@ -271,11 +276,13 @@ data WorkspaceContentsController = WorkspaceContentsController
   , label :: Gtk.Label
   , iconImages :: [IconWidget]
   , contentsWorkspace :: Workspace
-  , contentsConfig :: WorkspaceHUDConfig
+  , contentsContext :: Context
   }
 
-buildContentsController :: WorkspaceHUDConfig -> Workspace -> IO WWC
-buildContentsController cfg ws = do
+contentsConfig = hudConfig . contentsContext
+
+buildContentsController :: ControllerConstructor
+buildContentsController context ws = do
   lbl <- Gtk.labelNew (Nothing :: Maybe String)
   hbox <- Gtk.hBoxNew False 0
   ebox <- Gtk.eventBoxNew
@@ -290,7 +297,7 @@ buildContentsController cfg ws = do
                                       ws { windows = []
                                          , workspaceName = workspaceName ws ++ "fake"
                                          }
-                                    , contentsConfig = cfg
+                                    , contentsContext = context
                                     }
   WWC <$> updateWidget tempController ws
 
@@ -464,14 +471,10 @@ data WorkspaceButtonController =
                             , contentsController :: WWC
                             }
 
-buildButtonController
-  :: (WorkspaceHUDConfig -> Workspace -> IO WWC)
-  -> WorkspaceHUDConfig
-  -> Workspace
-  -> IO WWC
-buildButtonController contentsBuilder cfg workspace = do
+buildButtonController :: ParentControllerConstructor
+buildButtonController contentsBuilder context workspace = do
   ebox <- Gtk.eventBoxNew
-  cc <- contentsBuilder cfg workspace
+  cc <- contentsBuilder context workspace
   Gtk.containerAdd ebox $ getWidget cc
   _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch $ workspaceIdx workspace
   return $ WWC WorkspaceButtonController { button = ebox
@@ -499,15 +502,12 @@ data WorkspaceUnderlineController =
                       , overlineController :: WWC
                       }
 
-buildUnderlineController
-  :: (WorkspaceHUDConfig -> Workspace -> IO WWC)
-  -> WorkspaceHUDConfig
-  -> Workspace
-  -> IO WWC
-buildUnderlineController contentsBuilder cfg workspace = do
+buildUnderlineController :: ParentControllerConstructor
+buildUnderlineController contentsBuilder context workspace = do
+  let cfg = hudConfig context
   t <- T.tableNew 2 1 False
   u <- Gtk.eventBoxNew
-  cc <- contentsBuilder cfg workspace
+  cc <- contentsBuilder context workspace
 
   W.widgetSetSizeRequest u (-1) $ underlineHeight cfg
 
@@ -535,6 +535,6 @@ getWidgetName ws wname =
     (workspaceName ws)
     (map S.toLower $ show $ workspaceState ws)
 
-buildUnderlineButtonController :: WorkspaceHUDConfig -> Workspace -> IO WWC
+buildUnderlineButtonController :: ControllerConstructor
 buildUnderlineButtonController =
   buildButtonController (buildUnderlineController buildContentsController)
