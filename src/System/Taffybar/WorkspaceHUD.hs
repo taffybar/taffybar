@@ -228,7 +228,7 @@ updateWorkspaceControllers c@Context { controllersVar = controllersRef
         removeWorkspaces = (Set.difference existingWorkspacesSet newWorkspacesSet)
         builder = (widgetBuilder cfg) cfg
     MV.modifyMVar_ controllersRef $ \controllers -> do
-      let oldRemoved = foldl (flip M.delete) controllers removeWorkspaces
+      let oldRemoved = F.foldl (flip M.delete) controllers removeWorkspaces
           buildController idx =
               case (M.lookup idx workspacesMap) of
                 Just ws -> builder ws
