@@ -87,6 +87,7 @@ data WorkspaceHUDConfig =
   , underlinePadding :: Int
   , maxIcons :: Maybe Int
   , getIconInfo :: WorkspaceHUDConfig -> X11Window -> IO IconInfo
+  , labelSetter :: Workspace -> String
   }
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
@@ -99,6 +100,7 @@ defaultWorkspaceHUDConfig =
                      , underlinePadding = 1
                      , maxIcons = Nothing
                      , getIconInfo = defaultGetIconInfo
+                     , labelSetter = workspaceName
                      }
 
 data Context =
@@ -277,9 +279,10 @@ instance WorkspaceWidgetController WorkspaceContentsController where
   updateWidget cc newWorkspace = do
     let currentWorkspace = contentsWorkspace cc
         cfg = contentsConfig cc
+        getLabel = labelSetter cfg
 
-    when ((workspaceName currentWorkspace) /= (workspaceName newWorkspace)) $
-         Gtk.labelSetMarkup (label cc) (workspaceName newWorkspace)
+    when ((getLabel currentWorkspace) /= (getLabel newWorkspace)) $
+         Gtk.labelSetMarkup (label cc) (getLabel newWorkspace)
 
     newImages <-
       if ((windowIds currentWorkspace) /= (windowIds newWorkspace) ||
