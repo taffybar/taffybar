@@ -531,15 +531,32 @@ data WorkspaceButtonController =
                             }
 
 buildButtonController :: ParentControllerConstructor
-buildButtonController contentsBuilder context workspace = do
+buildButtonController contentsBuilder
+                      context@Context {workspacesVar = workspacesRef}
+                      workspace = do
   ebox <- Gtk.eventBoxNew
   cc <- contentsBuilder context workspace
   Gtk.containerAdd ebox $ getWidget cc
+  Gtk.eventBoxSetVisibleWindow ebox False
+  _ <-
+    Gtk.on ebox Gtk.scrollEvent $ do
+      workspaces <- liftIO $ MV.readMVar workspacesRef
+      let switchOne a =
+            liftIO $
+            withDefaultCtx $
+            switchOneWorkspace a (length (M.toList workspaces) - 1) >>
+            return True
+      dir <- Gtk.eventScrollDirection
+      case dir of
+        Gtk.ScrollUp -> switchOne True
+        Gtk.ScrollLeft -> switchOne True
+        Gtk.ScrollDown -> switchOne False
+        Gtk.ScrollRight -> switchOne False
   _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch $ workspaceIdx workspace
-  return $ WWC WorkspaceButtonController { button = ebox
-                                         , buttonWorkspace = workspace
-                                         , contentsController = cc
-                                         }
+  return $
+    WWC
+      WorkspaceButtonController
+      {button = ebox, buttonWorkspace = workspace, contentsController = cc}
 
 switch :: (MonadIO m) => WorkspaceIdx -> m Bool
 switch idx = do
