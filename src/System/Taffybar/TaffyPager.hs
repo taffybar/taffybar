@@ -108,6 +108,25 @@ taffyPagerHUDNew cfg hudConfig = do
   widgetShowAll box
   return (toWidget box)
 
+taffyPagerHUDLegacy :: PagerConfig -> IO Widget
+taffyPagerHUDLegacy cfg = do
+  pgr <- pagerNew cfg
+  whud <- buildWorkspaceHUD (hudFromPagerConfig cfg) pgr
+  los <- layoutSwitcherNew pgr
+  wnd <- windowSwitcherNew pgr
+  sp1 <- separator cfg
+  sp2 <- separator cfg
+  box <- hBoxNew False 0
+
+  boxPackStart box whud PackNatural 0
+  boxPackStart box sp1 PackNatural 0
+  boxPackStart box los PackNatural 0
+  boxPackStart box sp2 PackNatural 0
+  boxPackStart box wnd PackNatural 0
+
+  widgetShowAll box
+  return (toWidget box)
+
 
 -- | Create a new separator label to put between two sub-components.
 separator :: PagerConfig -> IO Label
