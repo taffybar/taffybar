@@ -110,6 +110,7 @@ data WorkspaceHUDConfig =
   , getIconInfo :: WorkspaceHUDConfig -> WindowData -> IO IconInfo
   , labelSetter :: Workspace -> String
   , updateIconsOnTitleChange :: Bool
+  , updateOnWMIconChange :: Bool
   , showWorkspaceFn :: Workspace -> Bool
   , borderWidth :: Int
   }
@@ -162,6 +163,7 @@ defaultWorkspaceHUDConfig =
                      , getIconInfo = defaultGetIconInfo
                      , labelSetter = workspaceName
                      , updateIconsOnTitleChange = True
+                     , updateOnWMIconChange = True
                      , showWorkspaceFn = const True
                      , borderWidth = 2
                      }
@@ -272,7 +274,8 @@ buildWorkspaceHUD cfg pager = do
         , "WM_HINTS"
         ]
 
-  subscribe pager (onIconChanged context) "_NET_WM_ICON"
+  when (updateOnWMIconChange cfg) $
+       subscribe pager (onIconChanged context) "_NET_WM_ICON"
 
   return $ Gtk.toWidget cont
 
