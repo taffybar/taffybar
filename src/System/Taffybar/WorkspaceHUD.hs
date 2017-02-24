@@ -129,23 +129,27 @@ hudFromPagerConfig pagerConfig =
             ws = windows workspace
             name = workspaceName workspace
             state = workspaceState workspace
-      padded = if workspacePad pagerConfig then prefixSpace . updater else updater
+      padded = if workspacePad pagerConfig
+               then prefixSpace . updater
+               else updater
       getCustomImage wt wc = case (customIcon pagerConfig wt wc) of
                                Just fp -> IIFilePath fp
                                Nothing -> IINone
-  in defaultWorkspaceHUDConfig { labelSetter = padded
-                               , minIcons = if (fillEmptyImages pagerConfig) then 1 else 0
-                               , maxIcons = Just $ if (useImages pagerConfig) then 1 else 0
-                               , getIconInfo = windowTitleClassIconGetter (preferCustomIcon pagerConfig) getCustomImage
-                               , widgetGap = workspaceGap pagerConfig
-                               , windowIconSize = imageSize pagerConfig
-                               , widgetBuilder = if (workspaceBorder pagerConfig)
-                                                 then
-                                                   buildBorderButtonController
-                                                 else
-                                                   buildButtonController buildContentsController
-                               , minWSWidgetSize = Nothing
-                               }
+  in defaultWorkspaceHUDConfig
+       { labelSetter = padded
+       , minIcons = if (fillEmptyImages pagerConfig) then 1 else 0
+       , maxIcons = Just $ if (useImages pagerConfig) then 1 else 0
+       , getIconInfo = windowTitleClassIconGetter
+                       (preferCustomIcon pagerConfig) getCustomImage
+       , widgetGap = workspaceGap pagerConfig
+       , windowIconSize = imageSize pagerConfig
+       , widgetBuilder = if (workspaceBorder pagerConfig)
+                         then
+                           buildBorderButtonController
+                         else
+                           buildButtonController buildContentsController
+       , minWSWidgetSize = Nothing
+       }
     where
       prefixSpace "" = ""
       prefixSpace s = " " ++ s
@@ -332,15 +336,16 @@ updateWorkspaceControllers c@Context { controllersVar = controllersRef
   let newWorkspacesSet = M.keysSet workspacesMap
       existingWorkspacesSet = M.keysSet controllersMap
   when (existingWorkspacesSet /= newWorkspacesSet) $ do
-    let addWorkspaces = (Set.difference newWorkspacesSet existingWorkspacesSet)
-        removeWorkspaces = (Set.difference existingWorkspacesSet newWorkspacesSet)
+    let addWorkspaces = Set.difference newWorkspacesSet existingWorkspacesSet
+        removeWorkspaces = Set.difference existingWorkspacesSet newWorkspacesSet
         builder = (widgetBuilder cfg) c
     MV.modifyMVar_ controllersRef $ \controllers -> do
       let oldRemoved = F.foldl (flip M.delete) controllers removeWorkspaces
           buildController idx =
               case (M.lookup idx workspacesMap) of
                 Just ws -> builder ws
-          buildAndAddController theMap idx = M.insert idx <$> buildController idx <*> pure theMap
+          buildAndAddController theMap idx =
+            M.insert idx <$> buildController idx <*> pure theMap
       foldM buildAndAddController oldRemoved $ Set.toList addWorkspaces
     -- Clear the container and repopulate it
     Gtk.containerForeach cont (Gtk.containerRemove cont)
@@ -358,7 +363,6 @@ onIconChanged context event =
         let update = IconUpdate [wid]
         doWidgetUpdate context (\_ c -> updateWidget c update)
     _ -> return ()
-
 
 data IconWidget = IconWidget { iconContainer :: Gtk.EventBox
                              , iconImage :: Gtk.Image
@@ -478,10 +482,12 @@ updateImages wcc ws = do
       windowDatas =
         if newImagesNeeded
           then justWindows ++ (replicate (minIcons cfg - length justWindows) Nothing)
-          else (justWindows ++ repeat Nothing)
+          else justWindows ++ repeat Nothing
       transparentOnNones = (replicate (minIcons cfg) True) ++ repeat False
 
-  newImgs <- sequence $ zipWith3 updateIconWidget' getImgs windowDatas transparentOnNones
+  newImgs <- sequence $
+             zipWith3 updateIconWidget'
+                      getImgs windowDatas transparentOnNones
   when newImagesNeeded $ Gtk.widgetShowAll $ container wcc
 
   return newImgs
@@ -543,7 +549,8 @@ updateIconWidget wcc IconWidget { iconContainer = iconButton
                                 , iconWindow = windowRef
                                 } windowData forceUpdate transparentOnNone =
   MV.modifyMVar_ windowRef $ \currentData ->
-    let requireFullEqualityForSkip = updateIconsOnTitleChange $ contentsConfig wcc
+    let requireFullEqualityForSkip =
+          updateIconsOnTitleChange $ contentsConfig wcc
         sameWindow = (windowId <$> currentData) == (windowId <$> windowData)
         dataRequiresUpdate =
           (requireFullEqualityForSkip && (currentData /= windowData)) ||
@@ -575,7 +582,6 @@ updateIconWidget wcc IconWidget { iconContainer = iconButton
                            (show $ maybe 0 windowId windowData) urgentStr
           Gtk.widgetSetName iconButton (widgetName :: String)
 
--- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
 setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
 setImage imgSize img pixBuf =
   case pixBuf of
@@ -584,7 +590,6 @@ setImage imgSize img pixBuf =
       Gtk.imageSetFromPixbuf img scaledPixbuf
     Nothing -> Gtk.imageClear img
 
--- | Get the appropriate image given an ImageChoice value
 getPixBuf :: Int -> IconInfo -> IO (Maybe Gtk.Pixbuf)
 getPixBuf imgSize imgChoice = gpb imgChoice
   where
