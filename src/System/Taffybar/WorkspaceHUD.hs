@@ -302,7 +302,6 @@ showControllers Context { workspacesVar = workspacesRef
                         , controllersVar = controllersRef
                         , hudConfig = cfg
                         } = do
-  let shouldShow = showWorkspaceFn cfg
   workspacesMap <- MV.readMVar workspacesRef
   controllersMap <- MV.readMVar controllersRef
   flip mapM_ (M.elems workspacesMap) $ \ws ->
@@ -310,7 +309,7 @@ showControllers Context { workspacesVar = workspacesRef
         widget = case c of
                    Just controller -> getWidget controller
     in
-      if (shouldShow ws)
+      if showWorkspaceFn cfg ws
       then Gtk.widgetShow widget
       else Gtk.widgetHide widget
 
