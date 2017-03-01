@@ -46,6 +46,7 @@ import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import qualified Graphics.UI.Gtk.Layout.Table as T
 import           Graphics.X11.Xlib.Extras
+import           Prelude
 import           System.Information.EWMHDesktopInfo
 import           System.Taffybar.IconImages
 import           System.Taffybar.Pager
