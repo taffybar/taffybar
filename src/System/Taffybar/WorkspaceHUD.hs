@@ -37,11 +37,13 @@ import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.RateLimit
 import qualified Data.Char as S
 import qualified Data.Foldable as F
 import qualified Data.Map as M
 import qualified Data.MultiMap as MM
 import qualified Data.Set as Set
+import           Data.Time.Units
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import qualified Graphics.UI.Gtk.Layout.Table as T
@@ -116,6 +118,7 @@ data WorkspaceHUDConfig =
   , showWorkspaceFn :: Workspace -> Bool
   , borderWidth :: Int
   , updateEvents :: [String]
+  , updateRateLimitMicroseconds :: Integer
   }
 
 hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
@@ -181,6 +184,7 @@ defaultWorkspaceHUDConfig =
       , "_NET_NUMBER_OF_DESKTOPS"
       , "WM_HINTS"
       ]
+  , updateRateLimitMicroseconds = 100000
   }
 
 hideEmpty :: Workspace -> Bool
@@ -283,10 +287,12 @@ buildWorkspaceHUD cfg pager = do
   -- This will actually create all the widgets
   updateAllWorkspaceWidgets context
 
-  mapM_ (subscribe pager (onActiveChanged context)) $ updateEvents cfg
+  updateHandler <- onWorkspaceUpdate context
+  mapM_ (subscribe pager updateHandler) $ updateEvents cfg
 
+  iconHandler <- onIconsChanged context
   when (updateOnWMIconChange cfg) $
-       subscribe pager (onIconChanged context) "_NET_WM_ICON"
+       subscribe pager (onIconChanged iconHandler) "_NET_WM_ICON"
 
   return $ Gtk.toWidget cont
 
@@ -360,18 +366,40 @@ updateWorkspaceControllers c@Context { controllersVar = controllersRef
     Gtk.containerForeach cont (Gtk.containerRemove cont)
     addWidgetsToTopLevel c
 
-onActiveChanged :: Context -> Event -> IO ()
-onActiveChanged context _ =
-  Gtk.postGUIAsync $ updateAllWorkspaceWidgets context
+rateLimitFn
+  :: forall req resp.
+     Context
+  -> (req -> IO resp)
+  -> ResultsCombiner req resp
+  -> IO (req -> IO resp)
+rateLimitFn context =
+  let limit = (updateRateLimitMicroseconds $ hudConfig context)
+      rate = fromMicroseconds limit :: Microsecond in
+  generateRateLimitedFunction $ PerInvocation rate
 
-onIconChanged :: Context -> Event -> IO ()
-onIconChanged context event =
+onWorkspaceUpdate :: Context -> IO (Event -> IO ())
+onWorkspaceUpdate context =
+  rateLimitFn context doUpdate combineRequests
+  where
+    combineRequests _ b = Just (b, \_ -> ((), ()))
+    doUpdate _ = Gtk.postGUIAsync $ updateAllWorkspaceWidgets context
+
+onIconChanged :: (Set.Set X11Window -> IO ()) -> Event -> IO ()
+onIconChanged handler event =
   case event of
-    PropertyEvent { ev_window = wid } ->
-      do
-        let update = IconUpdate [wid]
-        doWidgetUpdate context (\_ c -> updateWidget c update)
+    PropertyEvent { ev_window = wid } -> handler $ Set.singleton wid
     _ -> return ()
+
+onIconsChanged :: Context -> (IO (Set.Set X11Window -> IO ()))
+onIconsChanged context =
+  rateLimitFn context onIconsChanged' combineRequests
+  where
+    combineRequests windows1 windows2 =
+      Just (Set.union windows1 windows2, \_ -> ((), ()))
+    onIconsChanged' wids =
+      doWidgetUpdate
+        context
+        (\_ c -> updateWidget c $ IconUpdate $ Set.toList wids)
 
 data IconWidget = IconWidget { iconContainer :: Gtk.EventBox
                              , iconImage :: Gtk.Image
