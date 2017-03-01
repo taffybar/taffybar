@@ -250,9 +250,7 @@ addWidgetsToTopLevel Context { controllersVar = controllersRef
   -- XXX: Does this belong somewhere else
   Gtk.widgetShowAll cont
     where addWidget controller =
-            do
-              let widget = getWidget controller
-              Gtk.boxPackStart cont widget Gtk.PackNatural 0
+            Gtk.containerAdd cont $ getWidget controller
 
 buildWorkspaceHUD :: WorkspaceHUDConfig -> Pager -> IO Gtk.Widget
 buildWorkspaceHUD cfg pager = do
