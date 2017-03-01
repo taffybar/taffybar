@@ -252,7 +252,6 @@ addWidgetsToTopLevel Context { controllersVar = controllersRef
     where addWidget controller =
             do
               let widget = getWidget controller
-              Gtk.containerAdd cont widget
               Gtk.boxPackStart cont widget Gtk.PackNatural 0
 
 buildWorkspaceHUD :: WorkspaceHUDConfig -> Pager -> IO Gtk.Widget
