@@ -259,10 +259,14 @@ addWidgetsToTopLevel Context { controllersVar = controllersRef
   -- Elems returns elements in ascending order of their keys so this will always
   -- add the widgets in the correct order
   mapM_ addWidget $ M.elems controllersMap
-  -- XXX: Does this belong somewhere else
   Gtk.widgetShowAll cont
-    where addWidget controller =
-            Gtk.containerAdd cont $ getWidget controller
+    where addWidget controller = do
+            -- XXX: This hbox exists to (hopefully) prevent the issue where
+            -- workspace widgets appear out of order, in the switcher, by acting
+            -- as an empty place holder when the actual widget is hidden.
+            hbox <- Gtk.hBoxNew False 0
+            Gtk.containerAdd hbox $ getWidget controller
+            Gtk.containerAdd cont hbox
 
 buildWorkspaceHUD :: WorkspaceHUDConfig -> Pager -> IO Gtk.Widget
 buildWorkspaceHUD cfg pager = do
