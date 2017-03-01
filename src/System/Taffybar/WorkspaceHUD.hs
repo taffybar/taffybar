@@ -113,6 +113,7 @@ data WorkspaceHUDConfig =
   , updateOnWMIconChange :: Bool
   , showWorkspaceFn :: Workspace -> Bool
   , borderWidth :: Int
+  , updateEvents :: [String]
   }
 
 hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
@@ -170,6 +171,13 @@ defaultWorkspaceHUDConfig =
                      , updateOnWMIconChange = True
                      , showWorkspaceFn = const True
                      , borderWidth = 2
+                     , updateEvents =
+                       [ "_NET_CURRENT_DESKTOP"
+                       , "_NET_WM_DESKTOP"
+                       , "_NET_DESKTOP_NAMES"
+                       , "_NET_NUMBER_OF_DESKTOPS"
+                       , "WM_HINTS"
+                       ]
                      }
 
 hideEmpty :: Workspace -> Bool
@@ -267,13 +275,7 @@ buildWorkspaceHUD cfg pager = do
   -- This will actually create all the widgets
   updateAllWorkspaceWidgets context
 
-  mapM_ (subscribe pager (onActiveChanged context))
-        [ "_NET_CURRENT_DESKTOP"
-        , "_NET_WM_DESKTOP"
-        , "_NET_DESKTOP_NAMES"
-        , "_NET_NUMBER_OF_DESKTOPS"
-        , "WM_HINTS"
-        ]
+  mapM_ (subscribe pager (onActiveChanged context)) $ updateEvents cfg
 
   when (updateOnWMIconChange cfg) $
        subscribe pager (onIconChanged context) "_NET_WM_ICON"
