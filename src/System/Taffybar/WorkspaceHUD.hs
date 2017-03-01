@@ -96,7 +96,8 @@ instance WorkspaceWidgetController WWC where
     WWC <$> updateWidget wc workspace
 
 type ControllerConstructor = Context -> Workspace -> IO WWC
-type ParentControllerConstructor = ControllerConstructor -> ControllerConstructor
+type ParentControllerConstructor =
+  ControllerConstructor -> ControllerConstructor
 
 data WorkspaceHUDConfig =
   WorkspaceHUDConfig
@@ -158,28 +159,29 @@ hudFromPagerConfig pagerConfig =
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
 defaultWorkspaceHUDConfig =
-  WorkspaceHUDConfig { widgetBuilder = buildUnderlineButtonController
-                     , widgetGap = 0
-                     , windowIconSize = 16
-                     , underlineHeight = 4
-                     , minWSWidgetSize = Just 30
-                     , underlinePadding = 1
-                     , maxIcons = Nothing
-                     , minIcons = 0
-                     , getIconInfo = defaultGetIconInfo
-                     , labelSetter = workspaceName
-                     , updateIconsOnTitleChange = True
-                     , updateOnWMIconChange = True
-                     , showWorkspaceFn = const True
-                     , borderWidth = 2
-                     , updateEvents =
-                       [ "_NET_CURRENT_DESKTOP"
-                       , "_NET_WM_DESKTOP"
-                       , "_NET_DESKTOP_NAMES"
-                       , "_NET_NUMBER_OF_DESKTOPS"
-                       , "WM_HINTS"
-                       ]
-                     }
+  WorkspaceHUDConfig
+  { widgetBuilder = buildUnderlineButtonController
+  , widgetGap = 0
+  , windowIconSize = 16
+  , underlineHeight = 4
+  , minWSWidgetSize = Just 30
+  , underlinePadding = 1
+  , maxIcons = Nothing
+  , minIcons = 0
+  , getIconInfo = defaultGetIconInfo
+  , labelSetter = workspaceName
+  , updateIconsOnTitleChange = True
+  , updateOnWMIconChange = True
+  , showWorkspaceFn = const True
+  , borderWidth = 2
+  , updateEvents =
+      [ "_NET_CURRENT_DESKTOP"
+      , "_NET_WM_DESKTOP"
+      , "_NET_DESKTOP_NAMES"
+      , "_NET_NUMBER_OF_DESKTOPS"
+      , "WM_HINTS"
+      ]
+  }
 
 hideEmpty :: Workspace -> Bool
 hideEmpty Workspace { workspaceState = Empty } = False
@@ -223,7 +225,8 @@ getWindowData urgentWindows window = withDefaultCtx $
                         , windowUrgent = elem window urgentWindows
                         }
 
-buildWorkspaces :: M.Map WorkspaceIdx Workspace -> IO (M.Map WorkspaceIdx Workspace)
+buildWorkspaces :: M.Map WorkspaceIdx Workspace
+                -> IO (M.Map WorkspaceIdx Workspace)
 buildWorkspaces _ = do
   names <- withDefaultCtx getWorkspaceNames
   workspaceToWindows <- getWorkspaceToWindows
@@ -391,16 +394,15 @@ buildContentsController context ws = do
   Gtk.containerAdd hbox lbl
   Gtk.containerAdd ebox hbox
   let tempController =
-        WorkspaceContentsController { containerEbox = ebox
-                                    , container = hbox
-                                    , label = lbl
-                                    , iconImages = []
-                                    , contentsWorkspace =
-                                      ws { windows = []
-                                         , workspaceName = workspaceName ws ++ "fake"
-                                         }
-                                    , contentsContext = context
-                                    }
+        WorkspaceContentsController
+        { containerEbox = ebox
+        , container = hbox
+        , label = lbl
+        , iconImages = []
+        , contentsWorkspace =
+            ws {windows = [], workspaceName = workspaceName ws ++ "fake"}
+        , contentsContext = context
+        }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
 instance WorkspaceWidgetController WorkspaceContentsController where
@@ -483,7 +485,8 @@ updateImages wcc ws = do
   let justWindows = map Just $ windows ws
       windowDatas =
         if newImagesNeeded
-          then justWindows ++ (replicate (minIcons cfg - length justWindows) Nothing)
+          then justWindows ++
+               replicate (minIcons cfg - length justWindows) Nothing
           else justWindows ++ repeat Nothing
       transparentOnNones = (replicate (minIcons cfg) True) ++ repeat False
 
@@ -646,13 +649,12 @@ instance WorkspaceWidgetController WorkspaceButtonController
       newContents <- updateWidget (contentsController wbc) update
       return wbc { contentsController = newContents }
 
-data WorkspaceUnderlineController =
-  WorkspaceUnderlineController { table :: T.Table
-                               -- XXX: An event box is used here because we need to
-                               -- change the background
-                               , underline :: Gtk.EventBox
-                               , overlineController :: WWC
-                               }
+data WorkspaceUnderlineController = WorkspaceUnderlineController
+  { table :: T.Table
+  -- XXX: An event box is used here because we need to change the background
+  , underline :: Gtk.EventBox
+  , overlineController :: WWC
+  }
 
 buildUnderlineController :: ParentControllerConstructor
 buildUnderlineController contentsBuilder context workspace = do
@@ -671,15 +673,16 @@ buildUnderlineController contentsBuilder context workspace = do
                                    , overlineController = cc
                                    }
 
-instance WorkspaceWidgetController WorkspaceUnderlineController
-  where
-    getWidget uc = Gtk.toWidget $ table uc
-    updateWidget uc wu@(WorkspaceUpdate workspace) =
-      (Gtk.widgetSetName (underline uc) $ getWidgetName workspace "underline") >>
-      (updateUnderline uc wu)
-    updateWidget a b = updateUnderline a b
+instance WorkspaceWidgetController WorkspaceUnderlineController where
+  getWidget uc = Gtk.toWidget $ table uc
+  updateWidget uc wu@(WorkspaceUpdate workspace) =
+    (Gtk.widgetSetName (underline uc) $ getWidgetName workspace "underline") >>
+    (updateUnderline uc wu)
+  updateWidget a b = updateUnderline a b
 
-updateUnderline :: WorkspaceUnderlineController -> WidgetUpdate -> IO WorkspaceUnderlineController
+updateUnderline :: WorkspaceUnderlineController
+                -> WidgetUpdate
+                -> IO WorkspaceUnderlineController
 updateUnderline uc u = do
   newContents <- updateWidget (overlineController uc) u
   return uc { overlineController = newContents }
@@ -704,16 +707,18 @@ buildBorderController contentsBuilder context workspace = do
                                            , insideController = cc
                                            }
 
-instance WorkspaceWidgetController WorkspaceBorderController
-  where
-    getWidget bc = Gtk.toWidget $ border bc
-    updateWidget bc wu@(WorkspaceUpdate workspace) =
-      (Gtk.widgetSetName (border bc) $ getWidgetName workspace "Border") >>
-      (Gtk.widgetSetName (borderContents bc) $ getWidgetName workspace "Container") >>
-      (updateBorder bc wu)
-    updateWidget a b = updateBorder a b
+instance WorkspaceWidgetController WorkspaceBorderController where
+  getWidget bc = Gtk.toWidget $ border bc
+  updateWidget bc wu@(WorkspaceUpdate workspace) =
+    (Gtk.widgetSetName (border bc) $ getWidgetName workspace "Border") >>
+    (Gtk.widgetSetName (borderContents bc) $
+        getWidgetName workspace "Container") >>
+    (updateBorder bc wu)
+  updateWidget a b = updateBorder a b
 
-updateBorder :: WorkspaceBorderController -> WidgetUpdate -> IO WorkspaceBorderController
+updateBorder :: WorkspaceBorderController
+             -> WidgetUpdate
+             -> IO WorkspaceBorderController
 updateBorder bc update = do
   newContents <- updateWidget (insideController bc) update
   return bc { insideController = newContents }
