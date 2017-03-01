@@ -77,12 +77,12 @@ data WindowData = WindowData { windowId :: X11Window
 
 data WidgetUpdate = WorkspaceUpdate Workspace | IconUpdate [X11Window]
 
-data Workspace =
-  Workspace { workspaceIdx :: WorkspaceIdx
-            , workspaceName :: String
-            , workspaceState :: WorkspaceState
-            , windows :: [WindowData]
-            } deriving (Show, Eq)
+data Workspace = Workspace
+  { workspaceIdx :: WorkspaceIdx
+  , workspaceName :: String
+  , workspaceState :: WorkspaceState
+  , windows :: [WindowData]
+  } deriving (Show, Eq)
 
 class WorkspaceWidgetController wc where
   updateWidget :: wc -> WidgetUpdate -> IO wc
@@ -306,12 +306,12 @@ showControllers Context { workspacesVar = workspacesRef
   controllersMap <- MV.readMVar controllersRef
   flip mapM_ (M.elems workspacesMap) $ \ws ->
     let c = M.lookup (workspaceIdx ws) controllersMap
-        widget = case c of
-                   Just controller -> getWidget controller
+        mWidget = getWidget <$> c
+        action = if showWorkspaceFn cfg ws
+                 then Gtk.widgetShow
+                 else Gtk.widgetHide
     in
-      if showWorkspaceFn cfg ws
-      then Gtk.widgetShow widget
-      else Gtk.widgetHide widget
+      maybe (return ()) action mWidget
 
 doWidgetUpdate :: Context -> (WorkspaceIdx -> WWC -> IO WWC) -> IO ()
 doWidgetUpdate Context { controllersVar = controllersRef } updateController =
@@ -332,20 +332,23 @@ updateWorkspaceControllers c@Context { controllersVar = controllersRef
                                      }  = do
   workspacesMap <- MV.readMVar workspacesRef
   controllersMap <- MV.readMVar controllersRef
+
   let newWorkspacesSet = M.keysSet workspacesMap
       existingWorkspacesSet = M.keysSet controllersMap
+
   when (existingWorkspacesSet /= newWorkspacesSet) $ do
     let addWorkspaces = Set.difference newWorkspacesSet existingWorkspacesSet
         removeWorkspaces = Set.difference existingWorkspacesSet newWorkspacesSet
         builder = (widgetBuilder cfg) c
+
     MV.modifyMVar_ controllersRef $ \controllers -> do
       let oldRemoved = F.foldl (flip M.delete) controllers removeWorkspaces
-          buildController idx =
-              case (M.lookup idx workspacesMap) of
-                Just ws -> builder ws
+          buildController idx = builder <$> (M.lookup idx workspacesMap)
           buildAndAddController theMap idx =
-            M.insert idx <$> buildController idx <*> pure theMap
+            maybe (return theMap) (>>= return . (flip (M.insert idx) theMap))
+                    (buildController idx)
       foldM buildAndAddController oldRemoved $ Set.toList addWorkspaces
+
     -- Clear the container and repopulate it
     Gtk.containerForeach cont (Gtk.containerRemove cont)
     addWidgetsToTopLevel c
