@@ -120,6 +120,7 @@ data WorkspaceHUDConfig =
   , updateEvents :: [String]
   , updateRateLimitMicroseconds :: Integer
   , debugMode :: Bool
+  , redrawIconsOnStateChange :: Bool
   }
 
 hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
@@ -187,6 +188,7 @@ defaultWorkspaceHUDConfig =
       ]
   , updateRateLimitMicroseconds = 100000
   , debugMode = False
+  , redrawIconsOnStateChange = False
   }
 
 hideEmpty :: Workspace -> Bool
@@ -263,7 +265,6 @@ buildWorkspaces _ = do
                               , workspaceState = getWorkspaceState idx ws
                               , windows = windowInfos
                               } theMap) M.empty names
-
 
 addWidgetsToTopLevel :: Context -> IO ()
 addWidgetsToTopLevel c@Context { controllersVar = controllersRef
@@ -590,7 +591,11 @@ updateImages wcc ws = do
     updateIconWidget' getImage wdata ton = do
       -- XXX: This is a hack to make sure that transparent minIcons images get
       -- populated
-      let force = wdata == Nothing && newImagesNeeded && ton
+      let forceHack = wdata == Nothing && newImagesNeeded && ton
+          previousState = workspaceState $ contentsWorkspace wcc
+          stateChanged = previousState /= workspaceState ws
+          forceForStateChange = redrawIconsOnStateChange cfg && stateChanged
+          force = forceHack || forceForStateChange
       iconWidget <- getImage
       _ <- updateIconWidget wcc iconWidget wdata force ton
       return iconWidget
