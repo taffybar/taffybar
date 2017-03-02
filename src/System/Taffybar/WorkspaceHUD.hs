@@ -275,6 +275,7 @@ addWidgetsToTopLevel Context { controllersVar = controllersRef
             -- workspace widgets appear out of order, in the switcher, by acting
             -- as an empty place holder when the actual widget is hidden.
             hbox <- Gtk.hBoxNew False 0
+            Gtk.widgetReparent (getWidget controller) hbox
             Gtk.containerAdd hbox $ getWidget controller
             Gtk.containerAdd cont hbox
 
