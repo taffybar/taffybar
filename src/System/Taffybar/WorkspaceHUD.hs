@@ -119,6 +119,7 @@ data WorkspaceHUDConfig =
   , borderWidth :: Int
   , updateEvents :: [String]
   , updateRateLimitMicroseconds :: Integer
+  , logUpdates :: Bool
   }
 
 hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
@@ -185,6 +186,7 @@ defaultWorkspaceHUDConfig =
       , "WM_HINTS"
       ]
   , updateRateLimitMicroseconds = 100000
+  , logUpdates = False
   }
 
 hideEmpty :: Workspace -> Bool
@@ -198,6 +200,10 @@ data Context =
           , hudConfig :: WorkspaceHUDConfig
           , hudPager :: Pager
           }
+
+
+hudLogger :: Context -> String -> IO ()
+hudLogger context = when (logUpdates $ hudConfig context) . putStrLn
 
 updateVar :: MV.MVar a -> (a -> IO a) -> IO a
 updateVar var modify = MV.modifyMVar var $ fmap (\a -> (a, a)) . modify
@@ -292,22 +298,31 @@ buildWorkspaceHUD cfg pager = do
 
   iconHandler <- onIconsChanged context
   when (updateOnWMIconChange cfg) $
-       subscribe pager (onIconChanged iconHandler) "_NET_WM_ICON"
+       subscribe pager (onIconChanged context iconHandler) "_NET_WM_ICON"
 
   return $ Gtk.toWidget cont
 
 updateAllWorkspaceWidgets :: Context -> IO ()
 updateAllWorkspaceWidgets c@Context { workspacesVar = workspacesRef} = do
+  let logger = hudLogger c
+  logger "Updating workspaces..."
+
   workspacesMap <- updateWorkspacesVar workspacesRef
+  logger $ printf "Workspaces: %s" $ show workspacesMap
+
+  logger "Adding and removing widgets..."
   updateWorkspaceControllers c
 
-  let updateController idx controller =
+  let updateController' idx controller =
         maybe (return controller)
               (updateWidget controller . WorkspaceUpdate) $
               M.lookup idx workspacesMap
+      logUpdateController i = logger $ printf "Updating %s widget" $ (show i)
+      updateController i cont = logUpdateController i >> updateController' i cont
 
   doWidgetUpdate c updateController
 
+  logger "Showing and hiding controllers..."
   showControllers c
 
 showControllers :: Context -> IO ()
@@ -384,8 +399,10 @@ onWorkspaceUpdate context =
     combineRequests _ b = Just (b, \_ -> ((), ()))
     doUpdate _ = Gtk.postGUIAsync $ updateAllWorkspaceWidgets context
 
-onIconChanged :: (Set.Set X11Window -> IO ()) -> Event -> IO ()
-onIconChanged handler event =
+onIconChanged :: Context -> (Set.Set X11Window -> IO ()) -> Event -> IO ()
+onIconChanged context handler event = do
+  let logger = hudLogger context
+  logger "IconChangedEvent Icons!!!"
   case event of
     PropertyEvent { ev_window = wid } -> handler $ Set.singleton wid
     _ -> return ()
@@ -396,10 +413,13 @@ onIconsChanged context =
   where
     combineRequests windows1 windows2 =
       Just (Set.union windows1 windows2, \_ -> ((), ()))
+    logger = hudLogger context
     onIconsChanged' wids =
       doWidgetUpdate
         context
-        (\_ c -> updateWidget c $ IconUpdate $ Set.toList wids)
+        (\idx c ->
+           (logger $ printf "Updating %s icons Icons!!!" $ show idx) >>
+           (updateWidget c $ IconUpdate $ Set.toList wids))
 
 data IconWidget = IconWidget { iconContainer :: Gtk.EventBox
                              , iconImage :: Gtk.Image
