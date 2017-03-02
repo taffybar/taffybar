@@ -119,7 +119,7 @@ data WorkspaceHUDConfig =
   , borderWidth :: Int
   , updateEvents :: [String]
   , updateRateLimitMicroseconds :: Integer
-  , logUpdates :: Bool
+  , debugMode :: Bool
   }
 
 hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
@@ -186,7 +186,7 @@ defaultWorkspaceHUDConfig =
       , "WM_HINTS"
       ]
   , updateRateLimitMicroseconds = 100000
-  , logUpdates = False
+  , debugMode = False
   }
 
 hideEmpty :: Workspace -> Bool
@@ -196,6 +196,7 @@ hideEmpty _ = True
 data Context =
   Context { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
           , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
+          , loggingVar :: MV.MVar Bool
           , hudWidget :: Gtk.HBox
           , hudConfig :: WorkspaceHUDConfig
           , hudPager :: Pager
@@ -203,7 +204,9 @@ data Context =
 
 
 hudLogger :: Context -> String -> IO ()
-hudLogger context = when (logUpdates $ hudConfig context) . putStrLn
+hudLogger Context { loggingVar = loggingRef} txt = do
+  shouldLog <- MV.readMVar loggingRef
+  when shouldLog $ putStrLn txt
 
 updateVar :: MV.MVar a -> (a -> IO a) -> IO a
 updateVar var modify = MV.modifyMVar var $ fmap (\a -> (a, a)) . modify
@@ -261,14 +264,18 @@ buildWorkspaces _ = do
                               , windows = windowInfos
                               } theMap) M.empty names
 
+
 addWidgetsToTopLevel :: Context -> IO ()
-addWidgetsToTopLevel Context { controllersVar = controllersRef
-                             , hudWidget = cont
-                             } = do
+addWidgetsToTopLevel c@Context { controllersVar = controllersRef
+                               , loggingVar = loggingRef
+                               , hudWidget = cont
+                               , hudConfig = cfg
+                               } = do
   controllersMap <- MV.readMVar controllersRef
   -- Elems returns elements in ascending order of their keys so this will always
   -- add the widgets in the correct order
   mapM_ addWidget $ M.elems controllersMap
+  when (debugMode cfg) addDebugWidgets
   Gtk.widgetShowAll cont
     where addWidget controller = do
             -- XXX: This hbox exists to (hopefully) prevent the issue where
@@ -278,14 +285,42 @@ addWidgetsToTopLevel Context { controllersVar = controllersRef
             Gtk.widgetReparent (getWidget controller) hbox
             Gtk.containerAdd hbox $ getWidget controller
             Gtk.containerAdd cont hbox
+          addDebugWidgets = do
+            enableLoggingBox <- Gtk.eventBoxNew
+            rebuildBarBox <- Gtk.eventBoxNew
+            logLabel <- Gtk.labelNew $ Just "ToggleLogging"
+            rebuildLabel <- Gtk.labelNew $ Just "Rebuild Bar"
+            let toggleLogging = MV.modifyMVar_ loggingRef
+                                (\current -> do
+                                   let newState = not current
+                                       labelText = printf "ToggleLogging: %s" $
+                                         show newState :: String
+                                   Gtk.labelSetMarkup logLabel labelText
+                                   return $ not current) >> return True
+                rebuildBar =
+                  do
+                    -- Clear the container and repopulate it
+                    Gtk.containerForeach cont (Gtk.containerRemove cont)
+                    addWidgetsToTopLevel c
+                    updateAllWorkspaceWidgets c
+                    return True
+            Gtk.containerAdd enableLoggingBox logLabel
+            Gtk.containerAdd rebuildBarBox rebuildLabel
+            _ <- Gtk.on enableLoggingBox Gtk.buttonPressEvent (liftIO toggleLogging)
+            _ <- Gtk.on rebuildBarBox Gtk.buttonPressEvent (liftIO rebuildBar)
+            Gtk.containerAdd cont enableLoggingBox
+            Gtk.containerAdd cont rebuildBarBox
+            return ()
 
 buildWorkspaceHUD :: WorkspaceHUDConfig -> Pager -> IO Gtk.Widget
 buildWorkspaceHUD cfg pager = do
   cont <- Gtk.hBoxNew False (widgetGap cfg)
   controllersRef <- MV.newMVar M.empty
   workspacesRef <- MV.newMVar M.empty
+  loggingRef <- MV.newMVar False
   let context = Context { controllersVar = controllersRef
                         , workspacesVar = workspacesRef
+                        , loggingVar = loggingRef
                         , hudWidget = cont
                         , hudConfig = cfg
                         , hudPager = pager
