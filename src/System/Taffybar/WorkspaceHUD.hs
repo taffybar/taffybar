@@ -180,12 +180,12 @@ defaultWorkspaceHUDConfig =
   , showWorkspaceFn = const True
   , borderWidth = 2
   , updateEvents =
-      [ "_NET_CURRENT_DESKTOP"
-      , "_NET_WM_DESKTOP"
-      , "_NET_DESKTOP_NAMES"
-      , "_NET_NUMBER_OF_DESKTOPS"
-      , "WM_HINTS"
-      ]
+    [ "_NET_CURRENT_DESKTOP"
+    , "_NET_WM_DESKTOP"
+    , "_NET_DESKTOP_NAMES"
+    , "_NET_NUMBER_OF_DESKTOPS"
+    , "WM_HINTS"
+    ]
   , updateRateLimitMicroseconds = 100000
   , debugMode = False
   , redrawIconsOnStateChange = False
