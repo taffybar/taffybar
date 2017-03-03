@@ -310,8 +310,10 @@ addWidgetsToTopLevel c@Context { controllersVar = controllersRef
                     return True
             Gtk.containerAdd enableLoggingBox logLabel
             Gtk.containerAdd rebuildBarBox rebuildLabel
-            _ <- Gtk.on enableLoggingBox Gtk.buttonPressEvent (liftIO toggleLogging)
-            _ <- Gtk.on rebuildBarBox Gtk.buttonPressEvent (liftIO rebuildBar)
+            _ <- Gtk.on enableLoggingBox Gtk.buttonPressEvent
+                 (liftIO toggleLogging)
+            _ <- Gtk.on rebuildBarBox Gtk.buttonPressEvent
+                 (liftIO rebuildBar)
             Gtk.containerAdd cont enableLoggingBox
             Gtk.containerAdd cont rebuildBarBox
             return ()
@@ -345,24 +347,25 @@ buildWorkspaceHUD cfg pager = do
 updateAllWorkspaceWidgets :: Context -> IO ()
 updateAllWorkspaceWidgets c@Context { workspacesVar = workspacesRef} = do
   let logger = hudLogger c
-  logger "Updating workspaces..."
+  logger "-Workspace- -Execute-..."
 
   workspacesMap <- updateWorkspacesVar workspacesRef
   logger $ printf "Workspaces: %s" $ show workspacesMap
 
-  logger "Adding and removing widgets..."
+  logger "-Workspace- Adding and removing widgets..."
   updateWorkspaceControllers c
 
   let updateController' idx controller =
         maybe (return controller)
               (updateWidget controller . WorkspaceUpdate) $
               M.lookup idx workspacesMap
-      logUpdateController i = logger $ printf "Updating %s widget" $ show i
-      updateController i cont = logUpdateController i >> updateController' i cont
+      logUpdateController i = logger $ printf "-Workspace- -each- Updating %s widget" $ show i
+      updateController i cont = logUpdateController i >>
+                                updateController' i cont
 
   doWidgetUpdate c updateController
 
-  logger "Showing and hiding controllers..."
+  logger "-Workspace- Showing and hiding controllers..."
   showControllers c
 
 showControllers :: Context -> IO ()
@@ -433,8 +436,15 @@ rateLimitFn context =
   generateRateLimitedFunction $ PerInvocation rate
 
 onWorkspaceUpdate :: Context -> IO (Event -> IO ())
-onWorkspaceUpdate context =
-  rateLimitFn context doUpdate combineRequests
+onWorkspaceUpdate context = do
+  rateLimited <- rateLimitFn context doUpdate combineRequests
+  let withLog event = do
+        case event of
+          PropertyEvent _ _ _ _ _ atom _ _ -> do
+            hudLogger context $ printf "-Event- -Workspace- %s" $ show atom
+          _ -> return ()
+        rateLimited event
+  return withLog
   where
     combineRequests _ b = Just (b, const ((), ()))
     doUpdate _ = Gtk.postGUIAsync $ updateAllWorkspaceWidgets context
@@ -442,9 +452,10 @@ onWorkspaceUpdate context =
 onIconChanged :: Context -> (Set.Set X11Window -> IO ()) -> Event -> IO ()
 onIconChanged context handler event = do
   let logger = hudLogger context
-  logger "IconChangedEvent Icons!!!"
   case event of
-    PropertyEvent { ev_window = wid } -> handler $ Set.singleton wid
+    PropertyEvent { ev_window = wid } -> do
+      logger $ printf "-Icon- -Event- %s" $ show wid
+      handler $ Set.singleton wid
     _ -> return ()
 
 onIconsChanged :: Context -> IO (Set.Set X11Window -> IO ())
@@ -454,11 +465,12 @@ onIconsChanged context =
     combineRequests windows1 windows2 =
       Just (Set.union windows1 windows2, const ((), ()))
     logger = hudLogger context
-    onIconsChanged' wids =
+    onIconsChanged' wids = do
+      logger $ printf "-Icon- -Execute- %s" $ show wids
       doWidgetUpdate
         context
         (\idx c ->
-           logger (printf "Updating %s icons Icons!!!" $ show idx) >>
+           logger (printf "-Icon- -each- Updating %s icons." $ show idx) >>
            updateWidget c (IconUpdate $ Set.toList wids))
 
 data IconWidget = IconWidget { iconContainer :: Gtk.EventBox
