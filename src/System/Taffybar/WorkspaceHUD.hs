@@ -34,6 +34,7 @@ module System.Taffybar.WorkspaceHUD (
 ) where
 
 import           Control.Applicative
+import           Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -440,10 +441,10 @@ onWorkspaceUpdate context = do
   rateLimited <- rateLimitFn context doUpdate combineRequests
   let withLog event = do
         case event of
-          PropertyEvent _ _ _ _ _ atom _ _ -> do
+          PropertyEvent _ _ _ _ _ atom _ _ ->
             hudLogger context $ printf "-Event- -Workspace- %s" $ show atom
-          _ -> return ()
-        rateLimited event
+          _ -> hudLogger context "-Event- -Workspace-"
+        void $ forkIO $ rateLimited event
   return withLog
   where
     combineRequests _ b = Just (b, const ((), ()))
@@ -460,7 +461,7 @@ onIconChanged context handler event = do
 
 onIconsChanged :: Context -> IO (Set.Set X11Window -> IO ())
 onIconsChanged context =
-  rateLimitFn context onIconsChanged' combineRequests
+  (.) (void . forkIO) <$> rateLimitFn context onIconsChanged' combineRequests
   where
     combineRequests windows1 windows2 =
       Just (Set.union windows1 windows2, const ((), ()))
