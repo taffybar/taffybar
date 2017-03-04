@@ -533,8 +533,6 @@ instance WorkspaceWidgetController WorkspaceContentsController where
     when (getLabel currentWorkspace /= getLabel newWorkspace) $
          Gtk.labelSetMarkup (label cc) (getLabel newWorkspace)
 
-    newImages <- updateImages cc newWorkspace
-
     setContainerWidgetNames cc newWorkspace
 
     maybe (return ()) (updateMinSize $ Gtk.toWidget $ container cc) $
@@ -543,6 +541,8 @@ instance WorkspaceWidgetController WorkspaceContentsController where
     let previousState = workspaceState $ contentsWorkspace cc
         stateChanged = previousState /= workspaceState newWorkspace
         redrawForStateChange = redrawIconsOnStateChange cfg && stateChanged
+
+    newImages <- updateImages cc newWorkspace
 
     when redrawForStateChange $ Gtk.widgetQueueDraw $ containerEbox cc
 
