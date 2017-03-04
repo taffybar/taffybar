@@ -291,15 +291,17 @@ addWidgetsToTopLevel c@Context { controllersVar = controllersRef
             Gtk.containerAdd hbox $ getWidget controller
             Gtk.containerAdd cont hbox
           addDebugWidgets = do
+            let getLabelText state =
+                  printf "ToggleLogging: %s" $ show state :: String
             enableLoggingBox <- Gtk.eventBoxNew
             rebuildBarBox <- Gtk.eventBoxNew
-            logLabel <- Gtk.labelNew $ Just "ToggleLogging"
+            loggingEnabled <- MV.readMVar loggingRef
+            logLabel <- Gtk.labelNew $ Just $ getLabelText loggingEnabled
             rebuildLabel <- Gtk.labelNew $ Just "Rebuild Bar"
             let toggleLogging = MV.modifyMVar_ loggingRef
                                 (\current -> do
                                    let newState = not current
-                                       labelText = printf "ToggleLogging: %s" $
-                                         show newState :: String
+                                       labelText = getLabelText newState
                                    Gtk.labelSetMarkup logLabel labelText
                                    return $ not current) >> return True
                 rebuildBar =
@@ -526,6 +528,12 @@ instance WorkspaceWidgetController WorkspaceContentsController where
 
     maybe (return ()) (updateMinSize $ Gtk.toWidget $ container cc) $
           minWSWidgetSize cfg
+
+    let previousState = workspaceState $ contentsWorkspace cc
+        stateChanged = previousState /= workspaceState newWorkspace
+        redrawForStateChange = redrawIconsOnStateChange cfg && stateChanged
+
+    when redrawForStateChange $ Gtk.widgetQueueDraw $ containerEbox cc
 
     return cc { contentsWorkspace = newWorkspace
               , iconImages = newImages
