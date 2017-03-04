@@ -61,6 +61,7 @@ data WorkspaceState
   | Visible
   | Hidden
   | Empty
+  | Urgent
   deriving (Show, Eq)
 
 data IconInfo
@@ -123,6 +124,7 @@ data WorkspaceHUDConfig =
   , updateRateLimitMicroseconds :: Integer
   , debugMode :: Bool
   , redrawIconsOnStateChange :: Bool
+  , urgentWorkspaceState :: Bool
   }
 
 hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
@@ -130,6 +132,7 @@ hudFromPagerConfig pagerConfig =
   let updater workspace
         | any windowUrgent ws = urgentWorkspace pagerConfig name
         | otherwise = let getter = case state of
+                                     Urgent -> urgentWorkspace
                                      Visible -> visibleWorkspace
                                      Active -> activeWorkspace
                                      Hidden -> hiddenWorkspace
@@ -191,6 +194,7 @@ defaultWorkspaceHUDConfig =
   , updateRateLimitMicroseconds = 100000
   , debugMode = False
   , redrawIconsOnStateChange = False
+  , urgentWorkspaceState = False
   }
 
 hideEmpty :: Workspace -> Bool
@@ -215,9 +219,10 @@ hudLogger Context { loggingVar = loggingRef} txt = do
 updateVar :: MV.MVar a -> (a -> IO a) -> IO a
 updateVar var modify = MV.modifyMVar var $ fmap (\a -> (a, a)) . modify
 
-updateWorkspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
+updateWorkspacesVar :: Context
                     -> IO (M.Map WorkspaceIdx Workspace)
-updateWorkspacesVar workspacesRef = updateVar workspacesRef buildWorkspaces
+updateWorkspacesVar context @ Context { workspacesVar = workspacesRef } =
+  updateVar workspacesRef $ buildWorkspaces context
 
 getWorkspaceToWindows :: IO (MM.MultiMap WorkspaceIdx X11Window)
 getWorkspaceToWindows =
@@ -244,9 +249,10 @@ getWindowData urgentWindows window =
       , windowUrgent = window `elem` urgentWindows
       }
 
-buildWorkspaces :: M.Map WorkspaceIdx Workspace
+buildWorkspaces :: Context
+                -> M.Map WorkspaceIdx Workspace
                 -> IO (M.Map WorkspaceIdx Workspace)
-buildWorkspaces _ = do
+buildWorkspaces context _ = do
   names <- withDefaultCtx getWorkspaceNames
   workspaceToWindows <- getWorkspaceToWindows
   urgentWindows <- getUrgentWindows
@@ -254,6 +260,7 @@ buildWorkspaces _ = do
 
   let
     getWorkspaceState idx ws
+        | urgentWorkspaceState (hudConfig context) && (not $ null urgentWindows) = Urgent
         | idx == active = Active
         | idx `elem` visible = Visible
         | null ws = Empty
@@ -348,11 +355,11 @@ buildWorkspaceHUD cfg pager = do
   return $ Gtk.toWidget cont
 
 updateAllWorkspaceWidgets :: Context -> IO ()
-updateAllWorkspaceWidgets c@Context { workspacesVar = workspacesRef} = do
+updateAllWorkspaceWidgets c = do
   let logger = hudLogger c
   logger "-Workspace- -Execute-..."
 
-  workspacesMap <- updateWorkspacesVar workspacesRef
+  workspacesMap <- updateWorkspacesVar c
   logger $ printf "Workspaces: %s" $ show workspacesMap
 
   logger "-Workspace- Adding and removing widgets..."
