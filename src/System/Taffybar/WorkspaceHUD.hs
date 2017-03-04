@@ -302,9 +302,13 @@ addWidgetsToTopLevel c@Context { controllersVar = controllersRef
                   printf "ToggleLogging: %s" $ show state :: String
             enableLoggingBox <- Gtk.eventBoxNew
             rebuildBarBox <- Gtk.eventBoxNew
+            Gtk.widgetSetName enableLoggingBox "WorkspaceHUD-toggleLogging"
+            Gtk.widgetSetName rebuildBarBox "WorkspaceHUD-rebuildButton"
             loggingEnabled <- MV.readMVar loggingRef
             logLabel <- Gtk.labelNew $ Just $ getLabelText loggingEnabled
             rebuildLabel <- Gtk.labelNew $ Just "Rebuild Bar"
+            Gtk.widgetSetName logLabel "WorkspaceHUD-toggleLogging"
+            Gtk.widgetSetName rebuildLabel "WorkspaceHUD-rebuildButton"
             let toggleLogging = MV.modifyMVar_ loggingRef
                                 (\current -> do
                                    let newState = not current
