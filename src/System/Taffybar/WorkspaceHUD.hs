@@ -125,6 +125,8 @@ data WorkspaceHUDConfig =
   , debugMode :: Bool
   , redrawIconsOnStateChange :: Bool
   , urgentWorkspaceState :: Bool
+  , innerPadding :: Int
+  , outerPadding :: Int
   }
 
 hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
@@ -195,6 +197,8 @@ defaultWorkspaceHUDConfig =
   , debugMode = False
   , redrawIconsOnStateChange = False
   , urgentWorkspaceState = False
+  , innerPadding = 0
+  , outerPadding = 0
   }
 
 hideEmpty :: Workspace -> Bool
@@ -260,7 +264,7 @@ buildWorkspaces context _ = do
 
   let
     getWorkspaceState idx ws
-        | urgentWorkspaceState (hudConfig context) && (not $ null urgentWindows) = Urgent
+        | urgentWorkspaceState (hudConfig context) && not (null urgentWindows) = Urgent
         | idx == active = Active
         | idx `elem` visible = Visible
         | null ws = Empty
@@ -494,6 +498,7 @@ data IconWidget = IconWidget { iconContainer :: Gtk.EventBox
 
 data WorkspaceContentsController = WorkspaceContentsController
   { containerEbox :: Gtk.EventBox
+  , containerWidget :: Gtk.Widget
   , container :: Gtk.HBox
   , label :: Gtk.Label
   , iconImages :: [IconWidget]
@@ -510,11 +515,20 @@ buildContentsController context ws = do
   hbox <- Gtk.hBoxNew False 0
   ebox <- Gtk.eventBoxNew
   Gtk.containerAdd hbox lbl
-  Gtk.containerAdd ebox hbox
+  ial <- Gtk.alignmentNew 0.5 0.5 0 0
+  oal <- Gtk.alignmentNew 0.5 0.5 1 1
+  let ipadding = innerPadding $ hudConfig context
+      opadding = outerPadding $ hudConfig context
+  Gtk.alignmentSetPadding ial ipadding ipadding ipadding ipadding
+  Gtk.alignmentSetPadding oal opadding opadding opadding opadding
+  Gtk.containerAdd ial hbox
+  Gtk.containerAdd ebox ial
+  Gtk.containerAdd oal ebox
   let tempController =
         WorkspaceContentsController
         { containerEbox = ebox
         , container = hbox
+        , containerWidget = Gtk.toWidget oal
         , label = lbl
         , iconImages = []
         , contentsWorkspace =
@@ -524,7 +538,7 @@ buildContentsController context ws = do
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
 instance WorkspaceWidgetController WorkspaceContentsController where
-  getWidget cc = Gtk.toWidget $ containerEbox cc
+  getWidget = containerWidget
   updateWidget cc (WorkspaceUpdate newWorkspace) = do
     let currentWorkspace = contentsWorkspace cc
         cfg = contentsConfig cc
