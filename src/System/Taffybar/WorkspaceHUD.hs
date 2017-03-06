@@ -793,7 +793,7 @@ buildUnderlineController contentsBuilder context workspace = do
 
   W.widgetSetSizeRequest u (-1) $ underlineHeight cfg
 
-  T.tableAttach t (getWidget cc) 0 1 0 1 [T.Expand] [T.Expand] 0 0
+  T.tableAttach t (getWidget cc) 0 1 0 1 [T.Expand, T.Fill] [T.Expand, T.Fill] 0 0
   T.tableAttach t u 0 1 1 2 [T.Fill] [T.Shrink] (underlinePadding cfg) 0
 
   return $ WWC WorkspaceUnderlineController { table = t
