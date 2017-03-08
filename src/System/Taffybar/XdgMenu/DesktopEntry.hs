@@ -24,7 +24,6 @@ module System.Taffybar.XdgMenu.DesktopEntry (
 
 where
 
-import System.Directory (doesFileExist)
 import qualified Data.ConfigFile as CF
 import Data.Maybe
 import Data.List
@@ -50,15 +49,29 @@ deHasCategory de cat = case lookup "Categories" (deAttributes de) of
                          Just cats -> cat `elem` lines (map (\c -> if c == ';' then '\n' else c) cats)
 
 -- | Return the proper name of the desktop entry, depending on the
--- active locale. FIXME
-deName :: DesktopEntry -> String
-deName de = fromMaybe (deFilename de) $ lookup "Name" $ deAttributes de
-  -- mDirs <- lookupEnv "LC_MESSAGES"
+-- list of preferred languages.
+deName :: [String] -- ^ Preferred languages
+       -> DesktopEntry
+       -> String
+deName langs de = fromMaybe (deFilename de) $ deLocalisedAtt langs de "Name" 
+
+deLocalisedAtt :: [String] -- ^ Preferred languages
+               -> DesktopEntry
+               -> String
+               -> Maybe String
+deLocalisedAtt langs de att = 
+  let localeMatches = catMaybes $ map (\l -> lookup (att ++ "[" ++ l ++ "]") (deAttributes de)) langs
+  in if null localeMatches
+     then lookup att $ deAttributes de
+     else Just $ head localeMatches
 
 -- | Return the proper comment of the desktop entry, depending on the
--- active locale.
-deComment :: DesktopEntry -> Maybe String
-deComment de = lookup "Comment" $ deAttributes de
+-- list of preferred languages.
+deComment :: [String] -- ^ Preferred languages
+          -> DesktopEntry
+          -> Maybe String
+deComment langs de = deLocalisedAtt langs de "Comment"
+
 
 -- | Launch the given desktop entry.  Spawns a command in the
 -- background.  FIXME: should check the dbus thing.
@@ -72,7 +85,7 @@ deLaunch de = do
 -- | Return a list of all desktop entries in the given directory.
 listDesktopEntries :: FilePath -> IO [DesktopEntry]
 listDesktopEntries dir = do
-  files <-  listDirectory dir
+  files <-  getDirectoryContents dir
   mEntries <- mapM (readDesktopEntry . ((dir ++ "/") ++)) $ filter (".desktop" `isSuffixOf`) files
   return $ catMaybes mEntries
 

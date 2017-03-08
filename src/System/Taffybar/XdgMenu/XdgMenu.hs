@@ -44,7 +44,7 @@ xdgMenuPrefixDefault = "gnome-"
 
 xdgDataDirsDefault :: [String]
 xdgDataDirsDefault = ["/usr/local/share/", "/usr/share/"]
--- 
+
 getXdgConfigDirs :: IO [String]
 getXdgConfigDirs = do
   mDirs <- lookupEnv "XDG_CONFIG_DIRS"
@@ -89,8 +89,10 @@ data XdgMenu = XdgMenu {
   deriving(Show)
 
 -- | Return a list of all available desktop entries for a given xdg menu.
-getDesktopEntries :: XdgMenu -> IO [DesktopEntry]
-getDesktopEntries menu = do
+getDesktopEntries :: [String] -- ^ Preferred languages
+                  -> XdgMenu
+                  -> IO [DesktopEntry]
+getDesktopEntries langs menu = do
   defEntries <- if xmDefaultAppDirs menu
     then do dataDirs <- getXdgDataDirs
             print dataDirs
@@ -98,7 +100,7 @@ getDesktopEntries menu = do
     else return []
   putStrLn $ "DesktopEntries in " ++ xmName menu
   -- print defEntries
-  return $ sortBy (\de1 de2 -> compare (deName de1) (deName de2)) defEntries
+  return $ sortBy (\de1 de2 -> compare (deName langs de1) (deName langs de2)) defEntries
 
 -- | Parse menu.
 parseMenu :: Element -> Maybe XdgMenu
