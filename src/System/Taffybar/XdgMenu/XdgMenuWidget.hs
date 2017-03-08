@@ -66,7 +66,8 @@ addMenu :: (MenuShellClass msc) => msc -- ^ GTK menu
         -> IO ()
 addMenu ms des xm = do
   let subMenus = xmSubmenus xm
-  let items = filter (flip matchesCondition (fromMaybe None (xmInclude xm))) des
+  let items = filter (not . flip matchesCondition (fromMaybe None (xmExclude xm))) $
+        filter (flip matchesCondition (fromMaybe None (xmInclude xm))) des
   when (not (null items) || not (null subMenus)) $ do
     item <- menuItemNewWithLabel (xmName xm)
     menuShellAppend ms item
