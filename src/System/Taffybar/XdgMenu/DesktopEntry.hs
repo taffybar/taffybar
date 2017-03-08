@@ -19,7 +19,8 @@ module System.Taffybar.XdgMenu.DesktopEntry (
   listDesktopEntries,
   deHasCategory,
   deLaunch,
-  deName)
+  deName,
+  deComment)
 
 where
 
@@ -48,10 +49,16 @@ deHasCategory de cat = case lookup "Categories" (deAttributes de) of
                          Nothing -> False
                          Just cats -> cat `elem` lines (map (\c -> if c == ';' then '\n' else c) cats)
 
--- | Return the proper name of the desktop entry, depending on the active locale.
+-- | Return the proper name of the desktop entry, depending on the
+-- active locale. FIXME
 deName :: DesktopEntry -> String
 deName de = fromMaybe (deFilename de) $ lookup "Name" $ deAttributes de
   -- mDirs <- lookupEnv "LC_MESSAGES"
+
+-- | Return the proper comment of the desktop entry, depending on the
+-- active locale.
+deComment :: DesktopEntry -> Maybe String
+deComment de = lookup "Comment" $ deAttributes de
 
 -- | Launch the given desktop entry.  Spawns a command in the
 -- background.  FIXME: should check the dbus thing.

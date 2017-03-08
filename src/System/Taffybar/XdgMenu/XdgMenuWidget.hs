@@ -53,6 +53,7 @@ addItem :: (MenuShellClass msc) => msc -- ^ GTK menu
         -> IO ()
 addItem ms de = do
   item <- menuItemNewWithLabel (deName de)
+  set item [ widgetTooltipText := deComment de ]
   menuShellAppend ms item
   _ <- on item menuItemActivated $ deLaunch de
   return ()
