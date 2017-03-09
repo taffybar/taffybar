@@ -20,7 +20,8 @@ module System.Taffybar.XdgMenu.DesktopEntry (
   deHasCategory,
   deLaunch,
   deName,
-  deComment)
+  deComment,
+  deCommand)
 
 where
 
@@ -72,12 +73,21 @@ deComment :: [String] -- ^ Preferred languages
           -> Maybe String
 deComment langs de = deLocalisedAtt langs de "Comment"
 
+-- | Return the command defined by the given desktop entry.  FIXME:
+-- should check the dbus thing.  FIXME: are there "field codes",
+-- i.e. %<char> things, that should be respected?
+deCommand :: DesktopEntry -> Maybe String
+deCommand de = 
+  case lookup "Exec" (deAttributes de) of
+    Nothing -> Nothing
+    Just cmd -> Just $ reverse $ dropWhile (== ' ') $ reverse $ takeWhile (/= '%') cmd
 
 -- | Launch the given desktop entry.  Spawns a command in the
--- background.  FIXME: should check the dbus thing.
+-- background.  FIXME: should check the dbus thing.  FIXME: are there
+-- "field codes", i.e. %<char> things, that should be respected?
 deLaunch :: DesktopEntry -> IO ()
 deLaunch de = do
-  case lookup "Exec" (deAttributes de) of
+  case deCommand de of
     Nothing -> return ()
     Just cmd -> do putStrLn $ "Launching '" ++ cmd ++ "'"
                    spawnCommand cmd >> return ()

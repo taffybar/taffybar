@@ -56,7 +56,13 @@ addItem :: (MenuShellClass msc) =>
         -> IO ()
 addItem langs ms de = do
   item <- menuItemNewWithLabel (deName langs de)
-  set item [ widgetTooltipText := deComment langs de ]
+  let mc = case deCommand de of
+             Nothing -> Nothing
+             Just cmd -> Just $ "(" ++ cmd ++ ")"
+      mtt = case deComment langs de of
+        Nothing -> mc
+        Just tt -> Just $ tt ++ maybe "" ("\n" ++) mc
+  set item [ widgetTooltipText := mtt ]
   menuShellAppend ms item
   _ <- on item menuItemActivated $ deLaunch de
   return ()
