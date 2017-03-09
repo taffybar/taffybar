@@ -30,47 +30,47 @@ import System.Environment
 import System.FilePath.Posix
 import Text.XML.Light
 import Text.XML.Light.Helpers
-
+import System.Posix.Files
+import qualified Data.Set as S
 import qualified Debug.Trace as D
 
 
 
 -- Environment Variables
-xdgConfigDirsDefault :: [String]
-xdgConfigDirsDefault = ["/etc/xdg/"]
+getXdgConfigDir :: IO String
+getXdgConfigDir = do
+  ch <- lookupEnv "XDG_CONFIG_HOME"
+  cd <- lookupEnv "XDG_CONFIG_DIRS"
+  let dirs = catMaybes [ch]
+             ++ maybe [] splitSearchPath cd
+  exDirs <- existingDirs dirs
+  return $ if null exDirs
+    then "/etc/xdg"
+    else head exDirs
 
-xdgMenuPrefixDefault :: String
-xdgMenuPrefixDefault = "gnome-"
-
-xdgDataDirsDefault :: [String]
-xdgDataDirsDefault = ["/usr/local/share/", "/usr/share/"]
-
-getXdgConfigDirs :: IO [String]
-getXdgConfigDirs = do
-  mDirs <- lookupEnv "XDG_CONFIG_DIRS"
-  return $ case mDirs of
-             Nothing -> xdgConfigDirsDefault
-             Just [] -> xdgConfigDirsDefault
-             Just ds -> splitSearchPath ds 
-
+existingDirs :: [FilePath] -> IO [FilePath]
+existingDirs  dirs = do
+  exs <- mapM fileExist dirs
+  return $ S.toList $ S.fromList $ map fst $ filter snd $ zip dirs exs
+    
 getXdgMenuPrefix :: IO String
 getXdgMenuPrefix = do
   mPf <- lookupEnv "XDG_MENU_PREFIX"
-  return $ fromMaybe xdgMenuPrefixDefault mPf
+  return $ fromMaybe "gnome-" mPf
 
 getXdgDataDirs :: IO [String]
 getXdgDataDirs = do
   mPf <- lookupEnv "XDG_DATA_DIRS"
-  return $ case mPf of
-    Nothing -> xdgDataDirsDefault
-    Just [] -> xdgDataDirsDefault
-    Just pf -> splitSearchPath pf
+  let dirs = maybe [] splitSearchPath mPf ++ ["/usr/local/share/", "/usr/share/"]
+  existingDirs dirs
 
-getXdgMenuFilename :: IO FilePath
-getXdgMenuFilename = do
-  cd <- getXdgConfigDirs
-  pf <- getXdgMenuPrefix
-  return $ head cd ++ "/menus/" ++ pf ++ "applications.menu"
+getXdgMenuFilename :: Maybe String -> IO FilePath
+getXdgMenuFilename mMenuPrefix = do
+  cd <- getXdgConfigDir
+  pf <- case mMenuPrefix of
+          Nothing -> getXdgMenuPrefix
+          Just prefix -> return prefix
+  return $ cd ++ "/menus/" ++ pf ++ "applications.menu"
 
 -- | XDG Menu, cf. "Desktop Menu Specification".
 data XdgMenu = XdgMenu {
@@ -154,9 +154,9 @@ parseConditions key elt = case findChild (unqual key) elt of
           unknown    -> D.trace ("Ooopsi: " ++  unknown) Nothing
 
 -- | Fetch menus and desktop entries and assemble the XDG menu.
-buildXdgMenu :: IO (Maybe XdgMenu)
-buildXdgMenu = do
-  filename <- getXdgMenuFilename
+buildXdgMenu :: Maybe String -> IO (Maybe XdgMenu)
+buildXdgMenu mMenuPrefix = do
+  filename <- getXdgMenuFilename mMenuPrefix
   putStrLn $ "Reading " ++ filename
   contents <- readFile filename
   case parseXMLDoc contents of
@@ -167,7 +167,7 @@ buildXdgMenu = do
 -- | Test
 testXdgMenu :: IO ()
 testXdgMenu = do
-  m <- buildXdgMenu
+  m <- buildXdgMenu (Just "mate-")
   print $ m
   return ()                     -- 
 

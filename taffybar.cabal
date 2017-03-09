@@ -57,7 +57,8 @@ library
                  ConfigFile,
                  xml,
                  xml-helpers,
-                 directory
+                 directory,
+                 unix
   if flag(network-uri)
     build-depends: network-uri >= 2.6 && < 3, network >= 2.6 && < 3
   else

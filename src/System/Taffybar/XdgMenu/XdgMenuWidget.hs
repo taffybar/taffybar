@@ -88,10 +88,12 @@ addMenu langs ms des xm = do
     mapM_ (addItem langs subMenu) $ items
 
 -- | Create a new XDG Menu Widget.
-xdgMenuWidgetNew :: IO Widget
-xdgMenuWidgetNew = do
+xdgMenuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
+                                 -- e.g. "mate-" or "gnome-"
+                 -> IO Widget
+xdgMenuWidgetNew mMenuPrefix = do
   mb <- menuBarNew
-  mm <- buildXdgMenu
+  mm <- buildXdgMenu mMenuPrefix
   langs <- getPreferredLanguages
   case mm of
     Just xm -> do des <- getDesktopEntries langs xm
@@ -132,6 +134,6 @@ testXdgMenuWidget = do
    _ <- initGUI
    window <- windowNew
    _ <- window `on` deleteEvent $ liftIO mainQuit >> return False
-   containerAdd window =<< xdgMenuWidgetNew
+   containerAdd window =<< xdgMenuWidgetNew Nothing
    widgetShowAll window
    mainGUI
