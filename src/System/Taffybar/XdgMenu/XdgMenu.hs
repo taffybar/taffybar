@@ -70,7 +70,7 @@ getXdgMenuFilename :: IO FilePath
 getXdgMenuFilename = do
   cd <- getXdgConfigDirs
   pf <- getXdgMenuPrefix
-  return $ head cd ++ "menus/" ++ pf ++ "applications.menu"
+  return $ head cd ++ "/menus/" ++ pf ++ "applications.menu"
 
 -- | XDG Menu, cf. "Desktop Menu Specification".
 data XdgMenu = XdgMenu {
