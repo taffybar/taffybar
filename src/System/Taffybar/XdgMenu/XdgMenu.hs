@@ -180,6 +180,7 @@ data FinalMenu = FinalMenu {
 buildFinalMenu :: Maybe String -> IO FinalMenu
 buildFinalMenu mMenuPrefix = do
   filename <- getXdgMenuFilename mMenuPrefix
+  dt <- getDesktop
   putStrLn $ "Reading " ++ filename
   contents <- readFile filename
   langs <- getPreferredLanguages
@@ -190,20 +191,33 @@ buildFinalMenu mMenuPrefix = do
                          Nothing -> return $ FinalMenu "???" "Parsing failed" [] [] False
                          Just m -> do des <- getDesktopEntries langs m
                                       -- print m
-                                      let (fm, ae) = xdgToFinalMenu langs des m
+                                      let (fm, ae) = xdgToFinalMenu dt langs des m
                                       -- print ae
                                           fm' = fixOnlyUnallocated ae fm
                                       return fm'
 
-xdgToFinalMenu langs des xm = (fm, aes)
+xdgToFinalMenu desktop langs des xm = (fm, aes)
   where fm = FinalMenu (xmName xm) "FIXME"  menus entries onlyUnallocated
-        mas = map (xdgToFinalMenu langs des) (xmSubmenus xm)
+        mas = map (xdgToFinalMenu desktop langs des) (xmSubmenus xm)
         (menus, subaes) = unzip mas
         entries = map (xdgToFinalEntry langs) $
+                  -- onlyshowin
+                  filter (matchesOnlyShowIn desktop) $
+                  -- excludes
                   filter (not . flip matchesCondition (fromMaybe None (xmExclude xm))) $
+                  -- includes
                   filter (flip matchesCondition (fromMaybe None (xmInclude xm))) des
         onlyUnallocated = xmOnlyUnallocated xm
         aes = if onlyUnallocated then [] else entries ++ concat subaes
+
+matchesOnlyShowIn :: String -> DesktopEntry -> Bool
+matchesOnlyShowIn desktop de = matchesShowIn && notMatchesNotShowIn
+  where matchesShowIn = case deOnlyShowIn de of
+                          [] -> True
+                          desktops -> desktop `elem` desktops
+        notMatchesNotShowIn = case deNotShowIn de of
+                                [] -> True
+                                desktops -> not $ desktop `elem` desktops
 
 xdgToFinalEntry langs de = FinalEntry {feName = name,
                                        feComment = comment,
@@ -233,6 +247,12 @@ getPreferredLanguages = do
   case lang of
     Nothing -> return []
     Just l -> return $ doGetPreferredLanguages l
+
+-- | Determine current Desktop
+getDesktop :: IO String
+getDesktop = do
+  mCurDt <- lookupEnv "XDG_CURRENT_DESKTOP"
+  return $ fromMaybe "???" mCurDt
 
 doGetPreferredLanguages :: String -> [String]
 doGetPreferredLanguages l =

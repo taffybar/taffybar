@@ -18,8 +18,9 @@ module System.Taffybar.XdgMenu.DesktopEntry (
   DesktopEntry(..),
   listDesktopEntries,
   deHasCategory,
-  deLaunch,
   deName,
+  deOnlyShowIn,
+  deNotShowIn,
   deComment,
   deCommand)
 
@@ -29,7 +30,7 @@ import qualified Data.ConfigFile as CF
 import Data.Maybe
 import Data.List
 import System.Directory
-import System.Process
+
 import Control.Monad.Error
 
 -- | Desktop Entry.  All attributes (key-value-pairs) are stored in an
@@ -48,7 +49,10 @@ deHasCategory :: DesktopEntry -- ^ desktop entry
               -> Bool
 deHasCategory de cat = case lookup "Categories" (deAttributes de) of
                          Nothing -> False
-                         Just cats -> cat `elem` lines (map (\c -> if c == ';' then '\n' else c) cats)
+                         Just cats -> cat `elem` splitAtSemicolon cats
+
+splitAtSemicolon :: String -> [String]
+splitAtSemicolon = lines . (map (\c -> if c == ';' then '\n' else c))
 
 -- | Return the proper name of the desktop entry, depending on the
 -- list of preferred languages.
@@ -56,6 +60,15 @@ deName :: [String] -- ^ Preferred languages
        -> DesktopEntry
        -> String
 deName langs de = fromMaybe (deFilename de) $ deLocalisedAtt langs de "Name" 
+
+deOnlyShowIn :: DesktopEntry -> [String]
+deOnlyShowIn = maybe [] (splitAtSemicolon) . deAtt "OnlyShowIn" 
+
+deNotShowIn :: DesktopEntry -> [String]
+deNotShowIn = maybe [] (splitAtSemicolon) . deAtt "NotShowIn" 
+
+deAtt :: String -> DesktopEntry -> Maybe String
+deAtt att = lookup att . deAttributes
 
 deLocalisedAtt :: [String] -- ^ Preferred languages
                -> DesktopEntry
@@ -82,16 +95,6 @@ deCommand de =
   case lookup "Exec" (deAttributes de) of
     Nothing -> Nothing
     Just cmd -> Just $ reverse $ dropWhile (== ' ') $ reverse $ takeWhile (/= '%') cmd
-
--- | Launch the given desktop entry.  Spawns a command in the
--- background.  FIXME: should check the dbus thing.  FIXME: are there
--- "field codes", i.e. %<char> things, that should be respected?
-deLaunch :: DesktopEntry -> IO ()
-deLaunch de = do
-  case deCommand de of
-    Nothing -> return ()
-    Just cmd -> do putStrLn $ "Launching '" ++ cmd ++ "'"
-                   spawnCommand cmd >> return ()
 
 -- | Return a list of all desktop entries in the given directory.
 listDesktopEntries :: FilePath -> IO [DesktopEntry]
