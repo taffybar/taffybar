@@ -17,6 +17,7 @@
 module System.Taffybar.XdgMenu.DesktopEntry (
   DesktopEntry(..),
   listDesktopEntries,
+  getDirectoryEntry,
   deHasCategory,
   deName,
   deOnlyShowIn,
@@ -30,12 +31,15 @@ import qualified Data.ConfigFile as CF
 import Data.Maybe
 import Data.List
 import System.Directory
-
 import Control.Monad.Error
+
+data DesktopEntryType = Application | Link | Directory
+  deriving (Read, Show, Eq)
 
 -- | Desktop Entry.  All attributes (key-value-pairs) are stored in an
 -- association list.
 data DesktopEntry = DesktopEntry {
+  deType       :: DesktopEntryType,
   deFilename   :: FilePath, -- ^ unqualified filename, e.g. "taffybar.desktop"
   deAttributes :: [(String, String)], -- ^ Key-value pairs
   deAllocated  :: Bool -- ^ already contained in some menu?
@@ -97,11 +101,23 @@ deCommand de =
     Just cmd -> Just $ reverse $ dropWhile (== ' ') $ reverse $ takeWhile (/= '%') cmd
 
 -- | Return a list of all desktop entries in the given directory.
-listDesktopEntries :: FilePath -> IO [DesktopEntry]
-listDesktopEntries dir = do
-  files <-  getDirectoryContents dir
-  mEntries <- mapM (readDesktopEntry . ((dir ++ "/") ++)) $ filter (".desktop" `isSuffixOf`) files
-  return $ catMaybes mEntries
+listDesktopEntries :: String -> FilePath -> IO [DesktopEntry]
+listDesktopEntries extension dir = do
+  ex <- doesDirectoryExist dir
+  if ex
+    then do files <-  getDirectoryContents dir
+            mEntries <- mapM (readDesktopEntry . ((dir ++ "/") ++)) $ filter (extension `isSuffixOf`) files
+            return $ catMaybes mEntries
+    else do putStrLn $ "Does not exist: " ++ dir
+            return []
+
+-- | Return a list of all desktop entries in the given directory.
+getDirectoryEntry :: String -> [FilePath] -> IO (Maybe DesktopEntry)
+getDirectoryEntry name dirs = do
+  exFiles <- filterM doesFileExist $ map (++ "/" ++ name) dirs
+  if null exFiles
+  then return Nothing
+  else readDesktopEntry $ head exFiles
 
 -- | Main section of a desktop entry file.
 sectionMain :: String
@@ -125,7 +141,11 @@ readDesktopEntry fp = do
 
           case eResult of
             Left _ -> return Nothing
-            Right r -> return $ Just (DesktopEntry f r False)
+            Right r -> return $ Just $ DesktopEntry
+                       {deType       = maybe Application read (lookup "Type" r),
+                        deFilename   = f,
+                        deAttributes = r,
+                        deAllocated  = False}
 
 -- | Test          
 testDesktopEntry :: IO ()

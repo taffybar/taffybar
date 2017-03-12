@@ -19,7 +19,7 @@ module System.Taffybar.XdgMenu.XdgMenu (
   FinalMenu(..),
   FinalEntry(..),
   buildFinalMenu,
-  getDesktopEntries)
+  getApplicationEntries)
 where
 
 import Control.Monad
@@ -91,19 +91,31 @@ data XdgMenu = XdgMenu {
   deriving(Show)
 
 -- | Return a list of all available desktop entries for a given xdg menu.
-getDesktopEntries :: [String] -- ^ Preferred languages
-                  -> XdgMenu
-                  -> IO [DesktopEntry]
-getDesktopEntries langs menu = do
-  defEntries <- if xmDefaultAppDirs menu
+getApplicationEntries :: [String] -- ^ Preferred languages
+                      -> XdgMenu
+                      -> IO [DesktopEntry]
+getApplicationEntries langs xm = do
+  defEntries <- if xmDefaultAppDirs xm
     then do dataDirs <- getXdgDataDirs
-            print dataDirs
-            liftM concat $ mapM (listDesktopEntries . (++ "/applications")) dataDirs
+            -- print dataDirs
+            liftM concat $ mapM (listDesktopEntries ".desktop" .
+                                  (++ "/applications")) dataDirs
     else return []
-  putStrLn $ "DesktopEntries in " ++ xmName menu
+  -- print xm
   -- print defEntries
   return $ sortBy (\de1 de2 -> compare (map toLower (deName langs de1))
                                (map toLower (deName langs de2))) defEntries
+
+-- | Return a list of all available desktop entries for a given xdg menu.
+getDirectoryEntries :: [String] -- ^ Preferred languages
+                    -> XdgMenu
+                    -> IO [DesktopEntry]
+getDirectoryEntries langs menu = do
+  if xmDefaultDirectoryDirs menu
+    then do dataDirs <- getXdgDataDirs
+            liftM concat $ mapM (listDesktopEntries ".directory" .
+                                  (++ "/desktop-diretories")) dataDirs
+    else return []
 
 -- | Parse menu.
 parseMenu :: Element -> Maybe XdgMenu
@@ -184,31 +196,43 @@ buildFinalMenu mMenuPrefix = do
   putStrLn $ "Reading " ++ filename
   contents <- readFile filename
   langs <- getPreferredLanguages
+  dirDirs <- getDirectoryDirs
   case parseXMLDoc contents of
     Nothing      -> do print "Parsing failed"
                        return $ FinalMenu "???" "Parsing failed" [] [] False
     Just element -> do case parseMenu element of
                          Nothing -> return $ FinalMenu "???" "Parsing failed" [] [] False
-                         Just m -> do des <- getDesktopEntries langs m
-                                      -- print m
-                                      let (fm, ae) = xdgToFinalMenu dt langs des m
+                         Just m -> do des <- getApplicationEntries langs m
+                                      -- print des
+                                      (fm, ae) <- xdgToFinalMenu dt langs dirDirs des m
                                       -- print ae
-                                          fm' = fixOnlyUnallocated ae fm
+                                      let fm' = fixOnlyUnallocated ae fm
+
                                       return fm'
 
-xdgToFinalMenu desktop langs des xm = (fm, aes)
-  where fm = FinalMenu (xmName xm) "FIXME"  menus entries onlyUnallocated
-        mas = map (xdgToFinalMenu desktop langs des) (xmSubmenus xm)
-        (menus, subaes) = unzip mas
-        entries = map (xdgToFinalEntry langs) $
-                  -- onlyshowin
-                  filter (matchesOnlyShowIn desktop) $
-                  -- excludes
-                  filter (not . flip matchesCondition (fromMaybe None (xmExclude xm))) $
-                  -- includes
-                  filter (flip matchesCondition (fromMaybe None (xmInclude xm))) des
-        onlyUnallocated = xmOnlyUnallocated xm
-        aes = if onlyUnallocated then [] else entries ++ concat subaes
+xdgToFinalMenu :: String -> [String] -> [FilePath] -> [DesktopEntry] -> XdgMenu -> IO (FinalMenu, [FinalEntry])
+xdgToFinalMenu desktop langs dirDirs des xm = do
+  dirEntry <- getDirectoryEntry (xmDirectory xm) dirDirs
+  mas <- mapM (xdgToFinalMenu desktop langs dirDirs des) (xmSubmenus xm)
+  let (menus, subaes) = unzip mas
+      menus' = sortBy (\fm1 fm2 -> compare (map toLower $ fmName fm1)
+                                   (map toLower $ fmName fm2)) menus
+      entries = map (xdgToFinalEntry langs) $
+                -- onlyshowin
+                filter (matchesOnlyShowIn desktop) $
+                -- excludes
+                filter (not . flip matchesCondition (fromMaybe None (xmExclude xm))) $
+                -- includes
+                filter (flip matchesCondition (fromMaybe None (xmInclude xm))) des
+      onlyUnallocated = xmOnlyUnallocated xm
+      aes = if onlyUnallocated then [] else entries ++ concat subaes
+  let fm = FinalMenu {fmName = maybe (xmName xm) (deName langs) dirEntry,
+                      fmComment = maybe "???" (fromMaybe "???" . deComment langs) dirEntry,
+                      fmSubmenus = menus',
+                      fmEntries = entries,
+                      fmOnlyUnallocated = onlyUnallocated}
+  -- print des
+  return (fm, aes)
 
 matchesOnlyShowIn :: String -> DesktopEntry -> Bool
 matchesOnlyShowIn desktop de = matchesShowIn && notMatchesNotShowIn
@@ -253,6 +277,11 @@ getDesktop :: IO String
 getDesktop = do
   mCurDt <- lookupEnv "XDG_CURRENT_DESKTOP"
   return $ fromMaybe "???" mCurDt
+
+getDirectoryDirs :: IO [FilePath]
+getDirectoryDirs = do
+  dataDirs <- getXdgDataDirs
+  existingDirs $ map (++ "/desktop-directories") dataDirs
 
 doGetPreferredLanguages :: String -> [String]
 doGetPreferredLanguages l =
