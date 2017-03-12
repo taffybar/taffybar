@@ -16,13 +16,15 @@
 --
 -----------------------------------------------------------------------------
 module System.Taffybar.XdgMenu.XdgMenu (
-  XdgMenu(..),
-  buildXdgMenu,
+  FinalMenu(..),
+  FinalEntry(..),
+  buildFinalMenu,
   getDesktopEntries)
 where
 
 import Control.Monad
 import Data.List
+import Data.Char (toLower)
 import Data.Maybe
 import System.Taffybar.XdgMenu.DesktopEntry
 import System.Taffybar.XdgMenu.DesktopEntryCondition
@@ -100,7 +102,8 @@ getDesktopEntries langs menu = do
     else return []
   putStrLn $ "DesktopEntries in " ++ xmName menu
   -- print defEntries
-  return $ sortBy (\de1 de2 -> compare (deName langs de1) (deName langs de2)) defEntries
+  return $ sortBy (\de1 de2 -> compare (map toLower (deName langs de1))
+                               (map toLower (deName langs de2))) defEntries
 
 -- | Parse menu.
 parseMenu :: Element -> Maybe XdgMenu
@@ -115,7 +118,12 @@ parseMenu elt =
                                Just _  -> True
       name = fromMaybe "Name?" $ getChildData "Name" elt
       dir = fromMaybe "Dir?" $ getChildData "Directory" elt
-      onlyUnallocated = False   -- FIXME
+      onlyUnallocated = case (getChildData "OnlyUnallocated" elt,
+                              getChildData "NotOnlyUnallocated" elt) of
+                          (Nothing, Nothing) -> False -- ?!
+                          (Nothing, Just _)  -> False
+                          (Just _, Nothing)  -> True
+                          (Just _, Just _)   -> False -- ?!
       deleted = False   -- FIXME
       include = parseConditions "Include" elt
       exclude = parseConditions "Exclude" elt
@@ -153,21 +161,96 @@ parseConditions key elt = case findChild (unqual key) elt of
                           Just rule -> Just $ Not rule
           unknown    -> D.trace ("Ooopsi: " ++  unknown) Nothing
 
+
+data FinalEntry = FinalEntry {
+  feName           :: String,
+  feComment        :: String,
+  feCommand        :: String}
+  deriving (Eq, Show)
+
+data FinalMenu = FinalMenu {
+  fmName           :: String,
+  fmComment        :: String,
+  fmSubmenus       :: [FinalMenu],
+  fmEntries        :: [FinalEntry],
+  fmOnlyUnallocated :: Bool}
+  deriving (Show)
+
 -- | Fetch menus and desktop entries and assemble the XDG menu.
-buildXdgMenu :: Maybe String -> IO (Maybe XdgMenu)
-buildXdgMenu mMenuPrefix = do
+buildFinalMenu :: Maybe String -> IO FinalMenu
+buildFinalMenu mMenuPrefix = do
   filename <- getXdgMenuFilename mMenuPrefix
   putStrLn $ "Reading " ++ filename
   contents <- readFile filename
+  langs <- getPreferredLanguages
   case parseXMLDoc contents of
-    Nothing -> do print "Parsing failed"
-                  return Nothing
-    Just element -> return $ parseMenu element
+    Nothing      -> do print "Parsing failed"
+                       return $ FinalMenu "???" "Parsing failed" [] [] False
+    Just element -> do case parseMenu element of
+                         Nothing -> return $ FinalMenu "???" "Parsing failed" [] [] False
+                         Just m -> do des <- getDesktopEntries langs m
+                                      -- print m
+                                      let (fm, ae) = xdgToFinalMenu langs des m
+                                      -- print ae
+                                          fm' = fixOnlyUnallocated ae fm
+                                      return fm'
+
+xdgToFinalMenu langs des xm = (fm, aes)
+  where fm = FinalMenu (xmName xm) "FIXME"  menus entries onlyUnallocated
+        mas = map (xdgToFinalMenu langs des) (xmSubmenus xm)
+        (menus, subaes) = unzip mas
+        entries = map (xdgToFinalEntry langs) $
+                  filter (not . flip matchesCondition (fromMaybe None (xmExclude xm))) $
+                  filter (flip matchesCondition (fromMaybe None (xmInclude xm))) des
+        onlyUnallocated = xmOnlyUnallocated xm
+        aes = if onlyUnallocated then [] else entries ++ concat subaes
+
+xdgToFinalEntry langs de = FinalEntry {feName = name,
+                                       feComment = comment,
+                                       feCommand = cmd}
+  where mc = case deCommand de of
+               Nothing -> Nothing
+               Just cmd -> Just $ "(" ++ cmd ++ ")"
+        comment = fromMaybe "??" $ case deComment langs de of
+                                     Nothing -> mc
+                                     Just tt -> Just $ tt ++ maybe "" ("\n" ++) mc
+        cmd = fromMaybe "FIXME" $ deCommand de
+        name = deName langs de
+
+fixOnlyUnallocated fes fm = fm {fmEntries = entries,
+                                fmSubmenus = map (fixOnlyUnallocated fes) (fmSubmenus fm)}
+  where entries = if (fmOnlyUnallocated fm)
+                  then filter (not . (`elem` fes)) (fmEntries fm)
+                  else fmEntries fm
+
+-- | Determine locale language settings
+getPreferredLanguages :: IO [String]
+getPreferredLanguages = do
+  mLcMessages <- lookupEnv "LC_MESSAGES"
+  lang <- case mLcMessages of
+               Nothing -> lookupEnv "LANG" -- FIXME?
+               Just lm -> return (Just lm)
+  case lang of
+    Nothing -> return []
+    Just l -> return $ doGetPreferredLanguages l
+
+doGetPreferredLanguages :: String -> [String]
+doGetPreferredLanguages l =
+  let woEncoding = takeWhile (/= '.') l
+      (language, _cm) = span (/= '_') woEncoding
+      (country, _m) = span (/= '@') (if null _cm then "" else tail _cm)
+      modifier = if null _m then "" else tail _m
+  in dgl language country modifier
+  where dgl "" "" "" = []
+        dgl l  "" "" = [l]
+        dgl l  c  "" = [l ++ "_" ++ c, l]
+        dgl l  "" m  = [l ++ "@" ++ m, l]
+        dgl l  c  m  = [l ++ "_" ++ c ++ "@" ++ m, l ++ "_" ++ c, l ++ "@" ++ m]
 
 -- | Test
 testXdgMenu :: IO ()
 testXdgMenu = do
-  m <- buildXdgMenu (Just "mate-")
+  m <- buildFinalMenu (Just "mate-")
   print $ m
   return ()                     -- 
 

@@ -35,8 +35,9 @@ import Control.Monad.Error
 -- | Desktop Entry.  All attributes (key-value-pairs) are stored in an
 -- association list.
 data DesktopEntry = DesktopEntry {
-  deFilename :: FilePath, -- ^ unqualified filename, e.g. "taffybar.desktop"
-  deAttributes :: [(String, String)] -- ^ Key-value pairs
+  deFilename   :: FilePath, -- ^ unqualified filename, e.g. "taffybar.desktop"
+  deAttributes :: [(String, String)], -- ^ Key-value pairs
+  deAllocated  :: Bool -- ^ already contained in some menu?
   }
   deriving (Read, Show, Eq)
 
@@ -121,7 +122,7 @@ readDesktopEntry fp = do
 
           case eResult of
             Left _ -> return Nothing
-            Right r -> return $ Just (DesktopEntry f r)
+            Right r -> return $ Just (DesktopEntry f r False)
 
 -- | Test          
 testDesktopEntry :: IO ()

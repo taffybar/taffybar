@@ -29,6 +29,7 @@ import System.Taffybar.XdgMenu.DesktopEntry
 import System.Taffybar.XdgMenu.DesktopEntryCondition
 import System.Taffybar.XdgMenu.XdgMenu
 import System.Environment
+import System.Process
 
 -- $usage
 --
@@ -50,42 +51,36 @@ import System.Environment
 
 -- | Add a desktop entry to a gtk menu by appending a gtk menu item.
 addItem :: (MenuShellClass msc) =>
-           [String] -- ^ Preferred languages
-        -> msc -- ^ GTK menu
-        -> DesktopEntry -- ^ Desktop entry
+           msc -- ^ GTK menu
+        -> FinalEntry -- ^ Desktop entry
         -> IO ()
-addItem langs ms de = do
-  item <- menuItemNewWithLabel (deName langs de)
-  let mc = case deCommand de of
-             Nothing -> Nothing
-             Just cmd -> Just $ "(" ++ cmd ++ ")"
-      mtt = case deComment langs de of
-        Nothing -> mc
-        Just tt -> Just $ tt ++ maybe "" ("\n" ++) mc
-  set item [ widgetTooltipText := mtt ]
+addItem ms de = do
+  item <- menuItemNewWithLabel (feName de)
+  set item [ widgetTooltipText := Just (feComment de)]
   menuShellAppend ms item
-  _ <- on item menuItemActivated $ deLaunch de
+  _ <- on item menuItemActivated $ do
+    let cmd = feCommand de
+    putStrLn $ "Launching '" ++ cmd ++ "'"
+    spawnCommand cmd
+    return ()
   return ()
-
+  
 -- | Add an xdg menu to a gtk menu by appending gtk menu items and
 -- submenus.
 addMenu :: (MenuShellClass msc) =>
-           [String] -- ^ Preferred languages
-        -> msc -- ^ GTK menu
-        -> [DesktopEntry] -- ^ List of all available desktop entries
-        -> XdgMenu -- ^ XDG menu
+           msc -- ^ GTK menu
+        -> FinalMenu -- ^ XDG menu
         -> IO ()
-addMenu langs ms des xm = do
-  let subMenus = xmSubmenus xm
-  let items = filter (not . flip matchesCondition (fromMaybe None (xmExclude xm))) $
-        filter (flip matchesCondition (fromMaybe None (xmInclude xm))) des
+addMenu ms fm = do
+  let subMenus = fmSubmenus fm
+      items = fmEntries fm
   when (not (null items) || not (null subMenus)) $ do
-    item <- menuItemNewWithLabel (xmName xm)
+    item <- menuItemNewWithLabel (fmName fm)
     menuShellAppend ms item
     subMenu <- menuNew
     menuItemSetSubmenu item subMenu
-    mapM_ (addMenu langs subMenu des ) subMenus
-    mapM_ (addItem langs subMenu) $ items
+    mapM_ (addMenu subMenu) subMenus
+    mapM_ (addItem subMenu) $ items
 
 -- | Create a new XDG Menu Widget.
 xdgMenuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
@@ -93,39 +88,10 @@ xdgMenuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
                  -> IO Widget
 xdgMenuWidgetNew mMenuPrefix = do
   mb <- menuBarNew
-  mm <- buildXdgMenu mMenuPrefix
-  langs <- getPreferredLanguages
-  case mm of
-    Just xm -> do des <- getDesktopEntries langs xm
-                  addMenu langs mb des xm
-    Nothing -> do item <- menuItemNewWithLabel "???"
-                  menuShellAppend mb item
+  m <- buildFinalMenu mMenuPrefix
+  addMenu mb m
   widgetShowAll mb
   return (toWidget mb)
-
--- | Determine locale language settings
-getPreferredLanguages :: IO [String]
-getPreferredLanguages = do
-  mLcMessages <- lookupEnv "LC_MESSAGES"
-  lang <- case mLcMessages of
-               Nothing -> lookupEnv "LANG" -- FIXME?
-               Just lm -> return (Just lm)
-  case lang of
-    Nothing -> return []
-    Just l -> return $ doGetPreferredLanguages l
-
-doGetPreferredLanguages :: String -> [String]
-doGetPreferredLanguages l =
-  let woEncoding = takeWhile (/= '.') l
-      (language, _cm) = span (/= '_') woEncoding
-      (country, _m) = span (/= '@') (if null _cm then "" else tail _cm)
-      modifier = if null _m then "" else tail _m
-  in dgl language country modifier
-  where dgl "" "" "" = []
-        dgl l  "" "" = [l]
-        dgl l  c  "" = [l ++ "_" ++ c, l]
-        dgl l  "" m  = [l ++ "@" ++ m, l]
-        dgl l  c  m  = [l ++ "_" ++ c ++ "@" ++ m, l ++ "_" ++ c, l ++ "@" ++ m]
 
 
 -- | Show Xdg Menu Widget in a standalone frame.
