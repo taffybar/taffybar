@@ -290,37 +290,40 @@ taffybarMain cfg = do
   let monFilter = fromMaybe (return . ((monitorNumber cfg) ==)) (monitorFilter cfg)
   activeMonitors <- filterM monFilter [0 .. (nmonitors -1)]
 
-  let makeTaffyWindow monNumber =
-            do
-                     window <- windowNew
-                     let windowName = printf "Taffybar-%s" $ show monNumber :: String
-                     widgetSetName window windowName
-                     windowSetTypeHint window WindowTypeHintDock
-                     windowSetScreen window screen
-                     setTaffybarSize cfg window monNumber
+  let makeTaffyWindow monNumber = do
+        window <- windowNew
+        let windowName = printf "Taffybar-%s" $ show monNumber :: String
 
-                     box <- hBoxNew False $ widgetSpacing cfg
-                     containerAdd window box
+        widgetSetName window windowName
+        windowSetTypeHint window WindowTypeHintDock
+        windowSetScreen window screen
+        setTaffybarSize cfg window monNumber
 
-                     _ <- on screen screenMonitorsChanged (setTaffybarSize cfg window monNumber)
-                   
-                     mapM_ (\io -> do
-                               wid <- io
-                               widgetSetSizeRequest wid (-1) (barHeight cfg)
-                               boxPackStart box wid PackNatural 0) (startWidgets cfg)
-                     mapM_ (\io -> do
-                               wid <- io
-                               widgetSetSizeRequest wid (-1) (barHeight cfg)
-                               boxPackEnd box wid PackNatural 0) (endWidgets cfg)
+        box <- hBoxNew False $ widgetSpacing cfg
+        containerAdd window box
 
-                     widgetShow window
-                     widgetShow box
+        mapM_
+          (\io -> do
+             wid <- io
+             widgetSetSizeRequest wid (-1) (barHeight cfg)
+             boxPackStart box wid PackNatural 0)
+          (startWidgets cfg)
+
+        mapM_
+          (\io -> do
+             wid <- io
+             widgetSetSizeRequest wid (-1) (barHeight cfg)
+             boxPackEnd box wid PackNatural 0)
+          (endWidgets cfg)
+
+        _ <- on screen screenMonitorsChanged (setTaffybarSize cfg window monNumber)
+
+        widgetShow window
+        widgetShow box
 
   mapM_ makeTaffyWindow activeMonitors
-
   -- Reset the size of the Taffybar window if the monitor setup has
   -- changed, e.g., after a laptop user has attached an external
   -- monitor.
-
   mainGUI
   return ()
