@@ -343,7 +343,7 @@ taffybarMain cfg = do
 
   _ <- on screen screenMonitorsChanged refreshTaffyWindows
 
-  maybe (return ()) ($ refreshTaffyWindows) (startRefresher cfg)
+  maybe (return ()) ($ postGUIAsync refreshTaffyWindows) (startRefresher cfg)
 
   refreshTaffyWindows
   -- Reset the size of the Taffybar window if the monitor setup has
