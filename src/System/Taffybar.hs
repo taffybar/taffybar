@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections #-}
+
 -- | The main module of Taffybar
 module System.Taffybar (
   -- * Detail
@@ -129,13 +129,15 @@ module System.Taffybar (
 
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
-import Control.Monad ( when, filterM )
+import qualified Control.Concurrent.MVar as MV
+import Control.Monad ( when, filterM, foldM )
+import qualified Data.Map as M
 import Data.Maybe ( fromMaybe )
-import System.Environment.XDG.BaseDir ( getUserConfigFile )
-import System.FilePath ( (</>) )
 import Graphics.UI.Gtk
 import Safe ( atMay )
+import System.Environment.XDG.BaseDir ( getUserConfigFile )
 import System.Exit ( exitFailure )
+import System.FilePath ( (</>) )
 import qualified System.IO as IO
 import Text.Printf ( printf )
 
@@ -166,7 +168,8 @@ strutProperties pos bh (Rectangle mX mY mW mH) monitors =
 data TaffybarConfig =
   TaffybarConfig { screenNumber :: Int -- ^ The screen number to run the bar on (default is almost always fine)
                  , monitorNumber :: Int -- ^ The xinerama/xrandr monitor number to put the bar on (default: 0)
-                 , monitorFilter :: Maybe (Int -> IO Bool)
+                 , getMonitorConfig :: Maybe (Int -> TaffybarConfig -> IO (Maybe TaffybarConfig)) -- ^ A function that provides the config that should be used for the taffybar
+                 , startRefresher :: Maybe (IO () -> IO ())
                  , barHeight :: Int -- ^ Number of pixels to reserve for the bar (default: 25 pixels)
                  , barPosition :: Position -- ^ The position of the bar on the screen (default: Top)
                  , widgetSpacing :: Int -- ^ The number of pixels between widgets
@@ -180,7 +183,8 @@ defaultTaffybarConfig :: TaffybarConfig
 defaultTaffybarConfig =
   TaffybarConfig { screenNumber = 0
                  , monitorNumber = 0
-                 , monitorFilter = Nothing
+                 , getMonitorConfig = Nothing
+                 , startRefresher = Nothing
                  , barHeight = 25
                  , barPosition = Top
                  , widgetSpacing = 10
@@ -189,8 +193,8 @@ defaultTaffybarConfig =
                  , endWidgets = []
                  }
 
-allMonitors :: Maybe (Int -> IO Bool)
-allMonitors = Just $ const $ return True
+allMonitors :: Maybe (Int -> TaffybarConfig -> IO (Maybe TaffybarConfig))
+allMonitors = Just $ \_ c -> return $ Just c
 
 showError :: TaffybarConfig -> String -> TaffybarConfig
 showError cfg msg = cfg { errorMsg = Just msg }
@@ -286,42 +290,62 @@ taffybarMain cfg = do
     False -> error $ printf "Screen %d is not available in the default display" (screenNumber cfg)
     True -> displayGetScreen disp (screenNumber cfg)
 
-  nmonitors <- screenGetNMonitors screen
-  let monFilter = fromMaybe (return . ((monitorNumber cfg) ==)) (monitorFilter cfg)
-  activeMonitors <- filterM monFilter [0 .. (nmonitors -1)]
+  taffyWindowsVar <- MV.newMVar M.empty
 
-  let makeTaffyWindow monNumber = do
+  let configIfMonitorNumber num c
+        | num == (monitorNumber cfg) = return $ Just c
+        | otherwise = return Nothing
+      getConfig  = fromMaybe configIfMonitorNumber (getMonitorConfig cfg)
+
+      createBarOnMonitor monitorToWindow monNumber = do
+        mconfig <- getConfig monNumber cfg
+        case mconfig of
+          Just config -> do
+            window <- makeTaffyWindow config monNumber
+            return $ M.insert monNumber window monitorToWindow
+          Nothing -> return monitorToWindow
+
+      refreshTaffyWindows = do
+        nmonitors <- screenGetNMonitors screen
+        MV.modifyMVar_ taffyWindowsVar $ \monitorToWindow -> do
+          mapM_ widgetDestroy $ M.elems monitorToWindow
+          foldM createBarOnMonitor M.empty [0 .. (nmonitors -1)]
+
+      makeTaffyWindow wcfg monNumber = do
         window <- windowNew
         let windowName = printf "Taffybar-%s" $ show monNumber :: String
 
         widgetSetName window windowName
         windowSetTypeHint window WindowTypeHintDock
         windowSetScreen window screen
-        setTaffybarSize cfg window monNumber
+        setTaffybarSize wcfg window monNumber
 
-        box <- hBoxNew False $ widgetSpacing cfg
+        box <- hBoxNew False $ widgetSpacing wcfg
         containerAdd window box
 
         mapM_
           (\io -> do
              wid <- io
-             widgetSetSizeRequest wid (-1) (barHeight cfg)
+             widgetSetSizeRequest wid (-1) (barHeight wcfg)
              boxPackStart box wid PackNatural 0)
-          (startWidgets cfg)
+          (startWidgets wcfg)
 
         mapM_
           (\io -> do
              wid <- io
-             widgetSetSizeRequest wid (-1) (barHeight cfg)
+             widgetSetSizeRequest wid (-1) (barHeight wcfg)
              boxPackEnd box wid PackNatural 0)
-          (endWidgets cfg)
-
-        _ <- on screen screenMonitorsChanged (setTaffybarSize cfg window monNumber)
+          (endWidgets wcfg)
 
         widgetShow window
         widgetShow box
+        return window
 
-  mapM_ makeTaffyWindow activeMonitors
+  _ <- on screen screenMonitorsChanged refreshTaffyWindows
+
+  maybe (return ()) ($ refreshTaffyWindows) (startRefresher cfg)
+
+  refreshTaffyWindows
   -- Reset the size of the Taffybar window if the monitor setup has
   -- changed, e.g., after a laptop user has attached an external
   -- monitor.
