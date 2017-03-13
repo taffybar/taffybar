@@ -35,7 +35,7 @@ import Text.XML.Light.Helpers
 import System.Posix.Files
 import qualified Data.Set as S
 import qualified Debug.Trace as D
-
+import GHC.IO.Encoding
 
 
 -- Environment Variables
@@ -63,8 +63,8 @@ getXdgMenuPrefix = do
 getXdgDataDirs :: IO [String]
 getXdgDataDirs = do
   mPf <- lookupEnv "XDG_DATA_DIRS"
-  let dirs = maybe [] splitSearchPath mPf ++ ["/usr/local/share/", "/usr/share/"]
-  existingDirs dirs
+  let dirs = maybe [] splitSearchPath mPf ++ ["/usr/local/share", "/usr/share"]
+  return . nub =<< existingDirs dirs
 
 getXdgMenuFilename :: Maybe String -> IO FilePath
 getXdgMenuFilename mMenuPrefix = do
@@ -191,6 +191,7 @@ data FinalMenu = FinalMenu {
 -- | Fetch menus and desktop entries and assemble the XDG menu.
 buildFinalMenu :: Maybe String -> IO FinalMenu
 buildFinalMenu mMenuPrefix = do
+  setLocaleEncoding utf8
   filename <- getXdgMenuFilename mMenuPrefix
   dt <- getDesktop
   putStrLn $ "Reading " ++ filename
