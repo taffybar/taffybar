@@ -32,6 +32,7 @@ import Data.Maybe
 import Data.List
 import System.Directory
 import Control.Monad.Error
+import System.FilePath.Posix
 
 data DesktopEntryType = Application | Link | Directory
   deriving (Read, Show, Eq)
@@ -103,18 +104,19 @@ deCommand de =
 -- | Return a list of all desktop entries in the given directory.
 listDesktopEntries :: String -> FilePath -> IO [DesktopEntry]
 listDesktopEntries extension dir = do
-  ex <- doesDirectoryExist dir
+  let ndir = normalise dir
+  ex <- doesDirectoryExist ndir
   if ex
     then do files <-  getDirectoryContents dir
-            mEntries <- mapM (readDesktopEntry . ((dir ++ "/") ++)) $ filter (extension `isSuffixOf`) files
-            return $ catMaybes mEntries
-    else do putStrLn $ "Does not exist: " ++ dir
+            mEntries <- mapM (readDesktopEntry . (ndir </>)) $ filter (extension `isSuffixOf`) files
+            return $ nub $ catMaybes mEntries
+    else do putStrLn $ "Does not exist: " ++ ndir
             return []
 
 -- | Return a list of all desktop entries in the given directory.
 getDirectoryEntry :: String -> [FilePath] -> IO (Maybe DesktopEntry)
 getDirectoryEntry name dirs = do
-  exFiles <- filterM doesFileExist $ map (++ "/" ++ name) dirs
+  exFiles <- filterM doesFileExist $ map ((</> name) . normalise) dirs
   if null exFiles
   then return Nothing
   else readDesktopEntry $ head exFiles

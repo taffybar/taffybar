@@ -47,8 +47,8 @@ getXdgConfigDir = do
              ++ maybe [] splitSearchPath cd
   exDirs <- existingDirs dirs
   return $ if null exDirs
-    then "/etc/xdg"
-    else head exDirs
+    then "/etc/xdg/"
+    else normalise $ head exDirs
 
 existingDirs :: [FilePath] -> IO [FilePath]
 existingDirs  dirs = do
@@ -63,7 +63,7 @@ getXdgMenuPrefix = do
 getXdgDataDirs :: IO [String]
 getXdgDataDirs = do
   mPf <- lookupEnv "XDG_DATA_DIRS"
-  let dirs = maybe [] splitSearchPath mPf ++ ["/usr/local/share", "/usr/share"]
+  let dirs = maybe [] (map normalise . splitSearchPath) mPf ++ ["/usr/local/share/", "/usr/share/"]
   return . nub =<< existingDirs dirs
 
 getXdgMenuFilename :: Maybe String -> IO FilePath
@@ -72,7 +72,7 @@ getXdgMenuFilename mMenuPrefix = do
   pf <- case mMenuPrefix of
           Nothing -> getXdgMenuPrefix
           Just prefix -> return prefix
-  return $ cd ++ "/menus/" ++ pf ++ "applications.menu"
+  return $ cd </> "menus" </> pf ++ "applications.menu"
 
 -- | XDG Menu, cf. "Desktop Menu Specification".
 data XdgMenu = XdgMenu {
@@ -99,7 +99,7 @@ getApplicationEntries langs xm = do
     then do dataDirs <- getXdgDataDirs
             -- print dataDirs
             liftM concat $ mapM (listDesktopEntries ".desktop" .
-                                  (++ "/applications")) dataDirs
+                                  (</> "applications")) dataDirs
     else return []
   -- print xm
   -- print defEntries
@@ -114,7 +114,7 @@ getDirectoryEntries langs menu = do
   if xmDefaultDirectoryDirs menu
     then do dataDirs <- getXdgDataDirs
             liftM concat $ mapM (listDesktopEntries ".directory" .
-                                  (++ "/desktop-diretories")) dataDirs
+                                  (</> "desktop-diretories")) dataDirs
     else return []
 
 -- | Parse menu.
@@ -282,7 +282,7 @@ getDesktop = do
 getDirectoryDirs :: IO [FilePath]
 getDirectoryDirs = do
   dataDirs <- getXdgDataDirs
-  existingDirs $ map (++ "/desktop-directories") dataDirs
+  existingDirs $ map (</> "desktop-directories") dataDirs
 
 doGetPreferredLanguages :: String -> [String]
 doGetPreferredLanguages l =
