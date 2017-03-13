@@ -35,15 +35,17 @@ module System.Taffybar.TaffyPager (
   -- * Usage
   -- $usage
   taffyPagerNew
+, taffyPagerHUDNew
 , PagerConfig (..)
 , defaultPagerConfig
 ) where
 
 import Graphics.UI.Gtk
-import System.Taffybar.Pager
-import System.Taffybar.WorkspaceSwitcher
 import System.Taffybar.LayoutSwitcher
+import System.Taffybar.Pager
 import System.Taffybar.WindowSwitcher
+import System.Taffybar.WorkspaceHUD
+import System.Taffybar.WorkspaceSwitcher
 
 -- $usage
 --
@@ -86,6 +88,45 @@ taffyPagerNew cfg = do
 
   widgetShowAll box
   return (toWidget box)
+
+taffyPagerHUDNew :: PagerConfig -> WorkspaceHUDConfig -> IO Widget
+taffyPagerHUDNew cfg hudConfig = do
+  pgr <- pagerNew cfg
+  whud <- buildWorkspaceHUD hudConfig pgr
+  los <- layoutSwitcherNew pgr
+  wnd <- windowSwitcherNew pgr
+  sp1 <- separator cfg
+  sp2 <- separator cfg
+  box <- hBoxNew False 0
+
+  boxPackStart box whud PackNatural 0
+  boxPackStart box sp1 PackNatural 0
+  boxPackStart box los PackNatural 0
+  boxPackStart box sp2 PackNatural 0
+  boxPackStart box wnd PackNatural 0
+
+  widgetShowAll box
+  return (toWidget box)
+
+taffyPagerHUDLegacy :: PagerConfig -> IO Widget
+taffyPagerHUDLegacy cfg = do
+  pgr <- pagerNew cfg
+  whud <- buildWorkspaceHUD (hudFromPagerConfig cfg) pgr
+  los <- layoutSwitcherNew pgr
+  wnd <- windowSwitcherNew pgr
+  sp1 <- separator cfg
+  sp2 <- separator cfg
+  box <- hBoxNew False 0
+
+  boxPackStart box whud PackNatural 0
+  boxPackStart box sp1 PackNatural 0
+  boxPackStart box los PackNatural 0
+  boxPackStart box sp2 PackNatural 0
+  boxPackStart box wnd PackNatural 0
+
+  widgetShowAll box
+  return (toWidget box)
+
 
 -- | Create a new separator label to put between two sub-components.
 separator :: PagerConfig -> IO Label
