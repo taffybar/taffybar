@@ -55,8 +55,9 @@ addItem :: (MenuShellClass msc) =>
         -> FinalEntry -- ^ Desktop entry
         -> IO ()
 addItem ms de = do
-  item <- menuItemNewWithLabel (feName de)
+  item <- imageMenuItemNewWithLabel (feName de)
   set item [ widgetTooltipText := Just (feComment de)]
+  setIcon item (feIcon de)
   menuShellAppend ms item
   _ <- on item menuItemActivated $ do
     let cmd = feCommand de
@@ -75,13 +76,24 @@ addMenu ms fm = do
   let subMenus = fmSubmenus fm
       items = fmEntries fm
   when (not (null items) || not (null subMenus)) $ do
-    item <- menuItemNewWithLabel (fmName fm)
+    item <- imageMenuItemNewWithLabel (fmName fm)
+    setIcon item (fmIcon fm)
     menuShellAppend ms item
     subMenu <- menuNew
     menuItemSetSubmenu item subMenu
     mapM_ (addMenu subMenu) subMenus
     mapM_ (addItem subMenu) $ items
 
+setIcon :: ImageMenuItem -> Maybe String -> IO ()
+setIcon item Nothing = return ()
+setIcon item (Just iconName) = do
+  iconTheme <- iconThemeGetDefault
+  hasIcon <- iconThemeHasIcon iconTheme iconName
+  if hasIcon
+    then imageMenuItemSetImage item =<< imageNewFromIconName iconName IconSizeMenu
+    else putStrLn $ "Icon not found: " ++ iconName
+
+  
 -- | Create a new XDG Menu Widget.
 xdgMenuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
                                  -- e.g. "mate-" or "gnome-"

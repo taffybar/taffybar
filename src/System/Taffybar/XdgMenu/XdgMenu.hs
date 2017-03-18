@@ -177,12 +177,14 @@ parseConditions key elt = case findChild (unqual key) elt of
 data FinalEntry = FinalEntry {
   feName           :: String,
   feComment        :: String,
-  feCommand        :: String}
+  feCommand        :: String,
+  feIcon           :: Maybe String}
   deriving (Eq, Show)
 
 data FinalMenu = FinalMenu {
   fmName           :: String,
   fmComment        :: String,
+  fmIcon           :: Maybe String,
   fmSubmenus       :: [FinalMenu],
   fmEntries        :: [FinalEntry],
   fmOnlyUnallocated :: Bool}
@@ -200,9 +202,9 @@ buildFinalMenu mMenuPrefix = do
   dirDirs <- getDirectoryDirs
   case parseXMLDoc contents of
     Nothing      -> do print "Parsing failed"
-                       return $ FinalMenu "???" "Parsing failed" [] [] False
+                       return $ FinalMenu "???" "Parsing failed" Nothing [] [] False
     Just element -> do case parseMenu element of
-                         Nothing -> return $ FinalMenu "???" "Parsing failed" [] [] False
+                         Nothing -> return $ FinalMenu "???" "Parsing failed" Nothing [] [] False
                          Just m -> do des <- getApplicationEntries langs m
                                       -- print des
                                       (fm, ae) <- xdgToFinalMenu dt langs dirDirs des m
@@ -229,6 +231,7 @@ xdgToFinalMenu desktop langs dirDirs des xm = do
       aes = if onlyUnallocated then [] else entries ++ concat subaes
   let fm = FinalMenu {fmName = maybe (xmName xm) (deName langs) dirEntry,
                       fmComment = maybe "???" (fromMaybe "???" . deComment langs) dirEntry,
+                      fmIcon = deIcon =<< dirEntry,
                       fmSubmenus = menus',
                       fmEntries = entries,
                       fmOnlyUnallocated = onlyUnallocated}
@@ -246,7 +249,8 @@ matchesOnlyShowIn desktop de = matchesShowIn && notMatchesNotShowIn
 
 xdgToFinalEntry langs de = FinalEntry {feName = name,
                                        feComment = comment,
-                                       feCommand = cmd}
+                                       feCommand = cmd,
+                                       feIcon = mIcon}
   where mc = case deCommand de of
                Nothing -> Nothing
                Just cmd -> Just $ "(" ++ cmd ++ ")"
@@ -255,6 +259,7 @@ xdgToFinalEntry langs de = FinalEntry {feName = name,
                                      Just tt -> Just $ tt ++ maybe "" ("\n" ++) mc
         cmd = fromMaybe "FIXME" $ deCommand de
         name = deName langs de
+        mIcon = deIcon de
 
 fixOnlyUnallocated fes fm = fm {fmEntries = entries,
                                 fmSubmenus = map (fixOnlyUnallocated fes) (fmSubmenus fm)}

@@ -23,7 +23,8 @@ module System.Taffybar.XdgMenu.DesktopEntry (
   deOnlyShowIn,
   deNotShowIn,
   deComment,
-  deCommand)
+  deCommand,
+  deIcon)
 
 where
 
@@ -74,6 +75,9 @@ deNotShowIn = maybe [] (splitAtSemicolon) . deAtt "NotShowIn"
 
 deAtt :: String -> DesktopEntry -> Maybe String
 deAtt att = lookup att . deAttributes
+
+deIcon :: DesktopEntry -> Maybe String
+deIcon = deAtt "Icon"
 
 deLocalisedAtt :: [String] -- ^ Preferred languages
                -> DesktopEntry
