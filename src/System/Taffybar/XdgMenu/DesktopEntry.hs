@@ -24,13 +24,15 @@ module System.Taffybar.XdgMenu.DesktopEntry (
   deNotShowIn,
   deComment,
   deCommand,
-  deIcon)
+  deIcon,
+  deNoDisplay)
 
 where
 
 import qualified Data.ConfigFile as CF
 import Data.Maybe
 import Data.List
+import Data.Char
 import System.Directory
 import Control.Monad.Error
 import System.FilePath.Posix
@@ -78,6 +80,9 @@ deAtt att = lookup att . deAttributes
 
 deIcon :: DesktopEntry -> Maybe String
 deIcon = deAtt "Icon"
+
+deNoDisplay :: DesktopEntry -> Bool
+deNoDisplay de = maybe False (("true" ==) . (map toLower)) $ deAtt "NoDisplay" de
 
 deLocalisedAtt :: [String] -- ^ Preferred languages
                -> DesktopEntry

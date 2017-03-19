@@ -221,6 +221,8 @@ xdgToFinalMenu desktop langs dirDirs des xm = do
       menus' = sortBy (\fm1 fm2 -> compare (map toLower $ fmName fm1)
                                    (map toLower $ fmName fm2)) menus
       entries = map (xdgToFinalEntry langs) $
+                -- hide NoDisplay
+                filter (not . deNoDisplay) $
                 -- onlyshowin
                 filter (matchesOnlyShowIn desktop) $
                 -- excludes
