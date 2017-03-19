@@ -114,11 +114,18 @@ deCommand de =
 listDesktopEntries :: String -> FilePath -> IO [DesktopEntry]
 listDesktopEntries extension dir = do
   let ndir = normalise dir
+  print ndir
   ex <- doesDirectoryExist ndir
   if ex
-    then do files <-  getDirectoryContents dir
-            mEntries <- mapM (readDesktopEntry . (ndir </>)) $ filter (extension `isSuffixOf`) files
-            return $ nub $ catMaybes mEntries
+    then do files <- mapM (return . (ndir </>))
+                     =<< return . filter (/= ".")
+                     =<< return . filter (/= "..")
+                     =<< getDirectoryContents dir
+            mEntries <- mapM (readDesktopEntry) $ filter (extension `isSuffixOf`) files
+            let entries = nub $ catMaybes mEntries
+            subDirs <- filterM doesDirectoryExist files
+            subEntries <- return . concat =<< mapM (listDesktopEntries extension) subDirs 
+            return $ entries ++ subEntries
     else do putStrLn $ "Does not exist: " ++ ndir
             return []
 

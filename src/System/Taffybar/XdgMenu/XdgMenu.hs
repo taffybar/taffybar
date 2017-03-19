@@ -29,6 +29,7 @@ import Data.Maybe
 import System.Taffybar.XdgMenu.DesktopEntry
 import System.Taffybar.XdgMenu.DesktopEntryCondition
 import System.Environment
+import System.Directory
 import System.FilePath.Posix
 import Text.XML.Light
 import Text.XML.Light.Helpers
@@ -62,9 +63,14 @@ getXdgMenuPrefix = do
 
 getXdgDataDirs :: IO [String]
 getXdgDataDirs = do
+  mDh <- lookupEnv "XDG_DATA_HOME"
+  dh <- case mDh of
+          Nothing -> do h <- getHomeDirectory
+                        return $ h </> ".local" </> "share"
+          Just d -> return d
   mPf <- lookupEnv "XDG_DATA_DIRS"
   let dirs = maybe [] (map normalise . splitSearchPath) mPf ++ ["/usr/local/share/", "/usr/share/"]
-  return . nub =<< existingDirs dirs
+  return . nub =<< existingDirs (dh:dirs)
 
 getXdgMenuFilename :: Maybe String -> IO FilePath
 getXdgMenuFilename mMenuPrefix = do
@@ -97,7 +103,7 @@ getApplicationEntries :: [String] -- ^ Preferred languages
 getApplicationEntries langs xm = do
   defEntries <- if xmDefaultAppDirs xm
     then do dataDirs <- getXdgDataDirs
-            -- print dataDirs
+            print dataDirs
             liftM concat $ mapM (listDesktopEntries ".desktop" .
                                   (</> "applications")) dataDirs
     else return []
