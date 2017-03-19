@@ -23,13 +23,15 @@ where
 
 import Control.Monad
 import Control.Monad.Trans
-import Data.Maybe
+
 import Graphics.UI.Gtk 
-import System.Taffybar.XdgMenu.DesktopEntry
-import System.Taffybar.XdgMenu.DesktopEntryCondition
+
+
 import System.Taffybar.XdgMenu.XdgMenu
-import System.Environment
+
 import System.Process
+import System.FilePath.Posix
+import System.Directory
 
 -- $usage
 --
@@ -87,11 +89,22 @@ addMenu ms fm = do
 setIcon :: ImageMenuItem -> Maybe String -> IO ()
 setIcon item Nothing = return ()
 setIcon item (Just iconName) = do
+  -- print iconName
   iconTheme <- iconThemeGetDefault
   hasIcon <- iconThemeHasIcon iconTheme iconName
-  if hasIcon
-    then imageMenuItemSetImage item =<< imageNewFromIconName iconName IconSizeMenu
-    else putStrLn $ "Icon not found: " ++ iconName
+  mImg <- if hasIcon
+          then return . Just =<< imageNewFromIconName iconName IconSizeMenu
+          else if isAbsolute iconName
+               then do ex <- doesFileExist iconName
+                       if ex
+                         then do let defaultSize = 24 -- FIXME
+                                 pb <- pixbufNewFromFileAtScale iconName defaultSize defaultSize True
+                                 return . Just =<< imageNewFromPixbuf pb
+                         else return Nothing
+               else return Nothing
+  case mImg of
+    Just img -> imageMenuItemSetImage item img
+    Nothing -> putStrLn $ "Icon not found: " ++ iconName
 
   
 -- | Create a new XDG Menu Widget.
