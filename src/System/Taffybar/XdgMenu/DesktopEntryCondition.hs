@@ -2,8 +2,8 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.XdgMenu.DesktopEntryCondition
--- Copyright   : (c) Ulf Jasper
--- License     : GPL3 (see LICENSE)
+-- Copyright   : 2017 Ulf Jasper
+-- License     : GPLv3 (see file COPYING)
 --
 -- Maintainer  : Ulf Jasper <ulf.jasper@web.de>
 -- Stability   : unstable
