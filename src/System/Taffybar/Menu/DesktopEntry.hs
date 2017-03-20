@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.XdgMenu.DesktopEntry
+-- Module      : System.Taffybar.Menu.DesktopEntry
 -- Copyright   : 2017 Ulf Jasper
 -- License     : GPLv3 (see file COPYING)
 --
@@ -11,10 +11,10 @@
 -- Implementation of version 1.1 of the freedesktop Desktop Entry
 -- specification, see
 -- https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-1.1.html.
--- See also 'XdgMenuWidget'.
+-- See also 'MenuWidget'.
 --
 -----------------------------------------------------------------------------
-module System.Taffybar.XdgMenu.DesktopEntry (
+module System.Taffybar.Menu.DesktopEntry (
   DesktopEntry(..),
   listDesktopEntries,
   getDirectoryEntry,

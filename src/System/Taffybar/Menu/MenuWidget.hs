@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.XdgMenu.DesktopEntryCondition
+-- Module      : System.Taffybar.Menu.DesktopEntryCondition
 -- Copyright   : 2017 Ulf Jasper
 -- License     : GPLv3 (see file COPYING)
 --
@@ -8,17 +8,17 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- XdgMenuWidget provides a hierachical GTK menu which provides all
+-- MenuWidget provides a hierachical GTK menu which provides all
 -- applicable desktop entries found on the system.  The menu is built
 -- according to the version 1.1 of the XDG "Desktop Menu
 -- Specification", see
 -- https://specifications.freedesktop.org/menu-spec/menu-spec-1.1.html
 --
 -----------------------------------------------------------------------------
-module System.Taffybar.XdgMenu.XdgMenuWidget (
+module System.Taffybar.Menu.MenuWidget (
   -- * Usage
   -- $usage
-  xdgMenuWidgetNew)
+  menuWidgetNew)
 where
 
 import Control.Monad
@@ -26,11 +26,11 @@ import Graphics.UI.Gtk
 import System.Directory
 import System.FilePath.Posix
 import System.Process
-import System.Taffybar.XdgMenu.XdgMenu
+import System.Taffybar.Menu.XdgMenu
 
 -- $usage
 --
--- XdgMenuWidget provides a hierachical GTK menu which provides all
+-- MenuWidget provides a hierachical GTK menu which provides all
 -- applicable desktop entries found on the system.  The menu is built
 -- according to the version 1.1 of the XDG "Desktop Menu
 -- Specification", see
@@ -39,7 +39,7 @@ import System.Taffybar.XdgMenu.XdgMenu
 -- In order to use this widget add the following line to your
 -- @taffybar.hs@ file:
 --
--- > import System.Taffybar.XdgMenu.XdgMenuWidget
+-- > import System.Taffybar.Menu.MenuWidget
 -- > main = do
 -- >   let menu = xdgMenuWidgetNew
 --
@@ -103,20 +103,19 @@ setIcon item (Just iconName) = do
 
   
 -- | Create a new XDG Menu Widget.
-xdgMenuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
-                                 -- e.g. "mate-" or "gnome-"
-                 -> IO Widget
-xdgMenuWidgetNew mMenuPrefix = do
+menuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
+                              -- e.g. "mate-" or "gnome-"
+              -> IO Widget
+menuWidgetNew mMenuPrefix = do
   mb <- menuBarNew
   m <- buildFinalMenu mMenuPrefix
   addMenu mb m
   widgetShowAll mb
   return (toWidget mb)
 
-
 -- -- | Show Xdg Menu Widget in a standalone frame.
--- testXdgMenuWidget :: IO ()
--- testXdgMenuWidget = do
+-- testMenuWidget :: IO ()
+-- testMenuWidget = do
 --    _ <- initGUI
 --    window <- windowNew
 --    _ <- window `on` deleteEvent $ liftIO mainQuit >> return False

@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.XdgMenu.DesktopEntryCondition
+-- Module      : System.Taffybar.Menu.DesktopEntryCondition
 -- Copyright   : 2017 Ulf Jasper
 -- License     : GPLv3 (see file COPYING)
 --
@@ -9,16 +9,16 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- See 'XdgMenuWidget' for documentation.
+-- See 'MenuWidget' for documentation.
 --
 -----------------------------------------------------------------------------
-module System.Taffybar.XdgMenu.DesktopEntryCondition (
+module System.Taffybar.Menu.DesktopEntryCondition (
   DesktopEntryCondition(..),
   matchesCondition)
 
 where
 
-import System.Taffybar.XdgMenu.DesktopEntry
+import System.Taffybar.Menu.DesktopEntry
 
 -- | Combinable conditions for Include and Exclude statements.
 data DesktopEntryCondition = Category String

@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.XdgMenu.XdgMenu
+-- Module      : System.Taffybar.Menu.XdgMenu
 -- Copyright   : 2017 Ulf Jasper
 -- License     : GPLv3 (see file COPYING)
 --
@@ -12,10 +12,10 @@
 -- Specification", see
 -- https://specifications.freedesktop.org/menu-spec/menu-spec-1.1.html
 ---- specification, see
--- See also 'XdgMenuWidget'.
+-- See also 'MenuWidget'.
 --
 -----------------------------------------------------------------------------
-module System.Taffybar.XdgMenu.XdgMenu (
+module System.Taffybar.Menu.XdgMenu (
   FinalMenu(..),
   FinalEntry(..),
   buildFinalMenu,
@@ -33,8 +33,8 @@ import System.Directory
 import System.Environment
 import System.FilePath.Posix
 import System.Posix.Files
-import System.Taffybar.XdgMenu.DesktopEntry
-import System.Taffybar.XdgMenu.DesktopEntryCondition
+import System.Taffybar.Menu.DesktopEntry
+import System.Taffybar.Menu.DesktopEntryCondition
 import Text.XML.Light
 import Text.XML.Light.Helpers
 
