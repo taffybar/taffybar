@@ -69,8 +69,8 @@ getXdgDataDirs = do
                         return $ h </> ".local" </> "share"
           Just d -> return d
   mPf <- lookupEnv "XDG_DATA_DIRS"
-  let dirs = maybe [] (map normalise . splitSearchPath) mPf ++ ["/usr/local/share/", "/usr/share/"]
-  return . nub =<< existingDirs (dh:dirs)
+  let dirs = maybe [] (map normalise . splitSearchPath) mPf ++ ["/usr/local/share", "/usr/share"]
+  return . nubBy equalFilePath =<< existingDirs (dh:dirs)
 
 getXdgMenuFilename :: Maybe String -> IO FilePath
 getXdgMenuFilename mMenuPrefix = do
