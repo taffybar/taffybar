@@ -34,7 +34,6 @@ import System.Environment
 import System.FilePath.Posix
 import System.Posix.Files
 import System.Taffybar.Menu.DesktopEntry
-import System.Taffybar.Menu.DesktopEntryCondition
 import Text.XML.Light
 import Text.XML.Light.Helpers
 
@@ -167,6 +166,26 @@ parseConditions key elt = case findChild (unqual key) elt of
                           Nothing   -> Nothing
                           Just rule -> Just $ Not rule
           unknown    -> D.trace ("Ooopsi: " ++  unknown) Nothing
+
+-- | Combinable conditions for Include and Exclude statements.
+data DesktopEntryCondition = Category String
+                           | Filename String
+                           | Not DesktopEntryCondition
+                           | And [DesktopEntryCondition]
+                           | Or [DesktopEntryCondition]
+                           | All
+                           | None
+  deriving (Read, Show, Eq)
+
+-- | Determine whether a desktop entry fulfils a condition.
+matchesCondition :: DesktopEntry -> DesktopEntryCondition -> Bool
+matchesCondition de (Category cat) = deHasCategory de cat
+matchesCondition de (Filename fn)  = fn == deFilename de
+matchesCondition de (Not cond)     = not $ matchesCondition de cond
+matchesCondition de (And conds)    = and $ map (matchesCondition de) conds
+matchesCondition de (Or conds)     = or $ map (matchesCondition de) conds
+matchesCondition _  All            = True
+matchesCondition _  None           = False
 
 
 data FinalEntry = FinalEntry {

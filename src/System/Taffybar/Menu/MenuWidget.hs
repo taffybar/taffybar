@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Menu.DesktopEntryCondition
+-- Module      : System.Taffybar.Menu.MenuWidget
 -- Copyright   : 2017 Ulf Jasper
 -- License     : GPLv3 (see file COPYING)
 --
