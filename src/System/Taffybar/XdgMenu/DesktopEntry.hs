@@ -29,12 +29,12 @@ module System.Taffybar.XdgMenu.DesktopEntry (
 
 where
 
-import qualified Data.ConfigFile as CF
-import Data.Maybe
-import Data.List
-import Data.Char
-import System.Directory
 import Control.Monad.Error
+import Data.Char
+import qualified Data.ConfigFile as CF
+import Data.List
+import Data.Maybe
+import System.Directory
 import System.FilePath.Posix
 
 data DesktopEntryType = Application | Link | Directory
@@ -165,8 +165,8 @@ readDesktopEntry fp = do
                         deAttributes = r,
                         deAllocated  = False}
 
--- | Test          
-testDesktopEntry :: IO ()
-testDesktopEntry = do
-  print =<< readDesktopEntry "/usr/share/applications/taffybar.desktop"
+-- -- | Test
+-- testDesktopEntry :: IO ()
+-- testDesktopEntry = do
+--   print =<< readDesktopEntry "/usr/share/applications/taffybar.desktop"
 

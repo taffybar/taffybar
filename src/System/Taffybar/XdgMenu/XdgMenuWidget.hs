@@ -22,16 +22,11 @@ module System.Taffybar.XdgMenu.XdgMenuWidget (
 where
 
 import Control.Monad
-import Control.Monad.Trans
-
 import Graphics.UI.Gtk 
-
-
-import System.Taffybar.XdgMenu.XdgMenu
-
-import System.Process
-import System.FilePath.Posix
 import System.Directory
+import System.FilePath.Posix
+import System.Process
+import System.Taffybar.XdgMenu.XdgMenu
 
 -- $usage
 --
@@ -64,7 +59,7 @@ addItem ms de = do
   _ <- on item menuItemActivated $ do
     let cmd = feCommand de
     putStrLn $ "Launching '" ++ cmd ++ "'"
-    spawnCommand cmd
+    _ <- spawnCommand cmd
     return ()
   return ()
   
@@ -87,7 +82,7 @@ addMenu ms fm = do
     mapM_ (addItem subMenu) $ items
 
 setIcon :: ImageMenuItem -> Maybe String -> IO ()
-setIcon item Nothing = return ()
+setIcon _    Nothing         = return ()
 setIcon item (Just iconName) = do
   -- print iconName
   iconTheme <- iconThemeGetDefault
@@ -119,12 +114,12 @@ xdgMenuWidgetNew mMenuPrefix = do
   return (toWidget mb)
 
 
--- | Show Xdg Menu Widget in a standalone frame.
-testXdgMenuWidget :: IO ()
-testXdgMenuWidget = do
-   _ <- initGUI
-   window <- windowNew
-   _ <- window `on` deleteEvent $ liftIO mainQuit >> return False
-   containerAdd window =<< xdgMenuWidgetNew Nothing
-   widgetShowAll window
-   mainGUI
+-- -- | Show Xdg Menu Widget in a standalone frame.
+-- testXdgMenuWidget :: IO ()
+-- testXdgMenuWidget = do
+--    _ <- initGUI
+--    window <- windowNew
+--    _ <- window `on` deleteEvent $ liftIO mainQuit >> return False
+--    containerAdd window =<< xdgMenuWidgetNew Nothing
+--    widgetShowAll window
+--    mainGUI

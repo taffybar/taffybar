@@ -23,20 +23,20 @@ module System.Taffybar.XdgMenu.XdgMenu (
 where
 
 import Control.Monad
-import Data.List
 import Data.Char (toLower)
+import Data.List
 import Data.Maybe
-import System.Taffybar.XdgMenu.DesktopEntry
-import System.Taffybar.XdgMenu.DesktopEntryCondition
-import System.Environment
-import System.Directory
-import System.FilePath.Posix
-import Text.XML.Light
-import Text.XML.Light.Helpers
-import System.Posix.Files
 import qualified Data.Set as S
 import qualified Debug.Trace as D
 import GHC.IO.Encoding
+import System.Directory
+import System.Environment
+import System.FilePath.Posix
+import System.Posix.Files
+import System.Taffybar.XdgMenu.DesktopEntry
+import System.Taffybar.XdgMenu.DesktopEntryCondition
+import Text.XML.Light
+import Text.XML.Light.Helpers
 
 
 -- Environment Variables
@@ -111,17 +111,6 @@ getApplicationEntries langs xm = do
   -- print defEntries
   return $ sortBy (\de1 de2 -> compare (map toLower (deName langs de1))
                                (map toLower (deName langs de2))) defEntries
-
--- | Return a list of all available desktop entries for a given xdg menu.
-getDirectoryEntries :: [String] -- ^ Preferred languages
-                    -> XdgMenu
-                    -> IO [DesktopEntry]
-getDirectoryEntries langs menu = do
-  if xmDefaultDirectoryDirs menu
-    then do dataDirs <- getXdgDataDirs
-            liftM concat $ mapM (listDesktopEntries ".directory" .
-                                  (</> "desktop-diretories")) dataDirs
-    else return []
 
 -- | Parse menu.
 parseMenu :: Element -> Maybe XdgMenu
@@ -255,13 +244,14 @@ matchesOnlyShowIn desktop de = matchesShowIn && notMatchesNotShowIn
                                 [] -> True
                                 desktops -> not $ desktop `elem` desktops
 
+xdgToFinalEntry :: [String] -> DesktopEntry -> FinalEntry
 xdgToFinalEntry langs de = FinalEntry {feName = name,
                                        feComment = comment,
                                        feCommand = cmd,
                                        feIcon = mIcon}
   where mc = case deCommand de of
                Nothing -> Nothing
-               Just cmd -> Just $ "(" ++ cmd ++ ")"
+               Just c  -> Just $ "(" ++ c ++ ")"
         comment = fromMaybe "??" $ case deComment langs de of
                                      Nothing -> mc
                                      Just tt -> Just $ tt ++ maybe "" ("\n" ++) mc
@@ -269,6 +259,7 @@ xdgToFinalEntry langs de = FinalEntry {feName = name,
         name = deName langs de
         mIcon = deIcon de
 
+fixOnlyUnallocated :: [FinalEntry] -> FinalMenu -> FinalMenu
 fixOnlyUnallocated fes fm = fm {fmEntries = entries,
                                 fmSubmenus = map (fixOnlyUnallocated fes) (fmSubmenus fm)}
   where entries = if (fmOnlyUnallocated fm)
@@ -297,12 +288,14 @@ getDirectoryDirs = do
   dataDirs <- getXdgDataDirs
   existingDirs $ map (</> "desktop-directories") dataDirs
 
-doGetPreferredLanguages :: String -> [String]
-doGetPreferredLanguages l =
-  let woEncoding = takeWhile (/= '.') l
+doGetPreferredLanguages :: String -- ^ locale lang
+                        -> [String]
+doGetPreferredLanguages llang =
+  let woEncoding      = takeWhile (/= '.') llang
       (language, _cm) = span (/= '_') woEncoding
-      (country, _m) = span (/= '@') (if null _cm then "" else tail _cm)
-      modifier = if null _m then "" else tail _m
+      (country, _m)   = span (/= '@') (if null _cm then "" else tail _cm)
+      modifier        = if null _m then "" else tail _m
+
   in dgl language country modifier
   where dgl "" "" "" = []
         dgl l  "" "" = [l]
@@ -310,11 +303,10 @@ doGetPreferredLanguages l =
         dgl l  "" m  = [l ++ "@" ++ m, l]
         dgl l  c  m  = [l ++ "_" ++ c ++ "@" ++ m, l ++ "_" ++ c, l ++ "@" ++ m]
 
--- | Test
-testXdgMenu :: IO ()
-testXdgMenu = do
-  m <- buildFinalMenu (Just "mate-")
-  print $ m
-  return ()                     -- 
-
+-- -- | Test
+-- testXdgMenu :: IO ()
+-- testXdgMenu = do
+--   m <- buildFinalMenu (Just "mate-")
+--   print $ m
+--   return ()
 
