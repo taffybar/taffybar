@@ -22,11 +22,11 @@ module System.Taffybar.Menu.MenuWidget (
 where
 
 import Control.Monad
-import Graphics.UI.Gtk 
+import Graphics.UI.Gtk hiding (Menu)
 import System.Directory
 import System.FilePath.Posix
 import System.Process
-import System.Taffybar.Menu.XdgMenu
+import System.Taffybar.Menu.Menu
 
 -- $usage
 --
@@ -49,7 +49,7 @@ import System.Taffybar.Menu.XdgMenu
 -- | Add a desktop entry to a gtk menu by appending a gtk menu item.
 addItem :: (MenuShellClass msc) =>
            msc -- ^ GTK menu
-        -> FinalEntry -- ^ Desktop entry
+        -> MenuEntry -- ^ Desktop entry
         -> IO ()
 addItem ms de = do
   item <- imageMenuItemNewWithLabel (feName de)
@@ -67,7 +67,7 @@ addItem ms de = do
 -- submenus.
 addMenu :: (MenuShellClass msc) =>
            msc -- ^ GTK menu
-        -> FinalMenu -- ^ XDG menu
+        -> Menu -- ^ menu
         -> IO ()
 addMenu ms fm = do
   let subMenus = fmSubmenus fm
@@ -108,7 +108,7 @@ menuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
               -> IO Widget
 menuWidgetNew mMenuPrefix = do
   mb <- menuBarNew
-  m <- buildFinalMenu mMenuPrefix
+  m <- buildMenu mMenuPrefix
   addMenu mb m
   widgetShowAll mb
   return (toWidget mb)

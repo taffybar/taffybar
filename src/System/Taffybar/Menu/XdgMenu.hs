@@ -16,9 +16,14 @@
 --
 -----------------------------------------------------------------------------
 module System.Taffybar.Menu.XdgMenu (
-  FinalMenu(..),
-  FinalEntry(..),
-  buildFinalMenu,
+  XdgMenu(..),
+  DesktopEntryCondition(..),
+  getXdgMenuFilename,
+  getXdgDesktop,
+  getDirectoryDirs,
+  getPreferredLanguages,
+  parseMenu,
+  matchesCondition,
   getApplicationEntries)
 where
 
@@ -28,7 +33,6 @@ import Data.List
 import Data.Maybe
 import qualified Data.Set as S
 import qualified Debug.Trace as D
-import GHC.IO.Encoding
 import System.Directory
 import System.Environment
 import System.FilePath.Posix
@@ -188,102 +192,7 @@ matchesCondition _  All            = True
 matchesCondition _  None           = False
 
 
-data FinalEntry = FinalEntry {
-  feName           :: String,
-  feComment        :: String,
-  feCommand        :: String,
-  feIcon           :: Maybe String}
-  deriving (Eq, Show)
 
-data FinalMenu = FinalMenu {
-  fmName           :: String,
-  fmComment        :: String,
-  fmIcon           :: Maybe String,
-  fmSubmenus       :: [FinalMenu],
-  fmEntries        :: [FinalEntry],
-  fmOnlyUnallocated :: Bool}
-  deriving (Show)
-
--- | Fetch menus and desktop entries and assemble the XDG menu.
-buildFinalMenu :: Maybe String -> IO FinalMenu
-buildFinalMenu mMenuPrefix = do
-  setLocaleEncoding utf8
-  filename <- getXdgMenuFilename mMenuPrefix
-  dt <- getDesktop
-  putStrLn $ "Reading " ++ filename
-  contents <- readFile filename
-  langs <- getPreferredLanguages
-  dirDirs <- getDirectoryDirs
-  case parseXMLDoc contents of
-    Nothing      -> do print "Parsing failed"
-                       return $ FinalMenu "???" "Parsing failed" Nothing [] [] False
-    Just element -> do case parseMenu element of
-                         Nothing -> return $ FinalMenu "???" "Parsing failed" Nothing [] [] False
-                         Just m -> do des <- getApplicationEntries langs m
-                                      -- print des
-                                      (fm, ae) <- xdgToFinalMenu dt langs dirDirs des m
-                                      -- print ae
-                                      let fm' = fixOnlyUnallocated ae fm
-
-                                      return fm'
-
-xdgToFinalMenu :: String -> [String] -> [FilePath] -> [DesktopEntry] -> XdgMenu -> IO (FinalMenu, [FinalEntry])
-xdgToFinalMenu desktop langs dirDirs des xm = do
-  dirEntry <- getDirectoryEntry (xmDirectory xm) dirDirs
-  mas <- mapM (xdgToFinalMenu desktop langs dirDirs des) (xmSubmenus xm)
-  let (menus, subaes) = unzip mas
-      menus' = sortBy (\fm1 fm2 -> compare (map toLower $ fmName fm1)
-                                   (map toLower $ fmName fm2)) menus
-      entries = map (xdgToFinalEntry langs) $
-                -- hide NoDisplay
-                filter (not . deNoDisplay) $
-                -- onlyshowin
-                filter (matchesOnlyShowIn desktop) $
-                -- excludes
-                filter (not . flip matchesCondition (fromMaybe None (xmExclude xm))) $
-                -- includes
-                filter (flip matchesCondition (fromMaybe None (xmInclude xm))) des
-      onlyUnallocated = xmOnlyUnallocated xm
-      aes = if onlyUnallocated then [] else entries ++ concat subaes
-  let fm = FinalMenu {fmName = maybe (xmName xm) (deName langs) dirEntry,
-                      fmComment = maybe "???" (fromMaybe "???" . deComment langs) dirEntry,
-                      fmIcon = deIcon =<< dirEntry,
-                      fmSubmenus = menus',
-                      fmEntries = entries,
-                      fmOnlyUnallocated = onlyUnallocated}
-  -- print des
-  return (fm, aes)
-
-matchesOnlyShowIn :: String -> DesktopEntry -> Bool
-matchesOnlyShowIn desktop de = matchesShowIn && notMatchesNotShowIn
-  where matchesShowIn = case deOnlyShowIn de of
-                          [] -> True
-                          desktops -> desktop `elem` desktops
-        notMatchesNotShowIn = case deNotShowIn de of
-                                [] -> True
-                                desktops -> not $ desktop `elem` desktops
-
-xdgToFinalEntry :: [String] -> DesktopEntry -> FinalEntry
-xdgToFinalEntry langs de = FinalEntry {feName = name,
-                                       feComment = comment,
-                                       feCommand = cmd,
-                                       feIcon = mIcon}
-  where mc = case deCommand de of
-               Nothing -> Nothing
-               Just c  -> Just $ "(" ++ c ++ ")"
-        comment = fromMaybe "??" $ case deComment langs de of
-                                     Nothing -> mc
-                                     Just tt -> Just $ tt ++ maybe "" ("\n" ++) mc
-        cmd = fromMaybe "FIXME" $ deCommand de
-        name = deName langs de
-        mIcon = deIcon de
-
-fixOnlyUnallocated :: [FinalEntry] -> FinalMenu -> FinalMenu
-fixOnlyUnallocated fes fm = fm {fmEntries = entries,
-                                fmSubmenus = map (fixOnlyUnallocated fes) (fmSubmenus fm)}
-  where entries = if (fmOnlyUnallocated fm)
-                  then filter (not . (`elem` fes)) (fmEntries fm)
-                  else fmEntries fm
 
 -- | Determine locale language settings
 getPreferredLanguages :: IO [String]
@@ -297,8 +206,8 @@ getPreferredLanguages = do
     Just l -> return $ doGetPreferredLanguages l
 
 -- | Determine current Desktop
-getDesktop :: IO String
-getDesktop = do
+getXdgDesktop :: IO String
+getXdgDesktop = do
   mCurDt <- lookupEnv "XDG_CURRENT_DESKTOP"
   return $ fromMaybe "???" mCurDt
 
