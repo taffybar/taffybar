@@ -18,15 +18,15 @@
 module System.Taffybar.Menu.XdgMenu (
   XdgMenu(..),
   DesktopEntryCondition(..),
-  getXdgMenuFilename,
+  readXdgMenu,
+  matchesCondition,
   getXdgDesktop,
   getDirectoryDirs,
-  getPreferredLanguages,
-  parseMenu,
-  matchesCondition,
-  getApplicationEntries)
+  getApplicationEntries,
+  getPreferredLanguages)
 where
 
+import GHC.IO.Encoding
 import Control.Monad
 import Data.Char (toLower)
 import Data.List
@@ -191,9 +191,6 @@ matchesCondition de (Or conds)     = or $ map (matchesCondition de) conds
 matchesCondition _  All            = True
 matchesCondition _  None           = False
 
-
-
-
 -- | Determine locale language settings
 getPreferredLanguages :: IO [String]
 getPreferredLanguages = do
@@ -230,6 +227,22 @@ doGetPreferredLanguages llang =
         dgl l  c  "" = [l ++ "_" ++ c, l]
         dgl l  "" m  = [l ++ "@" ++ m, l]
         dgl l  c  m  = [l ++ "_" ++ c ++ "@" ++ m, l ++ "_" ++ c, l ++ "@" ++ m]
+
+  -- | Fetch menus and desktop entries and assemble the XDG menu.
+readXdgMenu :: Maybe String -> IO (Maybe (XdgMenu, [DesktopEntry]))
+readXdgMenu mMenuPrefix = do
+  setLocaleEncoding utf8
+  filename <- getXdgMenuFilename mMenuPrefix
+  putStrLn $ "Reading " ++ filename
+  contents <- readFile filename
+  langs <- getPreferredLanguages
+  case parseXMLDoc contents of
+    Nothing      -> do print "Parsing XDG menu failed"
+                       return Nothing
+    Just element -> do case parseMenu element of
+                         Nothing -> return Nothing
+                         Just m -> do des <- getApplicationEntries langs m
+                                      return $ Just (m, des)
 
 -- -- | Test
 -- testXdgMenu :: IO ()

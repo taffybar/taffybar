@@ -104,6 +104,7 @@ library
                    System.Information.DiskIO
                    System.Taffybar.Menu.DesktopEntry,
                    System.Taffybar.Menu.XdgMenu,
+                   System.Taffybar.Menu.Menu,
                    System.Taffybar.Menu.MenuWidget
   other-modules: System.Taffybar.StrutProperties,
                  Paths_taffybar

@@ -25,10 +25,8 @@ where
 import Data.Char (toLower)
 import Data.List
 import Data.Maybe
-import GHC.IO.Encoding
 import System.Taffybar.Menu.DesktopEntry
 import System.Taffybar.Menu.XdgMenu
-import Text.XML.Light
 
 data MenuEntry = MenuEntry {
   feName    :: String,
@@ -49,25 +47,16 @@ data Menu = Menu {
 -- | Fetch menus and desktop entries and assemble the XDG menu.
 buildMenu :: Maybe String -> IO Menu
 buildMenu mMenuPrefix = do
-  setLocaleEncoding utf8
-  filename <- getXdgMenuFilename mMenuPrefix
-  dt <- getXdgDesktop
-  putStrLn $ "Reading " ++ filename
-  contents <- readFile filename
-  langs <- getPreferredLanguages
-  dirDirs <- getDirectoryDirs
-  case parseXMLDoc contents of
-    Nothing      -> do print "Parsing failed"
-                       return $ Menu "???" "Parsing failed" Nothing [] [] False
-    Just element -> do case parseMenu element of
-                         Nothing -> return $ Menu "???" "Parsing failed" Nothing [] [] False
-                         Just m -> do des <- getApplicationEntries langs m
-                                      -- print des
-                                      (fm, ae) <- xdgToMenu dt langs dirDirs des m
-                                      -- print ae
-                                      let fm' = fixOnlyUnallocated ae fm
-
-                                      return fm'
+  mMenuDes <- readXdgMenu mMenuPrefix
+  case mMenuDes of
+    Nothing          -> return $ Menu "???" "Parsing failed" Nothing [] [] False
+    Just (menu, des) -> do dt <- getXdgDesktop
+                           dirDirs <- getDirectoryDirs
+                           langs <- getPreferredLanguages
+                           (fm, ae) <- xdgToMenu dt langs dirDirs des menu
+                           -- print ae
+                           let fm' = fixOnlyUnallocated ae fm
+                           return fm'
 
 xdgToMenu :: String -> [String] -> [FilePath] -> [DesktopEntry] -> XdgMenu -> IO (Menu, [MenuEntry])
 xdgToMenu desktop langs dirDirs des xm = do
