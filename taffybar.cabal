@@ -36,7 +36,7 @@ library
                  parsec >= 3.1,
                  mtl >= 2,
                  cairo,
-                 dbus >= 0.10.1 && < 1.0,
+                 dbus >= 0.10.7 && < 1.0,
                  gtk >= 0.12.1 && < 0.15,
                  dyre >= 0.8.6 && < 0.9,
                  HStringTemplate >= 0.8 && < 0.9,

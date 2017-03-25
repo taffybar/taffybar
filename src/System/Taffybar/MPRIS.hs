@@ -12,6 +12,7 @@ module System.Taffybar.MPRIS
   , mprisNew
   ) where
 
+import Control.Monad ( void )
 import Data.Int ( Int32 )
 import qualified Data.Map as M
 import Data.Text ( Text )
@@ -46,8 +47,8 @@ setupDBus cfg w = do
                                , matchMember = Just "StatusChange"
                                }
   client <- connectSession
-  listen client trackMatcher (trackCallback cfg w)
-  listen client stateMatcher (stateCallback w)
+  void $ addMatch client trackMatcher (trackCallback cfg w)
+  void $ addMatch client stateMatcher (stateCallback w)
 
 variantDictLookup :: (IsVariant b, Ord k) => k -> M.Map k Variant -> Maybe b
 variantDictLookup k m = do

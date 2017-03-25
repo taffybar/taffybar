@@ -7,6 +7,7 @@
 --
 module System.Taffybar.MPRIS2 ( mpris2New ) where
 
+import Control.Monad ( void )
 import Data.Maybe ( listToMaybe )
 import DBus
 import DBus.Client
@@ -31,7 +32,7 @@ initLabel w = do
   client <- connectSession
   -- Set initial song state/info
   reqSongInfo w client
-  listen client propMatcher (callBack w)
+  void $ addMatch client propMatcher (callBack w)
   return ()
     where callBack label s = do
             let items = dictionaryItems $ unpack (signalBody s !! 1)
