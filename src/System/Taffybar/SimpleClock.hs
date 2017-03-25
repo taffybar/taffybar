@@ -10,7 +10,7 @@ module System.Taffybar.SimpleClock (
   ClockConfig(..)
   ) where
 
-import Control.Monad.Trans ( MonadIO, liftIO )
+import Control.Monad.Trans ( liftIO )
 import Data.Time.Calendar ( toGregorian )
 import qualified Data.Time.Clock as Clock
 import Data.Time.Format
