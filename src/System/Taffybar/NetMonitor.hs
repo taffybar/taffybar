@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.NetMonitor
@@ -30,7 +31,7 @@ import           System.Taffybar.Widgets.PollingLabel
 import           Text.Printf                          (printf)
 import           Text.StringTemplate
 import           Data.Maybe                           (catMaybes)
-import           Data.Traversable                     (traverse)
+import qualified Data.Traversable as T
 import           Control.Applicative                     ((<$>))
 
 defaultNetFormat :: String
@@ -74,54 +75,50 @@ netMonitorMultiNewWith :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
                   -> String -- ^ Template for an output. You can use variables: $inB$, $inKB$, $inMB$, $outB$, $outKB$, $outMB$
                   -> IO Widget
 netMonitorMultiNewWith interval interfaces prec template = do
-    refs :: [IORef [Int]] <- traverse (const $ newIORef [0,0]) interfaces
-    let
-      calcResult = do
-        mInfos :: [Maybe [Int]] <- traverse getNetInfo interfaces
-        let
-          results :: [(IORef [Int], [Int])]
-          results = catMaybes . fmap sequenceMaybePair $ zip refs mInfos
-        speeds <- traverse (uncurry $ calcSpeed interval) results
-        return $ foldr (\[d,u] [dsum,usum] -> [dsum + d, usum + u]) [0,0] speeds
+  interfaceRefs <- T.forM interfaces $ \i -> (i,) <$> newIORef (0, 0)
+  let showResult = showInfo template prec <$> calculateNetUse interfaceRefs
+  label <- pollingLabelNew "" interval showResult
+  widgetShowAll label
+  return (toWidget label)
+  where
+    calculateNetUse ifaceRefs = do
+      mIfaceInfos <- T.forM ifaceRefs $ \(i, ref) -> do
+        mIfaceInfo <- getNetInfo i
+        return $ fmap (\ifaceInfo -> (ref, ifaceInfo)) mIfaceInfo
+      speeds <- T.forM (catMaybes mIfaceInfos) $ \(ref, ifaceInfo) -> do
+        let ii = case ifaceInfo of
+              [info1, info2] -> (info1, info2)
+              _ -> (0, 0)
+        calcSpeed interval ref ii
+      return $ foldr (\(d, u) (dsum, usum) -> (dsum + d, usum + u)) (0, 0) speeds
 
-      showResult = showInfo template prec <$> calcResult
-
-    label  <- pollingLabelNew "" interval $ showResult
-    widgetShowAll label
-    return $ toWidget label
-
-calcSpeed :: Double -> IORef [Int] -> [Int] -> IO [Double]
-calcSpeed interval sample result = do
-    lastSample <- readIORef sample
+calcSpeed :: Double -> IORef (Int, Int) -> (Int, Int) -> IO (Double, Double)
+calcSpeed interval sample result@(r1, r2) = do
+    (s1, s2) <- readIORef sample
     writeIORef sample result
-    let deltas = map (max 0 . fromIntegral) $ zipWith (-) result lastSample
-    return $ map (/interval) deltas
+    return (max 0 (fromIntegral (r1 - s1) / interval), max 0 (fromIntegral (r2 - s2) / interval))
 
-showInfo :: String -> Int -> [Double] -> String
-showInfo template prec speed@[incomingb, outgoingb] =
+showInfo :: String -> Int -> (Double, Double) -> String
+showInfo template prec (incomingb, outgoingb) =
   let
-    [incomingkb, outgoingkb] = map (setDigits prec . (/1024)) speed
-    [incomingmb, outgoingmb] = map (setDigits prec . (/square 1024)) speed
     attribs = [ ("inB", show incomingb)
-              , ("inKB", incomingkb)
-              , ("inMB", incomingmb)
+              , ("inKB", toKB prec incomingb)
+              , ("inMB", toMB prec incomingb)
               , ("outB", show outgoingb)
-              , ("outKB", outgoingkb)
-              , ("outMB", outgoingmb)
+              , ("outKB", toKB prec outgoingb)
+              , ("outMB", toMB prec outgoingb)
               ]
   in
     render . setManyAttrib attribs $ newSTMP template
 
-square :: Double -> Double
-square x = x ^ (2 :: Int)
+toKB :: Int -> Double -> String
+toKB prec = setDigits prec . (/1024)
+
+toMB :: Int -> Double -> String
+toMB prec = setDigits prec . (/ (1024 * 1024))
 
 setDigits :: Int -> Double -> String
 setDigits dig a = printf format a
     where format = "%." ++ show dig ++ "f"
-
--- Needed for ghc-7.8:
-sequenceMaybePair :: (a, Maybe b) -> Maybe (a,b)
-sequenceMaybePair (_, Nothing) = Nothing
-sequenceMaybePair (a, Just b) = Just (a, b)
 
 
