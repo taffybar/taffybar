@@ -21,7 +21,7 @@ import Data.Word
 import Data.Int
 import DBus
 import DBus.Client
-import Data.List ( find, isInfixOf )
+import Data.List ( isInfixOf )
 import Data.Text ( Text )
 import qualified Data.Text as T
 import Safe ( atMay )
