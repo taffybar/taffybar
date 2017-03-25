@@ -208,7 +208,7 @@ redrawCallback pager deskRef box _ = Gtk.postGUIAsync $ do
 
 -- | Remove all children of a container.
 containerClear :: Gtk.ContainerClass self => self -> IO ()
-containerClear container = Gtk.containerForeach container (Gtk.containerRemove container)
+containerClear c = Gtk.containerForeach c (Gtk.containerRemove c)
 
 -- | Create a label widget from the given String.
 createLabel :: String -> IO Gtk.Label
