@@ -43,8 +43,6 @@ matrix:
         - hvr-ghc
         packages:
         - ghc-8.0.2
-  allow_failures:
-    - env: GHCVER=8.0.1 STACK_YAML=stack-8.0.yaml
 
 script:
  - stack --no-terminal --system-ghc build
