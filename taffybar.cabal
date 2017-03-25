@@ -120,6 +120,8 @@ executable taffybar
                  filepath
   hs-source-dirs: src
   main-is: Main.hs
+  other-modules: System.Taffybar
+                 System.Taffybar.StrutProperties
   pkgconfig-depends: gtk+-2.0
   c-sources: src/gdk_property_change_wrapper.c
   ghc-options: -Wall -rtsopts -threaded
