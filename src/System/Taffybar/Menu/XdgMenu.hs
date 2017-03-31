@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Menu.XdgMenu
@@ -200,7 +201,17 @@ getPreferredLanguages = do
                Just lm -> return (Just lm)
   case lang of
     Nothing -> return []
-    Just l -> return $ doGetPreferredLanguages l
+    Just l -> return $ let woEncoding      = takeWhile (/= '.') l
+                           (language, _cm) = span (/= '_') woEncoding
+                           (country, _m)   = span (/= '@') (if null _cm then "" else tail _cm)
+                           modifier        = if null _m then "" else tail _m
+                       in dgl language country modifier
+    where dgl "" "" "" = []
+          dgl l  "" "" = [l]
+          dgl l  c  "" = [l ++ "_" ++ c, l]
+          dgl l  "" m  = [l ++ "@" ++ m, l]
+          dgl l  c  m  = [l ++ "_" ++ c ++ "@" ++ m, l ++ "_" ++ c, l ++ "@" ++ m]
+
 
 -- | Determine current Desktop
 getXdgDesktop :: IO String
@@ -208,25 +219,13 @@ getXdgDesktop = do
   mCurDt <- lookupEnv "XDG_CURRENT_DESKTOP"
   return $ fromMaybe "???" mCurDt
 
+-- | Return desktop directories
 getDirectoryDirs :: IO [FilePath]
 getDirectoryDirs = do
   dataDirs <- getXdgDataDirs
   existingDirs $ map (</> "desktop-directories") dataDirs
 
-doGetPreferredLanguages :: String -- ^ locale lang
-                        -> [String]
-doGetPreferredLanguages llang =
-  let woEncoding      = takeWhile (/= '.') llang
-      (language, _cm) = span (/= '_') woEncoding
-      (country, _m)   = span (/= '@') (if null _cm then "" else tail _cm)
-      modifier        = if null _m then "" else tail _m
 
-  in dgl language country modifier
-  where dgl "" "" "" = []
-        dgl l  "" "" = [l]
-        dgl l  c  "" = [l ++ "_" ++ c, l]
-        dgl l  "" m  = [l ++ "@" ++ m, l]
-        dgl l  c  m  = [l ++ "_" ++ c ++ "@" ++ m, l ++ "_" ++ c, l ++ "@" ++ m]
 
 -- | Fetch menus and desktop entries and assemble the XDG menu.
 readXdgMenu :: Maybe String -> IO (Maybe (XdgMenu, [DesktopEntry]))

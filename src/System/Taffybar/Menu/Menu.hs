@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Menu.Menu
@@ -28,13 +29,7 @@ import Data.Maybe
 import System.Taffybar.Menu.DesktopEntry
 import System.Taffybar.Menu.XdgMenu
 
-data MenuEntry = MenuEntry {
-  feName    :: String,
-  feComment :: String,
-  feCommand :: String,
-  feIcon    :: Maybe String}
-  deriving (Eq, Show)
-
+-- | Displayable menu
 data Menu = Menu {
   fmName            :: String,
   fmComment         :: String,
@@ -43,6 +38,15 @@ data Menu = Menu {
   fmEntries         :: [MenuEntry],
   fmOnlyUnallocated :: Bool}
   deriving (Show)
+
+-- | Displayable menu entry
+data MenuEntry = MenuEntry {
+  feName    :: String,
+  feComment :: String,
+  feCommand :: String,
+  feIcon    :: Maybe String}
+  deriving (Eq, Show)
+
 
 -- | Fetch menus and desktop entries and assemble the XDG menu.
 buildMenu :: Maybe String -> IO Menu
@@ -76,12 +80,12 @@ xdgToMenu desktop langs dirDirs des xm = do
                 filter (flip matchesCondition (fromMaybe None (xmInclude xm))) des
       onlyUnallocated = xmOnlyUnallocated xm
       aes = if onlyUnallocated then [] else entries ++ concat subaes
-  let fm = Menu {fmName = maybe (xmName xm) (deName langs) dirEntry,
-                      fmComment = maybe "???" (fromMaybe "???" . deComment langs) dirEntry,
-                      fmIcon = deIcon =<< dirEntry,
-                      fmSubmenus = menus',
-                      fmEntries = entries,
-                      fmOnlyUnallocated = onlyUnallocated}
+  let fm = Menu {fmName            = maybe (xmName xm) (deName langs) dirEntry,
+                 fmComment         = maybe "???" (fromMaybe "???" . deComment langs) dirEntry,
+                 fmIcon            = deIcon =<< dirEntry,
+                 fmSubmenus        = menus',
+                 fmEntries         = entries,
+                 fmOnlyUnallocated = onlyUnallocated}
   -- print des
   return (fm, aes)
 
@@ -95,10 +99,10 @@ matchesOnlyShowIn desktop de = matchesShowIn && notMatchesNotShowIn
                                 desktops -> not $ desktop `elem` desktops
 
 xdgToMenuEntry :: [String] -> DesktopEntry -> MenuEntry
-xdgToMenuEntry langs de = MenuEntry {feName = name,
-                                       feComment = comment,
-                                       feCommand = cmd,
-                                       feIcon = mIcon}
+xdgToMenuEntry langs de = MenuEntry {feName     = name,
+                                      feComment = comment,
+                                      feCommand = cmd,
+                                      feIcon    = mIcon}
   where mc = case deCommand de of
                Nothing -> Nothing
                Just c  -> Just $ "(" ++ c ++ ")"

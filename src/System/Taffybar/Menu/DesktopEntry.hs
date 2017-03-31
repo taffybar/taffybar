@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Menu.DesktopEntry
@@ -69,18 +70,23 @@ deName :: [String] -- ^ Preferred languages
        -> String
 deName langs de = fromMaybe (deFilename de) $ deLocalisedAtt langs de "Name" 
 
+-- | Return the categories in which the entry shall be shown
 deOnlyShowIn :: DesktopEntry -> [String]
 deOnlyShowIn = maybe [] (splitAtSemicolon) . deAtt "OnlyShowIn" 
 
+-- | Return the categories in which the entry shall not be shown
 deNotShowIn :: DesktopEntry -> [String]
 deNotShowIn = maybe [] (splitAtSemicolon) . deAtt "NotShowIn" 
 
+-- | Return the value of the given attribute key
 deAtt :: String -> DesktopEntry -> Maybe String
 deAtt att = lookup att . deAttributes
 
+-- | Return the Icon attribute
 deIcon :: DesktopEntry -> Maybe String
 deIcon = deAtt "Icon"
 
+-- | Return True if the entry must not be displayed
 deNoDisplay :: DesktopEntry -> Bool
 deNoDisplay de = maybe False (("true" ==) . (map toLower)) $ deAtt "NoDisplay" de
 

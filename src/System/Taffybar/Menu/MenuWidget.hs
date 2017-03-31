@@ -30,12 +30,6 @@ import System.Taffybar.Menu.Menu
 
 -- $usage
 --
--- MenuWidget provides a hierachical GTK menu which provides all
--- applicable desktop entries found on the system.  The menu is built
--- according to the version 1.1 of the XDG "Desktop Menu
--- Specification", see
--- https://specifications.freedesktop.org/menu-spec/menu-spec-1.1.html
---
 -- In order to use this widget add the following line to your
 -- @taffybar.hs@ file:
 --
