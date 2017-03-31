@@ -22,7 +22,7 @@ description:
 
 flag network-uri
   description: network hack
-  default: True
+  default: True           
 
 library
   default-language: Haskell2010
@@ -36,7 +36,7 @@ library
                  parsec >= 3.1,
                  mtl >= 2,
                  cairo,
-                 dbus >= 0.10.1 && < 1.0,
+                 dbus >= 0.10.7 && < 1.0,
                  gtk >= 0.12.1 && < 0.15,
                  dyre >= 0.8.6 && < 0.9,
                  HStringTemplate >= 0.8 && < 0.9,
@@ -54,11 +54,15 @@ library
                  split >= 0.1.4.2,
                  process >= 1.0.1.1,
                  enclosed-exceptions >= 1.0.0.1,
+                 multimap >= 1.2.1,
+                 time-units >= 1.0.0,
+                 rate-limit >= 1.1.1,
                  ConfigFile,
                  xml,
                  xml-helpers,
                  directory,
                  unix
+
   if flag(network-uri)
     build-depends: network-uri >= 2.6 && < 3, network >= 2.6 && < 3
   else
@@ -80,15 +84,17 @@ library
                    System.Taffybar.FSMonitor,
                    System.Taffybar.LayoutSwitcher,
                    System.Taffybar.NetMonitor,
+                   System.Taffybar.Hooks.PagerHints,
                    System.Taffybar.Pager,
                    System.Taffybar.TaffyPager,
                    System.Taffybar.Text.CPUMonitor,
                    System.Taffybar.Text.MemoryMonitor,
-                   System.Taffybar.WindowSwitcher,
-                   System.Taffybar.WorkspaceSwitcher,
-                   System.Taffybar.Hooks.PagerHints,
                    System.Taffybar.Widgets.Graph,
                    System.Taffybar.Widgets.PollingBar,
+                   System.Taffybar.WindowSwitcher,
+                   System.Taffybar.IconImages,
+                   System.Taffybar.WorkspaceHUD,
+                   System.Taffybar.WorkspaceSwitcher,
                    System.Taffybar.Widgets.PollingGraph,
                    System.Taffybar.Widgets.PollingLabel,
                    System.Taffybar.Widgets.Util,
@@ -110,7 +116,7 @@ library
                  Paths_taffybar
 
   c-sources: src/gdk_property_change_wrapper.c
-
+  cc-options: -fPIC
   ghc-options: -Wall -funbox-strict-fields
 
 executable taffybar
@@ -123,6 +129,8 @@ executable taffybar
                  filepath
   hs-source-dirs: src
   main-is: Main.hs
+  other-modules: System.Taffybar
+                 System.Taffybar.StrutProperties
   pkgconfig-depends: gtk+-2.0
   c-sources: src/gdk_property_change_wrapper.c
   ghc-options: -Wall -rtsopts -threaded

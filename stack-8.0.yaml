@@ -1,8 +1,12 @@
 packages:
 - '.'
 extra-deps:
+  - time-units-1.0.0
+  - rate-limit-1.1.1
   - gtk-traymanager-0.1.6
-  - xmonad-contrib-0.12
+  - xmonad-contrib-0.13
   - X11-xft-0.3.1
-  - gtk-0.13.9
-resolver: lts-7.10
+  - gtk-0.14.6
+  - dbus-0.10.12
+  - libxml-sax-0.7.5
+resolver: lts-8.1

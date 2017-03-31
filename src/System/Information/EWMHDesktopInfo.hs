@@ -57,7 +57,7 @@ type X11WindowHandle = ((WorkspaceIdx, String, String), X11Window)
 newtype WorkspaceIdx = WSIdx Int
                      deriving (Show, Read, Ord, Eq)
 
-data EWMHIcon = EWMHIcon {width :: Int, height :: Int, pixelsARGB :: [Int]} deriving Show
+data EWMHIcon = EWMHIcon {width :: Int, height :: Int, pixelsARGB :: [Int]} deriving (Show, Eq)
 
 noFocus :: String
 noFocus = "..."

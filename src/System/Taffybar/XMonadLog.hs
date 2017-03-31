@@ -26,8 +26,9 @@ module System.Taffybar.XMonadLog {-# DEPRECATED "Use TaffyPager instead.  This m
   ) where
 
 import Codec.Binary.UTF8.String ( decodeString )
+import Control.Monad ( void )
 import DBus ( toVariant, fromVariant, Signal(..), signal )
-import DBus.Client ( listen, matchAny, MatchRule(..), connectSession, emit, Client )
+import DBus.Client ( addMatch, matchAny, MatchRule(..), connectSession, emit, Client )
 import Graphics.UI.Gtk hiding ( Signal )
 
 import XMonad
@@ -99,7 +100,7 @@ setupDbus w = do
 
   client <- connectSession
 
-  listen client matcher (callback w)
+  void $ addMatch client matcher (callback w)
 
 callback :: Label -> Signal -> IO ()
 callback w sig = do

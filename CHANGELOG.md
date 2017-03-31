@@ -1,3 +1,21 @@
+# 0.5
+
+## Breaking Changes
+
+## New Features
+
+ * Support for multiple batteries via ``batteryContextsNew`` (Edd Steel)
+ * Add support for IO actions to configure vertical bar widgets
+ * Images in the workspace switcher - images are taken from EWMH via \_NET\_WM_ICON (Elliot Wolk)
+ * Preliminary support for i3wm (Saksham Sharma)
+ * A new workspace switcher widget called WorkspaceHUD (Ivan Malison)
+ * Support for multiple network interfaces in NetMonitor (Robert Klotzner)
+ 
+## Bug Fixes
+
+ * Fixes for outdated weather information sources
+ * Various styling fixes in the gtkrc code
+
 # 0.4.6
 
  * Fix a longstanding bug in loading .rc files (Peder Stray)

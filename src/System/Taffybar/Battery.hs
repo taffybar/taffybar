@@ -168,7 +168,7 @@ batteryBarNew battCfg pollSeconds = do
       let ris :: [(IORef BatteryContext, Int)]
           ris = rs `zip` [0..]
       bars <- sequence $ fmap (\(i, r) -> pollingBarNew battCfg pollSeconds (battPct i r)) ris
-      sequence $ fmap (\bar -> boxPackStart b bar PackNatural 0) bars
+      mapM_ (\bar -> boxPackStart b bar PackNatural 0) bars
       boxPackStart b txt PackNatural 0
       widgetShowAll b
       return (toWidget b)

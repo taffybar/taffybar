@@ -33,7 +33,6 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List ((\\), findIndices, sortBy)
 import Data.Maybe (listToMaybe)
 import Data.Ord (comparing)
-import Data.Word (Word8)
 import Foreign.C.Types (CUChar(..))
 import Foreign.Marshal.Array (newArray)
 import qualified Graphics.UI.Gtk as Gtk
@@ -41,19 +40,20 @@ import Graphics.X11.Xlib.Extras
 
 import Prelude
 
+import System.Taffybar.IconImages hiding (selectEWMHIcon)
 import System.Taffybar.Pager
 import System.Information.EWMHDesktopInfo
 
 type Desktop = [Workspace]
-data Workspace = Workspace { label  :: Gtk.Label
-                           , image  :: Gtk.Image
-                           , border :: Maybe Gtk.Frame
-                           , name   :: String
-                           , urgent :: Bool
+data Workspace = Workspace { label     :: Gtk.Label
+                           , image     :: Gtk.Image
+                           , border    :: Gtk.EventBox
+                           , container :: Gtk.EventBox
+                           , name      :: String
+                           , urgent    :: Bool
                            }
 type WindowSet = [(WorkspaceIdx, [X11Window])]
 type WindowInfo = Maybe (String, String, [EWMHIcon])
-type ColorRGBA = (Word8, Word8, Word8, Word8)
 type CustomIconF = String -> String -> Maybe FilePath
 type ImageChoice = (Maybe EWMHIcon, Maybe FilePath, Maybe ColorRGBA)
 
@@ -134,10 +134,14 @@ createWorkspace :: Pager -> String -> IO Workspace
 createWorkspace _pager wname = do
   lbl <- createLabel wname
   img <- Gtk.imageNew
-  frm <- if workspaceBorder (config _pager)
-           then fmap Just Gtk.frameNew
-           else return Nothing
-  return $ Workspace lbl img frm wname False
+  brd <- Gtk.eventBoxNew
+  con <- Gtk.eventBoxNew
+
+  let useBorder = workspaceBorder (config _pager)
+  Gtk.eventBoxSetVisibleWindow brd useBorder
+  Gtk.containerSetBorderWidth con (if useBorder then 2 else 0)
+
+  return $ Workspace lbl img brd con wname False
 
 -- | Take an existing Desktop IORef and update it if necessary, store the result
 -- in the IORef, then return True if the reference was actually updated, False
@@ -204,7 +208,7 @@ redrawCallback pager deskRef box _ = Gtk.postGUIAsync $ do
 
 -- | Remove all children of a container.
 containerClear :: Gtk.ContainerClass self => self -> IO ()
-containerClear container = Gtk.containerForeach container (Gtk.containerRemove container)
+containerClear c = Gtk.containerForeach c (Gtk.containerRemove c)
 
 -- | Create a label widget from the given String.
 createLabel :: String -> IO Gtk.Label
@@ -226,31 +230,34 @@ addButton :: Gtk.BoxClass self
           -> Desktop      -- ^ List of all workspace Labels available.
           -> WorkspaceIdx -- ^ Index of the workspace to use.
           -> IO ()
-addButton hbox desktop idx
+addButton switcherHbox desktop idx
   | Just ws <- getWS desktop idx = do
     let lbl = label ws
     let img = image ws
-    let frm = border ws
-    ebox <- Gtk.eventBoxNew
-    Gtk.widgetSetName ebox $ name ws
-    Gtk.eventBoxSetVisibleWindow ebox False
-    _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch idx
-    _ <- Gtk.on ebox Gtk.scrollEvent $ do
+    let brd = border ws
+    let con = container ws
+    btnParentEbox <- Gtk.eventBoxNew
+    iconLabelBox <- Gtk.hBoxNew False 0
+
+    Gtk.boxPackStart switcherHbox btnParentEbox Gtk.PackNatural 0
+    Gtk.containerAdd btnParentEbox brd
+    Gtk.containerAdd brd con
+    Gtk.containerAdd con iconLabelBox
+    Gtk.containerAdd iconLabelBox lbl
+    Gtk.containerAdd iconLabelBox img
+
+    Gtk.widgetSetName btnParentEbox $ name ws
+    Gtk.eventBoxSetVisibleWindow btnParentEbox False
+    _ <- Gtk.on btnParentEbox Gtk.buttonPressEvent $ switch idx
+    _ <- Gtk.on btnParentEbox Gtk.scrollEvent $ do
       dir <- Gtk.eventScrollDirection
       case dir of
         Gtk.ScrollUp    -> switchOne True (length desktop - 1)
         Gtk.ScrollLeft  -> switchOne True (length desktop - 1)
         Gtk.ScrollDown  -> switchOne False (length desktop - 1)
         Gtk.ScrollRight -> switchOne False (length desktop - 1)
-    container <- Gtk.hBoxNew False 0
-    Gtk.containerAdd container lbl
-    Gtk.containerAdd container img
-    case frm of
-      Just f -> do
-        Gtk.containerAdd f container
-        Gtk.containerAdd ebox f
-      Nothing -> Gtk.containerAdd ebox container
-    Gtk.boxPackStart hbox ebox Gtk.PackNatural 0
+    return ()
+
   | otherwise = return ()
 
 -- | Re-mark all workspace labels.
@@ -265,18 +272,18 @@ transition cfg desktop wss = do
       nonEmptyWs = nonEmpty \\ urgentWs
       pad = if workspacePad cfg then prefixSpace else id
   mapM_ (mark desktop pad $ hiddenWorkspace cfg) nonEmptyWs
-  mapM_ (setBorderName desktop "hidden") nonEmptyWs
+  mapM_ (setWidgetNames desktop "hidden") nonEmptyWs
   mapM_ (mark desktop pad $ emptyWorkspace cfg) (allWs \\ nonEmpty)
-  mapM_ (setBorderName desktop "empty") (allWs \\ nonEmpty)
+  mapM_ (setWidgetNames desktop "empty") (allWs \\ nonEmpty)
   case wss of
     active:rest -> do
       mark desktop pad (activeWorkspace cfg) active
-      setBorderName desktop "active" active
+      setWidgetNames desktop "active" active
       mapM_ (mark desktop pad $ visibleWorkspace cfg) rest
-      mapM_ (setBorderName desktop "visible") rest
+      mapM_ (setWidgetNames desktop "visible") rest
     _ -> return ()
   mapM_ (mark desktop pad $ urgentWorkspace cfg) urgentWs
-  mapM_ (setBorderName desktop "urgent") urgentWs
+  mapM_ (setWidgetNames desktop "urgent") urgentWs
 
   let useImg = useImages cfg
       fillEmpty = fillEmptyImages cfg
@@ -363,27 +370,6 @@ setImageFromColor img imgSize (r,g,b,a) = do
   scaledPixbuf <- scalePixbuf imgSize pixbuf
   Gtk.imageSetFromPixbuf img scaledPixbuf
 
--- | Take the passed in pixbuf and ensure its scaled square.
-scalePixbuf :: Int -> Gtk.Pixbuf -> IO Gtk.Pixbuf
-scalePixbuf imgSize pixbuf = do
-  h <- Gtk.pixbufGetHeight pixbuf
-  w <- Gtk.pixbufGetWidth pixbuf
-  if h /= imgSize || w /= imgSize
-  then
-    Gtk.pixbufScaleSimple pixbuf imgSize imgSize Gtk.InterpBilinear
-  else
-    return pixbuf
-
--- | Convert a list of integer pixels to a bytestream with 4 channels.
-pixelsARGBToBytesRGBA :: [Int] -> [Word8]
-pixelsARGBToBytesRGBA (x:xs) = r:g:b:a:pixelsARGBToBytesRGBA xs
-  where r = toByte $ x `div` 0x10000   `mod` 0x100
-        g = toByte $ x `div` 0x100     `mod` 0x100
-        b = toByte $ x                 `mod` 0x100
-        a = toByte $ x `div` 0x1000000 `mod` 0x100
-        toByte i = (fromIntegral i) :: Word8
-pixelsARGBToBytesRGBA _ = []
-
 -- | Get window title, class, and icons for the last window in each workspace.
 getLastWindowInfo :: WindowSet -> IO [WindowInfo]
 getLastWindowInfo windowSet = mapM getWindowInfo lastWins
@@ -427,17 +413,23 @@ prefixSpace :: String -> String
 prefixSpace "" = ""
 prefixSpace s = " " ++ s
 
--- | Set the widget name of the frame to Workspace-<WORKSPACE_NAME>-<WORKSPACE_STATE>
-setBorderName :: Desktop -> String -> WorkspaceIdx -> IO ()
-setBorderName desktop workspaceState wsIdx = do
-  case frame workspace of
-    Just f -> Gtk.widgetSetName f (widgetName workspace)
-    Nothing -> return ()
-  where frame (Just ws) = border ws
-        frame Nothing = Nothing
-        workspace = getWS desktop wsIdx
-        widgetName (Just ws) = "Workspace-" ++ (name ws) ++ "-" ++ workspaceState
-        widgetName Nothing = ""
+-- | Set the widget names of the workspace button components:
+-- border    => Workspace-Border-<WORKSPACE_NAME>-<WORKSPACE_STATE>
+-- image     => Workspace-Image-<WORKSPACE_NAME>-<WORKSPACE_STATE>
+-- container => Workspace-Container-<WORKSPACE_NAME>-<WORKSPACE_STATE>
+-- label     => Workspace-Label-<WORKSPACE_NAME>-<WORKSPACE_STATE>
+setWidgetNames :: Desktop -> String -> WorkspaceIdx -> IO ()
+setWidgetNames desktop workspaceState wsIdx
+  | Just ws <- getWS desktop wsIdx = do
+      Gtk.widgetSetName (label ws)     (widgetName "Label"     (name ws))
+      Gtk.widgetSetName (image ws)     (widgetName "Image"     (name ws))
+      Gtk.widgetSetName (border ws)    (widgetName "Border"    (name ws))
+      Gtk.widgetSetName (container ws) (widgetName "Container" (name ws))
+  | otherwise = return ()
+  where widgetName widget wsName = "Workspace"
+                                   ++ "-" ++ widget
+                                   ++ "-" ++ wsName
+                                   ++ "-" ++ workspaceState
 
 -- | Switch to the workspace with the given index.
 switch :: (MonadIO m) => WorkspaceIdx -> m Bool
