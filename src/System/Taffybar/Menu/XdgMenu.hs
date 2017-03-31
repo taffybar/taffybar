@@ -228,7 +228,7 @@ doGetPreferredLanguages llang =
         dgl l  "" m  = [l ++ "@" ++ m, l]
         dgl l  c  m  = [l ++ "_" ++ c ++ "@" ++ m, l ++ "_" ++ c, l ++ "@" ++ m]
 
-  -- | Fetch menus and desktop entries and assemble the XDG menu.
+-- | Fetch menus and desktop entries and assemble the XDG menu.
 readXdgMenu :: Maybe String -> IO (Maybe (XdgMenu, [DesktopEntry]))
 readXdgMenu mMenuPrefix = do
   setLocaleEncoding utf8
