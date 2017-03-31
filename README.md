@@ -30,6 +30,7 @@ There are also several more specialized widgets:
  * Weather widget
  * XMonad log widget (listens on dbus instead of stdin)
  * System tray
+ * Freedesktop.org menu
 
 Installation
 ============
