@@ -19,6 +19,7 @@ module System.Taffybar.IconImages (
   selectEWMHIcon
 ) where
 
+import           Data.Bits
 import           Data.List
 import           Data.Ord
 import           Data.Word (Word8)
@@ -40,6 +41,15 @@ scalePixbuf imgSize pixbuf = do
   else
     return pixbuf
 
+sampleBits :: Int
+sampleBits = 8
+
+hasAlpha :: Bool
+hasAlpha = True
+
+colorspace :: Gtk.Colorspace
+colorspace = Gtk.ColorspaceRgb
+
 -- | Create a pixbuf from the pixel data in an EWMHIcon,
 -- scale it square, and set it in a GTK Image.
 pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
@@ -47,9 +57,6 @@ pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
   let pixelsPerRow = w
       bytesPerPixel = 4
       rowStride = pixelsPerRow * bytesPerPixel
-      sampleBits = 8
-      hasAlpha = True
-      colorspace = Gtk.ColorspaceRgb
       bytesRGBA = pixelsARGBToBytesRGBA px
   cPtr <- newArray $ map CUChar bytesRGBA
   Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
@@ -58,9 +65,6 @@ pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
 -- scale it square, and set it in a GTK Image.
 pixBufFromColor :: Int -> ColorRGBA -> IO Gtk.Pixbuf
 pixBufFromColor imgSize (r, g, b, a) = do
-  let sampleBits = 8
-      hasAlpha = True
-      colorspace = Gtk.ColorspaceRgb
   pixbuf <- Gtk.pixbufNew colorspace hasAlpha sampleBits imgSize imgSize
   Gtk.pixbufFill pixbuf r g b a
   return pixbuf
@@ -68,11 +72,11 @@ pixBufFromColor imgSize (r, g, b, a) = do
 -- | Convert a list of integer pixels to a bytestream with 4 channels.
 pixelsARGBToBytesRGBA :: [Int] -> [Word8]
 pixelsARGBToBytesRGBA (x:xs) = r:g:b:a:pixelsARGBToBytesRGBA xs
-  where r = toByte $ x `div` 0x10000   `mod` 0x100
-        g = toByte $ x `div` 0x100     `mod` 0x100
-        b = toByte $ x                 `mod` 0x100
-        a = toByte $ x `div` 0x1000000 `mod` 0x100
-        toByte i = (fromIntegral i) :: Word8
+  where b = toByte $ x
+        g = toByte $ x `shift` (-8)
+        r = toByte $ x `shift` (-16)
+        a = toByte $ x `shift` (-24)
+        toByte = (fromIntegral . (.&. 0xFF))
 pixelsARGBToBytesRGBA _ = []
 
 -- | Create a pixbuf from a file,
