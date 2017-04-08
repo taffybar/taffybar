@@ -20,8 +20,8 @@ module System.Taffybar.IconImages (
 ) where
 
 import           Data.Bits
-import           Data.List
-import           Data.Ord
+import qualified Data.List as L
+import           Data.Ord ( comparing )
 import           Data.Word (Word8)
 import           Foreign.C.Types (CUChar(..))
 import           Foreign.Marshal.Array (newArray)
@@ -86,7 +86,7 @@ pixBufFromFile imgSize file = Gtk.pixbufNewFromFileAtScale file imgSize imgSize 
 
 selectEWMHIcon :: Int -> [EWMHIcon] -> EWMHIcon
 selectEWMHIcon imgSize icons = head prefIcon
-  where sortedIcons = sortBy (comparing height) icons
+  where sortedIcons = L.sortBy (comparing height) icons
         smallestLargerIcon = take 1 $ dropWhile ((<= imgSize) . height) sortedIcons
         largestIcon = take 1 $ reverse sortedIcons
         prefIcon = smallestLargerIcon ++ largestIcon
