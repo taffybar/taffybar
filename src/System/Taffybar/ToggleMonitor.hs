@@ -2,22 +2,19 @@
 module System.Taffybar.ToggleMonitor (
   handleToggleRequests,
   toggleableMonitors,
-  withToggleServer
+  withToggleSupport
 ) where
 
-import           Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
-import           Control.Monad
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Maybe
+import           DBus
+import           DBus.Client
+import           Data.Int
 import qualified Data.Map as M
 import           Data.Maybe
-import qualified Graphics.UI.Gtk as Gtk
 import           Graphics.UI.Gtk.Gdk.Screen
 import           System.Taffybar
-import           Text.Read hiding (get, lift)
-import           Web.Scotty
-import           XMonad.Core ( whenJust )
 
 toggleableMonitors :: MV.MVar (M.Map Int Bool)
                    -> TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
@@ -35,39 +32,38 @@ getActiveScreenNumber = do
   window <- MaybeT $ screenGetActiveWindow screen
   lift $ screenGetMonitorAtWindow screen window
 
-handleToggleRequests :: Int -> MV.MVar (M.Map Int Bool) -> IO () -> IO ()
-handleToggleRequests port enabledVar refreshTaffyWindows = do
+taffybarTogglePath :: ObjectPath
+taffybarTogglePath = "/taffybar/toggle"
+
+taffybarToggleInterface :: InterfaceName
+taffybarToggleInterface = "taffybar.toggle"
+
+handleToggleRequests :: MV.MVar (M.Map Int Bool) -> IO () -> IO ()
+handleToggleRequests enabledVar refreshTaffyWindows = do
   let toggleTaffyOnMon fn mon = do
         MV.modifyMVar_ enabledVar $ \numToEnabled -> do
           let current = fromMaybe True $ M.lookup mon numToEnabled
           return $ M.insert mon (fn current) numToEnabled
         refreshTaffyWindows
       toggleTaffy = do
-        num <- liftIO $ runMaybeT getActiveScreenNumber
-        liftIO $ toggleTaffyOnMon not $ fromMaybe 0 num
-      runScotty =
-        scotty port $ do
-          get "/toggle/:monNum" $ do
-            num <- param "monNum"
-            liftIO $
-              whenJust (readMaybe num :: Maybe Int) $ toggleTaffyOnMon not
-          get "/on/:monNum" $ do
-            num <- param "monNum"
-            liftIO $
-              whenJust (readMaybe num :: Maybe Int) $
-              toggleTaffyOnMon $ const True
-          get "/off/:monNum" $ do
-            num <- param "monNum"
-            liftIO $
-              whenJust (readMaybe num :: Maybe Int) $
-              toggleTaffyOnMon $ const False
-          get "/toggleCurrent" $ liftIO $ Gtk.postGUIAsync toggleTaffy
-  void $ forkIO runScotty
+        num <- runMaybeT getActiveScreenNumber
+        toggleTaffyOnMon not $ fromMaybe 0 num
+      makeMethod :: AutoMethod fn => MemberName -> fn -> Method
+      makeMethod = autoMethod taffybarToggleInterface
+      takeInt :: (Int -> a) -> (Int32 -> a)
+      takeInt = (. fromIntegral)
+  client <- connectSession
+  _ <- requestName client "taffybar.toggle" [nameAllowReplacement, nameReplaceExisting]
+  export client taffybarTogglePath $
+           [ makeMethod "toggleCurrent" $ toggleTaffy
+           , makeMethod "toggleOnMonitor" $ takeInt $ toggleTaffyOnMon not
+           , makeMethod "hideOnMonitor" $ takeInt $ toggleTaffyOnMon (const False)
+           , makeMethod "showOnMonitor" $ takeInt $ toggleTaffyOnMon (const True)]
 
-withToggleServer :: Int -> TaffybarConfig -> IO ()
-withToggleServer port config = do
+withToggleSupport :: TaffybarConfig -> IO ()
+withToggleSupport config = do
   enabledVar <- MV.newMVar M.empty
-  let modified = config { startRefresher = handleToggleRequests port enabledVar
+  let modified = config { startRefresher = handleToggleRequests enabledVar
                         , getMonitorConfig = toggleableMonitors enabledVar
                         }
   defaultTaffybar modified
