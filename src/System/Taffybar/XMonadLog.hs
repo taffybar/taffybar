@@ -30,6 +30,7 @@ import Control.Monad ( void )
 import DBus ( toVariant, fromVariant, Signal(..), signal )
 import DBus.Client ( addMatch, matchAny, MatchRule(..), connectSession, emit, Client )
 import Graphics.UI.Gtk hiding ( Signal )
+import Web.Encodings ( encodeHtml, decodeHtml )
 
 import XMonad
 import XMonad.Hooks.DynamicLog
@@ -107,7 +108,7 @@ callback w sig = do
   let [bdy] = signalBody sig
       status :: String
       Just status = fromVariant bdy
-  postGUIAsync $ labelSetMarkup w status
+  postGUIAsync $ labelSetMarkup w $ encodeHtml $ decodeHtml status
 
 -- | Return a new XMonad log widget
 xmonadLogNew :: IO Widget
