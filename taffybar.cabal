@@ -31,6 +31,7 @@ library
                  time-locale-compat >= 0.1 && < 0.2,
                  old-locale,
                  containers,
+                 directory,
                  text,
                  HTTP,
                  parsec >= 3.1,
