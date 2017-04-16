@@ -61,6 +61,7 @@ type SubscriptionList = IORef [(Listener, Filter)]
 data PagerConfig = PagerConfig
   { activeWindow     :: String -> String -- ^ the name of the active window.
   , activeLayout     :: String -> String -- ^ the currently active layout.
+  , activeLayoutIO   :: String -> IO String -- ^ IO action to modify active layout.
   , activeWorkspace  :: String -> String -- ^ the currently active workspace.
   , hiddenWorkspace  :: String -> String -- ^ inactive workspace with windows.
   , emptyWorkspace   :: String -> String -- ^ inactive workspace with no windows.
@@ -88,6 +89,7 @@ defaultPagerConfig :: PagerConfig
 defaultPagerConfig   = PagerConfig
   { activeWindow     = escape . shorten 40
   , activeLayout     = escape
+  , activeLayoutIO   = return
   , activeWorkspace  = colorize "yellow" "" . wrap "[" "]" . escape
   , hiddenWorkspace  = escape
   , emptyWorkspace   = const ""
