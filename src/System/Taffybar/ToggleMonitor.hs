@@ -16,6 +16,7 @@ module System.Taffybar.ToggleMonitor (
   withToggleSupport
 ) where
 
+import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Maybe
@@ -28,6 +29,7 @@ import           Graphics.UI.Gtk.Gdk.Screen
 import           Paths_taffybar ( getDataDir )
 import           System.Directory
 import           System.FilePath.Posix
+import           Prelude
 import           System.Taffybar
 import           System.Taffybar.Util
 import           Text.Read ( readMaybe )
