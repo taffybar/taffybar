@@ -78,9 +78,13 @@ pagerCallback cfg label _ = do
 -- | Build the graphical representation of the widget.
 assembleWidget :: Gtk.Label -> IO Gtk.Widget
 assembleWidget label = do
+  ebox <- Gtk.eventBoxNew
+  Gtk.widgetSetName ebox "WindowTitle"
+  Gtk.containerAdd ebox label
+
   title <- Gtk.menuItemNew
   Gtk.widgetSetName title "title"
-  Gtk.containerAdd title label
+  Gtk.containerAdd title ebox
 
   switcher <- Gtk.menuBarNew
   Gtk.widgetSetName switcher "WindowSwitcher"
