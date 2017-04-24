@@ -55,14 +55,15 @@ buildMenu mMenuPrefix = do
   case mMenuDes of
     Nothing          -> return $ Menu "???" "Parsing failed" Nothing [] [] False
     Just (menu, des) -> do dt <- getXdgDesktop
+                           print $ xmLayout menu
                            dirDirs <- getDirectoryDirs
                            langs <- getPreferredLanguages
                            (fm, ae) <- xdgToMenu dt langs dirDirs des menu
-                           -- print ae
                            let fm' = fixOnlyUnallocated ae fm
                            return fm'
 
-xdgToMenu :: String -> [String] -> [FilePath] -> [DesktopEntry] -> XdgMenu -> IO (Menu, [MenuEntry])
+xdgToMenu :: String -> [String] -> [FilePath] -> [DesktopEntry] -> XdgMenu
+          -> IO (Menu, [MenuEntry])
 xdgToMenu desktop langs dirDirs des xm = do
   dirEntry <- getDirectoryEntry (xmDirectory xm) dirDirs
   mas <- mapM (xdgToMenu desktop langs dirDirs des) (xmSubmenus xm)
@@ -86,7 +87,6 @@ xdgToMenu desktop langs dirDirs des xm = do
                  fmSubmenus        = menus',
                  fmEntries         = entries,
                  fmOnlyUnallocated = onlyUnallocated}
-  -- print des
   return (fm, aes)
 
 matchesOnlyShowIn :: String -> DesktopEntry -> Bool

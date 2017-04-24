@@ -120,7 +120,7 @@ deCommand de =
 listDesktopEntries :: String -> FilePath -> IO [DesktopEntry]
 listDesktopEntries extension dir = do
   let ndir = normalise dir
-  print ndir
+  putStrLn $ "Listing desktop entries in " ++ ndir
   ex <- doesDirectoryExist ndir
   if ex
     then do files <- mapM (return . (ndir </>))

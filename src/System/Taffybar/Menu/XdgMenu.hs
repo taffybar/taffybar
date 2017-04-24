@@ -73,7 +73,8 @@ getXdgDataDirs = do
                         return $ h </> ".local" </> "share"
           Just d -> return d
   mPf <- lookupEnv "XDG_DATA_DIRS"
-  let dirs = maybe [] (map normalise . splitSearchPath) mPf ++ ["/usr/local/share", "/usr/share"]
+  let dirs = maybe [] (map normalise . splitSearchPath) mPf
+        ++ ["/usr/local/share", "/usr/share"]
   return . nubBy equalFilePath =<< existingDirs (dh:dirs)
 
 getXdgMenuFilename :: Maybe String -> IO FilePath
@@ -82,7 +83,8 @@ getXdgMenuFilename mMenuPrefix = do
   pf <- case mMenuPrefix of
           Nothing -> getXdgMenuPrefix
           Just prefix -> return prefix
-  return $ cd </> "menus" </> pf ++ "applications.menu"
+  let pfDash = if last pf == '-' then pf else (pf ++ "-")
+  return $ cd </> "menus" </> pfDash ++ "applications.menu"
 
 -- | XDG Menu, cf. "Desktop Menu Specification".
 data XdgMenu = XdgMenu {
@@ -97,7 +99,12 @@ data XdgMenu = XdgMenu {
   xmDeleted              :: Bool,
   xmInclude              :: Maybe DesktopEntryCondition,
   xmExclude              :: Maybe DesktopEntryCondition,
-  xmSubmenus             :: [XdgMenu]}
+  xmSubmenus             :: [XdgMenu],
+  xmLayout               :: [XdgLayoutItem]}
+  deriving(Show)
+
+data XdgLayoutItem =
+  XliFile String | XliSeparator | XliMenu String  | XliMerge String
   deriving(Show)
 
 -- | Return a list of all available desktop entries for a given xdg menu.
@@ -107,12 +114,10 @@ getApplicationEntries :: [String] -- ^ Preferred languages
 getApplicationEntries langs xm = do
   defEntries <- if xmDefaultAppDirs xm
     then do dataDirs <- getXdgDataDirs
-            print dataDirs
+            putStrLn $ "DataDirs=" ++ show dataDirs
             liftM concat $ mapM (listDesktopEntries ".desktop" .
                                   (</> "applications")) dataDirs
     else return []
-  -- print xm
-  -- print defEntries
   return $ sortBy (\de1 de2 -> compare (map toLower (deName langs de1))
                                (map toLower (deName langs de2))) defEntries
 
@@ -138,6 +143,7 @@ parseMenu elt =
       deleted = False   -- FIXME
       include = parseConditions "Include" elt
       exclude = parseConditions "Exclude" elt
+      layout  = D.trace "layout" $ parseLayout elt
       subMenus = fromMaybe [] $ mapChildren "Menu" elt parseMenu
   in Just XdgMenu {xmAppDir               = appDir,
                    xmDefaultAppDirs       = defaultAppDirs,
@@ -150,7 +156,8 @@ parseMenu elt =
                    xmDeleted              = deleted,
                    xmInclude              = include,
                    xmExclude              = exclude,
-                   xmSubmenus             = subMenus}
+                   xmSubmenus             = subMenus,
+                   xmLayout               = layout} -- FIXME
 
 -- | Parse Desktop Entry conditions for Include/Exclude clauses.
 parseConditions :: String -> Element -> Maybe DesktopEntryCondition
@@ -165,12 +172,14 @@ parseConditions key elt = case findChild (unqual key) elt of
         parseSingleItem e = case qName (elName e) of
           "Category" -> Just $ Category $ strContent e
           "Filename" -> Just $ Filename $ strContent e
-          "And"      -> Just $ And $ catMaybes $ map parseSingleItem $ elChildren e
-          "Or"       -> Just $ Or  $ catMaybes $ map parseSingleItem $ elChildren e
+          "And"      -> Just $ And $ catMaybes $ map parseSingleItem
+                          $ elChildren e
+          "Or"       -> Just $ Or  $ catMaybes $ map parseSingleItem
+                          $ elChildren e
           "Not"      -> case parseSingleItem (head (elChildren e)) of
                           Nothing   -> Nothing
                           Just rule -> Just $ Not rule
-          unknown    -> D.trace ("Ooopsi: " ++  unknown) Nothing
+          unknown    -> D.trace ("Unknown Condition item: " ++  unknown) Nothing
 
 -- | Combinable conditions for Include and Exclude statements.
 data DesktopEntryCondition = Category String
@@ -182,6 +191,17 @@ data DesktopEntryCondition = Category String
                            | None
   deriving (Read, Show, Eq)
 
+parseLayout :: Element -> [XdgLayoutItem] 
+parseLayout elt = case findChild (unqual "Layout") elt of
+  Nothing -> []
+  Just lt -> catMaybes $ map parseLayoutItem (elChildren lt)
+  where parseLayoutItem :: Element -> Maybe XdgLayoutItem
+        parseLayoutItem e = D.trace (show e) $ case qName (elName e) of
+          "Separator" -> Just XliSeparator
+          "Filename"  -> Just $ XliFile $ strContent e
+          unknown     -> D.trace ("Unknown layout item: " ++ unknown) Nothing
+--  XliFile String | XliSeparator | XliMenu String  | XliMerge String
+          
 -- | Determine whether a desktop entry fulfils a condition.
 matchesCondition :: DesktopEntry -> DesktopEntryCondition -> Bool
 matchesCondition de (Category cat) = deHasCategory de cat
@@ -201,17 +221,18 @@ getPreferredLanguages = do
                Just lm -> return (Just lm)
   case lang of
     Nothing -> return []
-    Just l -> return $ let woEncoding      = takeWhile (/= '.') l
-                           (language, _cm) = span (/= '_') woEncoding
-                           (country, _m)   = span (/= '@') (if null _cm then "" else tail _cm)
-                           modifier        = if null _m then "" else tail _m
+    Just l -> return $
+      let woEncoding      = takeWhile (/= '.') l
+          (language, _cm) = span (/= '_') woEncoding
+          (country, _m)   = span (/= '@') (if null _cm then "" else tail _cm)
+          modifier        = if null _m then "" else tail _m
                        in dgl language country modifier
     where dgl "" "" "" = []
           dgl l  "" "" = [l]
           dgl l  c  "" = [l ++ "_" ++ c, l]
           dgl l  "" m  = [l ++ "@" ++ m, l]
-          dgl l  c  m  = [l ++ "_" ++ c ++ "@" ++ m, l ++ "_" ++ c, l ++ "@" ++ m]
-
+          dgl l  c  m  = [l ++ "_" ++ c ++ "@" ++ m, l ++ "_" ++ c,
+                          l ++ "@" ++ m]
 
 -- | Determine current Desktop
 getXdgDesktop :: IO String
@@ -236,7 +257,7 @@ readXdgMenu mMenuPrefix = do
   contents <- readFile filename
   langs <- getPreferredLanguages
   case parseXMLDoc contents of
-    Nothing      -> do print "Parsing XDG menu failed"
+    Nothing      -> do putStrLn "Parsing XDG menu failed"
                        return Nothing
     Just element -> do case parseMenu element of
                          Nothing -> return Nothing

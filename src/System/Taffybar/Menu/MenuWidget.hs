@@ -35,7 +35,13 @@ import System.Taffybar.Menu.Menu
 --
 -- > import System.Taffybar.Menu.MenuWidget
 -- > main = do
--- >   let menu = xdgMenuWidgetNew
+-- >   let menu = menuWidgetNew Nothing
+--
+-- You may provide the name of the menu, if taffybar is not running
+-- inside a desktop environment like Mate or Gnome (note the trailing
+-- hyphen):
+--
+-- >   let menu = menuWidgetNew (Just "mate")
 --
 -- now you can use @menu@ as any other Taffybar widget.
 
@@ -78,7 +84,6 @@ addMenu ms fm = do
 setIcon :: ImageMenuItem -> Maybe String -> IO ()
 setIcon _    Nothing         = return ()
 setIcon item (Just iconName) = do
-  -- print iconName
   iconTheme <- iconThemeGetDefault
   hasIcon <- iconThemeHasIcon iconTheme iconName
   mImg <- if hasIcon
@@ -87,7 +92,8 @@ setIcon item (Just iconName) = do
                then do ex <- doesFileExist iconName
                        if ex
                          then do let defaultSize = 24 -- FIXME
-                                 pb <- pixbufNewFromFileAtScale iconName defaultSize defaultSize True
+                                 pb <- pixbufNewFromFileAtScale iconName
+                                   defaultSize defaultSize True
                                  return . Just =<< imageNewFromPixbuf pb
                          else return Nothing
                else return Nothing
@@ -98,7 +104,7 @@ setIcon item (Just iconName) = do
   
 -- | Create a new XDG Menu Widget.
 menuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
-                              -- e.g. "mate-" or "gnome-"
+                              -- e.g. "mate" or "gnome-"
               -> IO Widget
 menuWidgetNew mMenuPrefix = do
   mb <- menuBarNew
@@ -113,6 +119,6 @@ menuWidgetNew mMenuPrefix = do
 --    _ <- initGUI
 --    window <- windowNew
 --    _ <- window `on` deleteEvent $ liftIO mainQuit >> return False
---    containerAdd window =<< xdgMenuWidgetNew Nothing
+--    containerAdd window =<< menuWidgetNew Nothing
 --    widgetShowAll window
 --    mainGUI
