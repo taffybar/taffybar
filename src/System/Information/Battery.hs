@@ -90,8 +90,8 @@ data BatteryInfo = BatteryInfo { batteryNativePath :: Text
 -}
                                }
 
--- | determin if a power source is a battery. The simple heuristic is
--- a substring search on 'BAT'.
+-- | determine if a power source is a battery. The simple heuristic is a
+-- substring search on 'BAT'.
 isBattery :: ObjectPath -> Bool
 isBattery = isInfixOf "BAT" . formatObjectPath
 

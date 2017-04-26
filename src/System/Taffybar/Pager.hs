@@ -29,12 +29,15 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Pager
-  ( Pager (config)
+  ( Pager (..)
   , PagerConfig (..)
+  , PagerIO
   , defaultPagerConfig
   , pagerNew
   , subscribe
   , colorize
+  , liftPagerX11
+  , runWithPager
   , shorten
   , wrap
   , escape
@@ -81,7 +84,18 @@ data PagerConfig = PagerConfig
 data Pager = Pager
   { config  :: PagerConfig -- ^ the configuration settings.
   , clients :: SubscriptionList -- ^ functions to apply on incoming events depending on their types.
+  , pagerX11ContextVar :: IORef X11Context
   }
+
+type PagerIO a = ReaderT Pager IO a
+
+liftPagerX11 :: X11Property a -> PagerIO a
+liftPagerX11 prop = ask >>= lift . flip runWithPager prop
+
+runWithPager :: Pager -> X11Property a -> IO a
+runWithPager pager prop = do
+  x11Ctx <- readIORef $ pagerX11ContextVar pager
+  runReaderT prop x11Ctx
 
 -- | Default pretty printing options.
 defaultPagerConfig :: PagerConfig
@@ -109,8 +123,10 @@ defaultPagerConfig   = PagerConfig
 pagerNew :: PagerConfig -> IO Pager
 pagerNew cfg = do
   ref <- newIORef []
-  let pager = Pager cfg ref
-  _ <- forkIO $ withDefaultCtx $ eventLoop (handleEvent ref)
+  ctx <- getDefaultCtx
+  ctxVar <- newIORef ctx
+  let pager = Pager cfg ref ctxVar
+  _ <- forkIO $ withDefaultCtx (eventLoop $ handleEvent ref)
   return pager
     where handleEvent :: SubscriptionList -> Event -> IO ()
           handleEvent ref event = do
@@ -131,7 +147,7 @@ notify event (listener, eventFilter) =
 -- the Pager, it will execute Listener on it.
 subscribe :: Pager -> Listener -> String -> IO ()
 subscribe pager listener filterName = do
-  eventFilter <- withDefaultCtx $ getAtom filterName
+  eventFilter <- runWithPager pager $ getAtom filterName
   registered <- readIORef (clients pager)
   let next = (listener, eventFilter)
   writeIORef (clients pager) (next : registered)
