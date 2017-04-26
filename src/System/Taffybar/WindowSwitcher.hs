@@ -25,12 +25,12 @@ module System.Taffybar.WindowSwitcher (
   windowSwitcherNew
 ) where
 
-import Control.Monad (forM_)
+import Control.Monad.Reader
 import qualified Data.Map as M
-import Control.Monad.IO.Class ( liftIO )
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.X11.Xlib.Extras (Event)
 import System.Information.EWMHDesktopInfo
+import System.Information.X11DesktopInfo
 import System.Taffybar.Pager
 
 -- $usage
@@ -63,24 +63,27 @@ windowSwitcherNew pager = do
   -- callback in another thread.  We need to use postGUIAsync in it.
   let cfg = config pager
       callback = pagerCallback cfg label
-  subscribe pager callback "_NET_ACTIVE_WINDOW"
-  assembleWidget label
+  subscribe pager (runWithPager pager . callback) "_NET_ACTIVE_WINDOW"
+  assembleWidget pager label
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_ACTIVE_WINDOW" standard events. It will keep track of the
 -- currently focused window.
-pagerCallback :: PagerConfig -> Gtk.Label -> Event -> IO ()
+pagerCallback :: PagerConfig -> Gtk.Label -> Event -> X11Property ()
 pagerCallback cfg label _ = do
-  title <- withDefaultCtx getActiveWindowTitle
+  title <- getActiveWindowTitle
   let decorate = activeWindow cfg
-  Gtk.postGUIAsync $ Gtk.labelSetMarkup label (decorate $ nonEmpty title)
+  lift $ Gtk.postGUIAsync $ Gtk.labelSetMarkup label (decorate $ nonEmpty title)
 
--- | Build the graphical representation of the widget.
-assembleWidget :: Gtk.Label -> IO Gtk.Widget
-assembleWidget label = do
+assembleWidget :: Pager -> Gtk.Label -> IO Gtk.Widget
+assembleWidget pager label = do
+  ebox <- Gtk.eventBoxNew
+  Gtk.widgetSetName ebox "WindowTitle"
+  Gtk.containerAdd ebox label
+
   title <- Gtk.menuItemNew
   Gtk.widgetSetName title "title"
-  Gtk.containerAdd title label
+  Gtk.containerAdd title ebox
 
   switcher <- Gtk.menuBarNew
   Gtk.widgetSetName switcher "WindowSwitcher"
@@ -103,22 +106,22 @@ assembleWidget label = do
   Gtk.menuItemSetSubmenu title menu
   -- These callbacks are run in the GUI thread automatically and do
   -- not need to use postGUIAsync
-  _ <- Gtk.on title Gtk.menuItemActivate $ fillMenu  menu
+  _ <- Gtk.on title Gtk.menuItemActivate $ fillMenu pager menu
   _ <- Gtk.on title Gtk.menuItemDeselect $ emptyMenu menu
 
   Gtk.widgetShowAll switcher
   return $ Gtk.toWidget switcher
 
 -- | Populate the given menu widget with the list of all currently open windows.
-fillMenu :: Gtk.MenuClass menu => menu -> IO ()
-fillMenu menu = withDefaultCtx $ do
+fillMenu :: Gtk.MenuClass menu => Pager -> menu -> IO ()
+fillMenu pager menu = runWithPager pager $ do
   handles <- getWindowHandles
   if null handles then return () else do
     wsNames <- getWorkspaceNames
     forM_ handles $ \handle -> liftIO $ do
       item <- Gtk.menuItemNewWithLabel (formatEntry (M.fromList wsNames) handle)
       _ <- Gtk.on item Gtk.buttonPressEvent $ liftIO $ do
-        withDefaultCtx (focusWindow $ snd handle)
+        runWithPager pager $ focusWindow $ snd handle
         return True
       Gtk.menuShellAppend menu item
       Gtk.widgetShow item
