@@ -34,10 +34,11 @@
 module System.Taffybar.TaffyPager (
   -- * Usage
   -- $usage
-  taffyPagerNew
-, taffyPagerHUDNew
-, PagerConfig (..)
+  PagerConfig (..)
 , defaultPagerConfig
+, taffyPagerHUDLegacy
+, taffyPagerHUDNew
+, taffyPagerNew
 ) where
 
 import Graphics.UI.Gtk
