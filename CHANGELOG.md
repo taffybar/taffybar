@@ -10,7 +10,10 @@
  * Preliminary support for i3wm (Saksham Sharma)
  * A new workspace switcher widget called WorkspaceHUD (Ivan Malison)
  * Support for multiple network interfaces in NetMonitor (Robert Klotzner)
- 
+ * Support for taffybar on multiple monitors (Ivan Malison)
+ * Share a single X11Connection between all components to fix the `user error (openDisplay)` error (Ivan Malison)
+ * d-bus toggling of taffybar per monitor (Ivan Malison)
+
 ## Bug Fixes
 
  * Fixes for outdated weather information sources
