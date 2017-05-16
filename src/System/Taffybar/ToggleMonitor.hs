@@ -18,6 +18,7 @@ module System.Taffybar.ToggleMonitor (
 
 import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
+import           Control.Monad
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Maybe
 import           DBus
@@ -27,11 +28,12 @@ import qualified Data.Map as M
 import           Data.Maybe
 import           Graphics.UI.Gtk.Gdk.Screen
 import           Paths_taffybar ( getDataDir )
+import           Prelude
 import           System.Directory
 import           System.FilePath.Posix
-import           Prelude
 import           System.Taffybar
 import           System.Taffybar.Util
+
 import           Text.Read ( readMaybe )
 
 toggleableMonitors
@@ -67,7 +69,7 @@ handleToggleRequests enabledVar refreshTaffyWindows = do
         MV.modifyMVar_ enabledVar $ \numToEnabled -> do
           let current = fromMaybe True $ M.lookup mon numToEnabled
               result = M.insert mon (fn current) numToEnabled
-          writeFile <$> toggleStateFile ?? show result
+          flip writeFile (show result) =<< toggleStateFile
           return result
         refreshTaffyWindows
       toggleTaffy = do
