@@ -45,6 +45,7 @@ import           Control.Monad.Reader
 import           Control.RateLimit
 import qualified Data.Char as S
 import qualified Data.Foldable as F
+import           Data.List (sortBy)
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.MultiMap as MM
@@ -83,6 +84,7 @@ data WindowData = WindowData { windowId :: X11Window
                              , windowTitle :: String
                              , windowClass :: String
                              , windowUrgent :: Bool
+                             , windowActive :: Bool
                              } deriving (Show, Eq)
 
 data WidgetUpdate = WorkspaceUpdate Workspace | IconUpdate [X11Window]
@@ -145,6 +147,7 @@ data WorkspaceHUDConfig =
   , updateEvents :: [String]
   , updateRateLimitMicroseconds :: Integer
   , debugMode :: Bool
+  , sortIcons :: Bool
   , handleX11Errors :: Bool
   , redrawIconsOnStateChange :: Bool
   , urgentWorkspaceState :: Bool
@@ -209,6 +212,7 @@ defaultWorkspaceHUDConfig =
   , updateOnWMIconChange = True
   , showWorkspaceFn = const True
   , borderWidth = 2
+  , sortIcons = True
   , updateEvents =
     [ "_NET_CURRENT_DESKTOP"
     , "_NET_WM_DESKTOP"
@@ -259,8 +263,8 @@ getWorkspaceToWindows = liftX11 $ getWindows >>=
 getUrgentWindows :: X11Property [X11Window]
 getUrgentWindows = getWindows >>= filterM isWindowUrgent
 
-getWindowData :: [X11Window] -> X11Window -> X11Property WindowData
-getWindowData urgentWindows window = do
+getWindowData :: [X11Window] -> [X11Window] -> X11Window -> X11Property WindowData
+getWindowData activeWindows urgentWindows window = do
   wTitle <- getWindowTitle window
   wClass <- getWindowClass window
   return
@@ -269,6 +273,7 @@ getWindowData urgentWindows window = do
     , windowTitle = wTitle
     , windowClass = wClass
     , windowUrgent = window `elem` urgentWindows
+    , windowActive = window `elem` activeWindows
     }
 
 buildWorkspaces :: M.Map WorkspaceIdx Workspace
@@ -279,8 +284,8 @@ buildWorkspaces _ = do
   names <- liftX11 getWorkspaceNames
   workspaceToWindows <- getWorkspaceToWindows
   urgentWindows <- liftX11 getUrgentWindows
+  activeWindows <- liftX11 $ readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
   active:visible <- liftX11 getVisibleWorkspaces
-
   let
     getWorkspaceState idx ws
         | urgentWorkspaceState (hudConfig context) &&
@@ -293,7 +298,7 @@ buildWorkspaces _ = do
   foldM (\theMap (idx, name) ->
            do
              let ws = MM.lookup idx workspaceToWindows
-             windowInfos <- liftX11 $ mapM (getWindowData urgentWindows) ws
+             windowInfos <- liftX11 $ mapM (getWindowData activeWindows urgentWindows) ws
              return $ M.insert idx
                     Workspace { workspaceIdx = idx
                               , workspaceName = name
@@ -687,7 +692,13 @@ updateImages wcc ws = do
           Nothing -> imgSrcs
   -- XXX: Only one of the two things being zipped can be an infinite list, which
   -- is why this newImagesNeeded contortion is needed.
-  let justWindows = map Just $ windows ws
+  let makeComparisonTuple wd = (windowClass wd, windowId wd)
+      compareWindowData a b = compare (makeComparisonTuple a) (makeComparisonTuple b)
+      sortedWindows = if sortIcons cfg then
+                        sortBy compareWindowData $ windows ws
+                      else
+                        windows ws
+      justWindows = map Just sortedWindows
       windowDatas =
         if newImagesNeeded
           then justWindows ++
@@ -747,10 +758,11 @@ updateIconWidget _ IconWidget { iconContainer = iconButton
           Just dat -> getIconInfo cfg dat
           Nothing -> return IINone
       let imgSize = windowIconSize cfg
-          urgentStr =
-            if maybe False windowUrgent windowData
-              then "urgent"
-              else "normal"
+          statusStr =
+            case windowData of
+              Just WindowData { windowActive = True } -> "active"
+              Just WindowData { windowUrgent = True } -> "urgent"
+              _ -> "normal"
           iconInfo =
             case info of
               IINone ->
@@ -765,7 +777,7 @@ updateIconWidget _ IconWidget { iconContainer = iconButton
               printf
               "Workspace-icon-%s-%s"
               (show $ maybe 0 windowId windowData)
-              urgentStr
+              statusStr
         Gtk.widgetSetName iconButton (widgetName :: String)
 
 setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
@@ -899,7 +911,7 @@ instance WorkspaceWidgetController WorkspaceBorderController where
                         getWidgetName workspace "Border"
         setContentsName = Gtk.widgetSetName (borderContents bc) $
                           getWidgetName workspace "Container"
-    in (lift $ setBorderName >> setContentsName) >> updateBorder bc wu
+    in lift (setBorderName >> setContentsName) >> updateBorder bc wu
   updateWidget a b = updateBorder a b
 
 updateBorder :: WorkspaceBorderController
