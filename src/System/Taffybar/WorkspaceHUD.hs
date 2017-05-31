@@ -28,6 +28,7 @@ module System.Taffybar.WorkspaceHUD (
   buildUnderlineController,
   buildWorkspaceHUD,
   buildWorkspaces,
+  defaultGetIconInfo,
   defaultWorkspaceHUDConfig,
   getWorkspaceToWindows,
   hideEmpty,
