@@ -14,11 +14,12 @@
 module System.Taffybar.WorkspaceHUD (
   IconInfo(..),
   WWC(..),
+  WindowData(..),
   Workspace(..),
-  WorkspaceContentsController(..),
   WorkspaceButtonController(..),
-  WorkspaceUnderlineController(..),
+  WorkspaceContentsController(..),
   WorkspaceHUDConfig(..),
+  WorkspaceUnderlineController(..),
   WorkspaceWidgetController(..),
   buildBorderButtonController,
   buildButtonController,
@@ -636,17 +637,22 @@ windowTitleClassIconGetter
   -> (String -> String -> IconInfo)
   -> (WindowData -> HUDIO IconInfo)
 windowTitleClassIconGetter preferCustom customIconF = fn
-    where fn w@WindowData { windowTitle = wTitle
-                              , windowClass = wClass
-                              } =
-            do
-              let customResult = customIconF wTitle wClass
-              defaultResult <- defaultGetIconInfo w
-              let first = if preferCustom then customResult else defaultResult
-              let second = if preferCustom then defaultResult else customResult
-              return $ case first of
-                         IINone -> second
-                         _ -> first
+  where
+    fn w@WindowData {windowTitle = wTitle, windowClass = wClass} = do
+      let customResult = customIconF wTitle wClass
+      defaultResult <- defaultGetIconInfo w
+      let first =
+            if preferCustom
+              then customResult
+              else defaultResult
+      let second =
+            if preferCustom
+              then defaultResult
+              else customResult
+      return $
+        case first of
+          IINone -> second
+          _ -> first
 
 updateImages :: WorkspaceContentsController -> Workspace -> HUDIO [IconWidget]
 updateImages wcc ws = do
