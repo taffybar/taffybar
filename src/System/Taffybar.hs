@@ -119,6 +119,58 @@ module System.Taffybar (
   -- customize this theme by copying it to
   -- @~\/.config\/taffybar\/taffybar.rc@.  For an idea of the customizations you can make,
   -- see <https://live.gnome.org/GnomeArt/Tutorials/GtkThemes>.
+
+  -- * Advanced Widget Example
+  --
+  -- | The following is an example leveraging GTK+ features that are not exposed
+  -- by the normal Taffybar widget hooks.
+  --
+  -- > import qualified Graphics.UI.Gtk as Gtk
+  -- > import System.Taffybar.Widgets.PollingGraph
+  -- > import System.Information.CPU
+  -- > import XMonad.Util.Run
+  -- >
+  -- > main = do
+  -- >   let
+  -- >     cpuReader widget = do
+  -- >       (userLoad, systemLoad, totalLoad) <- cpuLoad
+  -- >       Gtk.postGUIAsync $ do
+  -- >         let
+  -- >           user    = round $ 100 * userLoad   :: Int
+  -- >           system  = round $ 100 * systemLoad :: Int
+  -- >           tooltip = printf "%02i%% User\n%02i%% System" user system :: String
+  -- >         _ <- Gtk.widgetSetTooltipText widget $ Just tooltip
+  -- >         return ()
+  -- >       return [totalLoad, systemLoad]
+  -- >
+  -- >     cpuButtons = do
+  -- >       e <- Gtk.eventButton
+  -- >       case e of
+  -- >         Gtk.LeftButton   -> unsafeSpawn "terminator -e glances"
+  -- >         Gtk.RightButton  -> unsafeSpawn "terminator -e top"
+  -- >         Gtk.MiddleButton -> unsafeSpawn "gnome-system-monitor"
+  -- >         _ -> return ()
+  -- >       return True
+  -- >
+  -- >     cpuCfg = defaultGraphConfig { graphDataColors = [ (0, 1, 0, 1)
+  -- >                                                     , (1, 0, 1, 0.5)
+  -- >                                                     ]
+  -- >                                 }
+  -- >
+  -- >
+  -- >     cpu = do
+  -- >       ebox <- Gtk.eventBoxNew
+  -- >       btn <- pollingGraphNew cpuCfg 0.5 $ cpuReader $ Gtk.toWidget ebox
+  -- >       Gtk.containerAdd ebox btn
+  -- >       _ <- Gtk.on ebox Gtk.buttonPressEvent systemEvents
+  -- >       Gtk.widgetShowAll ebox
+  -- >       return $ Gtk.toWidget ebox
+  -- 
+  -- The resulting widget can be used like normal widgets, but you can use
+  -- different mouse buttons to run various programs and it has a useful tooltip
+  -- which shows the concrete numbers, which may not be clear in the graph
+  -- itself.
+  
   TaffybarConfig(..),
   defaultTaffybar,
   defaultTaffybarConfig,
