@@ -27,6 +27,7 @@ flag network-uri
 library
   default-language: Haskell2010
   build-depends: base > 3 && < 5,
+                 alsa-mixer >= 0.2.0,
                  time >= 1.4 && < 1.7,
                  time-locale-compat >= 0.1 && < 0.2,
                  old-locale,
@@ -73,6 +74,7 @@ library
                    System.Taffybar.MPRIS,
                    System.Taffybar.MPRIS2,
                    System.Taffybar.Battery,
+                   System.Taffybar.Volume,
                    System.Taffybar.CPUMonitor,
                    System.Taffybar.CommandRunner,
                    System.Taffybar.DiskIOMonitor,
@@ -96,6 +98,7 @@ library
                    System.Taffybar.Widgets.VerticalBar,
                    System.Information.StreamInfo,
                    System.Information.Battery,
+                   System.Information.Volume,
                    System.Information.EWMHDesktopInfo,
                    System.Information.X11DesktopInfo,
                    System.Information.Memory,
