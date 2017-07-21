@@ -192,8 +192,8 @@ hudFromPagerConfig pagerConfig =
         if workspacePad pagerConfig
           then prefixSpace . updater
           else updater
-      getCustomImage wt wc =
-        case customIcon pagerConfig wt wc of
+      getCustomImage hasIcon wt wc =
+        case customIcon pagerConfig hasIcon wt wc of
           Just fp -> IIFilePath fp
           Nothing -> IINone
   in defaultWorkspaceHUDConfig
@@ -209,7 +209,6 @@ hudFromPagerConfig pagerConfig =
            else 0
      , getIconInfo =
          windowTitleClassIconGetter
-           (preferCustomIcon pagerConfig)
            getCustomImage
      , widgetGap = workspaceGap pagerConfig
      , windowIconSize = imageSize pagerConfig
@@ -224,26 +223,17 @@ hudFromPagerConfig pagerConfig =
     prefixSpace s = " " ++ s
 
 windowTitleClassIconGetter
-  :: Bool
-  -> (String -> String -> IconInfo)
+  :: (Bool -> String -> String -> IconInfo)
   -> (WindowData -> HUDIO IconInfo)
-windowTitleClassIconGetter preferCustom customIconF = fn
+windowTitleClassIconGetter customIconF = fn
   where
     fn w@WindowData {windowTitle = wTitle, windowClass = wClass} = do
-      let customResult = customIconF wTitle wClass
-      defaultResult <- defaultGetIconInfo w
-      let first =
-            if preferCustom
-              then customResult
-              else defaultResult
-      let second =
-            if preferCustom
-              then defaultResult
-              else customResult
-      return $
-        case first of
-          IINone -> second
-          _ -> first
+      ewmhIcon <- defaultGetIconInfo w
+      let hasEwmhIcon = ewmhIcon /= IINone
+          customIcon = customIconF hasEwmhIcon wTitle wClass
+          hasCustomIcon = customIcon /= IINone
+      return $ if hasCustomIcon then customIcon else ewmhIcon
+
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
 defaultWorkspaceHUDConfig =
