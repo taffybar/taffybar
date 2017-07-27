@@ -115,7 +115,7 @@ notify :: NotifyState
        -> Int32 -- ^ Expires timeout (milliseconds)
        -> IO Word32
 notify s appName replaceId _ summary body _ _ timeout = do
-  realId <- if replaceId == 0 then noteFreshId s else pure replaceId
+  realId <- if replaceId == 0 then noteFreshId s else return replaceId
   let escapeText = T.pack . escapeMarkup . T.unpack
       configTimeout = notificationMaxTimeout (noteConfig s)
       realTimeout = if timeout <= 0 -- Gracefully handle out of spec negative values
@@ -154,12 +154,12 @@ notificationDaemon onNote onCloseNote = do
   export client "/org/freedesktop/Notifications" interface
   where
     getServerInformation :: IO (Text, Text, Text, Text)
-    getServerInformation = pure ("haskell-notification-daemon",
-                                 "nochair.net",
-                                 "0.0.1",
-                                 "1.1")
+    getServerInformation = return ("haskell-notification-daemon",
+                                   "nochair.net",
+                                   "0.0.1",
+                                   "1.1")
     getCapabilities :: IO [Text]
-    getCapabilities = pure ["body", "body-markup"]
+    getCapabilities = return ["body", "body-markup"]
     interface = defaultInterface
       { interfaceName = "org.freedesktop.Notifications"
       , interfaceMethods =
