@@ -200,8 +200,8 @@ startTimeoutThread s (Notification {..}) = case noteExpireTimeout of
 
 --------------------------------------------------------------------------------
 data NotificationConfig =
-  NotificationConfig { notificationMaxTimeout :: Maybe Int32 -- ^ Maximum time that a notification will be displayed (in seconds).  Default: 10
-                     , notificationMaxLength :: Int  -- ^ Maximum length displayed, in characters.  Default: 50
+  NotificationConfig { notificationMaxTimeout :: Maybe Int32 -- ^ Maximum time that a notification will be displayed (in seconds).  Default: None
+                     , notificationMaxLength :: Int  -- ^ Maximum length displayed, in characters.  Default: 100
                      , notificationFormatter :: [Notification] -> String -- ^ Function used to format notifications, takes the notifications from first to last
                      }
 
