@@ -1,7 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | This is a simple text widget that updates its contents by calling
 -- a callback at a set interval.
-module System.Taffybar.Widgets.PollingLabel ( pollingLabelNew ) where
+module System.Taffybar.Widgets.PollingLabel ( pollingLabelNew,
+                                              pollingLabelNewWithTooltip) where
 
 import Control.Concurrent ( forkIO, threadDelay )
 import Control.Exception.Enclosed as E
@@ -35,6 +36,27 @@ pollingLabelNew initialString interval cmd = do
       case estr of
         Left _ -> return ()
         Right str -> postGUIAsync $ labelSetMarkup l str
+      threadDelay $ floor (interval * 1000000)
+    return ()
+
+  return (toWidget l)
+
+pollingLabelNewWithTooltip :: String -- ^ Initial value for the label
+                           -> Double -- ^ Update interval (in seconds)
+                           -> IO (String, Maybe String) -- ^ Command to run to get the input string
+                           -> IO Widget
+pollingLabelNewWithTooltip initialString interval cmd = do
+  l <- labelNew (Nothing :: Maybe String)
+  labelSetMarkup l initialString
+
+  _ <- on l realize $ do
+    _ <- forkIO $ forever $ do
+      estr <- E.tryAny cmd
+      case estr of
+        Left _ -> return ()
+        Right (labelStr, tooltipStr) -> postGUIAsync $ do
+                                          labelSetMarkup l labelStr
+                                          widgetSetTooltipMarkup l tooltipStr
       threadDelay $ floor (interval * 1000000)
     return ()
 
