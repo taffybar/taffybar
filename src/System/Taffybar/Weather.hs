@@ -265,7 +265,7 @@ data WeatherFormatter = WeatherFormatter (WeatherInfo -> String) -- ^ Specify a 
 -- 'weatherFormatter' field.
 data WeatherConfig =
   WeatherConfig { weatherStation         :: String   -- ^ The weather station to poll. No default
-                , weatherTemplateLabel   :: String  -- ^ Template string, as described above.  Default: $tempF$ °F
+                , weatherTemplate        :: String  -- ^ Template string, as described above.  Default: $tempF$ °F
                 , weatherTemplateTooltip :: String  -- ^ Template string, as described above.  Default: $tempF$ °F
                 , weatherFormatter       :: WeatherFormatter -- ^ Default: substitute in all interpolated variables (above)
                 , weatherProxy           :: Maybe String -- ^ The proxy server, e.g. "http://proxy:port". Default: Nothing
@@ -276,7 +276,7 @@ data WeatherConfig =
 defaultWeatherConfig :: String -> WeatherConfig
 defaultWeatherConfig station = WeatherConfig
   { weatherStation         = station
-  , weatherTemplateLabel   = "$tempF$ °F"
+  , weatherTemplate        = "$tempF$ °F"
   , weatherTemplateTooltip = unlines ["Station: $stationPlace$",
                                       "Time: $day$.$month$.$year$ $hour$",
                                       "Temperature: $tempF$ °F",
@@ -297,7 +297,8 @@ weatherNew :: WeatherConfig -- ^ Configuration to render
 weatherNew cfg delayMinutes = do
   let url = printf "%s/%s.TXT" baseUrl (weatherStation cfg)
       getter = getWeather (weatherProxy cfg) url
-  weatherCustomNew getter (weatherTemplateLabel cfg) (weatherTemplateTooltip cfg) (weatherFormatter cfg) delayMinutes
+  weatherCustomNew getter (weatherTemplate cfg) (weatherTemplateTooltip cfg)
+    (weatherFormatter cfg) delayMinutes
 
 -- | Create a periodically-updating weather widget using custom weather getter
 weatherCustomNew :: IO (Either String WeatherInfo) -- ^ Weather querying action
