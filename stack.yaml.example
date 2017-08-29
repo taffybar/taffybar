@@ -1,0 +1,19 @@
+packages:
+- '.'
+- location: './taffybar'
+  extra-dep: true
+- location:
+    git: https://github.com/willdonnelly/dyre
+    commit: 11412752b483135e0c151ab90be17b217f837c4b
+  extra-dep: true
+extra-deps:
+- dyre-0.8.11
+- rate-limit-1.1.1
+- time-units-1.0.0
+- taffybar-0.4.6
+- dbus-0.10.13
+- gtk-traymanager-0.1.6
+- xmonad-contrib-0.13
+- X11-xft-0.3.1
+- libxml-sax-0.7.5
+resolver: lts-8.2
