@@ -107,7 +107,8 @@ library
                    System.Information.CPU2,
                    System.Information.DiskIO
   other-modules: System.Taffybar.StrutProperties,
-                 Paths_taffybar
+                 Paths_taffybar,
+                 System.Taffybar.Util
 
   c-sources: src/gdk_property_change_wrapper.c
   cc-options: -fPIC
@@ -121,6 +122,7 @@ executable taffybar
                  gtk >= 0.12 && < 0.15,
                  safe >= 0.3 && < 1,
                  xdg-basedir,
+                 X11 >= 1.5.0.1,
                  filepath
   hs-source-dirs: src
   main-is: Main.hs

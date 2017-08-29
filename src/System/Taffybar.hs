@@ -165,12 +165,12 @@ module System.Taffybar (
   -- >       _ <- Gtk.on ebox Gtk.buttonPressEvent systemEvents
   -- >       Gtk.widgetShowAll ebox
   -- >       return $ Gtk.toWidget ebox
-  -- 
+  --
   -- The resulting widget can be used like normal widgets, but you can use
   -- different mouse buttons to run various programs and it has a useful tooltip
   -- which shows the concrete numbers, which may not be clear in the graph
   -- itself.
-  
+
   TaffybarConfig(..),
   TaffybarConfigEQ,
   defaultTaffybar,
@@ -189,6 +189,7 @@ import qualified Data.Map as M
 import Data.Maybe ( fromMaybe )
 import Data.List
 import Graphics.UI.Gtk
+import Graphics.X11.Xlib.Misc
 import Safe ( atMay )
 import System.Environment.XDG.BaseDir ( getUserConfigFile )
 import System.Exit ( exitFailure )
@@ -339,6 +340,8 @@ setTaffybarSize cfg window monNumber = do
 
 taffybarMain :: TaffybarConfig -> IO ()
 taffybarMain cfg = do
+
+  _ <- initThreads
 
   _ <- initGUI
 
