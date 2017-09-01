@@ -31,6 +31,7 @@ library
                  time-locale-compat >= 0.1 && < 0.2,
                  old-locale,
                  containers,
+                 directory,
                  text,
                  HTTP,
                  parsec >= 3.1,
@@ -84,6 +85,7 @@ library
                    System.Taffybar.TaffyPager,
                    System.Taffybar.Text.CPUMonitor,
                    System.Taffybar.Text.MemoryMonitor,
+                   System.Taffybar.ToggleMonitor,
                    System.Taffybar.Widgets.Graph,
                    System.Taffybar.Widgets.Icon,
                    System.Taffybar.Widgets.PollingBar,
@@ -105,7 +107,8 @@ library
                    System.Information.CPU2,
                    System.Information.DiskIO
   other-modules: System.Taffybar.StrutProperties,
-                 Paths_taffybar
+                 Paths_taffybar,
+                 System.Taffybar.Util
 
   c-sources: src/gdk_property_change_wrapper.c
   cc-options: -fPIC
@@ -115,9 +118,11 @@ executable taffybar
   default-language: Haskell2010
   build-depends: base > 3 && < 5,
                  dyre >= 0.8.6,
+                 containers,
                  gtk >= 0.12 && < 0.15,
                  safe >= 0.3 && < 1,
                  xdg-basedir,
+                 X11 >= 1.5.0.1,
                  filepath
   hs-source-dirs: src
   main-is: Main.hs

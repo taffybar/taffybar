@@ -77,6 +77,7 @@ import Graphics.UI.Gtk
 import Text.Parsec
 import Text.Printf
 import Text.StringTemplate
+import qualified Network.Browser as Browser
 
 import System.Taffybar.Widgets.PollingLabel
 
@@ -183,19 +184,17 @@ skipRestOfLine = do
 
 -- | Simple: download the document at a URL.  Taken from Real World
 -- Haskell.
-downloadURL :: String -> IO (Either String String)
-downloadURL url = do
-  resp <- simpleHTTP request
-  case resp of
-    Left x -> return $ Left ("Error connecting: " ++ show x)
-    Right r ->
-      case rspCode r of
-        (2,_,_) -> return $ Right (rspBody r)
-        (3,_,_) -> -- A HTTP redirect
-          case findHeader HdrLocation r of
-            Nothing -> return $ Left (show r)
-            Just url' -> downloadURL url'
-        _ -> return $ Left (show r)
+downloadURL :: Maybe String -> String -> IO (Either String String)
+downloadURL mProxy url = do
+  (_, r) <- Browser.browse $ do
+              case mProxy of
+                Just proxy -> Browser.setProxy $ Browser.Proxy proxy Nothing
+                Nothing    -> return ()
+              Browser.setAllowRedirects True
+              Browser.request request
+  case rspCode r of
+    (2,_,_) -> return $ Right (rspBody r)
+    _       -> return $ Left (show r)
   where
     request = Request { rqURI = uri
                       , rqMethod = GET
@@ -204,9 +203,9 @@ downloadURL url = do
                       }
     Just uri = parseURI url
 
-getWeather :: String -> IO (Either String WeatherInfo)
-getWeather url = do
-  dat <- downloadURL url
+getWeather :: Maybe String -> String -> IO (Either String WeatherInfo)
+getWeather mProxy url = do
+  dat <- downloadURL mProxy url
   case dat of
     Right dat' -> case parse parseData url dat' of
       Right d -> return (Right d)
@@ -234,18 +233,21 @@ defaultFormatter tpl wi = render tpl'
 
 getCurrentWeather :: IO (Either String WeatherInfo)
     -> StringTemplate String
+    -> StringTemplate String
     -> WeatherFormatter
-    -> IO String
-getCurrentWeather getter tpl formatter = do
+    -> IO (String, Maybe String)
+getCurrentWeather getter labelTpl tooltipTpl formatter = do
   dat <- getter
   case dat of
-    Right wi -> do
-      case formatter of
-        DefaultWeatherFormatter -> return (defaultFormatter tpl wi)
-        WeatherFormatter f -> return (f wi)
+    Right wi ->
+        return $ case formatter of
+                   DefaultWeatherFormatter -> (escapeMarkup $ defaultFormatter labelTpl wi,
+                                               Just $ escapeMarkup $ defaultFormatter tooltipTpl wi)
+                   WeatherFormatter f -> (f wi, Just $ f wi)
+
     Left err -> do
       putStrLn err
-      return "N/A"
+      return ("N/A", Nothing)
 
 -- | The NOAA URL to get data from
 baseUrl :: String
@@ -262,38 +264,55 @@ data WeatherFormatter = WeatherFormatter (WeatherInfo -> String) -- ^ Specify a 
 -- provide a custom function to turn a 'WeatherInfo' into a String via the
 -- 'weatherFormatter' field.
 data WeatherConfig =
-  WeatherConfig { weatherStation :: String   -- ^ The weather station to poll. No default
-                , weatherTemplate :: String  -- ^ Template string, as described above.  Default: $tempF$ °F
-                , weatherFormatter :: WeatherFormatter -- ^ Default: substitute in all interpolated variables (above)
+  WeatherConfig { weatherStation         :: String   -- ^ The weather station to poll. No default
+                , weatherTemplate        :: String  -- ^ Template string, as described above.  Default: $tempF$ °F
+                , weatherTemplateTooltip :: String  -- ^ Template string, as described above.  Default: $tempF$ °F
+                , weatherFormatter       :: WeatherFormatter -- ^ Default: substitute in all interpolated variables (above)
+                , weatherProxy           :: Maybe String -- ^ The proxy server, e.g. "http://proxy:port". Default: Nothing
                 }
 
 -- | A sensible default configuration for the weather widget that just
 -- renders the temperature.
 defaultWeatherConfig :: String -> WeatherConfig
-defaultWeatherConfig station = WeatherConfig { weatherStation = station
-                                             , weatherTemplate = "$tempF$ °F"
-                                             , weatherFormatter = DefaultWeatherFormatter
-                                             }
+defaultWeatherConfig station = WeatherConfig
+  { weatherStation         = station
+  , weatherTemplate        = "$tempF$ °F"
+  , weatherTemplateTooltip = unlines ["Station: $stationPlace$",
+                                      "Time: $day$.$month$.$year$ $hour$",
+                                      "Temperature: $tempF$ °F",
+                                      "Pressure: $pressure$ hPa",
+                                      "Wind: $wind$",
+                                      "Visibility: $visibility$",
+                                      "Sky Condition: $skyCondition$",
+                                      "Dew Point: $dewPoint$",
+                                      "Humidity: $humidity$"
+                                     ]
+  , weatherFormatter       = DefaultWeatherFormatter
+  , weatherProxy           = Nothing}
 
 -- | Create a periodically-updating weather widget that polls NOAA.
 weatherNew :: WeatherConfig -- ^ Configuration to render
-              -> Double     -- ^ Polling period in _minutes_
-              -> IO Widget
+           -> Double     -- ^ Polling period in _minutes_
+           -> IO Widget
 weatherNew cfg delayMinutes = do
   let url = printf "%s/%s.TXT" baseUrl (weatherStation cfg)
-      getter = getWeather url
-  weatherCustomNew getter (weatherTemplate cfg) (weatherFormatter cfg) delayMinutes
+      getter = getWeather (weatherProxy cfg) url
+  weatherCustomNew getter (weatherTemplate cfg) (weatherTemplateTooltip cfg)
+    (weatherFormatter cfg) delayMinutes
 
 -- | Create a periodically-updating weather widget using custom weather getter
 weatherCustomNew :: IO (Either String WeatherInfo) -- ^ Weather querying action
                  -> String                         -- ^ Weather template
+                 -> String                         -- ^ Weather template
                  -> WeatherFormatter               -- ^ Weather formatter
                  -> Double                         -- ^ Polling period in _minutes_
                  -> IO Widget
-weatherCustomNew getter tpl formatter delayMinutes = do
-  let tpl' = newSTMP tpl
+weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = do
+  let labelTpl' = newSTMP labelTpl
+      tooltipTpl' = newSTMP tooltipTpl
 
-  l <- pollingLabelNew "N/A" (delayMinutes * 60) (getCurrentWeather getter tpl' formatter)
+  l <- pollingLabelNewWithTooltip "N/A" (delayMinutes * 60)
+       (getCurrentWeather getter labelTpl' tooltipTpl' formatter)
 
   widgetShowAll l
   return l
