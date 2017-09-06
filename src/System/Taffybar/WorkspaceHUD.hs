@@ -80,12 +80,13 @@ data IconInfo
 transparentInfo :: IconInfo
 transparentInfo = IIColor (0, 0, 0, 0)
 
-data WindowData = WindowData { windowId :: X11Window
-                             , windowTitle :: String
-                             , windowClass :: String
-                             , windowUrgent :: Bool
-                             , windowActive :: Bool
-                             } deriving (Show, Eq)
+data WindowData = WindowData
+  { windowId :: X11Window
+  , windowTitle :: String
+  , windowClass :: String
+  , windowUrgent :: Bool
+  , windowActive :: Bool
+  } deriving (Show, Eq)
 
 data WidgetUpdate = WorkspaceUpdate Workspace | IconUpdate [X11Window]
 
@@ -96,14 +97,14 @@ data Workspace = Workspace
   , windows :: [WindowData]
   } deriving (Show, Eq)
 
-data Context =
-  Context { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
-          , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
-          , loggingVar :: MV.MVar Bool
-          , hudWidget :: Gtk.HBox
-          , hudConfig :: WorkspaceHUDConfig
-          , hudPager :: Pager
-          }
+data Context = Context
+  { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
+  , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
+  , loggingVar :: MV.MVar Bool
+  , hudWidget :: Gtk.HBox
+  , hudConfig :: WorkspaceHUDConfig
+  , hudPager :: Pager
+  }
 
 type HUDIO a = ReaderT Context IO a
 
@@ -214,12 +215,12 @@ defaultWorkspaceHUDConfig =
   , borderWidth = 2
   , sortIcons = True
   , updateEvents =
-    [ "_NET_CURRENT_DESKTOP"
-    , "_NET_WM_DESKTOP"
-    , "_NET_DESKTOP_NAMES"
-    , "_NET_NUMBER_OF_DESKTOPS"
-    , "WM_HINTS"
-    ]
+      [ "_NET_CURRENT_DESKTOP"
+      , "_NET_WM_DESKTOP"
+      , "_NET_DESKTOP_NAMES"
+      , "_NET_NUMBER_OF_DESKTOPS"
+      , "WM_HINTS"
+      ]
   , updateRateLimitMicroseconds = 100000
   , debugMode = False
   , handleX11Errors = True
