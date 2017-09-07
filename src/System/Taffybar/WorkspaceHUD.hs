@@ -86,6 +86,7 @@ data WindowData = WindowData
   , windowClass :: String
   , windowUrgent :: Bool
   , windowActive :: Bool
+  , windowMinimized :: Bool
   } deriving (Show, Eq)
 
 data WidgetUpdate = WorkspaceUpdate Workspace | IconUpdate [X11Window]
@@ -160,41 +161,53 @@ hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
 hudFromPagerConfig pagerConfig =
   let updater workspace
         | any windowUrgent ws = urgentWorkspace pagerConfig name
-        | otherwise = let getter = case state of
-                                     Urgent -> urgentWorkspace
-                                     Visible -> visibleWorkspace
-                                     Active -> activeWorkspace
-                                     Hidden -> hiddenWorkspace
-                                     Empty -> emptyWorkspace
-                          in getter pagerConfig name
-          where
-            ws = windows workspace
-            name = workspaceName workspace
-            state = workspaceState workspace
-      padded = if workspacePad pagerConfig
-               then prefixSpace . updater
-               else updater
-      getCustomImage wt wc = case customIcon pagerConfig wt wc of
-                               Just fp -> IIFilePath fp
-                               Nothing -> IINone
+        | otherwise =
+          let getter =
+                case state of
+                  Urgent -> urgentWorkspace
+                  Visible -> visibleWorkspace
+                  Active -> activeWorkspace
+                  Hidden -> hiddenWorkspace
+                  Empty -> emptyWorkspace
+          in getter pagerConfig name
+        where
+          ws = windows workspace
+          name = workspaceName workspace
+          state = workspaceState workspace
+      padded =
+        if workspacePad pagerConfig
+          then prefixSpace . updater
+          else updater
+      getCustomImage wt wc =
+        case customIcon pagerConfig wt wc of
+          Just fp -> IIFilePath fp
+          Nothing -> IINone
   in defaultWorkspaceHUDConfig
-       { labelSetter = padded
-       , minIcons = if fillEmptyImages pagerConfig then 1 else 0
-       , maxIcons = Just $ if useImages pagerConfig then 1 else 0
-       , getIconInfo = windowTitleClassIconGetter
-                       (preferCustomIcon pagerConfig) getCustomImage
-       , widgetGap = workspaceGap pagerConfig
-       , windowIconSize = imageSize pagerConfig
-       , widgetBuilder = if workspaceBorder pagerConfig
-                         then
-                           buildBorderButtonController
-                         else
-                           buildButtonController buildContentsController
-       , minWSWidgetSize = Nothing
-       }
-    where
-      prefixSpace "" = ""
-      prefixSpace s = " " ++ s
+     { labelSetter = padded
+     , minIcons =
+         if fillEmptyImages pagerConfig
+           then 1
+           else 0
+     , maxIcons =
+         Just $
+         if useImages pagerConfig
+           then 1
+           else 0
+     , getIconInfo =
+         windowTitleClassIconGetter
+           (preferCustomIcon pagerConfig)
+           getCustomImage
+     , widgetGap = workspaceGap pagerConfig
+     , windowIconSize = imageSize pagerConfig
+     , widgetBuilder =
+         if workspaceBorder pagerConfig
+           then buildBorderButtonController
+           else buildButtonController buildContentsController
+     , minWSWidgetSize = Nothing
+     }
+  where
+    prefixSpace "" = ""
+    prefixSpace s = " " ++ s
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
 defaultWorkspaceHUDConfig =
@@ -268,6 +281,7 @@ getWindowData :: [X11Window] -> [X11Window] -> X11Window -> X11Property WindowDa
 getWindowData activeWindows urgentWindows window = do
   wTitle <- getWindowTitle window
   wClass <- getWindowClass window
+  wMinimized <- getWindowStateProperty window "_NET_WM_STATE_HIDDEN"
   return
     WindowData
     { windowId = window
@@ -275,37 +289,42 @@ getWindowData activeWindows urgentWindows window = do
     , windowClass = wClass
     , windowUrgent = window `elem` urgentWindows
     , windowActive = window `elem` activeWindows
+    , windowMinimized = wMinimized
     }
 
 buildWorkspaces :: M.Map WorkspaceIdx Workspace
                 -> HUDIO (M.Map WorkspaceIdx Workspace)
 buildWorkspaces _ = do
   context <- ask
-
   names <- liftX11 getWorkspaceNames
   workspaceToWindows <- getWorkspaceToWindows
   urgentWindows <- liftX11 getUrgentWindows
   activeWindows <- liftX11 $ readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
   active:visible <- liftX11 getVisibleWorkspaces
-  let
-    getWorkspaceState idx ws
-        | urgentWorkspaceState (hudConfig context) &&
-          not (null urgentWindows) = Urgent
+  let getWorkspaceState idx ws
+        | urgentWorkspaceState (hudConfig context) && not (null urgentWindows) =
+          Urgent
         | idx == active = Active
         | idx `elem` visible = Visible
         | null ws = Empty
         | otherwise = Hidden
-
-  foldM (\theMap (idx, name) ->
-           do
-             let ws = MM.lookup idx workspaceToWindows
-             windowInfos <- liftX11 $ mapM (getWindowData activeWindows urgentWindows) ws
-             return $ M.insert idx
-                    Workspace { workspaceIdx = idx
-                              , workspaceName = name
-                              , workspaceState = getWorkspaceState idx ws
-                              , windows = windowInfos
-                              } theMap) M.empty names
+  foldM
+    (\theMap (idx, name) -> do
+       let ws = MM.lookup idx workspaceToWindows
+       windowInfos <-
+         liftX11 $ mapM (getWindowData activeWindows urgentWindows) ws
+       return $
+         M.insert
+           idx
+           Workspace
+           { workspaceIdx = idx
+           , workspaceName = name
+           , workspaceState = getWorkspaceState idx ws
+           , windows = windowInfos
+           }
+           theMap)
+    M.empty
+    names
 
 addWidgetsToTopLevel :: HUDIO ()
 addWidgetsToTopLevel = do
@@ -380,24 +399,22 @@ buildWorkspaceHUD cfg pager = do
   controllersRef <- MV.newMVar M.empty
   workspacesRef <- MV.newMVar M.empty
   loggingRef <- MV.newMVar False
-  let context = Context { controllersVar = controllersRef
-                        , workspacesVar = workspacesRef
-                        , loggingVar = loggingRef
-                        , hudWidget = cont
-                        , hudConfig = cfg
-                        , hudPager = pager
-                        }
-
+  let context =
+        Context
+        { controllersVar = controllersRef
+        , workspacesVar = workspacesRef
+        , loggingVar = loggingRef
+        , hudWidget = cont
+        , hudConfig = cfg
+        , hudPager = pager
+        }
   -- This will actually create all the widgets
   runReaderT updateAllWorkspaceWidgets context
-
   updateHandler <- onWorkspaceUpdate context
   mapM_ (subscribe pager updateHandler) $ updateEvents cfg
-
   iconHandler <- onIconsChanged context
   when (updateOnWMIconChange cfg) $
-       subscribe pager (onIconChanged context iconHandler) "_NET_WM_ICON"
-
+    subscribe pager (onIconChanged context iconHandler) "_NET_WM_ICON"
   return $ Gtk.toWidget cont
 
 updateAllWorkspaceWidgets :: HUDIO ()
@@ -763,6 +780,7 @@ updateIconWidget _ IconWidget { iconContainer = iconButton
             case windowData of
               Just WindowData { windowActive = True } -> "active"
               Just WindowData { windowUrgent = True } -> "urgent"
+              Just WindowData { windowMinimized = True } -> "minimized"
               _ -> "normal"
           iconInfo =
             case info of
@@ -797,11 +815,11 @@ getPixBuf imgSize = gpb
     gpb (IIColor color) = Just <$> pixBufFromColor imgSize color
     gpb _ = return Nothing
 
-data WorkspaceButtonController =
-  WorkspaceButtonController { button :: Gtk.EventBox
-                            , buttonWorkspace :: Workspace
-                            , contentsController :: WWC
-                            }
+data WorkspaceButtonController = WorkspaceButtonController
+  { button :: Gtk.EventBox
+  , buttonWorkspace :: Workspace
+  , contentsController :: WWC
+  }
 
 buildButtonController :: ParentControllerConstructor
 buildButtonController contentsBuilder workspace = do

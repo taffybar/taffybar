@@ -24,6 +24,8 @@ module System.Information.X11DesktopInfo
   , X11Window
   , withDefaultCtx
   , getDefaultCtx
+  , getWindowState
+  , getWindowStateProperty
   , readAsInt
   , readAsListOfInt
   , readAsString
@@ -37,11 +39,13 @@ module System.Information.X11DesktopInfo
   , sendWindowEvent
   ) where
 
+import Data.List
+import Data.Maybe
+
 import Codec.Binary.UTF8.String as UTF8
 import Control.Monad.Reader
 import Data.Bits (testBit, (.|.))
 import Data.List.Split (endBy)
-import Data.Maybe (fromMaybe)
 import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
 
@@ -133,8 +137,7 @@ isWindowUrgent window = do
 -- instructions on how to do this), or an empty list of strings if the
 -- PagerHints hook is not available.
 getVisibleTags :: X11Property [String]
-getVisibleTags =
-  readAsListOfString Nothing "_XMONAD_VISIBLE_WORKSPACES"
+getVisibleTags = readAsListOfString Nothing "_XMONAD_VISIBLE_WORKSPACES"
 
 -- | Return the Atom with the given name.
 getAtom :: String -> X11Property Atom
@@ -181,6 +184,19 @@ getDefaultCtx = do
   d <- openDisplay ""
   w <- rootWindow d $ defaultScreen d
   return $ X11Context d w
+
+getWindowStateProperty :: X11Window -> String -> X11Property Bool
+getWindowStateProperty window property = not . null <$> getWindowState window [property]
+
+getWindowState :: X11Window -> [String] -> X11Property [String]
+getWindowState window request = do
+  let getAsLong s = fromIntegral <$> getAtom s
+  integers <- mapM getAsLong request
+  properties <- fetch getWindowProperty32 (Just window) "_NET_WM_STATE"
+  let integerToString = zip integers request
+      present = intersect integers $ fromMaybe [] properties
+      presentStrings = map (`lookup` integerToString) present
+  return $ catMaybes presentStrings
 
 -- | Apply the given function to the given window in order to obtain the X11
 -- property with the given name, or Nothing if no such property can be read.
