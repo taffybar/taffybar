@@ -133,15 +133,14 @@ isWindowUrgent window = do
 -- instructions on how to do this), or an empty list of strings if the
 -- PagerHints hook is not available.
 getVisibleTags :: X11Property [String]
-getVisibleTags = return =<<
+getVisibleTags =
   readAsListOfString Nothing "_XMONAD_VISIBLE_WORKSPACES"
 
 -- | Return the Atom with the given name.
 getAtom :: String -> X11Property Atom
 getAtom s = do
   (X11Context d _) <- ask
-  atom <- liftIO $ internAtom d s False
-  return atom
+  liftIO $ internAtom d s False
 
 -- | Spawn a new thread and listen inside it to all incoming events,
 -- invoking the given function to every event of type @MapNotifyEvent@ that
@@ -156,7 +155,7 @@ eventLoop dispatch = do
     allocaXEvent $ \e -> forever $ do
       event <- nextEvent d e >> getEvent e
       case event of
-        MapNotifyEvent _ _ _ _ _ window _ -> do
+        MapNotifyEvent _ _ _ _ _ window _ ->
           selectInput d window propertyChangeMask
         _ -> return ()
       dispatch event
@@ -193,15 +192,13 @@ fetch :: (Integral a)
 fetch fetcher window name = do
   (X11Context dpy root) <- ask
   atom <- getAtom name
-  prop <- liftIO $ fetcher dpy atom (fromMaybe root window)
-  return prop
+  liftIO $ fetcher dpy atom (fromMaybe root window)
 
 -- | Retrieve the @WM_HINTS@ mask assigned by the X server to the given window.
 fetchWindowHints :: X11Window -> X11Property WMHints
 fetchWindowHints window = do
   (X11Context d _) <- ask
-  hints <- liftIO $ getWMHints d window
-  return hints
+  liftIO $ getWMHints d window
 
 -- | Emit an event of type @ClientMessage@ that can be listened to and
 -- consumed by XMonad event hooks.
@@ -211,7 +208,7 @@ sendCustomEvent :: Display
                 -> X11Window
                 -> X11Window
                 -> X11Property ()
-sendCustomEvent dpy cmd arg root win = do
+sendCustomEvent dpy cmd arg root win =
   liftIO $ allocaXEvent $ \e -> do
     setEventType e clientMessage
     setClientMessageEvent e win cmd 32 arg currentTime
