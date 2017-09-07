@@ -164,7 +164,6 @@ data WorkspaceHUDConfig =
   , updateRateLimitMicroseconds :: Integer
   , debugMode :: Bool
   , iconSort :: [WindowData] -> HUDIO [WindowData]
-  , handleX11Errors :: Bool
   , redrawIconsOnStateChange :: Bool
   , urgentWorkspaceState :: Bool
   , innerPadding :: Int
@@ -273,7 +272,6 @@ defaultWorkspaceHUDConfig =
       ]
   , updateRateLimitMicroseconds = 100000
   , debugMode = False
-  , handleX11Errors = True
   , redrawIconsOnStateChange = False
   , urgentWorkspaceState = False
   , innerPadding = 0
@@ -307,7 +305,7 @@ getWorkspaceToWindows :: HUDIO (MM.MultiMap WorkspaceIdx X11Window)
 getWorkspaceToWindows = liftX11 $ getWindows >>=
   foldM
     (\theMap window ->
-       MM.insert <$> getWorkspace window
+       MM.insert <$> handleX11ErrorsWithDefault (getWorkspace window) (WSIdx 0)
                  <*> pure window <*> pure theMap)
     MM.empty
 
@@ -316,9 +314,12 @@ getUrgentWindows = getWindows >>= filterM isWindowUrgent
 
 getWindowData :: [X11Window] -> [X11Window] -> X11Window -> X11Property WindowData
 getWindowData activeWindows urgentWindows window = do
-  wTitle <- getWindowTitle window
-  wClass <- getWindowClass window
-  wMinimized <- getWindowStateProperty window "_NET_WM_STATE_HIDDEN"
+  wTitle <- handleX11ErrorsWithDefault (getWindowTitle window) ""
+  wClass <- handleX11ErrorsWithDefault (getWindowClass window) ""
+  wMinimized <-
+    handleX11ErrorsWithDefault
+      (getWindowStateProperty window "_NET_WM_STATE_HIDDEN")
+      False
   return
     WindowData
     { windowId = window
@@ -714,7 +715,7 @@ updateMinSize widget minWidth = do
 
 defaultGetIconInfo :: WindowData -> HUDIO IconInfo
 defaultGetIconInfo w = do
-  icons <- liftX11 $ getWindowIcons $ windowId w
+  icons <- liftX11 $ handleX11ErrorsWithDefault (getWindowIcons $ windowId w) []
   iconSize <- asks $ windowIconSize .hudConfig
   return $
     if null icons

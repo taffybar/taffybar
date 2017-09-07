@@ -1,3 +1,4 @@
+{-# LANGUAGE StandaloneDeriving #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Information.X11DesktopInfo
@@ -38,18 +39,24 @@ module System.Information.X11DesktopInfo
   , eventLoop
   , sendCommandEvent
   , sendWindowEvent
+  , handleX11Errors
+  , handleX11ErrorsWithDefault
   ) where
 
 import Data.List
 import Data.Maybe
 
 import Codec.Binary.UTF8.String as UTF8
+import Control.Concurrent
+import Control.Concurrent.MVar
 import Control.Monad.Reader
 import Data.Bits (testBit, (.|.))
 import Data.Functor ((<$>))
 import Data.List.Split (endBy)
 import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
+import System.IO
+import System.Timeout
 
 data X11Context = X11Context { contextDisplay :: Display, _contextRoot :: Window }
 type X11Property a = ReaderT X11Context IO a
@@ -235,3 +242,56 @@ sendCustomEvent dpy cmd arg root win =
     setClientMessageEvent e win cmd 32 arg currentTime
     sendEvent dpy root False structureNotifyMask e
     sync dpy False
+
+withErrorHandler :: XErrorHandler -> IO a -> IO a
+withErrorHandler new_handler action = do
+    handler <- mkXErrorHandler (\d e -> new_handler d e >> return 0)
+    -- original <- _xSetErrorHandler handler
+    res <- action
+    -- _ <- _xSetErrorHandler original
+    return res
+
+deriving instance Show ErrorEvent
+
+handleX11Errors :: X11Property a -> X11Property (Either ErrorEvent a)
+handleX11Errors action = do
+  c@(X11Context dpy _) <- ask
+  didErrorVar <- lift newEmptyMVar
+  resVar <- lift newEmptyMVar
+  errorVar <- lift newEmptyMVar
+  let handler _ xerrptr = do
+        putStrLn "Got error"
+        hFlush stdout
+        ee <- getErrorEvent xerrptr
+        putStrLn $ show ee
+        putMVar errorVar ee
+        putMVar didErrorVar True
+      doAction = withErrorHandler handler $ do
+        putStrLn "Started running action"
+        res <- runReaderT action c
+        putStrLn "Finished running action"
+        hFlush stdout
+        putMVar resVar res
+        putMVar didErrorVar False
+  tid <- lift $ forkIO doAction
+  lift $ putStrLn $ "Waiting for didError"
+  didError <- lift $ takeMVar didErrorVar
+  lift $ putStrLn $ "Did error was " ++ show didError
+  lift $ hFlush stdout
+  if didError
+  then
+    lift $ Left <$> readMVar errorVar
+  else
+    lift $ Right <$> readMVar resVar
+
+handleX11ErrorsWithDefault :: X11Property a -> a -> X11Property a
+handleX11ErrorsWithDefault property def = do
+  c <- ask
+  res' <- lift $ timeout 2000 $ runReaderT (handleX11Errors property) c
+  lift $ putStrLn "Got res' back"
+  return $
+         case res' of
+           Just res -> case res of
+                         Right r -> r
+                         Left _ -> def
+           Nothing -> def
