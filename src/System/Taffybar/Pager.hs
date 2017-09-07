@@ -48,9 +48,11 @@ import Control.Exception
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad.Reader
 import Data.IORef
+import qualified Data.Map as M
 import Graphics.UI.Gtk (escapeMarkup)
 import Graphics.X11.Types
 import Graphics.X11.Xlib.Extras
+import System.Information.EWMHDesktopInfo
 import Text.Printf (printf)
 
 import System.Information.X11DesktopInfo
@@ -62,22 +64,40 @@ type SubscriptionList = IORef [(Listener, Filter)]
 -- | Structure contanining functions to customize the pretty printing of
 -- different widget elements.
 data PagerConfig = PagerConfig
-  { activeWindow     :: String -> String -- ^ the name of the active window.
-  , activeLayout     :: String -> String -- ^ the currently active layout.
-  , activeWorkspace  :: String -> String -- ^ the currently active workspace.
-  , hiddenWorkspace  :: String -> String -- ^ inactive workspace with windows.
-  , emptyWorkspace   :: String -> String -- ^ inactive workspace with no windows.
-  , visibleWorkspace :: String -> String -- ^ all other visible workspaces (Xinerama or XRandR).
-  , urgentWorkspace  :: String -> String -- ^ workspaces containing windows with the urgency hint set.
-  , widgetSep        :: String           -- ^ separator to use between desktop widgets in 'TaffyPager'.
-  , workspaceBorder  :: Bool             -- ^ wrap workspace buttons in a frame
-  , workspaceGap     :: Int              -- ^ space in pixels between workspace buttons
-  , workspacePad     :: Bool             -- ^ pad workspace name in button
-  , useImages        :: Bool             -- ^ use images in the workspace switcher
-  , imageSize        :: Int              -- ^ image height and width in pixels
-  , fillEmptyImages  :: Bool             -- ^ fill empty images instead of clearing them
-  , preferCustomIcon :: Bool             -- ^ use custom icons over EWHMIcons
-  , customIcon       :: String -> String -> Maybe FilePath -- ^ get icon based on window title and class
+  -- ^ the name of the active window.
+  { activeWindow            :: String -> String
+  -- ^ the currently active layout.
+  , activeLayout            :: String -> String
+  -- ^ the currently active workspace.
+  , activeWorkspace         :: String -> String
+  -- ^ inactive workspace with windows.
+  , hiddenWorkspace         :: String -> String
+  -- ^ inactive workspace with no windows.
+  , emptyWorkspace          :: String -> String
+  -- ^ all other visible workspaces (Xinerama or XRandR).
+  , visibleWorkspace        :: String -> String
+  -- ^ workspaces containing windows with the urgency hint set.
+  , urgentWorkspace         :: String -> String
+  -- ^ separator to use between desktop widgets in 'TaffyPager'.
+  , widgetSep               :: String
+  -- ^ wrap workspace buttons in a frame
+  , workspaceBorder         :: Bool
+  -- ^ space in pixels between workspace buttons
+  , workspaceGap            :: Int
+  -- ^ pad workspace name in button
+  , workspacePad            :: Bool
+  -- ^ use images in the workspace switcher
+  , useImages               :: Bool
+  -- ^ image height and width in pixels
+  , imageSize               :: Int
+  -- ^ fill empty images instead of clearing them
+  , fillEmptyImages         :: Bool
+  -- ^ use custom icons over EWHMIcons
+  , preferCustomIcon        :: Bool
+  -- ^ get icon based on window title and class
+  , customIcon              :: String -> String -> Maybe FilePath
+  -- ^ title windows for WindowSwitcher
+  , windowSwitcherFormatter :: M.Map WorkspaceIdx String -> X11WindowHandle -> String
   }
 
 -- | Structure containing the state of the Pager.
@@ -100,23 +120,40 @@ runWithPager pager prop = do
 -- | Default pretty printing options.
 defaultPagerConfig :: PagerConfig
 defaultPagerConfig   = PagerConfig
-  { activeWindow     = escape . shorten 40
-  , activeLayout     = escape
-  , activeWorkspace  = colorize "yellow" "" . wrap "[" "]" . escape
-  , hiddenWorkspace  = escape
-  , emptyWorkspace   = const ""
-  , visibleWorkspace = wrap "(" ")" . escape
-  , urgentWorkspace  = colorize "red" "yellow" . escape
-  , widgetSep        = " : "
-  , workspaceBorder  = False
-  , workspaceGap     = 0
-  , workspacePad     = True
-  , useImages        = False
-  , imageSize        = 16
-  , fillEmptyImages  = False
-  , preferCustomIcon = False
-  , customIcon       = \_ _ -> Nothing
+  { activeWindow            = escape . shorten 40
+  , activeLayout            = escape
+  , activeWorkspace         = colorize "yellow" "" . wrap "[" "]" . escape
+  , hiddenWorkspace         = escape
+  , emptyWorkspace          = const ""
+  , visibleWorkspace        = wrap "(" ")" . escape
+  , urgentWorkspace         = colorize "red" "yellow" . escape
+  , widgetSep               = " : "
+  , workspaceBorder         = False
+  , workspaceGap            = 0
+  , workspacePad            = True
+  , useImages               = False
+  , imageSize               = 16
+  , fillEmptyImages         = False
+  , preferCustomIcon        = False
+  , customIcon              = \_ _ -> Nothing
+  , windowSwitcherFormatter = defaultFormatEntry
   }
+
+-- | Build the name to display in the list of windows by prepending the name
+-- of the workspace it is currently in to the name of the window itself
+defaultFormatEntry
+  :: M.Map WorkspaceIdx String -- ^ List $ names of all available workspaces
+  -> X11WindowHandle -- ^ Handle of the window to name
+  -> String
+defaultFormatEntry wsNames ((ws, wtitle, _), _) =
+  printf "%s: %s " wsName $ nonEmpty wtitle
+  where
+    wsName = M.findWithDefault ("WS#" ++ show wsN) ws wsNames
+    WSIdx wsN = ws
+    nonEmpty x =
+      case x of
+        [] -> "(nameless window)"
+        _ -> x
 
 -- | Creates a new Pager component (wrapped in the IO Monad) that can be
 -- used by widgets for subscribing X11 events.
