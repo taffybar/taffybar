@@ -246,9 +246,9 @@ sendCustomEvent dpy cmd arg root win =
 withErrorHandler :: XErrorHandler -> IO a -> IO a
 withErrorHandler new_handler action = do
     handler <- mkXErrorHandler (\d e -> new_handler d e >> return 0)
-    -- original <- _xSetErrorHandler handler
+    original <- _xSetErrorHandler handler
     res <- action
-    -- _ <- _xSetErrorHandler original
+    _ <- _xSetErrorHandler original
     return res
 
 deriving instance Show ErrorEvent
@@ -287,7 +287,7 @@ handleX11Errors action = do
 handleX11ErrorsWithDefault :: X11Property a -> a -> X11Property a
 handleX11ErrorsWithDefault property def = do
   c <- ask
-  res' <- lift $ timeout 2000 $ runReaderT (handleX11Errors property) c
+  res' <- lift $ timeout 10000 $ runReaderT (handleX11Errors property) c
   lift $ putStrLn "Got res' back"
   return $
          case res' of
