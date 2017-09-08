@@ -45,6 +45,7 @@ import Data.Maybe
 import Codec.Binary.UTF8.String as UTF8
 import Control.Monad.Reader
 import Data.Bits (testBit, (.|.))
+import Data.Functor ((<$>))
 import Data.List.Split (endBy)
 import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
