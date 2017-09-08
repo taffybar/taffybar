@@ -184,7 +184,7 @@ module System.Taffybar (
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
 import qualified Control.Concurrent.MVar as MV
-import Control.Monad ( when, filterM, foldM )
+import Control.Monad ( when, filterM, foldM, void )
 import qualified Data.Map as M
 import Data.Maybe ( fromMaybe )
 import Data.List
@@ -268,19 +268,21 @@ showError cfg msg = cfg { errorMsg = Just msg }
 -- -threaded so that the GTK event loops doesn't block all of the
 -- widgets
 defaultParams :: Dyre.Params TaffybarConfig
-defaultParams = Dyre.defaultParams { Dyre.projectName = "taffybar"
-                                   , Dyre.realMain = realMain
-                                   , Dyre.showError = showError
-                                   , Dyre.ghcOpts = ["-threaded", "-rtsopts"]
-                                   , Dyre.rtsOptsHandling = Dyre.RTSAppend ["-I0", "-V0"]
-                                   }
+defaultParams =
+  Dyre.defaultParams
+  { Dyre.projectName = "taffybar"
+  , Dyre.realMain = realMain
+  , Dyre.showError = showError
+  , Dyre.ghcOpts = ["-threaded", "-rtsopts"]
+  , Dyre.rtsOptsHandling = Dyre.RTSAppend ["-I0", "-V0"]
+  }
 
 -- | The entry point of the application.  Feed it a custom config.
 defaultTaffybar :: TaffybarConfig -> IO ()
 defaultTaffybar = Dyre.wrapMain defaultParams
 
 realMain :: TaffybarConfig -> IO ()
-realMain cfg = do
+realMain cfg =
   case errorMsg cfg of
     Nothing -> taffybarMain cfg
     Just err -> do
@@ -301,13 +303,13 @@ setTaffybarSize cfg window monNumber = do
   nmonitors <- screenGetNMonitors screen
   allMonitorSizes <-
     mapM (screenGetMonitorGeometry screen) [0 .. (nmonitors - 1)]
-  when (monNumber >= nmonitors) $ do
+  when (monNumber >= nmonitors) $
     IO.hPutStrLn IO.stderr $
       printf
         "Monitor %d is not available in the selected screen"
-        (monNumber)
+        monNumber
   let monitorSize =
-        fromMaybe (allMonitorSizes !! 0) $ do
+        fromMaybe (head allMonitorSizes) $
           allMonitorSizes `atMay` monNumber
   let Rectangle x y w h = monitorSize
       yoff =
@@ -336,7 +338,7 @@ setTaffybarSize cfg window monNumber = do
   winRealized <- widgetGetRealized window
   if winRealized
     then setStrutProps
-    else onRealize window setStrutProps >> return ()
+    else void $ onRealize window setStrutProps
 
 taffybarMain :: TaffybarConfig -> IO ()
 taffybarMain cfg = do
@@ -353,10 +355,10 @@ taffybarMain cfg = do
 
   Just disp <- displayGetDefault
   nscreens <- displayGetNScreens disp
-  screen <- case screenNumber cfg < nscreens of
-    False -> error $ printf "Screen %d is not available in the default display"
-             (screenNumber cfg)
-    True -> displayGetScreen disp (screenNumber cfg)
+  screen <- if screenNumber cfg < nscreens
+            then displayGetScreen disp (screenNumber cfg)
+            else error $ printf "Screen %d is not available in the default display"
+           (screenNumber cfg)
 
   cfgEq <- makeStableName cfg
   taffyWindowsVar <- MV.newMVar M.empty
@@ -389,7 +391,7 @@ taffybarMain cfg = do
                             window <- makeTaffyWindow newConfig monNum
                             return $ M.insert monNum (eqcfg, window) mapToUpdate
                         deleteWindow (_, window) =
-                          widgetDestroy window >> (return $ M.delete monNum mapToUpdate)
+                          widgetDestroy window >> return (M.delete monNum mapToUpdate)
                         maybeDeleteWindow = maybe (return mapToUpdate) deleteWindow $
                                             M.lookup monNum mapToUpdate
             foldM updateBarOnWindow monitorToWindow monitors

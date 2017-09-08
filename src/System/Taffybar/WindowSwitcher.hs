@@ -25,13 +25,14 @@ module System.Taffybar.WindowSwitcher (
   windowSwitcherNew
 ) where
 
-import Control.Monad.Reader
+import           Control.Monad.Reader
 import qualified Data.Map as M
 import qualified Graphics.UI.Gtk as Gtk
-import Graphics.X11.Xlib.Extras (Event)
-import System.Information.EWMHDesktopInfo
-import System.Information.X11DesktopInfo
-import System.Taffybar.Pager
+import           Graphics.X11.Xlib.Extras (Event)
+import           System.Information.EWMHDesktopInfo
+import           System.Information.X11DesktopInfo
+import           System.Taffybar.Pager
+import           Text.Printf
 
 -- $usage
 --
@@ -114,35 +115,33 @@ assembleWidget pager label = do
 
 -- | Populate the given menu widget with the list of all currently open windows.
 fillMenu :: Gtk.MenuClass menu => Pager -> menu -> IO ()
-fillMenu pager menu = runWithPager pager $ do
-  handles <- getWindowHandles
-  if null handles then return () else do
-    wsNames <- getWorkspaceNames
-    forM_ handles $ \handle -> liftIO $ do
-      item <- Gtk.menuItemNewWithLabel (formatEntry (M.fromList wsNames) handle)
-      _ <- Gtk.on item Gtk.buttonPressEvent $ liftIO $ do
-        runWithPager pager $ focusWindow $ snd handle
-        return True
-      Gtk.menuShellAppend menu item
-      Gtk.widgetShow item
+fillMenu pager menu =
+  runWithPager pager $ do
+    handles <- getWindowHandles
+    if null handles
+      then return ()
+      else do
+        wsNames <- getWorkspaceNames
+        forM_ handles $ \handle ->
+          liftIO $ do
+            let formatEntry = windowSwitcherFormatter $ config pager
+            item <-
+              Gtk.menuItemNewWithLabel (formatEntry (M.fromList wsNames) handle)
+            _ <-
+              Gtk.on item Gtk.buttonPressEvent $
+              liftIO $ do
+                runWithPager pager $ focusWindow $ snd handle
+                return True
+            Gtk.menuShellAppend menu item
+            Gtk.widgetShow item
 
 -- | Remove all contents from the given menu widget.
 emptyMenu :: Gtk.MenuClass menu => menu -> IO ()
 emptyMenu menu = Gtk.containerForeach menu $ \item ->
                  Gtk.containerRemove menu item >> Gtk.widgetDestroy item
 
--- | Build the name to display in the list of windows by prepending the name
--- of the workspace it is currently in to the name of the window itself
-formatEntry :: M.Map WorkspaceIdx String -- ^ List of names of all available workspaces
-            -> X11WindowHandle -- ^ Handle of the window to name
-            -> String
-formatEntry wsNames ((ws, wtitle, _), _) = wsName ++ ": " ++ (nonEmpty wtitle)
-  where
-    wsName = M.findWithDefault ("WS#"++show wsN) ws wsNames
-    WSIdx wsN = ws
-
--- | Return the given String if it's not empty, otherwise return "(nameless window)"
 nonEmpty :: String -> String
-nonEmpty x = case x of
-               [] -> "(nameless window)"
-               _  -> x
+nonEmpty x =
+      case x of
+        [] -> "(nameless window)"
+        _ -> x
