@@ -12,6 +12,7 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.WorkspaceHUD (
+  HUDIO(..),
   IconInfo(..),
   WWC(..),
   WindowData(..),
@@ -33,6 +34,8 @@ module System.Taffybar.WorkspaceHUD (
   getWorkspaceToWindows,
   hideEmpty,
   hudFromPagerConfig,
+  liftPager,
+  liftX11,
   windowTitleClassIconGetter
 ) where
 
@@ -141,7 +144,7 @@ data WorkspaceHUDConfig =
   , maxIcons :: Maybe Int
   , minIcons :: Int
   , getIconInfo :: WindowData -> HUDIO IconInfo
-  , labelSetter :: Workspace -> String
+  , labelSetter :: Workspace -> HUDIO String
   , updateIconsOnTitleChange :: Bool
   , updateOnWMIconChange :: Bool
   , showWorkspaceFn :: Workspace -> Bool
@@ -183,7 +186,7 @@ hudFromPagerConfig pagerConfig =
           Just fp -> IIFilePath fp
           Nothing -> IINone
   in defaultWorkspaceHUDConfig
-     { labelSetter = padded
+     { labelSetter = return . padded
      , minIcons =
          if fillEmptyImages pagerConfig
            then 1
@@ -221,7 +224,7 @@ defaultWorkspaceHUDConfig =
   , maxIcons = Nothing
   , minIcons = 0
   , getIconInfo = defaultGetIconInfo
-  , labelSetter = workspaceName
+  , labelSetter = return . workspaceName
   , updateIconsOnTitleChange = True
   , updateOnWMIconChange = True
   , showWorkspaceFn = const True
@@ -595,12 +598,9 @@ instance WorkspaceWidgetController WorkspaceContentsController where
   getWidget = containerWidget
   updateWidget cc (WorkspaceUpdate newWorkspace) = do
     Context { hudConfig = cfg } <- ask
+    labelText <- labelSetter cfg newWorkspace
     lift $ do
-      let currentWorkspace = contentsWorkspace cc
-          getLabel = labelSetter cfg
-
-      when (getLabel currentWorkspace /= getLabel newWorkspace) $
-           Gtk.labelSetMarkup (label cc) (getLabel newWorkspace)
+      Gtk.labelSetMarkup (label cc) labelText
 
       setContainerWidgetNames cc newWorkspace
 
