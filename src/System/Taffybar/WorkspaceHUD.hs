@@ -12,6 +12,8 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.WorkspaceHUD (
+  Context(..),
+  ControllerConstructor,
   HUDIO,
   IconInfo(..),
   WWC(..),
@@ -32,14 +34,15 @@ module System.Taffybar.WorkspaceHUD (
   buildLabelController,
   buildWorkspaceHUD,
   buildWorkspaces,
+  defaultBuildContentsController,
   defaultGetIconInfo,
   defaultWorkspaceHUDConfig,
-  defaultBuildContentsController,
   getWorkspaceToWindows,
   hideEmpty,
   hudFromPagerConfig,
   liftPager,
   liftX11,
+  setImage,
   windowTitleClassIconGetter
 ) where
 
