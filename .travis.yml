@@ -1,4 +1,4 @@
-sudo: required
+dist: precise
 language: c
 cache:
   directories:
@@ -6,7 +6,6 @@ cache:
 
 before_install:
 # Download and unpack the stack executable
-- sudo apt-get install libxrandr-dev libpango1.0-dev libgmp-dev libgtk2.0-dev libglib2.0-dev
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
