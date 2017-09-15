@@ -212,7 +212,7 @@ hudFromPagerConfig pagerConfig =
      , widgetBuilder =
          if workspaceBorder pagerConfig
            then buildBorderButtonController
-           else buildButtonController $ defaultBuildContentsController
+           else buildButtonController defaultBuildContentsController
      , minWSWidgetSize = Nothing
      }
   where
@@ -631,7 +631,7 @@ instance WorkspaceWidgetController WorkspaceContentsController where
         Gtk.widgetSetName (containerEbox cc) $
         getWidgetName newWorkspace "contents"
       _ -> return ()
-    newControllers <- mapM (flip updateWidget update) $ contentsControllers cc
+    newControllers <- mapM (`updateWidget` update) $ contentsControllers cc
     return cc {contentsControllers = newControllers}
 
 data LabelController = LabelController { label :: Gtk.Label }
@@ -640,7 +640,7 @@ buildLabelController :: ControllerConstructor
 buildLabelController ws = do
   tempController <- lift $ do
     lbl <- Gtk.labelNew (Nothing :: Maybe String)
-    return $ LabelController { label = lbl }
+    return LabelController { label = lbl }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
 instance WorkspaceWidgetController LabelController where
@@ -649,7 +649,7 @@ instance WorkspaceWidgetController LabelController where
     Context { hudConfig = cfg } <- ask
     labelText <- labelSetter cfg newWorkspace
     lift $ do
-      Gtk.labelSetMarkup (label lc) $ labelText
+      Gtk.labelSetMarkup (label lc) labelText
       Gtk.widgetSetName (label lc) $ getWidgetName newWorkspace "label"
     return lc
   updateWidget lc _ = return lc
@@ -668,12 +668,12 @@ data IconController = IconController
 
 buildIconController :: ControllerConstructor
 buildIconController ws = do
-  tempController <- lift $ do
-    hbox <- Gtk.hBoxNew False 0
-    return $ IconController { iconsContainer = hbox
-                            , iconImages = []
-                            , iconWorkspace = ws
-                            }
+  tempController <-
+    lift $ do
+      hbox <- Gtk.hBoxNew False 0
+      return
+        IconController
+        {iconsContainer = hbox, iconImages = [], iconWorkspace = ws}
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
 instance WorkspaceWidgetController IconController where
@@ -738,17 +738,14 @@ updateImages ic ws = do
       windowCount = length $ windows ws
       maxNeeded = maybe windowCount (min windowCount) $ maxIcons cfg
       newImagesNeeded = length existingImages < max (minIcons cfg) maxNeeded
+      -- XXX: Only one of the two things being zipped can be an infinite list,
+      -- which is why this newImagesNeeded contortion is needed.
       imgSrcs =
         if newImagesNeeded
           then infiniteImages
           else existingImages
-      getImgs =
-        case maxIcons cfg of
-          Just theMax -> take theMax imgSrcs
-          Nothing -> imgSrcs
-  -- XXX: Only one of the two things being zipped can be an infinite list, which
-  -- is why this newImagesNeeded contortion is needed.
-  let makeComparisonTuple wd = (windowClass wd, windowId wd)
+      getImgs = maybe imgSrcs (`take` imgSrcs) $ maxIcons cfg
+      makeComparisonTuple wd = (windowClass wd, windowId wd)
       compareWindowData a b = compare (makeComparisonTuple a) (makeComparisonTuple b)
       sortedWindows = if sortIcons cfg then
                         sortBy compareWindowData $ windows ws
