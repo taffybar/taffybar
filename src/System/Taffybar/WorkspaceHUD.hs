@@ -47,6 +47,7 @@ module System.Taffybar.WorkspaceHUD (
 ) where
 
 import           Control.Applicative
+import           Control.Arrow ((&&&))
 import           Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
@@ -61,10 +62,13 @@ import           Data.Maybe
 import qualified Data.MultiMap as MM
 import qualified Data.Set as Set
 import           Data.Time.Units
+import           Data.Tuple.Sequence
+import           Data.Tuple.Select
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import qualified Graphics.UI.Gtk.Layout.Table as T
 import           Graphics.X11.Xlib.Extras hiding (xSetErrorHandler)
+import           Graphics.X11.Xlib.Misc
 import           Prelude
 import           System.Information.EWMHDesktopInfo
 import           System.Information.X11DesktopInfo
@@ -212,7 +216,7 @@ hudFromPagerConfig pagerConfig =
      , widgetBuilder =
          if workspaceBorder pagerConfig
            then buildBorderButtonController
-           else buildButtonController $ defaultBuildContentsController
+           else buildButtonController defaultBuildContentsController
      , minWSWidgetSize = Nothing
      }
   where
@@ -631,7 +635,7 @@ instance WorkspaceWidgetController WorkspaceContentsController where
         Gtk.widgetSetName (containerEbox cc) $
         getWidgetName newWorkspace "contents"
       _ -> return ()
-    newControllers <- mapM (flip updateWidget update) $ contentsControllers cc
+    newControllers <- mapM (`updateWidget` update) $ contentsControllers cc
     return cc {contentsControllers = newControllers}
 
 data LabelController = LabelController { label :: Gtk.Label }
@@ -640,7 +644,7 @@ buildLabelController :: ControllerConstructor
 buildLabelController ws = do
   tempController <- lift $ do
     lbl <- Gtk.labelNew (Nothing :: Maybe String)
-    return $ LabelController { label = lbl }
+    return LabelController { label = lbl }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
 instance WorkspaceWidgetController LabelController where
@@ -649,7 +653,7 @@ instance WorkspaceWidgetController LabelController where
     Context { hudConfig = cfg } <- ask
     labelText <- labelSetter cfg newWorkspace
     lift $ do
-      Gtk.labelSetMarkup (label lc) $ labelText
+      Gtk.labelSetMarkup (label lc) labelText
       Gtk.widgetSetName (label lc) $ getWidgetName newWorkspace "label"
     return lc
   updateWidget lc _ = return lc
@@ -668,12 +672,12 @@ data IconController = IconController
 
 buildIconController :: ControllerConstructor
 buildIconController ws = do
-  tempController <- lift $ do
-    hbox <- Gtk.hBoxNew False 0
-    return $ IconController { iconsContainer = hbox
-                            , iconImages = []
-                            , iconWorkspace = ws
-                            }
+  tempController <-
+    lift $ do
+      hbox <- Gtk.hBoxNew False 0
+      return
+        IconController
+        {iconsContainer = hbox, iconImages = [], iconWorkspace = ws}
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
 instance WorkspaceWidgetController IconController where
@@ -716,9 +720,15 @@ defaultGetIconInfo w = do
       then IINone
       else IIEWMH $ selectEWMHIcon iconSize icons
 
+forkM :: (c -> HUDIO a) -> (c -> HUDIO b) -> c -> HUDIO (a, b)
+forkM a b = sequenceT . (a &&& b)
+
 updateImages :: IconController -> Workspace -> HUDIO [IconWidget]
 updateImages ic ws = do
   Context {hudConfig = cfg} <- ask
+  let getGeometryHUD w = liftX11 $ getDisplay >>= liftIO . (`getGeometry` w)
+  windowGeometries <-
+    mapM (forkM return (((sel2 <$>) .) getGeometryHUD) . windowId) $ windows ws
   let updateIconWidget' getImage wdata ton = do
         let forceHack = isNothing wdata && newImagesNeeded && ton
             previousState = workspaceState $ iconWorkspace ic
@@ -738,22 +748,21 @@ updateImages ic ws = do
       windowCount = length $ windows ws
       maxNeeded = maybe windowCount (min windowCount) $ maxIcons cfg
       newImagesNeeded = length existingImages < max (minIcons cfg) maxNeeded
+      -- XXX: Only one of the two things being zipped can be an infinite list,
+      -- which is why this newImagesNeeded contortion is needed.
       imgSrcs =
         if newImagesNeeded
           then infiniteImages
           else existingImages
-      getImgs =
-        case maxIcons cfg of
-          Just theMax -> take theMax imgSrcs
-          Nothing -> imgSrcs
-  -- XXX: Only one of the two things being zipped can be an infinite list, which
-  -- is why this newImagesNeeded contortion is needed.
-  let makeComparisonTuple wd = (windowClass wd, windowId wd)
-      compareWindowData a b = compare (makeComparisonTuple a) (makeComparisonTuple b)
-      sortedWindows = if sortIcons cfg then
-                        sortBy compareWindowData $ windows ws
-                      else
-                        windows ws
+      getImgs = maybe imgSrcs (`take` imgSrcs) $ maxIcons cfg
+      getLeftPos wd = fromMaybe 999999999 $ lookup (windowId wd) windowGeometries
+      compareWindowData a b =
+        compare (windowMinimized a, getLeftPos a)
+                (windowMinimized b, getLeftPos b)
+      sortedWindows =
+        if sortIcons cfg
+          then sortBy compareWindowData $ windows ws
+          else windows ws
       justWindows = map Just sortedWindows
       windowDatas =
         if newImagesNeeded

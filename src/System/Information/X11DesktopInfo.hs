@@ -34,6 +34,7 @@ module System.Information.X11DesktopInfo
   , isWindowUrgent
   , getVisibleTags
   , getAtom
+  , getDisplay
   , eventLoop
   , sendCommandEvent
   , sendWindowEvent
@@ -63,6 +64,9 @@ withDefaultCtx fun = do
   res <- runReaderT fun ctx
   closeDisplay (contextDisplay ctx)
   return res
+
+getDisplay :: X11Property Display
+getDisplay = contextDisplay <$> ask
 
 -- | Retrieve the property of the given window (or the root window,
 -- if Nothing) with the given name as a value of type Int. If that
