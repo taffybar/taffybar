@@ -164,7 +164,7 @@ batteryBarNew battCfg pollSeconds = do
     cs -> do
       b <- hBoxNew False 1
       rs <- sequence $ fmap newIORef cs
-      txt <- textBatteryNew rs "$percentage$%" pollSeconds
+      txt <- textBatteryNew rs "$percentage$% $time$" pollSeconds
       let ris :: [(IORef BatteryContext, Int)]
           ris = rs `zip` [0..]
       bars <- sequence $ fmap (\(i, r) -> pollingBarNew battCfg pollSeconds (battPct i r)) ris
