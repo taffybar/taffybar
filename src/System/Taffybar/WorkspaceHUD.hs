@@ -163,7 +163,7 @@ data WorkspaceHUDConfig =
   , updateEvents :: [String]
   , updateRateLimitMicroseconds :: Integer
   , debugMode :: Bool
-  , sortIcons :: Bool
+  , iconSort :: [WindowData] -> HUDIO [WindowData]
   , handleX11Errors :: Bool
   , redrawIconsOnStateChange :: Bool
   , urgentWorkspaceState :: Bool
@@ -262,7 +262,7 @@ defaultWorkspaceHUDConfig =
   , updateOnWMIconChange = True
   , showWorkspaceFn = const True
   , borderWidth = 2
-  , sortIcons = True
+  , iconSort = sortWindowsByPosition
   , updateEvents =
       [ "_NET_CURRENT_DESKTOP"
       , "_NET_WM_DESKTOP"
@@ -723,12 +723,22 @@ defaultGetIconInfo w = do
 forkM :: (c -> HUDIO a) -> (c -> HUDIO b) -> c -> HUDIO (a, b)
 forkM a b = sequenceT . (a &&& b)
 
+sortWindowsByPosition :: [WindowData] -> HUDIO [WindowData]
+sortWindowsByPosition wins = do
+  let getGeometryHUD w = liftX11 $ getDisplay >>= liftIO . (`getGeometry` w)
+  windowGeometries <-
+    mapM (forkM return ((((sel2 &&& sel3) <$>) .) getGeometryHUD) . windowId) $ wins
+  let
+    getLeftPos wd = fromMaybe (999999999, 99999999) $ lookup (windowId wd) windowGeometries
+    compareWindowData a b =
+        compare (windowMinimized a, getLeftPos a)
+                (windowMinimized b, getLeftPos b)
+  return $ sortBy compareWindowData wins
+
 updateImages :: IconController -> Workspace -> HUDIO [IconWidget]
 updateImages ic ws = do
   Context {hudConfig = cfg} <- ask
-  let getGeometryHUD w = liftX11 $ getDisplay >>= liftIO . (`getGeometry` w)
-  windowGeometries <-
-    mapM (forkM return (((sel2 <$>) .) getGeometryHUD) . windowId) $ windows ws
+  sortedWindows <- iconSort cfg $ windows ws
   let updateIconWidget' getImage wdata ton = do
         let forceHack = isNothing wdata && newImagesNeeded && ton
             previousState = workspaceState $ iconWorkspace ic
@@ -755,14 +765,6 @@ updateImages ic ws = do
           then infiniteImages
           else existingImages
       getImgs = maybe imgSrcs (`take` imgSrcs) $ maxIcons cfg
-      getLeftPos wd = fromMaybe 999999999 $ lookup (windowId wd) windowGeometries
-      compareWindowData a b =
-        compare (windowMinimized a, getLeftPos a)
-                (windowMinimized b, getLeftPos b)
-      sortedWindows =
-        if sortIcons cfg
-          then sortBy compareWindowData $ windows ws
-          else windows ws
       justWindows = map Just sortedWindows
       windowDatas =
         if newImagesNeeded
