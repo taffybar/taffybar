@@ -218,6 +218,7 @@ hudFromPagerConfig pagerConfig =
            then buildBorderButtonController
            else buildButtonController defaultBuildContentsController
      , minWSWidgetSize = Nothing
+     , iconSort = return
      }
   where
     prefixSpace "" = ""
@@ -290,7 +291,7 @@ hudLogger ctx txt =
     when shouldLog $ putStrLn txt
 
 hudLog :: String -> HUDIO ()
-hudLog txt = ask >>= lift . flip hudLogger txt
+hudLog txt = ask >>= lift . flip hudLogger (printf "[WorkspaceHUD] %s" txt)
 
 updateVar :: MV.MVar a -> (a -> HUDIO a) -> HUDIO a
 updateVar var modify = do
@@ -727,12 +728,15 @@ sortWindowsByPosition :: [WindowData] -> HUDIO [WindowData]
 sortWindowsByPosition wins = do
   let getGeometryHUD w = liftX11 $ getDisplay >>= liftIO . (`getGeometry` w)
   windowGeometries <-
-    mapM (forkM return ((((sel2 &&& sel3) <$>) .) getGeometryHUD) . windowId) $ wins
-  let
-    getLeftPos wd = fromMaybe (999999999, 99999999) $ lookup (windowId wd) windowGeometries
-    compareWindowData a b =
-        compare (windowMinimized a, getLeftPos a)
-                (windowMinimized b, getLeftPos b)
+    mapM
+      (forkM return ((((sel2 &&& sel3) <$>) .) getGeometryHUD) . windowId)
+      wins
+  let getLeftPos wd =
+        fromMaybe (999999999, 99999999) $ lookup (windowId wd) windowGeometries
+      compareWindowData a b =
+        compare
+          (windowMinimized a, getLeftPos a)
+          (windowMinimized b, getLeftPos b)
   return $ sortBy compareWindowData wins
 
 updateImages :: IconController -> Workspace -> HUDIO [IconWidget]
