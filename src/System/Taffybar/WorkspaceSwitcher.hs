@@ -34,6 +34,7 @@ import Data.List ((\\), findIndices, sortBy)
 import Data.Maybe (listToMaybe)
 import Data.Ord (comparing)
 import Foreign.C.Types (CUChar(..))
+import Foreign.Ptr
 import Foreign.Marshal.Array (newArray)
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.X11.Xlib.Extras
@@ -337,16 +338,8 @@ setImage imgSize preferCustom img imgChoice = setImgAct imgChoice preferCustom
 -- | Create a pixbuf from the pixel data in an EWMHIcon,
 -- scale it square, and set it in a GTK Image.
 setImageFromEWMHIcon :: Gtk.Image -> Int -> EWMHIcon -> IO ()
-setImageFromEWMHIcon img imgSize EWMHIcon {width=w, height=h, pixelsARGB=px} = do
-  let pixelsPerRow = w
-      bytesPerPixel = 4
-      rowStride = pixelsPerRow * bytesPerPixel
-      sampleBits = 8
-      hasAlpha = True
-      colorspace = Gtk.ColorspaceRgb
-      bytesRGBA = pixelsARGBToBytesRGBA px
-  cPtr <- newArray $ map CUChar bytesRGBA
-  pixbuf <- Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
+setImageFromEWMHIcon img imgSize icon = do
+  pixbuf <- pixBufFromEWMHIcon icon
   scaledPixbuf <- scalePixbuf imgSize pixbuf
   Gtk.imageSetFromPixbuf img scaledPixbuf
 

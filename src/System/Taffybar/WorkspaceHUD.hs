@@ -726,7 +726,7 @@ updateMinSize widget minWidth = do
 defaultGetIconInfo :: WindowData -> HUDIO IconInfo
 defaultGetIconInfo w = do
   icons <- liftX11 $ postX11RequestSyncProp (getWindowIcons $ windowId w) []
-  iconSize <- asks $ windowIconSize .hudConfig
+  iconSize <- asks $ windowIconSize . hudConfig
   return $
     if null icons
       then IINone

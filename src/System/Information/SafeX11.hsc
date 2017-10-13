@@ -36,7 +36,7 @@ import           System.IO.Unsafe
 import           System.Timeout
 
 foreign import ccall safe "XlibExtras.h XGetWMHints"
-    xGetWMHints :: Display -> Window -> IO (Ptr WMHints)
+    safeXGetWMHints :: Display -> Window -> IO (Ptr WMHints)
 
 foreign import ccall interruptible "XlibExtras.h XGetWindowProperty"
                safeXGetWindowProperty ::
@@ -168,7 +168,7 @@ rawGetWindowProperty ::
   Storable a
   => Int -> Display -> Atom -> Window -> IO (Maybe [a])
 rawGetWindowProperty bits d atom w =
-  seq x11Thread runMaybeT $ do
+  runMaybeT $ do
     (ptr, count) <- MaybeT $ rawGetWindowPropertyBytes bits d atom w
     lift $ withForeignPtr ptr $ peekArray count
 
@@ -183,7 +183,7 @@ getWindowProperty32 = rawGetWindowProperty 32
 
 getWMHints :: Display -> Window -> IO WMHints
 getWMHints dpy w = do
-    p <- xGetWMHints dpy w
+    p <- safeXGetWMHints dpy w
     if p == nullPtr
         then return $ WMHints 0 False 0 0 0 0 0 0 0
         else do x <- peek p; _ <- xFree p; return x
