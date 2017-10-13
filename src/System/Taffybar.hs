@@ -344,7 +344,6 @@ taffybarMain :: TaffybarConfig -> IO ()
 taffybarMain cfg = do
 
   _ <- initThreads
-
   _ <- initGUI
 
   -- Load default and user gtk resources

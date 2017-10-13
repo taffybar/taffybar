@@ -62,15 +62,18 @@ import           Data.Maybe
 import qualified Data.MultiMap as MM
 import qualified Data.Set as Set
 import           Data.Time.Units
-import           Data.Tuple.Sequence
 import           Data.Tuple.Select
+import           Data.Tuple.Sequence
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import qualified Graphics.UI.Gtk.Layout.Table as T
-import           Graphics.X11.Xlib.Extras hiding (xSetErrorHandler)
+import           Graphics.X11.Xlib.Extras
+       hiding (rawGetWindowProperty, getWindowProperty8,
+               getWindowProperty16, getWindowProperty32, xSetErrorHandler)
 import           Graphics.X11.Xlib.Misc
 import           Prelude
 import           System.Information.EWMHDesktopInfo
+import           System.Information.SafeX11
 import           System.Information.X11DesktopInfo
 import           System.Taffybar.IconImages
 import           System.Taffybar.Pager
@@ -130,15 +133,17 @@ liftX11 :: X11Property a -> HUDIO a
 liftX11 = liftPager . liftPagerX11
 
 class WorkspaceWidgetController wc where
-  updateWidget :: wc -> WidgetUpdate -> HUDIO wc
   getWidget :: wc -> Gtk.Widget
+  updateWidget :: wc -> WidgetUpdate -> HUDIO wc
+  updateWidgetX11 :: wc -> WidgetUpdate -> HUDIO wc
+  updateWidgetX11 cont _ = return cont
 
 data WWC = forall a. WorkspaceWidgetController a => WWC a
 
 instance WorkspaceWidgetController WWC where
   getWidget (WWC wc) = getWidget wc
-  updateWidget (WWC wc) workspace =
-    WWC <$> updateWidget wc workspace
+  updateWidget (WWC wc) update = WWC <$> updateWidget wc update
+  updateWidgetX11 (WWC wc) update = WWC <$> updateWidgetX11 wc update
 
 type ControllerConstructor = Workspace -> HUDIO WWC
 type ParentControllerConstructor =
@@ -301,23 +306,24 @@ updateWorkspacesVar = do
   workspacesRef <- asks workspacesVar
   updateVar workspacesRef buildWorkspaces
 
-getWorkspaceToWindows :: HUDIO (MM.MultiMap WorkspaceIdx X11Window)
-getWorkspaceToWindows = liftX11 $ getWindows >>=
+getWorkspaceToWindows :: [X11Window] -> HUDIO (MM.MultiMap WorkspaceIdx X11Window)
+getWorkspaceToWindows windows  = liftX11 $
   foldM
     (\theMap window ->
-       MM.insert <$> handleX11ErrorsWithDefault (getWorkspace window) (WSIdx 0)
+       MM.insert <$> postX11RequestSyncProp (getWorkspace window) (WSIdx 0)
                  <*> pure window <*> pure theMap)
-    MM.empty
+    MM.empty windows
 
-getUrgentWindows :: X11Property [X11Window]
-getUrgentWindows = getWindows >>= filterM isWindowUrgent
+getUrgentWindows :: [X11Window] -> X11Property [X11Window]
+getUrgentWindows windows =
+  postX11RequestSyncProp (filterM isWindowUrgent windows) []
 
 getWindowData :: [X11Window] -> [X11Window] -> X11Window -> X11Property WindowData
 getWindowData activeWindows urgentWindows window = do
-  wTitle <- handleX11ErrorsWithDefault (getWindowTitle window) ""
-  wClass <- handleX11ErrorsWithDefault (getWindowClass window) ""
+  wTitle <- postX11RequestSyncProp (getWindowTitle window) ""
+  wClass <- postX11RequestSyncProp (getWindowClass window) ""
   wMinimized <-
-    handleX11ErrorsWithDefault
+    postX11RequestSyncProp
       (getWindowStateProperty window "_NET_WM_STATE_HIDDEN")
       False
   return
@@ -335,8 +341,9 @@ buildWorkspaces :: M.Map WorkspaceIdx Workspace
 buildWorkspaces _ = do
   context <- ask
   names <- liftX11 getWorkspaceNames
-  workspaceToWindows <- getWorkspaceToWindows
-  urgentWindows <- liftX11 getUrgentWindows
+  windows <- liftX11 getWindows
+  workspaceToWindows <- getWorkspaceToWindows windows
+  urgentWindows <- liftX11 $ getUrgentWindows windows
   activeWindows <- liftX11 $ readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
   active:visible <- liftX11 getVisibleWorkspaces
   let getWorkspaceState idx ws
@@ -639,6 +646,9 @@ instance WorkspaceWidgetController WorkspaceContentsController where
       _ -> return ()
     newControllers <- mapM (`updateWidget` update) $ contentsControllers cc
     return cc {contentsControllers = newControllers}
+  updateWidgetX11 cc update = do
+    newControllers <- mapM (`updateWidgetX11` update) $ contentsControllers cc
+    return cc {contentsControllers = newControllers}
 
 data LabelController = LabelController { label :: Gtk.Label }
 
@@ -715,7 +725,7 @@ updateMinSize widget minWidth = do
 
 defaultGetIconInfo :: WindowData -> HUDIO IconInfo
 defaultGetIconInfo w = do
-  icons <- liftX11 $ handleX11ErrorsWithDefault (getWindowIcons $ windowId w) []
+  icons <- liftX11 $ postX11RequestSyncProp (getWindowIcons $ windowId w) []
   iconSize <- asks $ windowIconSize .hudConfig
   return $
     if null icons

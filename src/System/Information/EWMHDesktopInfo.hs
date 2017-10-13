@@ -132,7 +132,7 @@ getWindowIcons window = do
 --   followed by exactly (width*height) ARGB pixels,
 --   optionally followed by the next icon.
 parseIcons :: [Int] -> [EWMHIcon]
-parseIcons (w:h:xs) | w>0 && h>0 && length pixels==w*h = icon : parseIcons rest
+parseIcons (w:h:xs) | w>0 && h>0 && length pixels == w*h = icon : parseIcons rest
   where pixels = take (w*h) xs
         rest = drop (w*h) xs
         icon = EWMHIcon {width = w, height = h, pixelsARGB = pixels}

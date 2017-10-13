@@ -52,8 +52,11 @@ import qualified Data.Map as M
 import Graphics.UI.Gtk (escapeMarkup)
 import Graphics.X11.Types
 import Graphics.X11.Xlib.Extras
+  hiding (rawGetWindowProperty, getWindowProperty8,
+          getWindowProperty16, getWindowProperty32)
 import System.Information.EWMHDesktopInfo
 import Text.Printf (printf)
+import System.Information.SafeX11
 
 import System.Information.X11DesktopInfo
 
@@ -115,11 +118,12 @@ liftPagerX11 prop = ask >>= lift . flip runWithPager prop
 runWithPager :: Pager -> X11Property a -> IO a
 runWithPager pager prop = do
   x11Ctx <- readIORef $ pagerX11ContextVar pager
+  -- runWithPager should probably changed so that it takes a default value
   runReaderT prop x11Ctx
 
 -- | Default pretty printing options.
 defaultPagerConfig :: PagerConfig
-defaultPagerConfig   = PagerConfig
+defaultPagerConfig = PagerConfig
   { activeWindow            = escape . shorten 40
   , activeLayout            = escape
   , activeWorkspace         = colorize "yellow" "" . wrap "[" "]" . escape
