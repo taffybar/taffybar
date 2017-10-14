@@ -22,6 +22,9 @@
  * Share a single X11Connection between all components to fix the `user error (openDisplay)` error (Ivan Malison)
  * Call initThreads at startup. This fixes ```taffybar-linux-x86_64: xcb_io.c:259: poll_for_event: Assertion `!xcb_xlib_threads_sequence_lost' failed.``` (Ivan Malison)
  * Add an eventBox to window switcher to allow setting its background (Ivan Malison)
+ * #105 Prevent taffybar from crashing when two windows are closed
+   simultaneously, or when taffybar otherwise requests data about a window that
+   no longer exists.
 
 # 0.4.6
 
