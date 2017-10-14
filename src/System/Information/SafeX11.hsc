@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiParamTypeClasses, StandaloneDeriving, FlexibleInstances, InterruptibleFFI, ExistentialQuantification #-}
+{-# LANGUAGE MultiParamTypeClasses, StandaloneDeriving, FlexibleInstances,
+  InterruptibleFFI, ExistentialQuantification, DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Information.SafeX11
