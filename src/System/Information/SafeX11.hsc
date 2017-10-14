@@ -156,8 +156,6 @@ postX11RequestSyncDef :: a -> IO a -> IO a
 postX11RequestSyncDef def action =
   fromRight def <$> postX11RequestSync action
 
-doX11Unblock e = throwTo x11Thread e
-
 rawGetWindowProperty ::
   Storable a
   => Int -> Display -> Atom -> Window -> IO (Maybe [a])
