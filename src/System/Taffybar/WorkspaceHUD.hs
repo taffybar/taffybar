@@ -73,6 +73,7 @@ import           Graphics.X11.Xlib.Extras
 import           Graphics.X11.Xlib.Misc
 import           Prelude
 import           System.Information.EWMHDesktopInfo
+import           System.Information.SafeX11
 import           System.Information.X11DesktopInfo
 import           System.Taffybar.IconImages
 import           System.Taffybar.Pager
@@ -726,7 +727,7 @@ forkM a b = sequenceT . (a &&& b)
 
 sortWindowsByPosition :: [WindowData] -> HUDIO [WindowData]
 sortWindowsByPosition wins = do
-  let getGeometryHUD w = getDisplay >>= liftIO . (`getGeometry` w)
+  let getGeometryHUD w = getDisplay >>= liftIO . (`safeGetGeometry` w)
       getGeometries = mapM
                       (forkM return ((((sel2 &&& sel3) <$>) .) getGeometryHUD) . windowId)
                       wins

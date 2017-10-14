@@ -30,7 +30,7 @@ import           Graphics.X11.Xlib
 import           Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,
                getWindowProperty16, getWindowProperty32,
-               xGetWMHints, getWMHints)
+               xGetWMHints, getWMHints, getGeometry, xGetGeometry)
 import           Graphics.X11.Xlib.Types
 import           System.IO
 import           System.IO.Unsafe
@@ -180,3 +180,35 @@ getWMHints dpy w = do
     if p == nullPtr
         then return $ WMHints 0 False 0 0 0 0 0 0 0
         else do x <- peek p; _ <- xFree p; return x
+
+safeGetGeometry :: Display -> Drawable ->
+        IO (Window, Position, Position, Dimension, Dimension, Dimension, CInt)
+safeGetGeometry display d =
+        outParameters7 (throwIfZero "getGeometry") $
+                xGetGeometry display d
+
+outParameters7 :: (Storable a, Storable b, Storable c, Storable d, Storable e, Storable f, Storable g) =>
+        (IO r -> IO ()) -> (Ptr a -> Ptr b -> Ptr c -> Ptr d -> Ptr e -> Ptr f -> Ptr g -> IO r) ->
+        IO (a,b,c,d,e,f,g)
+outParameters7 check fn =
+        alloca $ \ a_return ->
+        alloca $ \ b_return ->
+        alloca $ \ c_return ->
+        alloca $ \ d_return ->
+        alloca $ \ e_return ->
+        alloca $ \ f_return ->
+        alloca $ \ g_return -> do
+        check (fn a_return b_return c_return d_return e_return f_return g_return)
+        a <- peek a_return
+        b <- peek b_return
+        c <- peek c_return
+        d <- peek d_return
+        e <- peek e_return
+        f <- peek f_return
+        g <- peek g_return
+        return (a,b,c,d,e,f,g)
+
+foreign import ccall safe "HsXlib.h XGetGeometry"
+        xGetGeometry :: Display -> Drawable ->
+                Ptr Window -> Ptr Position -> Ptr Position -> Ptr Dimension ->
+                Ptr Dimension -> Ptr Dimension -> Ptr CInt -> IO Status
