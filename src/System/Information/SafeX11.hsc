@@ -18,6 +18,7 @@ import           Control.Monad
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Maybe (MaybeT(..))
 import           Data.Either.Combinators
+import           Data.Functor ((<$>))
 import           Data.Maybe
 import           Data.Tuple.Curry
 import           Foreign hiding (void)
