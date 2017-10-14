@@ -56,10 +56,8 @@ import Graphics.X11.Xlib.Extras
   hiding (rawGetWindowProperty, getWindowProperty8,
           getWindowProperty16, getWindowProperty32)
 import System.Information.EWMHDesktopInfo
-import Text.Printf (printf)
-import System.Information.SafeX11
-
 import System.Information.X11DesktopInfo
+import Text.Printf (printf)
 
 type Listener = Event -> IO ()
 type Filter = Atom

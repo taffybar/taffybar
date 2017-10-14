@@ -91,9 +91,9 @@ taffyPagerNew cfg = do
   return (toWidget box)
 
 taffyPagerHUDNew :: PagerConfig -> WorkspaceHUDConfig -> IO Widget
-taffyPagerHUDNew cfg hudConfig = do
+taffyPagerHUDNew cfg hudConf = do
   pgr <- pagerNew cfg
-  whud <- buildWorkspaceHUD hudConfig pgr
+  whud <- buildWorkspaceHUD hudConf pgr
   los <- layoutSwitcherNew pgr
   wnd <- windowSwitcherNew pgr
   sp1 <- separator cfg

@@ -70,7 +70,6 @@ import qualified Graphics.UI.Gtk.Layout.Table as T
 import           Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,
                getWindowProperty16, getWindowProperty32, xSetErrorHandler)
-import           Graphics.X11.Xlib.Misc
 import           Prelude
 import           System.Information.EWMHDesktopInfo
 import           System.Information.SafeX11

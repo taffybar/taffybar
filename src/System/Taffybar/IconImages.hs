@@ -96,18 +96,6 @@ pixelsARGBToBytesABGR ptr size = do
   writeIndexAndNext 0
   return target
 
-mapArr :: (Storable a, Storable b, Show b) => (a -> b) -> Ptr a -> Int -> IO (Ptr b)
-mapArr fn ptr size = do
-  target <- mallocArray size
-  let writeIndex i =
-        (fn <$> peekElemOff ptr i) >>=
-        pokeElemOff target i
-      writeIndexAndNext i
-        | i >= size = return ()
-        | otherwise = writeIndex i >> writeIndexAndNext (i + 1)
-  writeIndexAndNext 0
-  return target
-
 -- | Create a pixbuf from a file,
 -- scale it square, and set it in a GTK Image.
 pixBufFromFile :: Int -> FilePath -> IO Gtk.Pixbuf

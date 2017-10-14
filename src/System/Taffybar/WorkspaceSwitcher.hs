@@ -33,9 +33,6 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List ((\\), findIndices, sortBy)
 import Data.Maybe (listToMaybe)
 import Data.Ord (comparing)
-import Foreign.C.Types (CUChar(..))
-import Foreign.Ptr
-import Foreign.Marshal.Array (newArray)
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.X11.Xlib.Extras
 

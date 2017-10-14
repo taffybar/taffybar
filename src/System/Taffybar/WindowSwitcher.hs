@@ -32,7 +32,6 @@ import           Graphics.X11.Xlib.Extras (Event)
 import           System.Information.EWMHDesktopInfo
 import           System.Information.X11DesktopInfo
 import           System.Taffybar.Pager
-import           Text.Printf
 
 -- $usage
 --
