@@ -41,7 +41,7 @@ module System.Taffybar.WorkspaceHUD (
   hideEmpty,
   hudFromPagerConfig,
   liftPager,
-  liftX11,
+  liftX11Def,
   setImage,
   windowTitleClassIconGetter
 ) where
@@ -73,7 +73,6 @@ import           Graphics.X11.Xlib.Extras
 import           Graphics.X11.Xlib.Misc
 import           Prelude
 import           System.Information.EWMHDesktopInfo
-import           System.Information.SafeX11
 import           System.Information.X11DesktopInfo
 import           System.Taffybar.IconImages
 import           System.Taffybar.Pager
@@ -129,8 +128,8 @@ type HUDIO a = ReaderT Context IO a
 liftPager :: PagerIO a -> HUDIO a
 liftPager action = asks hudPager >>= lift . runReaderT action
 
-liftX11 :: X11Property a -> HUDIO a
-liftX11 = liftPager . liftPagerX11
+liftX11Def :: a -> X11Property a -> HUDIO a
+liftX11Def = (liftPager .) . liftPagerX11Def
 
 class WorkspaceWidgetController wc where
   getWidget :: wc -> Gtk.Widget
@@ -306,26 +305,18 @@ updateWorkspacesVar = do
   workspacesRef <- asks workspacesVar
   updateVar workspacesRef buildWorkspaces
 
-getWorkspaceToWindows :: [X11Window] -> HUDIO (MM.MultiMap WorkspaceIdx X11Window)
-getWorkspaceToWindows windows  = liftX11 $
+getWorkspaceToWindows :: [X11Window] -> X11Property (MM.MultiMap WorkspaceIdx X11Window)
+getWorkspaceToWindows =
   foldM
     (\theMap window ->
-       MM.insert <$> postX11RequestSyncProp (getWorkspace window) (WSIdx 0)
-                 <*> pure window <*> pure theMap)
-    MM.empty windows
-
-getUrgentWindows :: [X11Window] -> X11Property [X11Window]
-getUrgentWindows windows =
-  postX11RequestSyncProp (filterM isWindowUrgent windows) []
+       MM.insert <$> getWorkspace window <*> pure window <*> pure theMap)
+    MM.empty
 
 getWindowData :: [X11Window] -> [X11Window] -> X11Window -> X11Property WindowData
 getWindowData activeWindows urgentWindows window = do
-  wTitle <- postX11RequestSyncProp (getWindowTitle window) ""
-  wClass <- postX11RequestSyncProp (getWindowClass window) ""
-  wMinimized <-
-    postX11RequestSyncProp
-      (getWindowStateProperty window "_NET_WM_STATE_HIDDEN")
-      False
+  wTitle <- getWindowTitle window
+  wClass <- getWindowClass window
+  wMinimized <- getWindowStateProperty window "_NET_WM_STATE_HIDDEN"
   return
     WindowData
     { windowId = window
@@ -338,14 +329,13 @@ getWindowData activeWindows urgentWindows window = do
 
 buildWorkspaces :: M.Map WorkspaceIdx Workspace
                 -> HUDIO (M.Map WorkspaceIdx Workspace)
-buildWorkspaces _ = do
-  context <- ask
-  names <- liftX11 getWorkspaceNames
-  windows <- liftX11 getWindows
-  workspaceToWindows <- getWorkspaceToWindows windows
-  urgentWindows <- liftX11 $ getUrgentWindows windows
-  activeWindows <- liftX11 $ readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
-  active:visible <- liftX11 getVisibleWorkspaces
+buildWorkspaces _ = ask >>= \context -> liftX11Def M.empty $ do
+  names <- getWorkspaceNames
+  wins <- getWindows
+  workspaceToWindows <- getWorkspaceToWindows wins
+  urgentWindows <- filterM isWindowUrgent wins
+  activeWindows <- readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
+  active:visible <- getVisibleWorkspaces
   let getWorkspaceState idx ws
         | urgentWorkspaceState (hudConfig context) && not (null urgentWindows) =
           Urgent
@@ -356,8 +346,7 @@ buildWorkspaces _ = do
   foldM
     (\theMap (idx, name) -> do
        let ws = MM.lookup idx workspaceToWindows
-       windowInfos <-
-         liftX11 $ mapM (getWindowData activeWindows urgentWindows) ws
+       windowInfos <- mapM (getWindowData activeWindows urgentWindows) ws
        return $
          M.insert
            idx
@@ -725,23 +714,23 @@ updateMinSize widget minWidth = do
 
 defaultGetIconInfo :: WindowData -> HUDIO IconInfo
 defaultGetIconInfo w = do
-  icons <- liftX11 $ postX11RequestSyncProp (getWindowIcons $ windowId w) []
+  icons <- liftX11Def [] $ postX11RequestSyncProp (getWindowIcons $ windowId w) []
   iconSize <- asks $ windowIconSize . hudConfig
   return $
     if null icons
       then IINone
       else IIEWMH $ selectEWMHIcon iconSize icons
 
-forkM :: (c -> HUDIO a) -> (c -> HUDIO b) -> c -> HUDIO (a, b)
+forkM :: Monad m => (c -> m a) -> (c -> m b) -> c -> m (a, b)
 forkM a b = sequenceT . (a &&& b)
 
 sortWindowsByPosition :: [WindowData] -> HUDIO [WindowData]
 sortWindowsByPosition wins = do
-  let getGeometryHUD w = liftX11 $ getDisplay >>= liftIO . (`getGeometry` w)
-  windowGeometries <-
-    mapM
-      (forkM return ((((sel2 &&& sel3) <$>) .) getGeometryHUD) . windowId)
-      wins
+  let getGeometryHUD w = getDisplay >>= liftIO . (`getGeometry` w)
+      getGeometries = mapM
+                      (forkM return ((((sel2 &&& sel3) <$>) .) getGeometryHUD) . windowId)
+                      wins
+  windowGeometries <- liftX11Def [] getGeometries
   let getLeftPos wd =
         fromMaybe (999999999, 99999999) $ lookup (windowId wd) windowGeometries
       compareWindowData a b =
@@ -806,7 +795,7 @@ buildIconWidget ws = do
         info <- MV.readMVar windowVar
         case info of
           Just updatedInfo ->
-            flip runReaderT ctx $ liftX11 $ focusWindow $ windowId updatedInfo
+            flip runReaderT ctx $ liftX11Def () $ focusWindow $ windowId updatedInfo
           _ -> liftIO $ void $ switch ctx (workspaceIdx ws)
         return True
     return
@@ -898,8 +887,11 @@ buildButtonController contentsBuilder workspace = do
       Gtk.on ebox Gtk.scrollEvent $ do
         workspaces <- liftIO $ MV.readMVar workspacesRef
         let switchOne a =
-              liftIO $ flip runReaderT ctx $ liftX11 $
-              switchOneWorkspace a (length (M.toList workspaces) - 1) >>
+              liftIO $
+              flip runReaderT ctx $
+              liftX11Def
+                ()
+                (switchOneWorkspace a (length (M.toList workspaces) - 1)) >>
               return True
         dir <- Gtk.eventScrollDirection
         case dir of
@@ -909,13 +901,13 @@ buildButtonController contentsBuilder workspace = do
           Gtk.ScrollRight -> switchOne False
     _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch ctx $ workspaceIdx workspace
     return $
-           WWC
-           WorkspaceButtonController
-           {button = ebox, buttonWorkspace = workspace, contentsController = cc}
+      WWC
+        WorkspaceButtonController
+        {button = ebox, buttonWorkspace = workspace, contentsController = cc}
 
 switch :: (MonadIO m) => Context -> WorkspaceIdx -> m Bool
 switch ctx idx = do
-  liftIO $ flip runReaderT ctx $ liftX11 $ switchToWorkspace idx
+  liftIO $ flip runReaderT ctx $ liftX11Def () $ switchToWorkspace idx
   return True
 
 instance WorkspaceWidgetController WorkspaceButtonController

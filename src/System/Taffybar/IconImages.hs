@@ -22,7 +22,7 @@ module System.Taffybar.IconImages (
 import           Data.Bits
 import qualified Data.List as L
 import           Data.Ord ( comparing )
-import           Data.Word (Word8, Word32)
+import           Data.Word
 import           Foreign.C.Types (CUChar(..))
 import           Foreign.Marshal.Array
 import           Foreign.Ptr
@@ -56,7 +56,7 @@ colorspace = Gtk.ColorspaceRgb
 -- scale it square, and set it in a GTK Image.
 pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
 pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
-  wPtr <- pixelsARGBToBytesRGBAa px (w*h)
+  wPtr <- pixelsARGBToBytesABGR px (w*h)
   let pixelsPerRow = w
       bytesPerPixel = 4
       rowStride = pixelsPerRow * bytesPerPixel
@@ -70,8 +70,6 @@ pixBufFromColor imgSize (r, g, b, a) = do
   pixbuf <- Gtk.pixbufNew colorspace hasAlpha sampleBits imgSize imgSize
   Gtk.pixbufFill pixbuf r g b a
   return pixbuf
-
-pixelsARGBToBytesRGBAa = pixelsARGBToBytesABGR
 
 -- | Convert a list of integer pixels to a bytestream with 4 channels.
 pixelsARGBToBytesABGR

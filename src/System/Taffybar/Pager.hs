@@ -37,6 +37,7 @@ module System.Taffybar.Pager
   , subscribe
   , colorize
   , liftPagerX11
+  , liftPagerX11Def
   , runWithPager
   , shorten
   , wrap
@@ -114,6 +115,9 @@ type PagerIO a = ReaderT Pager IO a
 
 liftPagerX11 :: X11Property a -> PagerIO a
 liftPagerX11 prop = ask >>= lift . flip runWithPager prop
+
+liftPagerX11Def :: a -> X11Property a -> PagerIO a
+liftPagerX11Def def prop = liftPagerX11 $ postX11RequestSyncProp prop def
 
 runWithPager :: Pager -> X11Property a -> IO a
 runWithPager pager prop = do
