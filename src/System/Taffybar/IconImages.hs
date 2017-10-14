@@ -76,7 +76,7 @@ pixelsARGBToBytesABGR
   :: (Storable a, Bits a, Num a, Integral a)
   => Ptr a -> Int -> IO (Ptr CUChar)
 pixelsARGBToBytesABGR ptr size = do
-  target <- callocArray (size * 4)
+  target <- mallocArray (size * 4)
   let writeIndex i = do
         bits <- peekElemOff ptr i
         let b = toByte bits
@@ -98,7 +98,7 @@ pixelsARGBToBytesABGR ptr size = do
 
 mapArr :: (Storable a, Storable b, Show b) => (a -> b) -> Ptr a -> Int -> IO (Ptr b)
 mapArr fn ptr size = do
-  target <- callocArray size
+  target <- mallocArray size
   let writeIndex i =
         (fn <$> peekElemOff ptr i) >>=
         pokeElemOff target i
