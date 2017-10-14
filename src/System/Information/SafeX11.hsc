@@ -21,6 +21,7 @@ import           Data.Either.Combinators
 import           Data.Functor ((<$>))
 import           Data.Maybe
 import           Data.Tuple.Curry
+import           Data.Typeable
 import           Foreign hiding (void)
 import           Foreign.C.Types
 import           GHC.ForeignPtr
@@ -92,7 +93,7 @@ rawGetWindowPropertyBytes bits d atom w =
         ptr <- newConcForeignPtr (castPtr prop_ptr) (void $ xFree prop_ptr)
         return $ Just (ptr, nitems)
 
-data SafeX11Exception = SafeX11Exception deriving (Show, Eq)
+data SafeX11Exception = SafeX11Exception deriving (Show, Eq, Typeable)
 
 instance Exception SafeX11Exception
 
