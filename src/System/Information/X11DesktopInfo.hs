@@ -169,7 +169,6 @@ eventLoop :: (Event -> IO ()) -> X11Property ()
 eventLoop dispatch = do
   (X11Context d w) <- ask
   liftIO $ do
-    xSetErrorHandler
     selectInput d w $ propertyChangeMask .|. substructureNotifyMask
     allocaXEvent $ \e -> forever $ do
       event <- nextEvent d e >> getEvent e

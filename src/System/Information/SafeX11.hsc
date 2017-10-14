@@ -122,17 +122,11 @@ startHandlingX11Requests =
           putStrLn "Got error"
           ee <- getErrorEvent xerrptr
           print ee
-          hFlush stdout
-          doX11Unblock $ ExitFailure (-1)
-          putStrLn "Unblocked"
-          hFlush stdout
-          hFlush stdout
 
 handleX11Requests :: IO ()
 handleX11Requests = do
   IORequest {ioAction = action, ioResponse = responseChannel} <-
     readChan requestQueue
-  hFlush stdout
   res <-
     catch
       (maybe (Left SafeX11Exception) Right <$> timeout 500000 action)
