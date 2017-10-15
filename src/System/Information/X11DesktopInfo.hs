@@ -1,3 +1,4 @@
+{-# LANGUAGE StandaloneDeriving #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Information.X11DesktopInfo
@@ -38,18 +39,28 @@ module System.Information.X11DesktopInfo
   , eventLoop
   , sendCommandEvent
   , sendWindowEvent
+  , postX11RequestSyncProp
   ) where
 
 import Data.List
 import Data.Maybe
 
 import Codec.Binary.UTF8.String as UTF8
+import Control.Concurrent
+import GHC.IO.Exception
+import Control.Concurrent.MVar
 import Control.Monad.Reader
 import Data.Bits (testBit, (.|.))
 import Data.Functor ((<$>))
 import Data.List.Split (endBy)
 import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
+       hiding (rawGetWindowProperty, getWindowProperty8,
+               getWindowProperty16, getWindowProperty32,
+               getWMHints)
+import System.Information.SafeX11
+import System.IO
+import System.Timeout
 
 data X11Context = X11Context { contextDisplay :: Display, _contextRoot :: Window }
 type X11Property a = ReaderT X11Context IO a
@@ -158,7 +169,6 @@ eventLoop :: (Event -> IO ()) -> X11Property ()
 eventLoop dispatch = do
   (X11Context d w) <- ask
   liftIO $ do
-    xSetErrorHandler
     selectInput d w $ propertyChangeMask .|. substructureNotifyMask
     allocaXEvent $ \e -> forever $ do
       event <- nextEvent d e >> getEvent e
@@ -235,3 +245,9 @@ sendCustomEvent dpy cmd arg root win =
     setClientMessageEvent e win cmd 32 arg currentTime
     sendEvent dpy root False structureNotifyMask e
     sync dpy False
+
+postX11RequestSyncProp :: X11Property a -> a -> X11Property a
+postX11RequestSyncProp prop def = do
+  c <- ask
+  let action = runReaderT prop c
+  lift $ postX11RequestSyncDef def action

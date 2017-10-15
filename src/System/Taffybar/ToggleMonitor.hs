@@ -32,7 +32,6 @@ import           Prelude
 import           System.Directory
 import           System.FilePath.Posix
 import           System.Taffybar
-import           System.Taffybar.Util
 
 import           Text.Read ( readMaybe )
 

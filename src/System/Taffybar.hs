@@ -184,7 +184,7 @@ module System.Taffybar (
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
 import qualified Control.Concurrent.MVar as MV
-import Control.Monad ( when, filterM, foldM, void )
+import Control.Monad ( when, foldM, void )
 import qualified Data.Map as M
 import Data.Maybe ( fromMaybe )
 import Data.List
@@ -344,7 +344,6 @@ taffybarMain :: TaffybarConfig -> IO ()
 taffybarMain cfg = do
 
   _ <- initThreads
-
   _ <- initGUI
 
   -- Load default and user gtk resources
