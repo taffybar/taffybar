@@ -22,6 +22,7 @@ module System.Taffybar.WorkspaceHUD (
   WorkspaceButtonController(..),
   WorkspaceContentsController(..),
   WorkspaceHUDConfig(..),
+  WorkspaceState(..),
   WorkspaceUnderlineController(..),
   WorkspaceWidgetController(..),
   IconController(..),
