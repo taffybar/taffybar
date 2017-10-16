@@ -127,7 +127,11 @@ executable taffybar
                  safe >= 0.3 && < 1,
                  xdg-basedir,
                  X11 >= 1.5.0.1,
-                 filepath
+                 filepath,
+                 utf8-string,
+                 mtl >= 2,
+                 split >= 0.1.4.2,
+                 taffybar
   hs-source-dirs: src
   main-is: Main.hs
   other-modules: System.Taffybar

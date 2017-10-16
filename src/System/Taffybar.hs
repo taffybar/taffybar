@@ -179,6 +179,7 @@ module System.Taffybar (
   taffybarMain,
   allMonitors,
   useMonitorNumber,
+  usePrimaryMonitor,
   ) where
 
 import qualified Config.Dyre as Dyre
@@ -194,6 +195,7 @@ import Safe ( atMay )
 import System.Environment.XDG.BaseDir ( getUserConfigFile )
 import System.Exit ( exitFailure )
 import System.FilePath ( (</>) )
+import System.Information.X11DesktopInfo
 import qualified System.IO as IO
 import System.Mem.StableName
 import Text.Printf ( printf )
@@ -257,6 +259,13 @@ useMonitorNumber c@(cfg, _) = return umn
   where umn mnumber
             | mnumber == monitorNumber cfg = Just c
             | otherwise = Nothing
+
+-- | Use the primary monitor as set by Xrandr.
+usePrimaryMonitor :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
+usePrimaryMonitor c@(cfg, _) = do
+  maybePrimary <- withDefaultCtx getPrimaryOutputNumber
+  let primary = maybe (monitorNumber cfg) id maybePrimary
+  return $ \mnumber -> if mnumber == primary then Just c else Nothing
 
 allMonitors :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
 allMonitors cfg = return $ const $ Just cfg
