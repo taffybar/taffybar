@@ -26,7 +26,8 @@ module System.Taffybar.LayoutSwitcher (
   layoutSwitcherNew
 ) where
 
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Trans
+import Control.Monad.Reader
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.X11.Xlib.Extras (Event)
 import System.Taffybar.Pager
@@ -66,43 +67,44 @@ layoutSwitcherNew pager = do
   -- This callback is run in a separate thread and needs to use
   -- postGUIAsync
   let cfg = config pager
-      callback = pagerCallback cfg label
+      callback = Gtk.postGUIAsync . (flip runReaderT pager) . (pagerCallback cfg label)
   subscribe pager callback xLayoutProp
-  assembleWidget label
+  assembleWidget pager label
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_XMONAD_CURRENT_LAYOUT" custom events. These events are emitted by
 -- the PagerHints hook to notify of changes in the current layout.
-pagerCallback :: PagerConfig -> Gtk.Label -> Event -> IO ()
-pagerCallback cfg label _ = Gtk.postGUIAsync $ do
-  layout <- withDefaultCtx $ readAsString Nothing xLayoutProp
+pagerCallback :: PagerConfig -> Gtk.Label -> Event -> PagerIO ()
+pagerCallback cfg label _ = do
+  layout <- liftPagerX11 $ readAsString Nothing xLayoutProp
   let decorate = activeLayout cfg
-  Gtk.labelSetMarkup label (decorate layout)
+  lift $ Gtk.labelSetMarkup label (decorate layout)
 
 -- | Build the graphical representation of the widget.
-assembleWidget :: Gtk.Label -> IO Gtk.Widget
-assembleWidget label = do
+assembleWidget :: Pager -> Gtk.Label -> IO Gtk.Widget
+assembleWidget pager label = do
   ebox <- Gtk.eventBoxNew
   Gtk.containerAdd ebox label
-  _ <- Gtk.on ebox Gtk.buttonPressEvent dispatchButtonEvent
+  _ <- Gtk.on ebox Gtk.buttonPressEvent (dispatchButtonEvent pager)
   Gtk.widgetShowAll ebox
   return $ Gtk.toWidget ebox
 
 -- | Call 'switch' with the appropriate argument (1 for left click, -1 for
 -- right click), depending on the click event received.
-dispatchButtonEvent :: Gtk.EventM Gtk.EButton Bool
-dispatchButtonEvent = do
+dispatchButtonEvent :: Pager -> Gtk.EventM Gtk.EButton Bool
+dispatchButtonEvent pager = do
   btn <- Gtk.eventButton
   let trigger = onClick [Gtk.SingleClick]
+      run = runWithPager pager
   case btn of
-    Gtk.LeftButton  -> trigger $ switch 1
-    Gtk.RightButton -> trigger $ switch (-1)
+    Gtk.LeftButton  -> trigger $ run $ switch 1
+    Gtk.RightButton -> trigger $ run $ switch (-1)
     _               -> return False
 
 -- | Emit a new custom event of type _XMONAD_CURRENT_LAYOUT, that can be
 -- intercepted by the PagerHints hook, which in turn can instruct XMonad to
 -- switch to a different layout.
-switch :: (MonadIO m) => Int -> m ()
-switch n = liftIO $ withDefaultCtx $ do
+switch :: Int -> X11Property ()
+switch n = do
   cmd <- getAtom xLayoutProp
   sendCommandEvent cmd (fromIntegral n)

@@ -54,11 +54,11 @@ import qualified XMonad.StackSet as W
 
 -- | The \"Current Layout\" custom hint.
 xLayoutProp :: X Atom
-xLayoutProp = return =<< getAtom "_XMONAD_CURRENT_LAYOUT"
+xLayoutProp = getAtom "_XMONAD_CURRENT_LAYOUT"
 
 -- | The \"Visible Workspaces\" custom hint.
 xVisibleProp :: X Atom
-xVisibleProp = return =<< getAtom "_XMONAD_VISIBLE_WORKSPACES"
+xVisibleProp = getAtom "_XMONAD_VISIBLE_WORKSPACES"
 
 -- | Add support for the \"Current Layout\" and \"Visible Workspaces\" custom
 -- hints to the given config.
@@ -96,10 +96,10 @@ setVisibleWorkspaces vis = withDisplay $ \dpy -> do
 -- | Handle all \"Current Layout\" events received from pager widgets, and
 -- set the current layout accordingly.
 pagerHintsEventHook :: Event -> X All
-pagerHintsEventHook (ClientMessageEvent {
+pagerHintsEventHook ClientMessageEvent {
     ev_message_type = mt,
     ev_data = d
-  }) = withWindowSet $ \_ -> do
+  } = withWindowSet $ \_ -> do
   a <- xLayoutProp
   when (mt == a) $ sendLayoutMessage d
   return (All True)

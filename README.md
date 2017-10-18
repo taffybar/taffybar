@@ -32,6 +32,8 @@ There are also several more specialized widgets:
  * System tray
  * Freedesktop.org menu
 
+[See full documentation of release version here.](https://hackage.haskell.org/package/taffybar)
+
 Installation
 ============
 **NOTE**: `gtk2hs-buildtools` is needed for installations with GHC 8 and above, till there's better support for `setup-depends`.

@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections #-}
+
 -- | The main module of Taffybar
 module System.Taffybar (
   -- * Detail
@@ -119,24 +119,83 @@ module System.Taffybar (
   -- customize this theme by copying it to
   -- @~\/.config\/taffybar\/taffybar.rc@.  For an idea of the customizations you can make,
   -- see <https://live.gnome.org/GnomeArt/Tutorials/GtkThemes>.
+
+  -- * Advanced Widget Example
+  --
+  -- | The following is an example leveraging GTK+ features that are not exposed
+  -- by the normal Taffybar widget hooks.
+  --
+  -- > import qualified Graphics.UI.Gtk as Gtk
+  -- > import System.Taffybar.Widgets.PollingGraph
+  -- > import System.Information.CPU
+  -- > import XMonad.Util.Run
+  -- >
+  -- > main = do
+  -- >   let
+  -- >     cpuReader widget = do
+  -- >       (userLoad, systemLoad, totalLoad) <- cpuLoad
+  -- >       Gtk.postGUIAsync $ do
+  -- >         let
+  -- >           user    = round $ 100 * userLoad   :: Int
+  -- >           system  = round $ 100 * systemLoad :: Int
+  -- >           tooltip = printf "%02i%% User\n%02i%% System" user system :: String
+  -- >         _ <- Gtk.widgetSetTooltipText widget $ Just tooltip
+  -- >         return ()
+  -- >       return [totalLoad, systemLoad]
+  -- >
+  -- >     cpuButtons = do
+  -- >       e <- Gtk.eventButton
+  -- >       case e of
+  -- >         Gtk.LeftButton   -> unsafeSpawn "terminator -e glances"
+  -- >         Gtk.RightButton  -> unsafeSpawn "terminator -e top"
+  -- >         Gtk.MiddleButton -> unsafeSpawn "gnome-system-monitor"
+  -- >         _ -> return ()
+  -- >       return True
+  -- >
+  -- >     cpuCfg = defaultGraphConfig { graphDataColors = [ (0, 1, 0, 1)
+  -- >                                                     , (1, 0, 1, 0.5)
+  -- >                                                     ]
+  -- >                                 }
+  -- >
+  -- >
+  -- >     cpu = do
+  -- >       ebox <- Gtk.eventBoxNew
+  -- >       btn <- pollingGraphNew cpuCfg 0.5 $ cpuReader $ Gtk.toWidget ebox
+  -- >       Gtk.containerAdd ebox btn
+  -- >       _ <- Gtk.on ebox Gtk.buttonPressEvent systemEvents
+  -- >       Gtk.widgetShowAll ebox
+  -- >       return $ Gtk.toWidget ebox
+  --
+  -- The resulting widget can be used like normal widgets, but you can use
+  -- different mouse buttons to run various programs and it has a useful tooltip
+  -- which shows the concrete numbers, which may not be clear in the graph
+  -- itself.
+
   TaffybarConfig(..),
+  TaffybarConfigEQ,
   defaultTaffybar,
   defaultTaffybarConfig,
   Position(..),
   taffybarMain,
   allMonitors,
+  useMonitorNumber,
   ) where
 
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
-import Control.Monad ( when, filterM )
+import qualified Control.Concurrent.MVar as MV
+import Control.Monad ( when, foldM, void )
+import qualified Data.Map as M
 import Data.Maybe ( fromMaybe )
-import System.Environment.XDG.BaseDir ( getUserConfigFile )
-import System.FilePath ( (</>) )
+import Data.List
 import Graphics.UI.Gtk
+import Graphics.X11.Xlib.Misc
 import Safe ( atMay )
+import System.Environment.XDG.BaseDir ( getUserConfigFile )
 import System.Exit ( exitFailure )
+import System.FilePath ( (</>) )
 import qualified System.IO as IO
+import System.Mem.StableName
 import Text.Printf ( printf )
 
 import Paths_taffybar ( getDataDir )
@@ -166,7 +225,8 @@ strutProperties pos bh (Rectangle mX mY mW mH) monitors =
 data TaffybarConfig =
   TaffybarConfig { screenNumber :: Int -- ^ The screen number to run the bar on (default is almost always fine)
                  , monitorNumber :: Int -- ^ The xinerama/xrandr monitor number to put the bar on (default: 0)
-                 , monitorFilter :: Maybe (Int -> IO Bool)
+                 , getMonitorConfig :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
+                 , startRefresher :: IO () -> IO ()
                  , barHeight :: Int -- ^ Number of pixels to reserve for the bar (default: 25 pixels)
                  , barPosition :: Position -- ^ The position of the bar on the screen (default: Top)
                  , widgetSpacing :: Int -- ^ The number of pixels between widgets
@@ -175,12 +235,15 @@ data TaffybarConfig =
                  , endWidgets :: [IO Widget] -- ^ Widgets that are packed from right-to-left in the bar
                  }
 
+type TaffybarConfigEQ = (TaffybarConfig, StableName TaffybarConfig)
+
 -- | The default configuration gives an empty bar 25 pixels high on monitor 0.
 defaultTaffybarConfig :: TaffybarConfig
 defaultTaffybarConfig =
   TaffybarConfig { screenNumber = 0
                  , monitorNumber = 0
-                 , monitorFilter = Nothing
+                 , getMonitorConfig = useMonitorNumber
+                 , startRefresher = const $ return ()
                  , barHeight = 25
                  , barPosition = Top
                  , widgetSpacing = 10
@@ -189,8 +252,14 @@ defaultTaffybarConfig =
                  , endWidgets = []
                  }
 
-allMonitors :: Maybe (Int -> IO Bool)
-allMonitors = Just $ const $ return True
+useMonitorNumber :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
+useMonitorNumber c@(cfg, _) = return umn
+  where umn mnumber
+            | mnumber == monitorNumber cfg = Just c
+            | otherwise = Nothing
+
+allMonitors :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
+allMonitors cfg = return $ const $ Just cfg
 
 showError :: TaffybarConfig -> String -> TaffybarConfig
 showError cfg msg = cfg { errorMsg = Just msg }
@@ -199,19 +268,21 @@ showError cfg msg = cfg { errorMsg = Just msg }
 -- -threaded so that the GTK event loops doesn't block all of the
 -- widgets
 defaultParams :: Dyre.Params TaffybarConfig
-defaultParams = Dyre.defaultParams { Dyre.projectName = "taffybar"
-                                   , Dyre.realMain = realMain
-                                   , Dyre.showError = showError
-                                   , Dyre.ghcOpts = ["-threaded", "-rtsopts"]
-                                   , Dyre.rtsOptsHandling = Dyre.RTSAppend ["-I0", "-V0"]
-                                   }
+defaultParams =
+  Dyre.defaultParams
+  { Dyre.projectName = "taffybar"
+  , Dyre.realMain = realMain
+  , Dyre.showError = showError
+  , Dyre.ghcOpts = ["-threaded", "-rtsopts"]
+  , Dyre.rtsOptsHandling = Dyre.RTSAppend ["-I0", "-V0"]
+  }
 
 -- | The entry point of the application.  Feed it a custom config.
 defaultTaffybar :: TaffybarConfig -> IO ()
 defaultTaffybar = Dyre.wrapMain defaultParams
 
 realMain :: TaffybarConfig -> IO ()
-realMain cfg = do
+realMain cfg =
   case errorMsg cfg of
     Nothing -> taffybarMain cfg
     Just err -> do
@@ -232,13 +303,13 @@ setTaffybarSize cfg window monNumber = do
   nmonitors <- screenGetNMonitors screen
   allMonitorSizes <-
     mapM (screenGetMonitorGeometry screen) [0 .. (nmonitors - 1)]
-  when (monNumber >= nmonitors) $ do
+  when (monNumber >= nmonitors) $
     IO.hPutStrLn IO.stderr $
       printf
         "Monitor %d is not available in the selected screen"
-        (monNumber)
+        monNumber
   let monitorSize =
-        fromMaybe (allMonitorSizes !! 0) $ do
+        fromMaybe (head allMonitorSizes) $
           allMonitorSizes `atMay` monNumber
   let Rectangle x y w h = monitorSize
       yoff =
@@ -267,11 +338,12 @@ setTaffybarSize cfg window monNumber = do
   winRealized <- widgetGetRealized window
   if winRealized
     then setStrutProps
-    else onRealize window setStrutProps >> return ()
+    else void $ onRealize window setStrutProps
 
 taffybarMain :: TaffybarConfig -> IO ()
 taffybarMain cfg = do
 
+  _ <- initThreads
   _ <- initGUI
 
   -- Load default and user gtk resources
@@ -282,46 +354,82 @@ taffybarMain cfg = do
 
   Just disp <- displayGetDefault
   nscreens <- displayGetNScreens disp
-  screen <- case screenNumber cfg < nscreens of
-    False -> error $ printf "Screen %d is not available in the default display" (screenNumber cfg)
-    True -> displayGetScreen disp (screenNumber cfg)
+  screen <- if screenNumber cfg < nscreens
+            then displayGetScreen disp (screenNumber cfg)
+            else error $ printf "Screen %d is not available in the default display"
+           (screenNumber cfg)
 
-  nmonitors <- screenGetNMonitors screen
-  let monFilter = fromMaybe (return . ((monitorNumber cfg) ==)) (monitorFilter cfg)
-  activeMonitors <- filterM monFilter [0 .. (nmonitors -1)]
+  cfgEq <- makeStableName cfg
+  taffyWindowsVar <- MV.newMVar M.empty
 
-  let makeTaffyWindow monNumber = do
+  let refreshTaffyWindows = do
+        nmonitors <- screenGetNMonitors screen
+        getConfig <- getMonitorConfig cfg (cfg, cfgEq)
+        MV.modifyMVar_ taffyWindowsVar $ \monitorToWindow ->
+          do
+            let monitors = union [0 .. (nmonitors - 1)] $ M.keys monitorToWindow
+                updateBarOnWindow mapToUpdate monNum
+                  | monNum >= nmonitors = maybeDeleteWindow
+                  | otherwise = case M.lookup monNum monitorToWindow of
+                                  Just (currentConfig, window) ->
+                                    case getConfig monNum of
+                                      Just configEq@(_, newConfigEq) ->
+                                        if currentConfig == newConfigEq
+                                        then
+                                          return mapToUpdate
+                                        else
+                                          widgetDestroy window >>
+                                          makeAndAddWindow configEq
+                                      Nothing -> maybeDeleteWindow
+                                  Nothing ->
+                                    case getConfig monNum of
+                                      Just configEq -> makeAndAddWindow configEq
+                                      Nothing -> return mapToUpdate
+                  where makeAndAddWindow (newConfig, eqcfg) =
+                          do
+                            window <- makeTaffyWindow newConfig monNum
+                            return $ M.insert monNum (eqcfg, window) mapToUpdate
+                        deleteWindow (_, window) =
+                          widgetDestroy window >> return (M.delete monNum mapToUpdate)
+                        maybeDeleteWindow = maybe (return mapToUpdate) deleteWindow $
+                                            M.lookup monNum mapToUpdate
+            foldM updateBarOnWindow monitorToWindow monitors
+
+      makeTaffyWindow wcfg monNumber = do
         window <- windowNew
         let windowName = printf "Taffybar-%s" $ show monNumber :: String
 
         widgetSetName window windowName
         windowSetTypeHint window WindowTypeHintDock
         windowSetScreen window screen
-        setTaffybarSize cfg window monNumber
+        setTaffybarSize wcfg window monNumber
 
-        box <- hBoxNew False $ widgetSpacing cfg
+        box <- hBoxNew False $ widgetSpacing wcfg
         containerAdd window box
 
         mapM_
           (\io -> do
              wid <- io
-             widgetSetSizeRequest wid (-1) (barHeight cfg)
+             widgetSetSizeRequest wid (-1) (barHeight wcfg)
              boxPackStart box wid PackNatural 0)
-          (startWidgets cfg)
+          (startWidgets wcfg)
 
         mapM_
           (\io -> do
              wid <- io
-             widgetSetSizeRequest wid (-1) (barHeight cfg)
+             widgetSetSizeRequest wid (-1) (barHeight wcfg)
              boxPackEnd box wid PackNatural 0)
-          (endWidgets cfg)
-
-        _ <- on screen screenMonitorsChanged (setTaffybarSize cfg window monNumber)
+          (endWidgets wcfg)
 
         widgetShow window
         widgetShow box
+        return window
 
-  mapM_ makeTaffyWindow activeMonitors
+  _ <- on screen screenMonitorsChanged refreshTaffyWindows
+
+  startRefresher cfg $ postGUIAsync refreshTaffyWindows
+
+  refreshTaffyWindows
   -- Reset the size of the Taffybar window if the monitor setup has
   -- changed, e.g., after a laptop user has attached an external
   -- monitor.

@@ -13,7 +13,7 @@ module System.Taffybar.IconImages (
   ColorRGBA,
   scalePixbuf,
   pixBufFromEWMHIcon,
-  pixelsARGBToBytesRGBA,
+  pixelsARGBToBytesABGR,
   pixBufFromColor,
   pixBufFromFile,
   selectEWMHIcon
@@ -22,9 +22,11 @@ module System.Taffybar.IconImages (
 import           Data.Bits
 import qualified Data.List as L
 import           Data.Ord ( comparing )
-import           Data.Word (Word8)
+import           Data.Word
 import           Foreign.C.Types (CUChar(..))
-import           Foreign.Marshal.Array (newArray)
+import           Foreign.Marshal.Array
+import           Foreign.Ptr
+import           Foreign.Storable
 import qualified Graphics.UI.Gtk as Gtk
 import           System.Information.EWMHDesktopInfo
 
@@ -54,11 +56,11 @@ colorspace = Gtk.ColorspaceRgb
 -- scale it square, and set it in a GTK Image.
 pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
 pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
+  wPtr <- pixelsARGBToBytesABGR px (w*h)
   let pixelsPerRow = w
       bytesPerPixel = 4
       rowStride = pixelsPerRow * bytesPerPixel
-      bytesRGBA = pixelsARGBToBytesRGBA px
-  cPtr <- newArray $ map CUChar bytesRGBA
+      cPtr = castPtr wPtr
   Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
 
 -- | Create a pixbuf with the indicated RGBA color,
@@ -70,14 +72,29 @@ pixBufFromColor imgSize (r, g, b, a) = do
   return pixbuf
 
 -- | Convert a list of integer pixels to a bytestream with 4 channels.
-pixelsARGBToBytesRGBA :: [Int] -> [Word8]
-pixelsARGBToBytesRGBA (x:xs) = r:g:b:a:pixelsARGBToBytesRGBA xs
-  where b = toByte $ x
-        g = toByte $ x `shift` (-8)
-        r = toByte $ x `shift` (-16)
-        a = toByte $ x `shift` (-24)
-        toByte = (fromIntegral . (.&. 0xFF))
-pixelsARGBToBytesRGBA _ = []
+pixelsARGBToBytesABGR
+  :: (Storable a, Bits a, Num a, Integral a)
+  => Ptr a -> Int -> IO (Ptr CUChar)
+pixelsARGBToBytesABGR ptr size = do
+  target <- mallocArray (size * 4)
+  let writeIndex i = do
+        bits <- peekElemOff ptr i
+        let b = toByte bits
+            g = toByte $ bits `shift` (-8)
+            r = toByte $ bits `shift` (-16)
+            a = toByte $ bits `shift` (-24)
+            baseTarget = 4 * i
+            doPoke offset = pokeElemOff target (baseTarget + offset)
+            toByte = fromIntegral . (.&. 0xFF)
+        doPoke 0 r
+        doPoke 1 g
+        doPoke 2 b
+        doPoke 3 a
+      writeIndexAndNext i
+        | i >= size = return ()
+        | otherwise = writeIndex i >> writeIndexAndNext (i + 1)
+  writeIndexAndNext 0
+  return target
 
 -- | Create a pixbuf from a file,
 -- scale it square, and set it in a GTK Image.
