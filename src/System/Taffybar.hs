@@ -1,4 +1,3 @@
-
 -- | The main module of Taffybar
 module System.Taffybar (
   -- * Detail
@@ -223,16 +222,29 @@ strutProperties pos bh (Rectangle mX mY mW mH) monitors =
               Bottom -> (0, 0, 0, h, 0, 0, 0, 0, 0,   0, x, x+w)
 
 data TaffybarConfig =
-  TaffybarConfig { screenNumber :: Int -- ^ The screen number to run the bar on (default is almost always fine)
-                 , monitorNumber :: Int -- ^ The xinerama/xrandr monitor number to put the bar on (default: 0)
+  TaffybarConfig { -- | The screen number to run the bar on (default is almost always fine)
+                   screenNumber :: Int
+                 -- | The xinerama/xrandr monitor number to put the bar on (default: 0)
+                 , monitorNumber :: Int
+                 -- | Provides a way to specify which screens taffybar should appear on.
                  , getMonitorConfig :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
+                 -- | A function providing a way to call back in to taffybar to
+                 -- refresh its configs/open closed state on each monitor.
                  , startRefresher :: IO () -> IO ()
-                 , barHeight :: Int -- ^ Number of pixels to reserve for the bar (default: 25 pixels)
-                 , barPosition :: Position -- ^ The position of the bar on the screen (default: Top)
-                 , widgetSpacing :: Int -- ^ The number of pixels between widgets
-                 , errorMsg :: Maybe String -- ^ Used by the application
-                 , startWidgets :: [IO Widget] -- ^ Widgets that are packed in order at the left end of the bar
-                 , endWidgets :: [IO Widget] -- ^ Widgets that are packed from right-to-left in the bar
+                 -- | Number of pixels to reserve for the bar (default: 25 pixels)
+                 , barHeight :: Int
+                 -- | Number of additional pixels to reserve for the bar strut (default: 0)
+                 , barPadding :: Int
+                 -- | The position of the bar on the screen (default: Top)
+                 , barPosition :: Position
+                 -- | The number of pixels between widgets
+                 , widgetSpacing :: Int
+                 -- | Used by the application
+                 , errorMsg :: Maybe String
+                 -- | Widgets that are packed in order at the left end of the bar
+                 , startWidgets :: [IO Widget]
+                 -- | Widgets that are packed from right-to-left in the bar
+                 , endWidgets :: [IO Widget]
                  }
 
 type TaffybarConfigEQ = (TaffybarConfig, StableName TaffybarConfig)
@@ -245,6 +257,7 @@ defaultTaffybarConfig =
                  , getMonitorConfig = useMonitorNumber
                  , startRefresher = const $ return ()
                  , barHeight = 25
+                 , barPadding = 0
                  , barPosition = Top
                  , widgetSpacing = 10
                  , errorMsg = Nothing
@@ -312,10 +325,11 @@ setTaffybarSize cfg window monNumber = do
         fromMaybe (head allMonitorSizes) $
           allMonitorSizes `atMay` monNumber
   let Rectangle x y w h = monitorSize
+      strutHeight = barHeight cfg + (2 * barPadding cfg)
       yoff =
         case barPosition cfg of
-          Top -> 0
-          Bottom -> h - barHeight cfg
+          Top -> barPadding cfg
+          Bottom -> h - strutHeight
   windowMove window x (y + yoff)
   -- Set up the window size using fixed min and max sizes. This
   -- prevents the contained horizontal box from affecting the window
@@ -332,7 +346,7 @@ setTaffybarSize cfg window monNumber = do
         setStrutProperties window $
         strutProperties
           (barPosition cfg)
-          (barHeight cfg)
+          strutHeight
           monitorSize
           allMonitorSizes
   winRealized <- widgetGetRealized window
