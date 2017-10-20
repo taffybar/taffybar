@@ -9,4 +9,5 @@ extra-deps:
   - gtk-0.14.6
   - dbus-0.10.12
   - libxml-sax-0.7.5
+  - xml-helpers-1.0.0
 resolver: lts-8.1

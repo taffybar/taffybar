@@ -14,4 +14,6 @@ extra-deps:
   - io-storage-0.3
   - libxml-sax-0.7.5
   - setlocale-1.0.0.4
+  - ConfigFile-1.1.4
+  - xml-helpers-1.0.0
 resolver: lts-2.22
