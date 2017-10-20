@@ -104,7 +104,7 @@ data XdgMenu = XdgMenu {
   deriving(Show)
 
 data XdgLayoutItem =
-  XliFile String | XliSeparator | XliMenu String  | XliMerge String
+  XliFile String | XliSeparator | XliMenu String | XliMerge String
   deriving(Show)
 
 -- | Return a list of all available desktop entries for a given xdg menu.
@@ -143,7 +143,7 @@ parseMenu elt =
       deleted = False   -- FIXME
       include = parseConditions "Include" elt
       exclude = parseConditions "Exclude" elt
-      layout  = D.trace "layout" $ parseLayout elt
+      layout  = parseLayout elt
       subMenus = fromMaybe [] $ mapChildren "Menu" elt parseMenu
   in Just XdgMenu {xmAppDir               = appDir,
                    xmDefaultAppDirs       = defaultAppDirs,
@@ -196,11 +196,10 @@ parseLayout elt = case findChild (unqual "Layout") elt of
   Nothing -> []
   Just lt -> catMaybes $ map parseLayoutItem (elChildren lt)
   where parseLayoutItem :: Element -> Maybe XdgLayoutItem
-        parseLayoutItem e = D.trace (show e) $ case qName (elName e) of
+        parseLayoutItem e = case qName (elName e) of
           "Separator" -> Just XliSeparator
           "Filename"  -> Just $ XliFile $ strContent e
           unknown     -> D.trace ("Unknown layout item: " ++ unknown) Nothing
---  XliFile String | XliSeparator | XliMenu String  | XliMerge String
           
 -- | Determine whether a desktop entry fulfils a condition.
 matchesCondition :: DesktopEntry -> DesktopEntryCondition -> Bool

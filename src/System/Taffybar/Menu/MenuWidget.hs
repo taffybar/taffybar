@@ -8,13 +8,13 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- MenuWidget provides a hierachical GTK menu which provides all
+-- MenuWidget provides a hierachical GTK menu containing all
 -- applicable desktop entries found on the system.  The menu is built
 -- according to the version 1.1 of the XDG "Desktop Menu
 -- Specification", see
 -- https://specifications.freedesktop.org/menu-spec/menu-spec-1.1.html
---
 -----------------------------------------------------------------------------
+
 module System.Taffybar.Menu.MenuWidget (
   -- * Usage
   -- $usage
@@ -37,13 +37,15 @@ import System.Taffybar.Menu.Menu
 -- > main = do
 -- >   let menu = menuWidgetNew Nothing
 --
--- You may provide the name of the menu, if taffybar is not running
--- inside a desktop environment like Mate or Gnome (note the trailing
--- hyphen):
+-- The menu will use the entries specified by the environment variable
+-- XDG_MENU_PREFIX (or use "gnome" as a fallback). This variable is
+-- set by the desktop environment (Mate, Gnome, XFCE etc.), taffybar
+-- is running in, if any.  You may override this by explicitly passing
+-- a menu prefix, like so:
 --
 -- >   let menu = menuWidgetNew (Just "mate")
 --
--- now you can use @menu@ as any other Taffybar widget.
+-- Now you can use @menu@ as any other Taffybar widget.
 
 
 -- | Add a desktop entry to a gtk menu by appending a gtk menu item.
@@ -82,7 +84,7 @@ addMenu ms fm = do
     mapM_ (addItem subMenu) $ items
 
 setIcon :: ImageMenuItem -> Maybe String -> IO ()
-setIcon _    Nothing         = return ()
+setIcon _ Nothing = return ()
 setIcon item (Just iconName) = do
   iconTheme <- iconThemeGetDefault
   hasIcon <- iconThemeHasIcon iconTheme iconName
@@ -91,7 +93,7 @@ setIcon item (Just iconName) = do
           else if isAbsolute iconName
                then do ex <- doesFileExist iconName
                        if ex
-                         then do let defaultSize = 24 -- FIXME
+                         then do let defaultSize = 24 -- FIXME should auto-adjust to font size
                                  pb <- pixbufNewFromFileAtScale iconName
                                    defaultSize defaultSize True
                                  return . Just =<< imageNewFromPixbuf pb
@@ -104,7 +106,7 @@ setIcon item (Just iconName) = do
   
 -- | Create a new XDG Menu Widget.
 menuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
-                              -- e.g. "mate" or "gnome-"
+                              -- e.g. "mate-" or "gnome-"
               -> IO Widget
 menuWidgetNew mMenuPrefix = do
   mb <- menuBarNew

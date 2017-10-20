@@ -9,12 +9,13 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- Implementation of version 1.1 of the freedesktop Desktop Entry
--- specification, see
+-- Implementation of version 1.1 of the freedesktop "Desktop Entry
+-- specification", see
 -- https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-1.1.html.
--- See also 'MenuWidget'.
 --
+-- See also 'MenuWidget'.
 -----------------------------------------------------------------------------
+
 module System.Taffybar.Menu.DesktopEntry (
   DesktopEntry(..),
   listDesktopEntries,

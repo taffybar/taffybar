@@ -9,13 +9,13 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- Implementation of version 1.1 of the XDG "Desktop Menu
+-- Implementation of version 1.1 of the freedesktop "Desktop Menu
 -- Specification", see
 -- https://specifications.freedesktop.org/menu-spec/menu-spec-1.1.html
----- specification, see
--- See also 'MenuWidget'.
 --
+-- See also 'MenuWidget'.
 -----------------------------------------------------------------------------
+
 module System.Taffybar.Menu.Menu (
   Menu(..),
   MenuEntry(..),
@@ -48,20 +48,20 @@ data MenuEntry = MenuEntry {
   deriving (Eq, Show)
 
 
--- | Fetch menus and desktop entries and assemble the XDG menu.
+-- | Fetch menus and desktop entries and assemble the menu.
 buildMenu :: Maybe String -> IO Menu
 buildMenu mMenuPrefix = do
   mMenuDes <- readXdgMenu mMenuPrefix
   case mMenuDes of
     Nothing          -> return $ Menu "???" "Parsing failed" Nothing [] [] False
     Just (menu, des) -> do dt <- getXdgDesktop
-                           print $ xmLayout menu
                            dirDirs <- getDirectoryDirs
                            langs <- getPreferredLanguages
                            (fm, ae) <- xdgToMenu dt langs dirDirs des menu
                            let fm' = fixOnlyUnallocated ae fm
                            return fm'
 
+-- | Convert xdg menu to displayable menu
 xdgToMenu :: String -> [String] -> [FilePath] -> [DesktopEntry] -> XdgMenu
           -> IO (Menu, [MenuEntry])
 xdgToMenu desktop langs dirDirs des xm = do
@@ -89,6 +89,7 @@ xdgToMenu desktop langs dirDirs des xm = do
                  fmOnlyUnallocated = onlyUnallocated}
   return (fm, aes)
 
+-- | Check the "only show in" logic
 matchesOnlyShowIn :: String -> DesktopEntry -> Bool
 matchesOnlyShowIn desktop de = matchesShowIn && notMatchesNotShowIn
   where matchesShowIn = case deOnlyShowIn de of
@@ -98,6 +99,7 @@ matchesOnlyShowIn desktop de = matchesShowIn && notMatchesNotShowIn
                                 [] -> True
                                 desktops -> not $ desktop `elem` desktops
 
+-- | convert xdg desktop entry to displayble menu entry
 xdgToMenuEntry :: [String] -> DesktopEntry -> MenuEntry
 xdgToMenuEntry langs de = MenuEntry {feName     = name,
                                       feComment = comment,
@@ -113,6 +115,7 @@ xdgToMenuEntry langs de = MenuEntry {feName     = name,
         name = deName langs de
         mIcon = deIcon de
 
+-- | postprocess unallocated entries
 fixOnlyUnallocated :: [MenuEntry] -> Menu -> Menu
 fixOnlyUnallocated fes fm = fm {fmEntries = entries,
                                 fmSubmenus = map (fixOnlyUnallocated fes) (fmSubmenus fm)}
