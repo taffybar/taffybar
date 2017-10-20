@@ -16,4 +16,5 @@ extra-deps:
 - xmonad-contrib-0.13
 - X11-xft-0.3.1
 - libxml-sax-0.7.5
+- xml-helpers-1.0.0
 resolver: lts-8.2

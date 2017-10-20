@@ -31,6 +31,7 @@ library
                  HTTP,
                  X11 >= 1.5.0.1,
                  cairo,
+                 ConfigFile,
                  containers,
                  dbus >= 0.10.7 && < 1.0,
                  directory,
@@ -56,8 +57,11 @@ library
                  time-units >= 1.0.0,
                  transformers >= 0.3.0.0,
                  tuple >= 0.3.0.2,
+                 unix,
                  utf8-string,
                  xdg-basedir >= 0.2 && < 0.3,
+                 xml,
+                 xml-helpers,
                  xmonad,
                  xmonad-contrib
 
@@ -81,6 +85,10 @@ library
                    System.Taffybar.DiskIOMonitor,
                    System.Taffybar.FSMonitor,
                    System.Taffybar.LayoutSwitcher,
+                   System.Taffybar.Menu.DesktopEntry,
+                   System.Taffybar.Menu.XdgMenu,
+                   System.Taffybar.Menu.Menu,
+                   System.Taffybar.Menu.MenuWidget
                    System.Taffybar.NetMonitor,
                    System.Taffybar.Hooks.PagerHints,
                    System.Taffybar.Pager,
