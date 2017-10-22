@@ -27,20 +27,21 @@ module System.Taffybar.Menu.XdgMenu (
   getPreferredLanguages)
 where
 
-import GHC.IO.Encoding
-import Control.Monad
-import Data.Char (toLower)
-import Data.List
-import Data.Maybe
+import           Control.Monad.Trans
+import           Control.Monad.Trans.Maybe
+import           Data.Char (toLower)
+import           Data.List
+import           Data.Maybe
 import qualified Data.Set as S
 import qualified Debug.Trace as D
-import System.Directory
-import System.Environment
-import System.FilePath.Posix
-import System.Posix.Files
-import System.Taffybar.Menu.DesktopEntry
-import Text.XML.Light
-import Text.XML.Light.Helpers
+import           GHC.IO.Encoding
+import           System.Directory
+import           System.Environment
+import           System.FilePath.Posix
+import           System.Posix.Files
+import           System.Taffybar.Menu.DesktopEntry
+import           Text.XML.Light
+import           Text.XML.Light.Helpers
 
 
 -- Environment Variables
@@ -59,7 +60,7 @@ existingDirs :: [FilePath] -> IO [FilePath]
 existingDirs  dirs = do
   exs <- mapM fileExist dirs
   return $ S.toList $ S.fromList $ map fst $ filter snd $ zip dirs exs
-    
+
 getXdgMenuPrefix :: IO String
 getXdgMenuPrefix = do
   mPf <- lookupEnv "XDG_MENU_PREFIX"
@@ -75,7 +76,7 @@ getXdgDataDirs = do
   mPf <- lookupEnv "XDG_DATA_DIRS"
   let dirs = maybe [] (map normalise . splitSearchPath) mPf
         ++ ["/usr/local/share", "/usr/share"]
-  return . nubBy equalFilePath =<< existingDirs (dh:dirs)
+  nubBy equalFilePath <$> existingDirs (dh:dirs)
 
 getXdgMenuFilename :: Maybe String -> IO FilePath
 getXdgMenuFilename mMenuPrefix = do
@@ -83,7 +84,7 @@ getXdgMenuFilename mMenuPrefix = do
   pf <- case mMenuPrefix of
           Nothing -> getXdgMenuPrefix
           Just prefix -> return prefix
-  let pfDash = if last pf == '-' then pf else (pf ++ "-")
+  let pfDash = if last pf == '-' then pf else pf ++ "-"
   return $ cd </> "menus" </> pfDash ++ "applications.menu"
 
 -- | XDG Menu, cf. "Desktop Menu Specification".
@@ -115,8 +116,8 @@ getApplicationEntries langs xm = do
   defEntries <- if xmDefaultAppDirs xm
     then do dataDirs <- getXdgDataDirs
             putStrLn $ "DataDirs=" ++ show dataDirs
-            liftM concat $ mapM (listDesktopEntries ".desktop" .
-                                  (</> "applications")) dataDirs
+            concat <$> mapM (listDesktopEntries ".desktop" .
+                                                  (</> "applications")) dataDirs
     else return []
   return $ sortBy (\de1 de2 -> compare (map toLower (deName langs de1))
                                (map toLower (deName langs de2))) defEntries
@@ -167,14 +168,14 @@ parseConditions key elt = case findChild (unqual key) elt of
   where doParseConditions :: [Element] -> Maybe DesktopEntryCondition
         doParseConditions []   = Nothing
         doParseConditions [e]  = parseSingleItem e
-        doParseConditions elts = Just $ Or $ catMaybes $ map parseSingleItem elts
+        doParseConditions elts = Just $ Or $ mapMaybe parseSingleItem elts
 
         parseSingleItem e = case qName (elName e) of
           "Category" -> Just $ Category $ strContent e
           "Filename" -> Just $ Filename $ strContent e
-          "And"      -> Just $ And $ catMaybes $ map parseSingleItem
+          "And"      -> Just $ And $ mapMaybe parseSingleItem
                           $ elChildren e
-          "Or"       -> Just $ Or  $ catMaybes $ map parseSingleItem
+          "Or"       -> Just $ Or  $ mapMaybe parseSingleItem
                           $ elChildren e
           "Not"      -> case parseSingleItem (head (elChildren e)) of
                           Nothing   -> Nothing
@@ -191,23 +192,23 @@ data DesktopEntryCondition = Category String
                            | None
   deriving (Read, Show, Eq)
 
-parseLayout :: Element -> [XdgLayoutItem] 
+parseLayout :: Element -> [XdgLayoutItem]
 parseLayout elt = case findChild (unqual "Layout") elt of
   Nothing -> []
-  Just lt -> catMaybes $ map parseLayoutItem (elChildren lt)
+  Just lt -> mapMaybe parseLayoutItem (elChildren lt)
   where parseLayoutItem :: Element -> Maybe XdgLayoutItem
         parseLayoutItem e = case qName (elName e) of
           "Separator" -> Just XliSeparator
           "Filename"  -> Just $ XliFile $ strContent e
           unknown     -> D.trace ("Unknown layout item: " ++ unknown) Nothing
-          
+
 -- | Determine whether a desktop entry fulfils a condition.
 matchesCondition :: DesktopEntry -> DesktopEntryCondition -> Bool
 matchesCondition de (Category cat) = deHasCategory de cat
 matchesCondition de (Filename fn)  = fn == deFilename de
 matchesCondition de (Not cond)     = not $ matchesCondition de cond
-matchesCondition de (And conds)    = and $ map (matchesCondition de) conds
-matchesCondition de (Or conds)     = or $ map (matchesCondition de) conds
+matchesCondition de (And conds)    = all (matchesCondition de) conds
+matchesCondition de (Or conds)     = any (matchesCondition de) conds
 matchesCondition _  All            = True
 matchesCondition _  None           = False
 
@@ -255,13 +256,10 @@ readXdgMenu mMenuPrefix = do
   putStrLn $ "Reading " ++ filename
   contents <- readFile filename
   langs <- getPreferredLanguages
-  case parseXMLDoc contents of
-    Nothing      -> do putStrLn "Parsing XDG menu failed"
-                       return Nothing
-    Just element -> do case parseMenu element of
-                         Nothing -> return Nothing
-                         Just m -> do des <- getApplicationEntries langs m
-                                      return $ Just (m, des)
+  runMaybeT $ do
+    m <- MaybeT $ return $ parseXMLDoc contents >>= parseMenu
+    des <- lift $ getApplicationEntries langs m
+    return (m, des)
 
 -- -- | Test
 -- testXdgMenu :: IO ()
@@ -269,4 +267,3 @@ readXdgMenu mMenuPrefix = do
 --   m <- buildFinalMenu (Just "mate-")
 --   print $ m
 --   return ()
-
