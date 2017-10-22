@@ -13,26 +13,22 @@
 module System.Information.SafeX11 where
 
 import           Control.Concurrent
-import           Control.Concurrent.Chan
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Maybe (MaybeT(..))
 import           Data.Either.Combinators
 import           Data.Functor ((<$>))
-import           Data.Maybe
-import           Data.Tuple.Curry
 import           Data.Typeable
 import           Foreign hiding (void)
 import           Foreign.C.Types
 import           GHC.ForeignPtr
 import           GHC.IO.Exception
-import qualified Graphics.UI.Gtk as Gtk
 import           Graphics.X11.Xlib
 import           Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,
                getWindowProperty16, getWindowProperty32,
-               xGetWMHints, getWMHints, getGeometry, xGetGeometry)
+               xGetWMHints, getWMHints)
 import           Graphics.X11.Xlib.Types
 import           System.IO
 import           System.IO.Unsafe
@@ -104,9 +100,11 @@ data IORequest = forall a. IORequest
   }
 
 {-# NOINLINE requestQueue #-}
+requestQueue :: Chan IORequest
 requestQueue = unsafePerformIO newChan
 
 {-# NOINLINE x11Thread #-}
+x11Thread :: ThreadId
 x11Thread = unsafePerformIO $ forkIO startHandlingX11Requests
 
 withErrorHandler :: XErrorHandler -> IO a -> IO a
@@ -119,6 +117,7 @@ withErrorHandler new_handler action = do
 
 deriving instance Show ErrorEvent
 
+startHandlingX11Requests :: IO ()
 startHandlingX11Requests =
   withErrorHandler handleError handleX11Requests
   where handleError _ xerrptr = do
