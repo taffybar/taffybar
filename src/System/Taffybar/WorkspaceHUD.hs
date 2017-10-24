@@ -54,7 +54,6 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.RateLimit
-import qualified Data.Char as S
 import qualified Data.Foldable as F
 import           Data.List (sortBy)
 import qualified Data.Map as M
@@ -66,6 +65,7 @@ import           Data.Tuple.Select
 import           Data.Tuple.Sequence
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
+import           Graphics.UI.Gtk.General.StyleContext
 import qualified Graphics.UI.Gtk.Layout.Table as T
 import           Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,
@@ -85,6 +85,9 @@ data WorkspaceState
   | Empty
   | Urgent
   deriving (Show, Eq)
+
+workspaceStates :: [String]
+workspaceStates = map show [Active, Visible, Hidden, Empty, Urgent]
 
 data IconInfo
   = IIEWMH EWMHIcon
@@ -130,6 +133,23 @@ liftPager action = asks hudPager >>= lift . runReaderT action
 
 liftX11Def :: a -> X11Property a -> HUDIO a
 liftX11Def = (liftPager .) . liftPagerX11Def
+
+widgetSetClass widget klass = do
+  context <- Gtk.widgetGetStyleContext widget
+  styleContextAddClass context klass
+
+setWorkspaceWidgetStatusClass workspace widget =
+  updateWidgetClasses widget [show $ workspaceState workspace] workspaceStates
+
+updateWidgetClasses widget toAdd toRemove = do
+  context <- Gtk.widgetGetStyleContext widget
+  let hasClass = styleContextHasClass context
+      addIfMissing klass =
+        hasClass klass >>= (`when` (styleContextAddClass context klass)) . not
+      removeIfPresent klass = when (not $ elem klass toAdd) $
+        hasClass klass >>= (`when` (styleContextRemoveClass context klass))
+  mapM_ removeIfPresent toRemove
+  mapM_ addIfMissing toAdd
 
 class WorkspaceWidgetController wc where
   getWidget :: wc -> Gtk.Widget
@@ -606,6 +626,7 @@ buildContentsController constructors ws = do
     Gtk.containerAdd ial hbox
     Gtk.containerAdd ebox ial
     Gtk.containerAdd oal ebox
+    widgetSetClass ebox "Container"
     return
       WorkspaceContentsController
       { containerEbox = ebox
@@ -629,9 +650,7 @@ instance WorkspaceWidgetController WorkspaceContentsController where
       minWSWidgetSize cfg
     case update of
       WorkspaceUpdate newWorkspace ->
-        lift $
-        Gtk.widgetSetName (containerEbox cc) $
-        getWidgetName newWorkspace "contents"
+        lift $ setWorkspaceWidgetStatusClass newWorkspace $ containerEbox cc
       _ -> return ()
     newControllers <- mapM (`updateWidget` update) $ contentsControllers cc
     return cc {contentsControllers = newControllers}
@@ -655,7 +674,7 @@ instance WorkspaceWidgetController LabelController where
     labelText <- labelSetter cfg newWorkspace
     lift $ do
       Gtk.labelSetMarkup (label lc) labelText
-      Gtk.widgetSetName (label lc) $ getWidgetName newWorkspace "label"
+      setWorkspaceWidgetStatusClass newWorkspace $ label lc
     return lc
   updateWidget lc _ = return lc
 
@@ -757,6 +776,7 @@ updateImages ic ws = do
         existingImages ++
         repeat
           (do iw <- buildIconWidget ws
+              lift $ widgetSetClass (iconContainer iw) "IconContainer"
               lift $ Gtk.containerAdd (iconsContainer ic) $ iconContainer iw
               return iw)
       windowCount = length $ windows ws
@@ -801,6 +821,15 @@ buildIconWidget ws = do
     return
       IconWidget {iconContainer = ebox, iconImage = img, iconWindow = windowVar}
 
+getWindowStatusString :: WindowData -> String
+getWindowStatusString WindowData { windowActive = True } = show Active
+getWindowStatusString WindowData { windowUrgent = True } = show Urgent
+getWindowStatusString WindowData { windowMinimized = True } = "Minimized"
+getWindowStatusString _ = "Normal"
+
+possibleStatusStrings :: [String]
+possibleStatusStrings = [show Active, show Urgent, "Minimized", "Normal", "Nodata"]
+
 updateIconWidget
   :: IconController
   -> IconWidget
@@ -829,12 +858,7 @@ updateIconWidget _ IconWidget { iconContainer = iconButton
           Just dat -> getIconInfo cfg dat
           Nothing -> return IINone
       let imgSize = windowIconSize cfg
-          statusStr =
-            case windowData of
-              Just WindowData { windowActive = True } -> "active"
-              Just WindowData { windowUrgent = True } -> "urgent"
-              Just WindowData { windowMinimized = True } -> "minimized"
-              _ -> "normal"
+          statusString = maybe "nodata" getWindowStatusString windowData
           iconInfo =
             case info of
               IINone ->
@@ -845,12 +869,7 @@ updateIconWidget _ IconWidget { iconContainer = iconButton
       lift $ do
         mpixBuf <- getPixBuf imgSize iconInfo
         setImage imgSize image mpixBuf
-        let widgetName =
-              printf
-              "Workspace-icon-%s-%s"
-              (show $ maybe 0 windowId windowData)
-              statusStr
-        Gtk.widgetSetName iconButton (widgetName :: String)
+        updateWidgetClasses iconButton [statusString] possibleStatusStrings
 
 setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
 setImage imgSize img pixBuf =
@@ -939,15 +958,15 @@ buildUnderlineController contentsBuilder workspace = do
     T.tableAttach t u 0 1 1 2
        [T.Fill] [T.Shrink] (underlinePadding cfg) 0
 
+    widgetSetClass u "Underline"
     return $ WWC WorkspaceUnderlineController
       {table = t, underline = u, overlineController = cc}
 
 instance WorkspaceWidgetController WorkspaceUnderlineController where
   getWidget uc = Gtk.toWidget $ table uc
   updateWidget uc wu@(WorkspaceUpdate workspace) =
-    let widgetName = getWidgetName workspace "underline"
-        setWidgetName = Gtk.widgetSetName (underline uc) widgetName
-    in lift setWidgetName >> updateUnderline uc wu
+    lift (setWorkspaceWidgetStatusClass workspace (underline uc)) >>
+    updateUnderline uc wu
   updateWidget a b = updateUnderline a b
 
 updateUnderline :: WorkspaceUnderlineController
@@ -974,6 +993,8 @@ buildBorderController contentsBuilder workspace = do
     Gtk.containerSetBorderWidth cnt $ borderWidth cfg
     Gtk.containerAdd brd cnt
     Gtk.containerAdd cnt $ getWidget cc
+    widgetSetClass brd "Border"
+    widgetSetClass cnt "Container"
     return $
       WWC
         WorkspaceBorderController
@@ -982,11 +1003,9 @@ buildBorderController contentsBuilder workspace = do
 instance WorkspaceWidgetController WorkspaceBorderController where
   getWidget bc = Gtk.toWidget $ border bc
   updateWidget bc wu@(WorkspaceUpdate workspace) =
-    let setBorderName = Gtk.widgetSetName (border bc) $
-                        getWidgetName workspace "Border"
-        setContentsName = Gtk.widgetSetName (borderContents bc) $
-                          getWidgetName workspace "Container"
-    in lift (setBorderName >> setContentsName) >> updateBorder bc wu
+    let setClasses = setWorkspaceWidgetStatusClass workspace
+    in lift (setClasses (border bc) >> setClasses (borderContents bc)) >>
+       updateBorder bc wu
   updateWidget a b = updateBorder a b
 
 updateBorder :: WorkspaceBorderController
@@ -995,14 +1014,6 @@ updateBorder :: WorkspaceBorderController
 updateBorder bc update = do
   newContents <- updateWidget (insideController bc) update
   return bc { insideController = newContents }
-
-getWidgetName :: Workspace -> String -> String
-getWidgetName ws wname =
-  printf
-    "Workspace-%s-%s-%s"
-    wname
-    (workspaceName ws)
-    (map S.toLower $ show $ workspaceState ws)
 
 buildUnderlineButtonController :: ControllerConstructor
 buildUnderlineButtonController =
