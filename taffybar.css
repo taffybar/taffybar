@@ -1,5 +1,30 @@
-@define-color taffybar_bg_color rgba(0, 0, 0, 1.0);
+@define-color taffybar_bg_color #000000;
+@define-color taffybar_bg_tone #212121;
+@define-color taffybar_highlight_color #ffeb3b;
 
-*.active {
-	background-color: #212121;
+.Active.Underline {
+	background-color: @taffybar_highlight_color;
+	border-radius: 1px;
+}
+
+.IconContainer.Active {
+	background-color: @taffybar_highlight_color;
+    border-radius: 5px;
+}
+
+.IconContainer.Minimized {
+	opacity: .3;
+}
+
+.Active.Container {
+	background-color: @taffybar_bg_tone;
+	border-radius: 5px;
+}
+
+.Taffybar {
+	background-color: @taffybar_bg_color;
+}
+
+#WindowSwitcher {
+	background-color: @taffybar_bg_color;
 }

@@ -1,4 +1,4 @@
-# 0.5
+# 1.0.0
 
 ## Breaking Changes
 
@@ -14,6 +14,7 @@
  * d-bus toggling of taffybar per monitor (Ivan Malison)
  * Add a pager config field that configures the construction of window switcher titles (Ivan Malison)
  * Quick start script for installing from git with stack (Ivan Malison)
+ * Migrate from Gtk2 to Gtk3, which replaces rc theming with css theming (Ivan Malison)
 
 ## Bug Fixes
 
