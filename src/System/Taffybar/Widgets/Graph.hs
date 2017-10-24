@@ -21,13 +21,14 @@ module System.Taffybar.Widgets.Graph (
   graphAddSample,
   defaultGraphConfig
   ) where
-import Graphics.UI.Gtk.Abstract.Widget
-import Prelude hiding ( mapM_ )
-import Control.Concurrent
-import Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
-import Data.Foldable ( mapM_ )
-import Control.Monad ( when )
-import Control.Monad.Trans ( liftIO )
+import           Graphics.UI.Gtk.Abstract.Widget
+import           Prelude hiding ( mapM_ )
+import           Control.Concurrent
+import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
+import           Data.Foldable ( mapM_ )
+import           Control.Monad ( when )
+import           Control.Monad.Trans ( liftIO, lift )
+import           Data.Tuple.Sequence
 import qualified Data.Sequence as S
 import qualified Graphics.Rendering.Cairo as C
 import qualified Graphics.Rendering.Cairo.Matrix as M
@@ -51,18 +52,28 @@ data GraphStyle
 -- | The configuration options for the graph.  The padding is the
 -- number of pixels reserved as blank space around the widget in each
 -- direction.
-data GraphConfig =
-  GraphConfig { graphPadding :: Int -- ^ Number of pixels of padding on each side of the graph widget
-              , graphBackgroundColor :: (Double, Double, Double) -- ^ The background color of the graph (default black)
-              , graphBorderColor :: (Double, Double, Double) -- ^ The border color drawn around the graph (default gray)
-              , graphBorderWidth :: Int -- ^ The width of the border (default 1, use 0 to disable the border)
-              , graphDataColors :: [(Double, Double, Double, Double)] -- ^ Colors for each data set (default cycles between red, green and blue)
-              , graphDataStyles :: [GraphStyle] -- ^ How to draw each data point (default @repeat Area@)
-              , graphHistorySize :: Int -- ^ The number of data points to retain for each data set (default 20)
-              , graphLabel :: Maybe String -- ^ May contain Pango markup (default @Nothing@)
-              , graphWidth :: Int -- ^ The width (in pixels) of the graph widget (default 50)
-              , graphDirection :: GraphDirection
-              }
+data GraphConfig = GraphConfig
+  -- | Number of pixels of padding on each side of the graph widget
+  { graphPadding :: Int
+  -- | The background color of the graph (default black)
+  , graphBackgroundColor :: (Double, Double, Double)
+  -- | The border color drawn around the graph (default gray)
+  , graphBorderColor :: (Double, Double, Double)
+  -- | The width of the border (default 1, use 0 to disable the border)
+  , graphBorderWidth :: Int
+  -- | Colors for each data set (default cycles between red, green and blue)
+  , graphDataColors :: [(Double, Double, Double, Double)]
+  -- | How to draw each data point (default @repeat Area@)
+  , graphDataStyles :: [GraphStyle]
+  -- | The number of data points to retain for each data set (default 20)
+  , graphHistorySize :: Int
+  -- | May contain Pango markup (default @Nothing@)
+  , graphLabel :: Maybe String
+  -- | The width (in pixels) of the graph widget (default 50)
+  , graphWidth :: Int
+  -- | The direction in which the graph will move as time passes (default LEFT_TO_RIGHT)
+  , graphDirection :: GraphDirection
+  }
 
 defaultGraphConfig :: GraphConfig
 defaultGraphConfig = GraphConfig { graphPadding = 2
@@ -177,21 +188,23 @@ renderGraph hists cfg w h xStep = do
 
   sequence_ $ zipWith3 renderDataSet hists (graphDataColors cfg) (graphDataStyles cfg)
 
-drawBorder :: MVar GraphState -> Gtk.DrawingArea -> IO ()
+drawBorder :: MVar GraphState -> Gtk.DrawingArea -> C.Render ()
 drawBorder mv drawArea = do
-  (w, h) <- widgetGetSizeRequest drawArea
-  (Just drawWin) <- widgetGetWindow drawArea
-  s <- readMVar mv
+  (w, h) <- widgetGetAllocatedSize drawArea
+  s <- liftIO $ readMVar mv
   let cfg = graphConfig s
-  Gtk.renderWithDrawWindow drawWin (renderFrameAndBackground cfg w h)
-  modifyMVar_ mv (\s' -> return s' { graphIsBootstrapped = True })
+  renderFrameAndBackground cfg w h
+  liftIO $ modifyMVar_ mv (\s' -> return s' { graphIsBootstrapped = True })
   return ()
 
-drawGraph :: MVar GraphState -> Gtk.DrawingArea -> IO ()
+widgetGetAllocatedSize widget =
+  liftIO $ sequenceT (widgetGetAllocatedWidth widget, widgetGetAllocatedHeight widget)
+
+drawGraph :: MVar GraphState -> Gtk.DrawingArea ->  C.Render ()
 drawGraph mv drawArea = do
-  (w, h) <- widgetGetSizeRequest drawArea
-  (Just drawWin) <- Gtk.widgetGetWindow drawArea
-  s <- readMVar mv
+  (w, h) <- widgetGetAllocatedSize drawArea
+  drawBorder mv drawArea
+  s <- liftIO $ readMVar mv
   let hist = graphHistory s
       cfg = graphConfig s
       histSize = graphHistorySize cfg
@@ -200,8 +213,8 @@ drawGraph mv drawArea = do
       xStep = fromIntegral w / fromIntegral (histSize - 1)
 
   case hist of
-    [] -> Gtk.renderWithDrawWindow drawWin (renderFrameAndBackground cfg w h)
-    _ -> Gtk.renderWithDrawWindow drawWin (renderGraph hist cfg w h xStep)
+    [] -> renderFrameAndBackground cfg w h
+    _ -> renderGraph hist cfg w h xStep
 
 graphNew :: GraphConfig -> IO (Gtk.Widget, GraphHandle)
 graphNew cfg = do
@@ -213,8 +226,7 @@ graphNew cfg = do
                            }
 
   Gtk.widgetSetSizeRequest drawArea (graphWidth cfg) (-1)
-  _ <- Gtk.on drawArea Gtk.exposeEvent $ Gtk.tryEvent $ liftIO (drawGraph mv drawArea)
-  _ <- Gtk.on drawArea Gtk.realize $ liftIO (drawBorder mv drawArea)
+  _ <- Gtk.on drawArea Gtk.draw $ drawGraph mv drawArea
   box <- Gtk.hBoxNew False 1
 
   case graphLabel cfg of
