@@ -293,7 +293,9 @@ defaultParams =
   { Dyre.projectName = "taffybar"
   , Dyre.realMain = realMain
   , Dyre.showError = showError
-  , Dyre.ghcOpts = ["-threaded", "-rtsopts"]
+  -- The argument "-hide-package=gtk" is used to avoid collisions between the
+  -- gtk and gtk3 packages.
+  , Dyre.ghcOpts = ["-threaded", "-rtsopts", "-hide-package=gtk"]
   , Dyre.rtsOptsHandling = Dyre.RTSAppend ["-I0", "-V0"]
   }
 
