@@ -1,5 +1,9 @@
 packages:
 - '.'
+- location:
+    git: git@github.com:IvanMalison/gtk-traymanager.git
+    commit: 39cddcf77f3e4a8ecbc4d82894457fd61c1faff1
+  extra-dep: true
 extra-deps:
   - time-units-1.0.0
   - rate-limit-1.1.1
