@@ -1,0 +1,19 @@
+@define-color taffybar_bg_color rgba(0, 0, 0, 1.0);
+@define-color taffybar_fg_color #aaf;
+@define-color taffybar_hl_color #00ff00;
+@define-color taffybar_nf_color #ff0000;
+
+
+
+* {
+    font: Fira Mono 9;
+    background-color: @taffybar_bg_color;
+}
+
+#Taffybar {
+    background-image: -gtk-gradient (linear,
+				     left top, right bottom,
+				     from (#000),
+				     to (#015));
+    color: @taffybar_fg_color;
+}

@@ -18,7 +18,7 @@ import Text.Printf
 mpris2New :: IO Widget
 mpris2New = do
   label <- labelNew (Nothing :: Maybe String)
-  widgetShowAll label
+  widgetHide label
   _ <- on label realize $ initLabel label
   return (toWidget label)
 
@@ -60,9 +60,9 @@ reqSongInfo w client = do
       reply' <- getProperty client (players !! 0) "PlaybackStatus"
       let status = (unpack . unpack) (methodReturnBody reply' !! 0) :: String
       case status of
-        "Playing" -> postGUIAsync $ widgetShowAll w
-        "Paused"  -> postGUIAsync $ widgetHideAll w
-        "Stopped" -> postGUIAsync $ widgetHideAll w
+        "Playing" -> postGUIAsync $ widgetShow w
+        "Paused"  -> postGUIAsync $ widgetHide w
+        "Stopped" -> postGUIAsync $ widgetHide w
         _         -> return ()
 
 getProperty :: Client -> String -> String -> IO MethodReturn
@@ -92,9 +92,9 @@ updatePlaybackStatus w items = do
   case lookup (toVariant ("PlaybackStatus" :: String)) items of
     Just a -> do
       case (unpack . unpack) a :: String of
-        "Playing" -> postGUIAsync $ widgetShowAll w
-        "Paused"  -> postGUIAsync $ widgetHideAll w
-        "Stopped" -> postGUIAsync $ widgetHideAll w
+        "Playing" -> postGUIAsync $ widgetShow w
+        "Paused"  -> postGUIAsync $ widgetHide w
+        "Stopped" -> postGUIAsync $ widgetHide w
         _         -> return ()
     Nothing -> do
       return ()

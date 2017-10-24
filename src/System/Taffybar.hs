@@ -197,8 +197,14 @@ import qualified System.IO as IO
 import System.Mem.StableName
 import Text.Printf ( printf )
 
+import System.Glib.Signals
+import Graphics.UI.Gtk.Abstract.Widget
+import Graphics.UI.Gtk.General.CssProvider
+import Graphics.UI.Gtk.General.StyleContext
 import Paths_taffybar ( getDataDir )
 import System.Taffybar.StrutProperties
+import System.IO
+import Graphics.UI.Gtk.General.StyleContext (styleContextAddProviderForScreen)
 
 data Position = Top | Bottom
   deriving (Show, Eq)
@@ -349,22 +355,28 @@ setTaffybarSize cfg window monNumber = do
           strutHeight
           monitorSize
           allMonitorSizes
+
   winRealized <- widgetGetRealized window
   if winRealized
     then setStrutProps
-    else void $ onRealize window setStrutProps
+  else void $ on window realize setStrutProps
+
 
 taffybarMain :: TaffybarConfig -> IO ()
 taffybarMain cfg = do
 
   _ <- initThreads
-  _ <- initGUI
 
-  -- Load default and user gtk resources
-  defaultGtkConfig <- getDefaultConfigFile "taffybar.rc"
-  userGtkConfig <- getUserConfigFile "taffybar" "taffybar.rc"
-  rcParse defaultGtkConfig
-  rcParse userGtkConfig
+  -- Override the default GTK theme path settings.  This causes the
+  -- bar (by design) to ignore the real GTK theme and just use the
+  -- provided minimal theme to set the background and text colors.
+  -- Users can override this default.
+  taffybarProvider <- cssProviderNew
+  cssProviderLoadFromPath taffybarProvider =<< getDefaultConfigFile "taffybar.css"
+  Just scr <- screenGetDefault
+  styleContextAddProviderForScreen scr taffybarProvider 800
+
+  _ <- initGUI
 
   Just disp <- displayGetDefault
   nscreens <- displayGetNScreens disp

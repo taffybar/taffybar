@@ -26,51 +26,52 @@ flag network-uri
 
 library
   default-language: Haskell2010
-  build-depends: base > 3 && < 5,
-                 HStringTemplate >= 0.8 && < 0.9,
-                 HTTP,
-                 X11 >= 1.5.0.1,
-                 cairo,
-                 ConfigFile,
-                 containers,
-                 dbus >= 0.10.7 && < 1.0,
-                 directory,
-                 dyre >= 0.8.6 && < 0.9,
-                 enclosed-exceptions >= 1.0.0.1,
-                 either >= 4.0.0.0,
-                 filepath,
-                 gtk >= 0.12.1 && < 0.15,
-                 gtk-traymanager >= 0.1.2 && < 0.2,
-                 mtl >= 2,
-                 multimap >= 1.2.1,
-                 old-locale,
-                 parsec >= 3.1,
-                 process >= 1.0.1.1,
-                 process,
-                 rate-limit >= 1.1.1,
-                 safe >= 0.3 && < 1,
-                 split >= 0.1.4.2,
-                 stm,
-                 text,
-                 time >= 1.4 && < 1.7,
-                 time-locale-compat >= 0.1 && < 0.2,
-                 time-units >= 1.0.0,
-                 transformers >= 0.3.0.0,
-                 tuple >= 0.3.0.2,
-                 unix,
-                 utf8-string,
-                 xdg-basedir >= 0.2 && < 0.3,
-                 xml,
-                 xml-helpers,
-                 xmonad,
-                 xmonad-contrib
+  build-depends: base > 3 && < 5
+               , ConfigFile
+               , HStringTemplate >= 0.8 && < 0.9
+               , HTTP
+               , X11 >= 1.5.0.1
+               , cairo
+               , containers
+               , dbus >= 0.10.7 && < 1.0
+               , directory
+               , dyre >= 0.8.6 && < 0.9
+               , either >= 4.0.0.0
+               , enclosed-exceptions >= 1.0.0.1
+               , filepath
+               , glib
+               , gtk-traymanager >= 0.1.2 && < 0.2
+               , gtk3
+               , mtl >= 2
+               , multimap >= 1.2.1
+               , old-locale
+               , parsec >= 3.1
+               , process >= 1.0.1.1
+               , process
+               , rate-limit >= 1.1.1
+               , safe >= 0.3 && < 1
+               , split >= 0.1.4.2
+               , stm
+               , text
+               , time >= 1.4 && < 1.7
+               , time-locale-compat >= 0.1 && < 0.2
+               , time-units >= 1.0.0
+               , transformers >= 0.3.0.0
+               , tuple >= 0.3.0.2
+               , unix
+               , utf8-string
+               , xdg-basedir >= 0.2 && < 0.3
+               , xml
+               , xml-helpers
+               , xmonad
+               , xmonad-contrib
 
   if flag(network-uri)
     build-depends: network-uri >= 2.6 && < 3, network >= 2.6 && < 3
   else
     build-depends: network-uri < 2.6, network < 2.6
   hs-source-dirs: src
-  pkgconfig-depends: gtk+-2.0
+  pkgconfig-depends: gtk+-3.0
   exposed-modules: System.Taffybar,
                    System.Taffybar.XMonadLog,
                    System.Taffybar.Systray,
@@ -117,7 +118,7 @@ library
                    System.Information.CPU2,
                    System.Information.DiskIO,
                    System.Information.SafeX11
-
+                   
   other-modules: System.Taffybar.StrutProperties,
                  Paths_taffybar,
                  System.Taffybar.Util
@@ -128,10 +129,10 @@ library
 
 executable taffybar
   default-language: Haskell2010
-  build-depends: base > 3 && < 5,
+  build-depends: glib,
+                 base > 3 && < 5,
                  dyre >= 0.8.6,
-                 containers,
-                 gtk >= 0.12 && < 0.15,
+                 gtk3,
                  safe >= 0.3 && < 1,
                  xdg-basedir,
                  X11 >= 1.5.0.1,
@@ -140,10 +141,11 @@ executable taffybar
   main-is: Main.hs
   other-modules: System.Taffybar
                  System.Taffybar.StrutProperties
-  pkgconfig-depends: gtk+-2.0
+  pkgconfig-depends: gtk+-3.0
   c-sources: src/gdk_property_change_wrapper.c
   ghc-options: -Wall -rtsopts -threaded
 
 source-repository head
   type: git
   location: git://github.com/travitch/taffybar.git
+

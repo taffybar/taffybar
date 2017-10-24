@@ -7,6 +7,7 @@
 
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
+#include <gdk/gdkkeysyms-compat.h>
 
 void set_strut_properties(GtkWindow *window,
 				long left, long right, long top, long bottom,
@@ -21,7 +22,7 @@ void set_strut_properties(GtkWindow *window,
 	data[8] = top_start_x; data[9] = top_end_x;
 	data[10] = bottom_start_x; data[11] = bottom_end_x;
 
-	gdk_property_change(GTK_WIDGET(window)->window,
+	gdk_property_change(gtk_widget_get_window(GTK_WIDGET(window)),
 				gdk_atom_intern("_NET_WM_STRUT_PARTIAL", FALSE),
 				gdk_atom_intern ("CARDINAL", FALSE),
 				32, GDK_PROP_MODE_REPLACE, (unsigned char *)data, 12);

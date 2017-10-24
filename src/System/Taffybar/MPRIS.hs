@@ -22,6 +22,8 @@ import DBus.Client
 import Graphics.UI.Gtk hiding ( Signal, Variant )
 import Text.Printf
 
+
+
 data TrackInfo = TrackInfo
   { trackArtist :: Maybe String -- ^ Artist name, if available.
   , trackTitle  :: Maybe String -- ^ Track name, if available.
@@ -81,8 +83,8 @@ stateCallback w s =
   case fromVariant (signalBody s !! 0) of
     Just st -> case structureItems st of
       (pstate:_) -> case (fromVariant pstate) :: Maybe Int32 of
-        Just 2 -> postGUIAsync $ widgetHideAll w
-        Just 1 -> postGUIAsync $ widgetHideAll w
+        Just 2 -> postGUIAsync $ widgetHide w
+        Just 1 -> postGUIAsync $ widgetHide w
         Just 0 -> postGUIAsync $ widgetShowAll w
         _ -> return ()
       _ -> return ()
