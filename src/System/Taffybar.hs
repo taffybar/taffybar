@@ -188,7 +188,8 @@ import Control.Monad ( when, foldM, void )
 import Data.List
 import qualified Data.Map as M
 import Data.Maybe ( fromMaybe )
-import Graphics.UI.Gtk
+import Graphics.UI.Gtk as Gtk
+import Graphics.UI.Gtk.General.StyleContext
 import Graphics.X11.Xlib.Misc
 import Safe ( atMay )
 import System.Directory
@@ -432,7 +433,10 @@ taffybarMain cfg = do
         window <- windowNew
         let windowName = printf "Taffybar-%s" $ show monNumber :: String
 
+        styleContext <- Gtk.widgetGetStyleContext window
+        styleContextAddClass styleContext "Taffybar"
         widgetSetName window windowName
+
         windowSetTypeHint window WindowTypeHintDock
         windowSetScreen window screen
         setTaffybarSize wcfg window monNumber
