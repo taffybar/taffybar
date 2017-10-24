@@ -178,18 +178,20 @@ module System.Taffybar (
   taffybarMain,
   allMonitors,
   useMonitorNumber,
+  realMain
   ) where
 
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
 import qualified Control.Concurrent.MVar as MV
 import Control.Monad ( when, foldM, void )
+import Data.List
 import qualified Data.Map as M
 import Data.Maybe ( fromMaybe )
-import Data.List
 import Graphics.UI.Gtk
 import Graphics.X11.Xlib.Misc
 import Safe ( atMay )
+import System.Directory
 import System.Environment.XDG.BaseDir ( getUserConfigFile )
 import System.Exit ( exitFailure )
 import System.FilePath ( (</>) )
@@ -197,14 +199,13 @@ import qualified System.IO as IO
 import System.Mem.StableName
 import Text.Printf ( printf )
 
-import System.Glib.Signals
 import Graphics.UI.Gtk.Abstract.Widget
 import Graphics.UI.Gtk.General.CssProvider
 import Graphics.UI.Gtk.General.StyleContext
 import Paths_taffybar ( getDataDir )
-import System.Taffybar.StrutProperties
+import System.Glib.Signals
 import System.IO
-import Graphics.UI.Gtk.General.StyleContext (styleContextAddProviderForScreen)
+import System.Taffybar.StrutProperties
 
 data Position = Top | Bottom
   deriving (Show, Eq)
@@ -361,22 +362,26 @@ setTaffybarSize cfg window monNumber = do
     then setStrutProps
   else void $ on window realize setStrutProps
 
-
-taffybarMain :: TaffybarConfig -> IO ()
-taffybarMain cfg = do
-
-  _ <- initThreads
-
+startCSS = do
   -- Override the default GTK theme path settings.  This causes the
   -- bar (by design) to ignore the real GTK theme and just use the
   -- provided minimal theme to set the background and text colors.
   -- Users can override this default.
   taffybarProvider <- cssProviderNew
-  cssProviderLoadFromPath taffybarProvider =<< getDefaultConfigFile "taffybar.css"
+  let loadIfExists filePath =
+        doesFileExist filePath >>= flip when (cssProviderLoadFromPath taffybarProvider filePath)
+  loadIfExists =<< getDefaultConfigFile "taffybar.css"
+  loadIfExists =<< getUserConfigFile "taffybar" "taffybar.css"
   Just scr <- screenGetDefault
   styleContextAddProviderForScreen scr taffybarProvider 800
+  return taffybarProvider
 
+taffybarMain :: TaffybarConfig -> IO ()
+taffybarMain cfg = do
+
+  _ <- initThreads
   _ <- initGUI
+  _ <- startCSS
 
   Just disp <- displayGetDefault
   nscreens <- displayGetNScreens disp
