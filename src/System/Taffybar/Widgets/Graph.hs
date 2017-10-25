@@ -76,17 +76,19 @@ data GraphConfig = GraphConfig
   }
 
 defaultGraphConfig :: GraphConfig
-defaultGraphConfig = GraphConfig { graphPadding = 2
-                                 , graphBackgroundColor = (0.0, 0.0, 0.0)
-                                 , graphBorderColor = (0.5, 0.5, 0.5)
-                                 , graphBorderWidth = 1
-                                 , graphDataColors = cycle [(1,0,0,0), (0,1,0,0), (0,0,1,0)]
-                                 , graphDataStyles = repeat Area
-                                 , graphHistorySize = 20
-                                 , graphLabel = Nothing
-                                 , graphWidth = 50
-                                 , graphDirection = LEFT_TO_RIGHT
-                                 }
+defaultGraphConfig =
+  GraphConfig
+  { graphPadding = 2
+  , graphBackgroundColor = (0.0, 0.0, 0.0)
+  , graphBorderColor = (0.5, 0.5, 0.5)
+  , graphBorderWidth = 1
+  , graphDataColors = cycle [(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0)]
+  , graphDataStyles = repeat Area
+  , graphHistorySize = 20
+  , graphLabel = Nothing
+  , graphWidth = 50
+  , graphDirection = LEFT_TO_RIGHT
+  }
 
 -- | Add a data point to the graph for each of the tracked data sets.
 -- There should be as many values in the list as there are data sets.
@@ -233,6 +235,8 @@ graphNew cfg = do
       Gtk.labelSetMarkup l lbl
       Gtk.boxPackStart box l Gtk.PackNatural 0
 
+  Gtk.set drawArea [Gtk.widgetVExpand Gtk.:= True]
+  Gtk.set box [Gtk.widgetVExpand Gtk.:= True]
   Gtk.boxPackStart box drawArea Gtk.PackGrow 0
   Gtk.widgetShowAll box
   return (Gtk.toWidget box, GH mv)

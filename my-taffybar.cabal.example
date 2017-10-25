@@ -13,7 +13,7 @@ executable my-taffybar
                      , containers
                      , directory
                      , filepath
-                     , gtk
+                     , gtk3
                      , gtk-traymanager>=0.1.6
                      , taffybar
                      , xmonad-contrib>=0.13

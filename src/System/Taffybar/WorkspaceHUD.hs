@@ -272,7 +272,7 @@ windowTitleClassIconGetter customIconF = fn
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
 defaultWorkspaceHUDConfig =
   WorkspaceHUDConfig
-  { widgetBuilder = buildUnderlineButtonController
+  { widgetBuilder = buildButtonController defaultBuildContentsController
   , widgetGap = 0
   , windowIconSize = 16
   , underlineHeight = 4

@@ -29,6 +29,7 @@ import           Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,
                getWindowProperty16, getWindowProperty32,
                xGetWMHints, getWMHints)
+import           Prelude
 import           Graphics.X11.Xlib.Types
 import           System.IO
 import           System.IO.Unsafe

@@ -32,7 +32,6 @@ import DBus
 import DBus.Client
 import Graphics.UI.Gtk hiding ( Variant )
 
-import Graphics.UI.Gtk.Abstract.Widget
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification { noteAppName :: Text
                                  , noteReplaceId :: Word32

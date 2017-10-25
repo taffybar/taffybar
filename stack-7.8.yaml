@@ -1,5 +1,9 @@
 packages:
 - '.'
+- location:
+    git: https://github.com/travitch/gtk-traymanager.git
+    commit: 517b24722b2cdab2dadbafa882ffcb6b8a1d01ff
+  extra-dep: true
 extra-deps:
   - time-units-1.0.0
   - rate-limit-1.1.1

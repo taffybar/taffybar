@@ -30,11 +30,13 @@ where
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Maybe
 import           Data.Char (toLower)
+import           Data.Functor ((<$>))
 import           Data.List
 import           Data.Maybe
 import qualified Data.Set as S
 import qualified Debug.Trace as D
 import           GHC.IO.Encoding
+import           Prelude
 import           System.Directory
 import           System.Environment
 import           System.FilePath.Posix

@@ -42,8 +42,8 @@ pollingIconImageWidgetNew :: FilePath       -- ^ Initial file path of the icon
 pollingIconImageWidgetNew path interval cmd = do
   box <- hBoxNew False 0
   icon <- imageNewFromFile path
-  on icon realize $ do
-    forkIO $ forever $ do
+  _ <- on icon realize $ do
+    _ <- forkIO $ forever $ do
       let tryUpdate = do
             str <- cmd
             postGUIAsync $ imageSetFromFile icon str
