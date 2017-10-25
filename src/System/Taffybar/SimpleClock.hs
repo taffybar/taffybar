@@ -18,7 +18,6 @@ import Data.Time.LocalTime
 import Graphics.UI.Gtk
 import qualified Data.Time.Locale.Compat as L
 
-import System.Glib.Signals
 import System.Taffybar.Widgets.PollingLabel
 import System.Taffybar.Widgets.Util
 

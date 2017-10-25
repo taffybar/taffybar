@@ -134,13 +134,22 @@ liftPager action = asks hudPager >>= lift . runReaderT action
 liftX11Def :: a -> X11Property a -> HUDIO a
 liftX11Def = (liftPager .) . liftPagerX11Def
 
+widgetSetClass
+  :: W.WidgetClass widget
+  => widget -> String -> IO ()
 widgetSetClass widget klass = do
   context <- Gtk.widgetGetStyleContext widget
   styleContextAddClass context klass
 
+setWorkspaceWidgetStatusClass
+  :: W.WidgetClass widget
+  => Workspace -> widget -> IO ()
 setWorkspaceWidgetStatusClass workspace widget =
   updateWidgetClasses widget [show $ workspaceState workspace] workspaceStates
 
+updateWidgetClasses
+  :: W.WidgetClass widget
+  => widget -> [String] -> [String] -> IO ()
 updateWidgetClasses widget toAdd toRemove = do
   context <- Gtk.widgetGetStyleContext widget
   let hasClass = styleContextHasClass context

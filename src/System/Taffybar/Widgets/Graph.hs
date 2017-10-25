@@ -10,25 +10,25 @@
 --
 -- Note: all of the data fed to this widget should be in the range
 -- [0,1].
-module System.Taffybar.Widgets.Graph (
+module System.Taffybar.Widgets.Graph
   -- * Types
-  GraphHandle,
-  GraphConfig(..),
-  GraphDirection(..),
-  GraphStyle(..),
+  ( GraphHandle
+  , GraphConfig(..)
+  , GraphDirection(..)
+  , GraphStyle(..)
   -- * Functions
-  graphNew,
-  graphAddSample,
-  defaultGraphConfig
+  , graphNew
+  , graphAddSample
+  , defaultGraphConfig
   ) where
-import           Graphics.UI.Gtk.Abstract.Widget
+
+import           System.Taffybar.Widgets.Util
 import           Prelude hiding ( mapM_ )
 import           Control.Concurrent
 import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import           Data.Foldable ( mapM_ )
 import           Control.Monad ( when )
-import           Control.Monad.Trans ( liftIO, lift )
-import           Data.Tuple.Sequence
+import           Control.Monad.Trans ( liftIO )
 import qualified Data.Sequence as S
 import qualified Graphics.Rendering.Cairo as C
 import qualified Graphics.Rendering.Cairo.Matrix as M
@@ -196,9 +196,6 @@ drawBorder mv drawArea = do
   renderFrameAndBackground cfg w h
   liftIO $ modifyMVar_ mv (\s' -> return s' { graphIsBootstrapped = True })
   return ()
-
-widgetGetAllocatedSize widget =
-  liftIO $ sequenceT (widgetGetAllocatedWidth widget, widgetGetAllocatedHeight widget)
 
 drawGraph :: MVar GraphState -> Gtk.DrawingArea ->  C.Render ()
 drawGraph mv drawArea = do

@@ -15,10 +15,10 @@
 module System.Taffybar.Widgets.Util where
 
 import Control.Monad
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class
+import Data.Tuple.Sequence
 import Graphics.UI.Gtk
 
-import Graphics.UI.Gtk.Abstract.Widget
 -- | Execute the given action as a response to any of the given types
 -- of mouse button clicks.
 onClick :: [Click] -- ^ Types of button clicks to listen to.
@@ -40,14 +40,14 @@ attachPopup widget title window = do
   set window [ windowTitle := title
              , windowTypeHint := WindowTypeHintTooltip
              , windowSkipTaskbarHint := True
+             , windowSkipPagerHint := True
+             , windowTransientFor :=> getWindow
              ]
-  --windowSetSkipPagerHint window True
   windowSetKeepAbove window True
   windowStick window
-  Just topLevel <- widgetGetAncestor widget gTypeWindow
-  let topLevelWindow = castToWindow topLevel
-  return ()
-  --windowSetTransientFor window topLevelWindow
+  where getWindow = do
+          Just topLevelWindow <- (fmap castToWindow) <$> widgetGetAncestor widget gTypeWindow
+          return topLevelWindow
 
 -- | Display the given popup widget (previously prepared using the
 -- 'attachPopup' function) immediately beneath (or above) the given
@@ -64,3 +64,10 @@ displayPopup widget window = do
   if y > y'
     then windowMove window x (y - y')
     else windowMove window x y'
+
+widgetGetAllocatedSize
+  :: (WidgetClass self, MonadIO m)
+  => self -> m (Int, Int)
+widgetGetAllocatedSize widget =
+  liftIO $
+  sequenceT (widgetGetAllocatedWidth widget, widgetGetAllocatedHeight widget)
