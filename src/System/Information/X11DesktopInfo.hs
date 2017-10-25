@@ -40,6 +40,7 @@ module System.Information.X11DesktopInfo
   , sendCommandEvent
   , sendWindowEvent
   , postX11RequestSyncProp
+  , getPrimaryOutputNumber
   ) where
 
 import Data.List
@@ -58,6 +59,7 @@ import Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,
                getWindowProperty16, getWindowProperty32,
                getWMHints)
+import Graphics.X11.Xrandr
 import System.Information.SafeX11
 import System.IO
 import System.Timeout
@@ -251,3 +253,29 @@ postX11RequestSyncProp prop def = do
   c <- ask
   let action = runReaderT prop c
   lift $ postX11RequestSyncDef def action
+
+isActiveOutput :: XRRScreenResources -> RROutput -> X11Property Bool
+isActiveOutput sres output = do
+  (X11Context display _) <- ask
+  maybeOutputInfo <- liftIO $ xrrGetOutputInfo display sres output
+  return $ case maybeOutputInfo of
+            Just outputInfo -> (xrr_oi_crtc outputInfo) /= 0
+            otherwise       -> False
+
+getActiveOutputs :: X11Property [RROutput]
+getActiveOutputs = do
+  (X11Context display rootw) <- ask
+  maybeSres <- liftIO $ xrrGetScreenResources display rootw
+  case maybeSres of
+    Just sres ->
+      filterM (isActiveOutput sres) $ xrr_sr_outputs sres
+    otherwise ->
+      return []
+
+-- | Get the index of the primary monitor as set and ordered by Xrandr.
+getPrimaryOutputNumber :: X11Property (Maybe Int)
+getPrimaryOutputNumber = do
+  (X11Context display rootw) <- ask
+  primary <- liftIO $ xrrGetOutputPrimary display rootw
+  outputs <- getActiveOutputs
+  return $ primary `elemIndex` outputs

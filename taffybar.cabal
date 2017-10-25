@@ -137,7 +137,11 @@ executable taffybar
                , filepath
                , glib
                , gtk3
+               , mtl
                , safe >= 0.3 && < 1
+               , split >= 0.1.4.2,
+               , taffybar
+               , utf8-string
                , xdg-basedir
   hs-source-dirs: src
   main-is: Main.hs

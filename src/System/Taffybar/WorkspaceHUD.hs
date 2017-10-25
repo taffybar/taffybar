@@ -22,6 +22,7 @@ module System.Taffybar.WorkspaceHUD (
   WorkspaceButtonController(..),
   WorkspaceContentsController(..),
   WorkspaceHUDConfig(..),
+  WorkspaceState(..),
   WorkspaceUnderlineController(..),
   WorkspaceWidgetController(..),
   IconController(..),
@@ -55,7 +56,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.RateLimit
 import qualified Data.Foldable as F
-import           Data.List (sortBy)
+import           Data.List (intersect, sortBy)
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.MultiMap as MM
@@ -224,8 +225,8 @@ hudFromPagerConfig pagerConfig =
         if workspacePad pagerConfig
           then prefixSpace . updater
           else updater
-      getCustomImage wt wc =
-        case customIcon pagerConfig wt wc of
+      getCustomImage hasIcon wt wc =
+        case customIcon pagerConfig hasIcon wt wc of
           Just fp -> IIFilePath fp
           Nothing -> IINone
   in defaultWorkspaceHUDConfig
@@ -241,7 +242,6 @@ hudFromPagerConfig pagerConfig =
            else 0
      , getIconInfo =
          windowTitleClassIconGetter
-           (preferCustomIcon pagerConfig)
            getCustomImage
      , widgetGap = workspaceGap pagerConfig
      , windowIconSize = imageSize pagerConfig
@@ -257,26 +257,17 @@ hudFromPagerConfig pagerConfig =
     prefixSpace s = " " ++ s
 
 windowTitleClassIconGetter
-  :: Bool
-  -> (String -> String -> IconInfo)
+  :: (Bool -> String -> String -> IconInfo)
   -> (WindowData -> HUDIO IconInfo)
-windowTitleClassIconGetter preferCustom customIconF = fn
+windowTitleClassIconGetter customIconF = fn
   where
     fn w@WindowData {windowTitle = wTitle, windowClass = wClass} = do
-      let customResult = customIconF wTitle wClass
-      defaultResult <- defaultGetIconInfo w
-      let first =
-            if preferCustom
-              then customResult
-              else defaultResult
-      let second =
-            if preferCustom
-              then defaultResult
-              else customResult
-      return $
-        case first of
-          IINone -> second
-          _ -> first
+      ewmhIcon <- defaultGetIconInfo w
+      let hasEwmhIcon = ewmhIcon /= IINone
+          customIcon = customIconF hasEwmhIcon wTitle wClass
+          hasCustomIcon = customIcon /= IINone
+      return $ if hasCustomIcon then customIcon else ewmhIcon
+
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
 defaultWorkspaceHUDConfig =
@@ -366,10 +357,10 @@ buildWorkspaces _ = ask >>= \context -> liftX11Def M.empty $ do
   activeWindows <- readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
   active:visible <- getVisibleWorkspaces
   let getWorkspaceState idx ws
-        | urgentWorkspaceState (hudConfig context) && not (null urgentWindows) =
-          Urgent
         | idx == active = Active
         | idx `elem` visible = Visible
+        | urgentWorkspaceState (hudConfig context) && not (null (ws `intersect` urgentWindows)) =
+          Urgent
         | null ws = Empty
         | otherwise = Hidden
   foldM

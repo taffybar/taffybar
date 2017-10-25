@@ -94,10 +94,8 @@ data PagerConfig = PagerConfig
   , imageSize               :: Int
   -- ^ fill empty images instead of clearing them
   , fillEmptyImages         :: Bool
-  -- ^ use custom icons over EWHMIcons
-  , preferCustomIcon        :: Bool
-  -- ^ get icon based on window title and class
-  , customIcon              :: String -> String -> Maybe FilePath
+  -- ^ get custom icon based on: has-EWMH-icon, window-title, window-class
+  , customIcon              :: Bool -> String -> String -> Maybe FilePath
   -- ^ title windows for WindowSwitcher
   , windowSwitcherFormatter :: M.Map WorkspaceIdx String -> X11WindowHandle -> String
   }
@@ -140,8 +138,7 @@ defaultPagerConfig = PagerConfig
   , useImages               = False
   , imageSize               = 16
   , fillEmptyImages         = False
-  , preferCustomIcon        = False
-  , customIcon              = \_ _ -> Nothing
+  , customIcon              = \_ _ _ -> Nothing
   , windowSwitcherFormatter = defaultFormatEntry
   }
 
