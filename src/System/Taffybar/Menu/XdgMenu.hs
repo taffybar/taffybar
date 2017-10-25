@@ -246,8 +246,6 @@ getDirectoryDirs = do
   dataDirs <- getXdgDataDirs
   existingDirs $ map (</> "desktop-directories") dataDirs
 
-
-
 -- | Fetch menus and desktop entries and assemble the XDG menu.
 readXdgMenu :: Maybe String -> IO (Maybe (XdgMenu, [DesktopEntry]))
 readXdgMenu mMenuPrefix = do
@@ -260,10 +258,3 @@ readXdgMenu mMenuPrefix = do
     m <- MaybeT $ return $ parseXMLDoc contents >>= parseMenu
     des <- lift $ getApplicationEntries langs m
     return (m, des)
-
--- -- | Test
--- testXdgMenu :: IO ()
--- testXdgMenu = do
---   m <- buildFinalMenu (Just "mate-")
---   print $ m
---   return ()
