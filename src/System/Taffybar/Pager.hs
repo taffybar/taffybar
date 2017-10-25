@@ -66,37 +66,38 @@ type SubscriptionList = IORef [(Listener, Filter)]
 -- | Structure contanining functions to customize the pretty printing of
 -- different widget elements.
 data PagerConfig = PagerConfig
-  -- ^ the name of the active window.
-  { activeWindow            :: String -> String
-  -- ^ the currently active layout.
+  {
+    -- | the name of the active window.
+    activeWindow            :: String -> String
+  -- | the currently active layout.
   , activeLayout            :: String -> String
-  -- ^ the currently active workspace.
+  -- | the currently active workspace.
   , activeWorkspace         :: String -> String
-  -- ^ inactive workspace with windows.
+  -- | inactive workspace with windows.
   , hiddenWorkspace         :: String -> String
-  -- ^ inactive workspace with no windows.
+  -- | inactive workspace with no windows.
   , emptyWorkspace          :: String -> String
-  -- ^ all other visible workspaces (Xinerama or XRandR).
+  -- | all other visible workspaces (Xinerama or XRandR).
   , visibleWorkspace        :: String -> String
-  -- ^ workspaces containing windows with the urgency hint set.
+  -- | workspaces containing windows with the urgency hint set.
   , urgentWorkspace         :: String -> String
-  -- ^ separator to use between desktop widgets in 'TaffyPager'.
+  -- | separator to use between desktop widgets in 'TaffyPager'.
   , widgetSep               :: String
-  -- ^ wrap workspace buttons in a frame
+  -- | wrap workspace buttons in a frame
   , workspaceBorder         :: Bool
-  -- ^ space in pixels between workspace buttons
+  -- | space in pixels between workspace buttons
   , workspaceGap            :: Int
-  -- ^ pad workspace name in button
+  -- | pad workspace name in button
   , workspacePad            :: Bool
-  -- ^ use images in the workspace switcher
+  -- | use images in the workspace switcher
   , useImages               :: Bool
-  -- ^ image height and width in pixels
+  -- | image height and width in pixels
   , imageSize               :: Int
-  -- ^ fill empty images instead of clearing them
+  -- | fill empty images instead of clearing them
   , fillEmptyImages         :: Bool
-  -- ^ get custom icon based on: has-EWMH-icon, window-title, window-class
+  -- | get custom icon based on: has-EWMH-icon, window-title, window-class
   , customIcon              :: Bool -> String -> String -> Maybe FilePath
-  -- ^ title windows for WindowSwitcher
+  -- | title windows for WindowSwitcher
   , windowSwitcherFormatter :: M.Map WorkspaceIdx String -> X11WindowHandle -> String
   }
 
