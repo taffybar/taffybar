@@ -22,6 +22,7 @@ module System.Taffybar.WorkspaceHUD (
   WorkspaceButtonController(..),
   WorkspaceContentsController(..),
   WorkspaceHUDConfig(..),
+  WorkspaceState(..),
   WorkspaceUnderlineController(..),
   WorkspaceWidgetController(..),
   IconController(..),
@@ -56,7 +57,7 @@ import           Control.Monad.Reader
 import           Control.RateLimit
 import qualified Data.Char as S
 import qualified Data.Foldable as F
-import           Data.List (sortBy)
+import           Data.List (intersect, sortBy)
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.MultiMap as MM
@@ -337,10 +338,10 @@ buildWorkspaces _ = ask >>= \context -> liftX11Def M.empty $ do
   activeWindows <- readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
   active:visible <- getVisibleWorkspaces
   let getWorkspaceState idx ws
-        | urgentWorkspaceState (hudConfig context) && not (null urgentWindows) =
-          Urgent
         | idx == active = Active
         | idx `elem` visible = Visible
+        | urgentWorkspaceState (hudConfig context) && not (null (ws `intersect` urgentWindows)) =
+          Urgent
         | null ws = Empty
         | otherwise = Hidden
   foldM
