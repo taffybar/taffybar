@@ -332,7 +332,10 @@ getWorkspaceToWindows =
        MM.insert <$> getWorkspace window <*> pure window <*> pure theMap)
     MM.empty
 
-getWindowData :: [X11Window] -> [X11Window] -> X11Window -> X11Property WindowData
+getWindowData :: [X11Window]
+              -> [X11Window]
+              -> X11Window
+              -> X11Property WindowData
 getWindowData activeWindows urgentWindows window = do
   wTitle <- getWindowTitle window
   wClass <- getWindowClass window
@@ -359,7 +362,8 @@ buildWorkspaces _ = ask >>= \context -> liftX11Def M.empty $ do
   let getWorkspaceState idx ws
         | idx == active = Active
         | idx `elem` visible = Visible
-        | urgentWorkspaceState (hudConfig context) && not (null (ws `intersect` urgentWindows)) =
+        | urgentWorkspaceState (hudConfig context) &&
+          not (null (ws `intersect` urgentWindows)) =
           Urgent
         | null ws = Empty
         | otherwise = Hidden
@@ -773,13 +777,11 @@ updateImages ic ws = do
         _ <- updateIconWidget ic iconWidget wdata force ton
         return iconWidget
       existingImages = map return $ iconImages ic
-      infiniteImages =
-        existingImages ++
-        repeat
-          (do iw <- buildIconWidget ws
-              lift $ widgetSetClass (iconContainer iw) "IconContainer"
-              lift $ Gtk.containerAdd (iconsContainer ic) $ iconContainer iw
-              return iw)
+      buildAndAddIconWidget = do
+        iw <- buildIconWidget ws
+        lift $ Gtk.containerAdd (iconsContainer ic) $ iconContainer iw
+        return iw
+      infiniteImages = existingImages ++ repeat buildAndAddIconWidget
       windowCount = length $ windows ws
       maxNeeded = maybe windowCount (min windowCount) $ maxIcons cfg
       newImagesNeeded = length existingImages < max (minIcons cfg) maxNeeded
@@ -809,6 +811,8 @@ buildIconWidget ws = do
     img <- Gtk.imageNew
     ebox <- Gtk.eventBoxNew
     windowVar <- MV.newMVar Nothing
+    widgetSetClass img "IconImage"
+    widgetSetClass ebox "IconContainer"
     Gtk.containerAdd ebox img
     _ <-
       Gtk.on ebox Gtk.buttonPressEvent $
