@@ -493,24 +493,25 @@ updateAllWorkspaceWidgets = do
   doWidgetUpdate updateController
 
   hudLog "-Workspace- Showing and hiding controllers..."
-  showControllers
+  setControllerWidgetVisibility
 
-showControllers :: HUDIO ()
-showControllers = do
+setControllerWidgetVisibility :: HUDIO ()
+setControllerWidgetVisibility = do
   Context { workspacesVar = workspacesRef
           , controllersVar = controllersRef
           , hudConfig = cfg
           } <- ask
-  workspacesMap <- lift $ MV.readMVar workspacesRef
-  controllersMap <- lift $ MV.readMVar controllersRef
-  forM_ (M.elems workspacesMap) $ \ws ->
-    let c = M.lookup (workspaceIdx ws) controllersMap
-        mWidget = getWidget <$> c
-        action = lift . if showWorkspaceFn cfg ws
-                        then Gtk.widgetShow
-                        else Gtk.widgetHide
-    in
-      maybe (return ()) action mWidget
+  lift $ do
+    workspacesMap <- MV.readMVar workspacesRef
+    controllersMap <- MV.readMVar controllersRef
+    forM_ (M.elems workspacesMap) $ \ws ->
+      let c = M.lookup (workspaceIdx ws) controllersMap
+          mWidget = getWidget <$> c
+          action = if showWorkspaceFn cfg ws
+                   then Gtk.widgetShow
+                   else Gtk.widgetHide
+      in
+        maybe (return ()) action mWidget
 
 doWidgetUpdate :: (WorkspaceIdx -> WWC -> HUDIO WWC) -> HUDIO ()
 doWidgetUpdate updateController = do
@@ -837,10 +838,11 @@ updateIconWidget
   -> Bool
   -> Bool
   -> HUDIO ()
-updateIconWidget _ IconWidget { iconContainer = iconButton
-                              , iconImage = image
-                              , iconWindow = windowRef
-                              } windowData forceUpdate transparentOnNone = do
+updateIconWidget _ IconWidget
+                   { iconContainer = iconButton
+                   , iconImage = image
+                   , iconWindow = windowRef
+                   } windowData forceUpdate transparentOnNone = do
   cfg <- asks hudConfig
   void $ updateVar windowRef $ \currentData ->
     let requireFullEqualityForSkip = updateIconsOnTitleChange cfg
