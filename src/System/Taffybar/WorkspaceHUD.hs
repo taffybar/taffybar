@@ -190,7 +190,6 @@ data WorkspaceHUDConfig =
   , minIcons :: Int
   , getIconInfo :: WindowData -> HUDIO IconInfo
   , labelSetter :: Workspace -> HUDIO String
-  , updateIconsOnTitleChange :: Bool
   , updateOnWMIconChange :: Bool
   , showWorkspaceFn :: Workspace -> Bool
   , borderWidth :: Int
@@ -198,7 +197,6 @@ data WorkspaceHUDConfig =
   , updateRateLimitMicroseconds :: Integer
   , debugMode :: Bool
   , iconSort :: [WindowData] -> HUDIO [WindowData]
-  , redrawIconsOnStateChange :: Bool
   , urgentWorkspaceState :: Bool
   , innerPadding :: Int
   , outerPadding :: Int
@@ -282,7 +280,6 @@ defaultWorkspaceHUDConfig =
   , minIcons = 0
   , getIconInfo = defaultGetIconInfo
   , labelSetter = return . workspaceName
-  , updateIconsOnTitleChange = True
   , updateOnWMIconChange = True
   , showWorkspaceFn = const True
   , borderWidth = 2
@@ -296,7 +293,6 @@ defaultWorkspaceHUDConfig =
       ]
   , updateRateLimitMicroseconds = 100000
   , debugMode = False
-  , redrawIconsOnStateChange = False
   , urgentWorkspaceState = False
   , innerPadding = 0
   , outerPadding = 0
@@ -648,14 +644,13 @@ defaultBuildContentsController =
 instance WorkspaceWidgetController WorkspaceContentsController where
   getWidget = containerWidget
   updateWidget cc update = do
-    lift $ Gtk.widgetQueueDraw $ container cc
     Context {hudConfig = cfg} <- ask
     lift $
       maybe (return ()) (updateMinSize $ Gtk.toWidget $ container cc) $
       minWSWidgetSize cfg
     case update of
       WorkspaceUpdate newWorkspace ->
-        lift $ setWorkspaceWidgetStatusClass newWorkspace $ containerEbox cc
+        lift $ setWorkspaceWidgetStatusClass newWorkspace $ containerWidget cc
       _ -> return ()
     newControllers <- mapM (`updateWidget` update) $ contentsControllers cc
     return cc {contentsControllers = newControllers}
@@ -768,11 +763,7 @@ updateImages ic ws = do
   Context {hudConfig = cfg} <- ask
   sortedWindows <- iconSort cfg $ windows ws
   let updateIconWidget' getImage wdata ton = do
-        let forceHack = isNothing wdata && newImagesNeeded && ton
-            previousState = workspaceState $ iconWorkspace ic
-            stateChanged = previousState /= workspaceState ws
-            forceForStateChange = redrawIconsOnStateChange cfg && stateChanged
-            force = forceHack || forceForStateChange
+        let force = isNothing wdata && newImagesNeeded && ton
         iconWidget <- getImage
         _ <- updateIconWidget ic iconWidget wdata force ton
         return iconWidget
@@ -848,34 +839,26 @@ updateIconWidget _ IconWidget
                    , iconWindow = windowRef
                    } windowData forceUpdate transparentOnNone = do
   cfg <- asks hudConfig
-  void $ updateVar windowRef $ \currentData ->
-    let requireFullEqualityForSkip = updateIconsOnTitleChange cfg
-        sameWindow = (windowId <$> currentData) == (windowId <$> windowData)
-        dataRequiresUpdate =
-          (requireFullEqualityForSkip && (currentData /= windowData)) ||
-          not sameWindow
-    in when (forceUpdate || dataRequiresUpdate) setIconWidgetProperties >>
-       return windowData
-  where
-    setIconWidgetProperties = do
-      cfg <- asks hudConfig
-      info <-
-        case windowData of
-          Just dat -> getIconInfo cfg dat
-          Nothing -> return IINone
-      let imgSize = windowIconSize cfg
-          statusString = maybe "nodata" getWindowStatusString windowData
-          iconInfo =
-            case info of
-              IINone ->
-                if transparentOnNone
+
+  let setIconWidgetProperties = do
+        info <- maybe (return IINone) (getIconInfo cfg) windowData
+        let imgSize = windowIconSize cfg
+            statusString = maybe "nodata" getWindowStatusString windowData
+            iconInfo =
+              case info of
+                IINone ->
+                  if transparentOnNone
                   then transparentInfo
                   else IINone
-              _ -> info
-      lift $ do
-        mpixBuf <- getPixBuf imgSize iconInfo
-        setImage imgSize image mpixBuf
-        updateWidgetClasses iconButton [statusString] possibleStatusStrings
+                _ -> info
+        lift $ do
+          mpixBuf <- getPixBuf imgSize iconInfo
+          setImage imgSize image mpixBuf
+          updateWidgetClasses iconButton [statusString] possibleStatusStrings
+
+  void $ updateVar windowRef $ \currentData ->
+    when (forceUpdate || (windowId <$> currentData) == (windowId <$> windowData))
+         setIconWidgetProperties >> return windowData
 
 setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
 setImage imgSize img pixBuf =
