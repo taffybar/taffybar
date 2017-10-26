@@ -29,10 +29,11 @@ module System.Taffybar.WorkspaceHUD (
   buildBorderButtonController,
   buildButtonController,
   buildContentsController,
-  buildUnderlineButtonController,
-  buildUnderlineController,
   buildIconController,
   buildLabelController,
+  buildPadBox,
+  buildUnderlineButtonController,
+  buildUnderlineController,
   buildWorkspaceHUD,
   buildWorkspaces,
   defaultBuildContentsController,
@@ -198,8 +199,6 @@ data WorkspaceHUDConfig =
   , debugMode :: Bool
   , iconSort :: [WindowData] -> HUDIO [WindowData]
   , urgentWorkspaceState :: Bool
-  , innerPadding :: Int
-  , outerPadding :: Int
   }
 
 hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
@@ -262,10 +261,9 @@ windowTitleClassIconGetter customIconF = fn
     fn w@WindowData {windowTitle = wTitle, windowClass = wClass} = do
       ewmhIcon <- defaultGetIconInfo w
       let hasEwmhIcon = ewmhIcon /= IINone
-          customIcon = customIconF hasEwmhIcon wTitle wClass
-          hasCustomIcon = customIcon /= IINone
-      return $ if hasCustomIcon then customIcon else ewmhIcon
-
+          custIcon = customIconF hasEwmhIcon wTitle wClass
+          hasCustomIcon = custIcon /= IINone
+      return $ if hasCustomIcon then custIcon else ewmhIcon
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
 defaultWorkspaceHUDConfig =
@@ -294,8 +292,6 @@ defaultWorkspaceHUDConfig =
   , updateRateLimitMicroseconds = 100000
   , debugMode = False
   , urgentWorkspaceState = False
-  , innerPadding = 0
-  , outerPadding = 0
   }
 
 hideEmpty :: Workspace -> Bool
@@ -604,38 +600,34 @@ onIconsChanged context =
              updateWidget c (IconUpdate $ Set.toList wids))
 
 data WorkspaceContentsController = WorkspaceContentsController
-  { container :: Gtk.HBox
-  , containerEbox :: Gtk.EventBox
-  , containerWidget :: Gtk.Widget
+  { containerWidget :: Gtk.Widget
   , contentsControllers :: [WWC]
   }
 
 buildContentsController :: [ControllerConstructor] -> ControllerConstructor
 buildContentsController constructors ws = do
-  context <- ask
   controllers <- mapM ($ ws) constructors
   tempController <- lift $ do
-    hbox <- Gtk.hBoxNew False 0
-    ebox <- Gtk.eventBoxNew
-    mapM_ (Gtk.containerAdd hbox . getWidget) controllers
-    ial <- Gtk.alignmentNew 0.5 0.5 0 0
-    oal <- Gtk.alignmentNew 0.5 0.5 1 1
-    let ipadding = innerPadding $ hudConfig context
-        opadding = outerPadding $ hudConfig context
-    Gtk.alignmentSetPadding ial ipadding ipadding ipadding ipadding
-    Gtk.alignmentSetPadding oal opadding opadding opadding opadding
-    Gtk.containerAdd ial hbox
-    Gtk.containerAdd ebox ial
-    Gtk.containerAdd oal ebox
-    widgetSetClass ebox "Container"
+    cons <- Gtk.hBoxNew False 0
+    mapM_ (Gtk.containerAdd cons . getWidget) controllers
+    outerBox <- buildPadBox cons
+    widgetSetClass cons "Contents"
     return
       WorkspaceContentsController
-      { containerEbox = ebox
-      , container = hbox
-      , containerWidget = Gtk.toWidget oal
+      { containerWidget = Gtk.toWidget outerBox
       , contentsControllers = controllers
       }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
+
+buildPadBox :: W.WidgetClass widget => widget -> IO Gtk.EventBox
+buildPadBox cons = do
+  innerBox <- Gtk.hBoxNew False 0
+  outerBox <- Gtk.eventBoxNew
+  Gtk.containerAdd innerBox cons
+  Gtk.containerAdd outerBox innerBox
+  widgetSetClass innerBox "InnerPad"
+  widgetSetClass outerBox "OuterPad"
+  return outerBox
 
 defaultBuildContentsController :: ControllerConstructor
 defaultBuildContentsController =
@@ -646,7 +638,7 @@ instance WorkspaceWidgetController WorkspaceContentsController where
   updateWidget cc update = do
     Context {hudConfig = cfg} <- ask
     lift $
-      maybe (return ()) (updateMinSize $ Gtk.toWidget $ container cc) $
+      maybe (return ()) (updateMinSize $ Gtk.toWidget $ containerWidget cc) $
       minWSWidgetSize cfg
     case update of
       WorkspaceUpdate newWorkspace ->
@@ -704,11 +696,6 @@ instance WorkspaceWidgetController IconController where
   getWidget = Gtk.toWidget . iconsContainer
   updateWidget ic (WorkspaceUpdate newWorkspace) = do
     newImages <- updateImages ic newWorkspace
-    Context { hudConfig = cfg } <- ask
-    let previousState = workspaceState $ iconWorkspace ic
-        stateChanged = previousState /= workspaceState newWorkspace
-        redrawForStateChange = redrawIconsOnStateChange cfg && stateChanged
-    when redrawForStateChange $ lift $ Gtk.widgetQueueDraw $ iconsContainer ic
     return ic { iconImages = newImages, iconWorkspace = newWorkspace }
   updateWidget ic (IconUpdate updatedIcons) =
     updateWindowIconsById ic updatedIcons >> return ic
@@ -907,6 +894,7 @@ buildButtonController contentsBuilder workspace = do
           Gtk.ScrollLeft -> switchOne True
           Gtk.ScrollDown -> switchOne False
           Gtk.ScrollRight -> switchOne False
+          Gtk.ScrollSmooth -> return False
     _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch ctx $ workspaceIdx workspace
     return $
       WWC
