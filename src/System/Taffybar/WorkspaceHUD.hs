@@ -45,7 +45,8 @@ module System.Taffybar.WorkspaceHUD (
   liftPager,
   liftX11Def,
   setImage,
-  windowTitleClassIconGetter
+  widgetSetClass,
+  windowTitleClassIconGetter,
 ) where
 
 import           Control.Applicative
@@ -656,6 +657,7 @@ buildLabelController :: ControllerConstructor
 buildLabelController ws = do
   tempController <- lift $ do
     lbl <- Gtk.labelNew (Nothing :: Maybe String)
+    widgetSetClass lbl "WorkspaceLabel"
     return LabelController { label = lbl }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
