@@ -258,9 +258,7 @@ isActiveOutput :: XRRScreenResources -> RROutput -> X11Property Bool
 isActiveOutput sres output = do
   (X11Context display _) <- ask
   maybeOutputInfo <- liftIO $ xrrGetOutputInfo display sres output
-  return $ case maybeOutputInfo of
-            Just outputInfo -> (xrr_oi_crtc outputInfo) /= 0
-            otherwise       -> False
+  return $ maybe 0 xrr_oi_crtc maybeOutputInfo /= 0
 
 getActiveOutputs :: X11Property [RROutput]
 getActiveOutputs = do

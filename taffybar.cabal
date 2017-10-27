@@ -145,8 +145,9 @@ executable taffybar
                , xdg-basedir
   hs-source-dirs: src
   main-is: Main.hs
-  other-modules: System.Taffybar
-                 System.Taffybar.StrutProperties
+  other-modules: System.Taffybar,
+                 System.Taffybar.StrutProperties,
+                 System.Information.X11DesktopInfo
   pkgconfig-depends: gtk+-3.0
   c-sources: src/gdk_property_change_wrapper.c
   ghc-options: -Wall -rtsopts -threaded
