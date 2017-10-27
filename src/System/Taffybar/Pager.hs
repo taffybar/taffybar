@@ -66,38 +66,38 @@ type SubscriptionList = IORef [(Listener, Filter)]
 -- | Structure contanining functions to customize the pretty printing of
 -- different widget elements.
 data PagerConfig = PagerConfig
-  -- ^ the name of the active window.
   { activeWindow            :: String -> String
-  -- ^ the currently active layout.
+  -- ^ the name of the active window.
   , activeLayout            :: String -> String
-  -- ^ the currently active workspace.
+  -- ^ the currently active layout.
   , activeWorkspace         :: String -> String
-  -- ^ inactive workspace with windows.
+  -- ^ the currently active workspace.
   , hiddenWorkspace         :: String -> String
-  -- ^ inactive workspace with no windows.
+  -- ^ inactive workspace with windows.
   , emptyWorkspace          :: String -> String
-  -- ^ all other visible workspaces (Xinerama or XRandR).
+  -- ^ inactive workspace with no windows.
   , visibleWorkspace        :: String -> String
-  -- ^ workspaces containing windows with the urgency hint set.
+  -- ^ all other visible workspaces (Xinerama or XRandR).
   , urgentWorkspace         :: String -> String
-  -- ^ separator to use between desktop widgets in 'TaffyPager'.
+  -- ^ workspaces containing windows with the urgency hint set.
   , widgetSep               :: String
-  -- ^ wrap workspace buttons in a frame
+  -- ^ separator to use between desktop widgets in 'TaffyPager'.
   , workspaceBorder         :: Bool
-  -- ^ space in pixels between workspace buttons
+  -- ^ wrap workspace buttons in a frame
   , workspaceGap            :: Int
-  -- ^ pad workspace name in button
+  -- ^ space in pixels between workspace buttons
   , workspacePad            :: Bool
-  -- ^ use images in the workspace switcher
+  -- ^ pad workspace name in button
   , useImages               :: Bool
-  -- ^ image height and width in pixels
+  -- ^ use images in the workspace switcher
   , imageSize               :: Int
-  -- ^ fill empty images instead of clearing them
+  -- ^ image height and width in pixels
   , fillEmptyImages         :: Bool
-  -- ^ get custom icon based on: has-EWMH-icon, window-title, window-class
+  -- ^ fill empty images instead of clearing them
   , customIcon              :: Bool -> String -> String -> Maybe FilePath
-  -- ^ title windows for WindowSwitcher
+  -- ^ get custom icon based on: has-EWMH-icon, window-title, window-class
   , windowSwitcherFormatter :: M.Map WorkspaceIdx String -> X11WindowHandle -> String
+  -- ^ title windows for WindowSwitcher
   }
 
 -- | Structure containing the state of the Pager.
