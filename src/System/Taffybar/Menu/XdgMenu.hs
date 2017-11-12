@@ -252,16 +252,20 @@ readXdgMenu :: Maybe String -> IO (Maybe (XdgMenu, [DesktopEntry]))
 readXdgMenu mMenuPrefix = do
   setLocaleEncoding utf8
   filename <- getXdgMenuFilename mMenuPrefix
-  putStrLn $ "Reading " ++ filename
-  contents <- readFile filename
-  langs <- getPreferredLanguages
-  case parseXMLDoc contents of
-    Nothing      -> do putStrLn "Parsing XDG menu failed"
-                       return Nothing
-    Just element -> do case parseMenu element of
-                         Nothing -> return Nothing
-                         Just m -> do des <- getApplicationEntries langs m
-                                      return $ Just (m, des)
+  ex <- doesFileExist filename
+  if ex
+    then do putStrLn $ "Reading " ++ filename
+            contents <- readFile filename
+            langs <- getPreferredLanguages
+            case parseXMLDoc contents of
+              Nothing      -> do putStrLn "Parsing XDG menu failed"
+                                 return Nothing
+              Just element -> case parseMenu element of
+                                Nothing -> return Nothing
+                                Just m -> do des <- getApplicationEntries langs m
+                                             return $ Just (m, des)
+    else do putStrLn $ "Error: menu file '" ++ filename ++ "' does not exist!"
+            return Nothing
 
 -- -- | Test
 -- testXdgMenu :: IO ()
