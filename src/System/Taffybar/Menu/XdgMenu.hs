@@ -44,6 +44,10 @@ import Text.XML.Light.Helpers
 
 
 -- Environment Variables
+
+-- | Find the first existing directory in environment variables
+-- XDG_CONFIG_HOME and XDG_CONFIG_DIRS.  If none is found fall back to
+-- '/etc/xdg'.
 getXdgConfigDir :: IO String
 getXdgConfigDir = do
   ch <- lookupEnv "XDG_CONFIG_HOME"
@@ -59,11 +63,10 @@ existingDirs :: [FilePath] -> IO [FilePath]
 existingDirs  dirs = do
   exs <- mapM fileExist dirs
   return $ S.toList $ S.fromList $ map fst $ filter snd $ zip dirs exs
-    
-getXdgMenuPrefix :: IO String
-getXdgMenuPrefix = do
-  mPf <- lookupEnv "XDG_MENU_PREFIX"
-  return $ fromMaybe "gnome-" mPf
+
+-- | Lookup XDG_MENU_PREFIX
+getXdgMenuPrefix :: IO (Maybe String)
+getXdgMenuPrefix = lookupEnv "XDG_MENU_PREFIX"
 
 getXdgDataDirs :: IO [String]
 getXdgDataDirs = do
@@ -77,13 +80,19 @@ getXdgDataDirs = do
         ++ ["/usr/local/share", "/usr/share"]
   return . nubBy equalFilePath =<< existingDirs (dh:dirs)
 
-getXdgMenuFilename :: Maybe String -> IO FilePath
+-- | Find the filename of the application menu.
+getXdgMenuFilename :: Maybe String
+                   -- ^ Overrides the value of the environment variable XDG_MENU_PREFIX.  Specifies the prefix for the menu (e.g. 'Just
+                   -- "mate-"').   FIXME
+                   -> IO FilePath
 getXdgMenuFilename mMenuPrefix = do
   cd <- getXdgConfigDir
-  pf <- case mMenuPrefix of
-          Nothing -> getXdgMenuPrefix
-          Just prefix -> return prefix
-  let pfDash = if last pf == '-' then pf else (pf ++ "-")
+  mPf <- case mMenuPrefix of
+           Nothing -> getXdgMenuPrefix
+           Just prefix -> return $ Just prefix
+  let pfDash = case mPf of
+        Nothing -> ""
+        Just pf -> if last pf == '-' then pf else (pf ++ "-")
   return $ cd </> "menus" </> pfDash ++ "applications.menu"
 
 -- | XDG Menu, cf. "Desktop Menu Specification".
