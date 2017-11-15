@@ -27,6 +27,7 @@ module System.Taffybar.Menu.XdgMenu (
   getPreferredLanguages)
 where
 
+import           Control.Applicative
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Maybe
 import           Data.Char (toLower)
@@ -42,11 +43,16 @@ import           System.Environment
 import           System.FilePath.Posix
 import           System.Posix.Files
 import           System.Taffybar.Menu.DesktopEntry
+import           System.Taffybar.Util
 import           Text.XML.Light
 import           Text.XML.Light.Helpers
 
 
 -- Environment Variables
+
+-- | Find the first existing directory in environment variables
+-- XDG_CONFIG_HOME and XDG_CONFIG_DIRS.  If none is found fall back to
+-- '/etc/xdg'.
 getXdgConfigDir :: IO String
 getXdgConfigDir = do
   ch <- lookupEnv "XDG_CONFIG_HOME"
@@ -63,10 +69,8 @@ existingDirs  dirs = do
   exs <- mapM fileExist dirs
   return $ S.toList $ S.fromList $ map fst $ filter snd $ zip dirs exs
 
-getXdgMenuPrefix :: IO String
-getXdgMenuPrefix = do
-  mPf <- lookupEnv "XDG_MENU_PREFIX"
-  return $ fromMaybe "gnome-" mPf
+getXdgMenuPrefix :: IO (Maybe String)
+getXdgMenuPrefix = lookupEnv "XDG_MENU_PREFIX"
 
 getXdgDataDirs :: IO [String]
 getXdgDataDirs = do
@@ -80,14 +84,17 @@ getXdgDataDirs = do
         ++ ["/usr/local/share", "/usr/share"]
   nubBy equalFilePath <$> existingDirs (dh:dirs)
 
-getXdgMenuFilename :: Maybe String -> IO FilePath
+-- | Find the filename of the application menu.
+getXdgMenuFilename :: Maybe String
+                   -- ^ Overrides the value of the environment variable XDG_MENU_PREFIX.  Specifies the prefix for the menu (e.g. 'Just
+                   -- "mate-"').   FIXME
+                   -> IO FilePath
 getXdgMenuFilename mMenuPrefix = do
-  cd <- getXdgConfigDir
-  pf <- case mMenuPrefix of
-          Nothing -> getXdgMenuPrefix
-          Just prefix -> return prefix
-  let pfDash = if last pf == '-' then pf else pf ++ "-"
-  return $ cd </> "menus" </> pfDash ++ "applications.menu"
+  configDirectory <- getXdgConfigDir
+  maybePrefix <- (mMenuPrefix <|>) <$> getXdgMenuPrefix
+  let maybeAddDash t = if last t == '-' then t else t ++ "-"
+      dashedPrefix = maybe "" maybeAddDash maybePrefix
+  return $ configDirectory </> "menus" </> dashedPrefix ++ "applications.menu"
 
 -- | XDG Menu, cf. "Desktop Menu Specification".
 data XdgMenu = XdgMenu {
@@ -253,10 +260,15 @@ readXdgMenu :: Maybe String -> IO (Maybe (XdgMenu, [DesktopEntry]))
 readXdgMenu mMenuPrefix = do
   setLocaleEncoding utf8
   filename <- getXdgMenuFilename mMenuPrefix
-  putStrLn $ "Reading " ++ filename
-  contents <- readFile filename
-  langs <- getPreferredLanguages
-  runMaybeT $ do
-    m <- MaybeT $ return $ parseXMLDoc contents >>= parseMenu
-    des <- lift $ getApplicationEntries langs m
-    return (m, des)
+  ifM (doesFileExist filename)
+      (do
+        putStrLn $ "Reading " ++ filename
+        contents <- readFile filename
+        langs <- getPreferredLanguages
+        runMaybeT $ do
+          m <- MaybeT $ return $ parseXMLDoc contents >>= parseMenu
+          des <- lift $ getApplicationEntries langs m
+          return (m, des))
+      (do
+        putStrLn $ "Error: menu file '" ++ filename ++ "' does not exist!"
+        return Nothing)
