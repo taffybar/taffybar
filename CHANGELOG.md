@@ -2,6 +2,14 @@
 
 ## Breaking Changes
 
+ * Migrate from Gtk2 to Gtk3, which replaces rc theming with css theming (Ivan Malison)
+
+## New Features
+
+## Bug Fixes
+
+# 0.5.0
+
 ## New Features
 
  * Support for multiple batteries via ``batteryContextsNew`` (Edd Steel)
@@ -14,7 +22,6 @@
  * d-bus toggling of taffybar per monitor (Ivan Malison)
  * Add a pager config field that configures the construction of window switcher titles (Ivan Malison)
  * Quick start script for installing from git with stack (Ivan Malison)
- * Migrate from Gtk2 to Gtk3, which replaces rc theming with css theming (Ivan Malison)
 
 ## Bug Fixes
 

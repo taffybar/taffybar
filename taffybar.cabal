@@ -1,5 +1,5 @@
 name: taffybar
-version: 0.4.6
+version: 1.0.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
