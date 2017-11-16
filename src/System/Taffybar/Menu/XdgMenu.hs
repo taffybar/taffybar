@@ -36,8 +36,10 @@ import           Data.List
 import           Data.Maybe
 import qualified Data.Set as S
 import qualified Debug.Trace as D
+import           Data.Traversable (traverse)
 import           GHC.IO.Encoding
 import           Prelude
+import           Safe (headMay)
 import           System.Directory
 import           System.Environment
 import           System.FilePath.Posix
@@ -47,22 +49,20 @@ import           System.Taffybar.Util
 import           Text.XML.Light
 import           Text.XML.Light.Helpers
 
-
 -- Environment Variables
 
--- | Find the first existing directory in environment variables
--- XDG_CONFIG_HOME and XDG_CONFIG_DIRS.  If none is found fall back to
--- '/etc/xdg'.
-getXdgConfigDir :: IO String
-getXdgConfigDir = do
+-- | Produce a list of config locations to search, starting with
+-- XDG_CONFIG_HOME and XDG_CONFIG_DIRS, with fallback to /etc/xdg
+getXdgConfigDirs :: IO [String]
+getXdgConfigDirs = do
   ch <- lookupEnv "XDG_CONFIG_HOME"
   cd <- lookupEnv "XDG_CONFIG_DIRS"
   let dirs = catMaybes [ch]
              ++ maybe [] splitSearchPath cd
   exDirs <- existingDirs dirs
   return $ if null exDirs
-    then "/etc/xdg/"
-    else normalise $ head exDirs
+    then ["/etc/xdg/"]
+    else map normalise exDirs
 
 existingDirs :: [FilePath] -> IO [FilePath]
 existingDirs  dirs = do
@@ -84,17 +84,17 @@ getXdgDataDirs = do
         ++ ["/usr/local/share", "/usr/share"]
   nubBy equalFilePath <$> existingDirs (dh:dirs)
 
--- | Find the filename of the application menu.
-getXdgMenuFilename :: Maybe String
-                   -- ^ Overrides the value of the environment variable XDG_MENU_PREFIX.  Specifies the prefix for the menu (e.g. 'Just
-                   -- "mate-"').   FIXME
-                   -> IO FilePath
-getXdgMenuFilename mMenuPrefix = do
-  configDirectory <- getXdgConfigDir
+-- | Find filename(s) of the application menu(s).
+getXdgMenuFilenames :: Maybe String
+                   -- ^ Overrides the value of the environment variable XDG_MENU_PREFIX.
+                   -- Specifies the prefix for the menu (e.g. 'Just "mate-"').   FIXME
+                   -> IO [FilePath]
+getXdgMenuFilenames mMenuPrefix = do
+  configDirs <- getXdgConfigDirs
   maybePrefix <- (mMenuPrefix <|>) <$> getXdgMenuPrefix
   let maybeAddDash t = if last t == '-' then t else t ++ "-"
       dashedPrefix = maybe "" maybeAddDash maybePrefix
-  return $ configDirectory </> "menus" </> dashedPrefix ++ "applications.menu"
+  return $ map (</> "menus" </> dashedPrefix ++ "applications.menu") configDirs
 
 -- | XDG Menu, cf. "Desktop Menu Specification".
 data XdgMenu = XdgMenu {
@@ -259,7 +259,12 @@ getDirectoryDirs = do
 readXdgMenu :: Maybe String -> IO (Maybe (XdgMenu, [DesktopEntry]))
 readXdgMenu mMenuPrefix = do
   setLocaleEncoding utf8
-  filename <- getXdgMenuFilename mMenuPrefix
+  filenames <- getXdgMenuFilenames mMenuPrefix
+  headMay . catMaybes <$> traverse maybeMenu filenames
+
+-- | Load and assemble the XDG menu from a specific file, if it exists.
+maybeMenu :: FilePath -> IO (Maybe (XdgMenu, [DesktopEntry]))
+maybeMenu filename =
   ifM (doesFileExist filename)
       (do
         putStrLn $ "Reading " ++ filename
