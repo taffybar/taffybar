@@ -10,23 +10,29 @@ data MemoryInfo = MemoryInfo { memoryTotal :: Double
                              , memoryFree :: Double
                              , memoryBuffer :: Double
                              , memoryCache :: Double
+                             , memorySwapTotal :: Double
+                             , memorySwapFree :: Double
+                             , memorySwapUsed :: Double -- swapTotal - swapFree
+                             , memorySwapUsedRatio :: Double -- swapUsed / swapTotal
                              , memoryRest :: Double      -- free + buffer + cache
                              , memoryUsed :: Double      -- total - rest
                              , memoryUsedRatio :: Double -- used / total
                              }
 
 emptyMemoryInfo :: MemoryInfo
-emptyMemoryInfo = MemoryInfo 0 0 0 0 0 0 0
+emptyMemoryInfo = MemoryInfo 0 0 0 0 0 0 0 0 0 0 0
 
 parseLines :: [String] -> MemoryInfo -> MemoryInfo
 parseLines (line:rest) memInfo = parseLines rest newMemInfo
   where (label:size:_) = words line
         newMemInfo = case label of
-                       "MemTotal:" -> memInfo { memoryTotal = toMB size }
-                       "MemFree:"  -> memInfo { memoryFree = toMB size }
-                       "Buffers:"  -> memInfo { memoryBuffer = toMB size }
-                       "Cached:"   -> memInfo { memoryCache = toMB size }
-                       _           -> memInfo
+                       "MemTotal:"   -> memInfo { memoryTotal = toMB size }
+                       "MemFree:"    -> memInfo { memoryFree = toMB size }
+                       "Buffers:"    -> memInfo { memoryBuffer = toMB size }
+                       "Cached:"     -> memInfo { memoryCache = toMB size }
+                       "SwapTotal:"  -> memInfo { memorySwapTotal = toMB size }
+                       "SwapFree:"   -> memInfo { memorySwapFree = toMB size }
+                       _             -> memInfo
 parseLines _ memInfo = memInfo
 
 parseMeminfo :: IO MemoryInfo
@@ -36,8 +42,11 @@ parseMeminfo = do
       rest = memoryFree m + memoryBuffer m + memoryCache m
       used = memoryTotal m - rest
       usedRatio = used / memoryTotal m
+      swapUsed = memorySwapTotal m - memorySwapFree m
+      swapUsedRatio = swapUsed / memorySwapTotal m
   return m { memoryRest = rest
            , memoryUsed = used
            , memoryUsedRatio = usedRatio
+           , memorySwapUsed = swapUsed
+           , memorySwapUsedRatio = swapUsedRatio
            }
-
