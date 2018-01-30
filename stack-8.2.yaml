@@ -7,4 +7,5 @@ extra-deps:
   - xmonad-contrib-0.13
   - gtk-0.14.7
   - xml-helpers-1.0.0
+  - gio-0.13.4.1  
 resolver: lts-10.4
