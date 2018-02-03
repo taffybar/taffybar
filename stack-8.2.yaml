@@ -1,0 +1,11 @@
+packages:
+- '.'
+extra-deps:
+  - time-units-1.0.0
+  - rate-limit-1.4.0
+  - gtk-traymanager-0.1.6
+  - xmonad-contrib-0.13
+  - gtk-0.14.7
+  - xml-helpers-1.0.0
+  - gio-0.13.4.1  
+resolver: lts-10.4

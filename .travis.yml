@@ -45,6 +45,13 @@ matrix:
         - hvr-ghc
         packages:
         - ghc-8.0.2
+  - env: GHCVER=8.2.2 STACK_YAML=stack-8.2.yaml
+    addons:
+      apt:
+        sources:
+        - hvr-ghc
+        packages:
+        - ghc-8.2.2
   - env: BUILD_TYPE='Test quick start'
     before_install: []
     sudo: required
