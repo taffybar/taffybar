@@ -11,10 +11,8 @@ packages:
     commit: 517b24722b2cdab2dadbafa882ffcb6b8a1d01ff
   extra-dep: true
 extra-deps:
-- dyre-0.8.11
 - rate-limit-1.1.1
 - time-units-1.0.0
-- taffybar-0.4.6
 - dbus-0.10.13
 - gtk-traymanager-0.1.6
 - xmonad-contrib-0.13
