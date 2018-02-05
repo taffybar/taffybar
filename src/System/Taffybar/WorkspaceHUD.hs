@@ -193,7 +193,6 @@ data WorkspaceHUDConfig =
   , getIconInfo :: WindowData -> HUDIO IconInfo
   , labelSetter :: Workspace -> HUDIO String
   , updateOnWMIconChange :: Bool
-  , redrawIconsOnStateChange :: Bool
   , showWorkspaceFn :: Workspace -> Bool
   , borderWidth :: Int
   , updateEvents :: [String]
@@ -281,7 +280,6 @@ defaultWorkspaceHUDConfig =
   , getIconInfo = defaultGetIconInfo
   , labelSetter = return . workspaceName
   , updateOnWMIconChange = True
-  , redrawIconsOnStateChange = True
   , showWorkspaceFn = const True
   , borderWidth = 2
   , iconSort = sortWindowsByPosition
@@ -754,10 +752,7 @@ updateImages ic ws = do
   Context {hudConfig = cfg} <- ask
   sortedWindows <- iconSort cfg $ windows ws
   let updateIconWidget' getImage wdata ton = do
-        let forceHack = isNothing wdata && newImagesNeeded && ton
-            stateChanged = (workspaceState $ iconWorkspace ic) /= workspaceState ws
-            forceForStateChange = redrawIconsOnStateChange cfg && stateChanged
-            force = forceHack || forceForStateChange
+        let force = isNothing wdata && newImagesNeeded && ton
         iconWidget <- getImage
         _ <- updateIconWidget ic iconWidget wdata force ton
         return iconWidget
