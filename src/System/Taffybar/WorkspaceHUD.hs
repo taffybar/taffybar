@@ -850,9 +850,10 @@ updateIconWidget _ IconWidget
           setImage imgSize image mpixBuf
           updateWidgetClasses iconButton [statusString] possibleStatusStrings
 
-  void $ updateVar windowRef $ \currentData ->
-    when (forceUpdate || (windowId <$> currentData) == (windowId <$> windowData))
-         setIconWidgetProperties >> return windowData
+  void $ updateVar windowRef $ \currentData -> do
+    when (forceUpdate || (windowId <$> currentData) /= (windowId <$> windowData))
+         setIconWidgetProperties
+    return windowData
 
 setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
 setImage imgSize img pixBuf =
