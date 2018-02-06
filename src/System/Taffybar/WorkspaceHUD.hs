@@ -712,7 +712,7 @@ updateWindowIconsById ic windowIds =
       do
         info <- lift $ MV.readMVar $ iconWindow widget
         when (maybe False (flip elem windowIds . windowId) info) $
-         updateIconWidget ic widget info True False
+         updateIconWidget ic widget info False
 
 updateMinSize :: Gtk.Widget -> Int  -> IO ()
 updateMinSize widget minWidth = do
@@ -819,7 +819,6 @@ updateIconWidget
   -> IconWidget
   -> Maybe WindowData
   -> Bool
-  -> Bool
   -> HUDIO ()
 updateIconWidget _ IconWidget
                    { iconContainer = iconButton
@@ -844,7 +843,7 @@ updateIconWidget _ IconWidget
           setImage imgSize image mpixBuf
           updateWidgetClasses iconButton [statusString] possibleStatusStrings
 
-  void $ updateVar windowRef $ \currentData -> setIconWidgetProperties >> return windowData
+  void $ updateVar windowRef $ const $ setIconWidgetProperties >> return windowData
 
 setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
 setImage imgSize img pixBuf =
