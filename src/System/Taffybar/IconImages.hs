@@ -52,8 +52,7 @@ hasAlpha = True
 colorspace :: Gtk.Colorspace
 colorspace = Gtk.ColorspaceRgb
 
--- | Create a pixbuf from the pixel data in an EWMHIcon,
--- scale it square, and set it in a GTK Image.
+-- | Create a pixbuf from the pixel data in an EWMHIcon.
 pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
 pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
   wPtr <- pixelsARGBToBytesABGR px (w*h)
@@ -63,15 +62,14 @@ pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
       cPtr = castPtr wPtr
   Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
 
--- | Create a pixbuf with the indicated RGBA color,
--- scale it square, and set it in a GTK Image.
+-- | Create a pixbuf with the indicated RGBA color.
 pixBufFromColor :: Int -> ColorRGBA -> IO Gtk.Pixbuf
 pixBufFromColor imgSize (r, g, b, a) = do
   pixbuf <- Gtk.pixbufNew colorspace hasAlpha sampleBits imgSize imgSize
   Gtk.pixbufFill pixbuf r g b a
   return pixbuf
 
--- | Convert a list of integer pixels to a bytestream with 4 channels.
+-- | Convert a C array of integer pixels in the ARGB format to the ABGR format.
 pixelsARGBToBytesABGR
   :: (Storable a, Bits a, Num a, Integral a)
   => Ptr a -> Int -> IO (Ptr CUChar)
@@ -96,10 +94,10 @@ pixelsARGBToBytesABGR ptr size = do
   writeIndexAndNext 0
   return target
 
--- | Create a pixbuf from a file,
--- scale it square, and set it in a GTK Image.
+-- | Create a pixbuf from a file and scale it to be square.
 pixBufFromFile :: Int -> FilePath -> IO Gtk.Pixbuf
-pixBufFromFile imgSize file = Gtk.pixbufNewFromFileAtScale file imgSize imgSize False
+pixBufFromFile imgSize file =
+  Gtk.pixbufNewFromFileAtScale file imgSize imgSize False
 
 selectEWMHIcon :: Int -> [EWMHIcon] -> EWMHIcon
 selectEWMHIcon imgSize icons = head prefIcon
