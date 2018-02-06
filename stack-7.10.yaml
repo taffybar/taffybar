@@ -1,13 +1,12 @@
 packages:
 - '.'
 - location:
-    git: https://github.com/IvanMalison/gtk-traymanager.git
+    git: https://github.com/travitch/gtk-traymanager.git
     commit: 517b24722b2cdab2dadbafa882ffcb6b8a1d01ff
   extra-dep: true
 extra-deps:
   - time-units-1.0.0
   - rate-limit-1.1.1
-  - gtk-traymanager-0.1.6
   - xmonad-contrib-0.12
   - X11-xft-0.3.1
   - gtk-0.13.9
