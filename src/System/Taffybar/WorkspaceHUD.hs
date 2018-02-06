@@ -752,9 +752,8 @@ updateImages ic ws = do
   Context {hudConfig = cfg} <- ask
   sortedWindows <- iconSort cfg $ windows ws
   let updateIconWidget' getImage wdata ton = do
-        let force = isNothing wdata && newImagesNeeded && ton
         iconWidget <- getImage
-        _ <- updateIconWidget ic iconWidget wdata force ton
+        _ <- updateIconWidget ic iconWidget wdata ton
         return iconWidget
       existingImages = map return $ iconImages ic
       buildAndAddIconWidget = do
@@ -826,7 +825,7 @@ updateIconWidget _ IconWidget
                    { iconContainer = iconButton
                    , iconImage = image
                    , iconWindow = windowRef
-                   } windowData forceUpdate transparentOnNone = do
+                   } windowData transparentOnNone = do
   cfg <- asks hudConfig
 
   let setIconWidgetProperties = do
@@ -845,10 +844,7 @@ updateIconWidget _ IconWidget
           setImage imgSize image mpixBuf
           updateWidgetClasses iconButton [statusString] possibleStatusStrings
 
-  void $ updateVar windowRef $ \currentData -> do
-    when (forceUpdate || (windowId <$> currentData) /= (windowId <$> windowData))
-         setIconWidgetProperties
-    return windowData
+  void $ updateVar windowRef $ \currentData -> setIconWidgetProperties >> return windowData
 
 setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
 setImage imgSize img pixBuf =
