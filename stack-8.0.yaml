@@ -9,7 +9,7 @@ extra-deps:
   - rate-limit-1.1.1
   - xmonad-contrib-0.13
   - X11-xft-0.3.1
-  - gtk-0.14.6
+  - gtk-0.14.7
   - dbus-0.10.12
   - libxml-sax-0.7.5
   - xml-helpers-1.0.0
