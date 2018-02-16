@@ -14,18 +14,17 @@ import System.Taffybar.Widgets.PollingLabel (pollingLabelNew)
 -- | The configuration for the hostname label.
 data HostNameConfig =
   HostNameConfig
-    { hostNameBackgroundColor :: Maybe String -- ^ Background color. If
-                                              -- 'Nothing', then no background
-                                              -- color is specified. (default
-                                              -- 'Nothing')
-    , hostNameForegroundColor :: String -- ^ Foreground color. (default @\"red\"@)
+    { hostNameFormatter :: String -> String
+      -- ^ Format function for the hostname.  Takes the hostname as an argument
+      -- and returns a hostname formatted with Pango markup.
+      -- (default @\hostname -> \"\<span fgcolor=\'red\'\>\" \<\> hostname \<\> \"\</span\>\"@.
     }
 
 defaultHostNameConfig :: HostNameConfig
 defaultHostNameConfig =
   HostNameConfig
-    { hostNameBackgroundColor = Nothing
-    , hostNameForegroundColor = "red"
+    { hostNameFormatter =
+        \hostname -> "<span fgcolor='red'>" <> hostname <> "</span>"
     }
 
 hostNameNew :: HostNameConfig -> IO Widget
@@ -37,15 +36,4 @@ hostNameNew cfg = do
 getHostNameString :: HostNameConfig -> IO String
 getHostNameString cfg = do
   hostName <- getHostName
-  let bgColorFmt =
-        case hostNameBackgroundColor cfg of
-          Nothing -> ""
-          Just bgColor -> "bgcolor='" <> bgColor <> "' "
-  return $
-    "<span fgcolor='" <>
-    hostNameForegroundColor cfg <>
-    "' " <>
-    bgColorFmt <>
-    ">" <>
-    hostName <>
-    "</span>"
+  return $ hostNameFormatter cfg hostName
