@@ -1,6 +1,8 @@
-language: c
+language: generic
 cache:
   directories:
+  - $HOME/.ghc
+  - $HOME/.cabal
   - $HOME/.stack
 
 before_install:
@@ -55,5 +57,12 @@ matrix:
     script:
       - ./quick-start.sh
 
+install:
+- stack --no-terminal --install-ghc $ARGS test --bench --dry-run || ( \
+    stack --no-terminal $ARGS build cabal-install && \
+    stack --no-terminal $ARGS solver --update-config)
+# Build the dependencies
+- stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
+
 script:
- - stack --no-terminal --system-ghc build
+ - stack --no-terminal --install-ghc build
