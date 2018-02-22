@@ -35,7 +35,7 @@ import qualified Data.Traversable as T
 import           Control.Applicative                     ((<$>))
 
 defaultNetFormat :: String
-defaultNetFormat = "▼ $inKB$kb/s ▲ $outKB$kb/s"
+defaultNetFormat = "▼ $inAuto$ ▲ $outAuto$"
 
 -- | Creates a new network monitor widget. It consists of two 'PollingLabel's,
 -- one for incoming and one for outgoing traffic fed by regular calls to
@@ -65,7 +65,7 @@ netMonitorNewWith interval interface prec template = netMonitorMultiNewWith inte
 netMonitorMultiNew :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
               -> [String] -- ^ Name of the network interfaces to monitor (e.g. \"eth0\", \"wlan1\")
               -> IO Widget
-netMonitorMultiNew interval interfaces = netMonitorMultiNewWith interval interfaces 2 defaultNetFormat
+netMonitorMultiNew interval interfaces = netMonitorMultiNewWith interval interfaces 3 defaultNetFormat
 
 -- | Like `newMonitorNewWith` but for multiple interfaces.
 netMonitorMultiNewWith :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
