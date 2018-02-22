@@ -14,4 +14,4 @@ extra-deps:
   - libxml-sax-0.7.5
   - xml-helpers-1.0.0
   - gio-0.13.4.1
-resolver: lts-10.4
+resolver: lts-10.5
