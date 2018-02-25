@@ -17,22 +17,16 @@ matrix:
   - env: GHCVER=7.8.4 STACK_YAML=stack-7.8.yaml
     addons:
       apt:
-        sources:
-          - hvr-ghc
         packages:
           - libgtk-3-dev
   - env: GHCVER=7.10.3 STACK_YAML=stack-7.10.yaml
     addons:
       apt:
-        sources:
-          - hvr-ghc
         packages:
           - libgtk-3-dev
   - env: GHCVER=8.0.2 STACK_YAML=stack-8.0.yaml
     addons:
       apt:
-        sources:
-          - hvr-ghc
         packages:
           - libgtk-3-dev
   - env: GHCVER=8.2.2 STACK_YAML=stack-8.2.yaml
@@ -45,8 +39,6 @@ matrix:
       - stack install gtk2hs-buildtools
     addons:
       apt:
-        sources:
-          - hvr-ghc
         packages:
           - libgtk-3-dev
   - env: BUILD_TYPE='Test quick start'
@@ -55,6 +47,7 @@ matrix:
         packages:
           - libgtk-3-dev
     sudo: required
+    install: []
     script:
       - ./quick-start.sh
 
