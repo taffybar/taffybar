@@ -74,20 +74,24 @@ handleToggleRequests enabledVar refreshTaffyWindows = do
       toggleTaffy = do
         num <- runMaybeT getActiveScreenNumber
         toggleTaffyOnMon not $ fromMaybe 0 num
-      makeMethod :: AutoMethod fn => MemberName -> fn -> Method
-      makeMethod = autoMethod taffybarToggleInterface
       takeInt :: (Int -> a) -> (Int32 -> a)
       takeInt = (. fromIntegral)
   client <- connectSession
   _ <- requestName client "taffybar.toggle"
        [nameAllowReplacement, nameReplaceExisting]
-  export client taffybarTogglePath
-           [ makeMethod "toggleCurrent" toggleTaffy
-           , makeMethod "toggleOnMonitor" $ takeInt $ toggleTaffyOnMon not
-           , makeMethod "hideOnMonitor" $
-             takeInt $ toggleTaffyOnMon (const False)
-           , makeMethod "showOnMonitor" $
-             takeInt $ toggleTaffyOnMon (const True)]
+  let interface =
+        defaultInterface
+        { interfaceName = taffybarToggleInterface
+        , interfaceMethods =
+          [ autoMethod "toggleCurrent" toggleTaffy
+          , autoMethod "toggleOnMonitor" $ takeInt $ toggleTaffyOnMon not
+          , autoMethod "hideOnMonitor" $
+            takeInt $ toggleTaffyOnMon (const False)
+          , autoMethod "showOnMonitor" $
+            takeInt $ toggleTaffyOnMon (const True)
+          ]
+        }
+  export client taffybarTogglePath interface
 
 withToggleSupport :: TaffybarConfig -> IO ()
 withToggleSupport config = do
