@@ -59,9 +59,16 @@ taffybarDefaultPP :: PP
 taffybarDefaultPP =
 #if MIN_VERSION_xmonad_contrib(0, 12, 0)
   def {
+    ppCurrent         = const $ taffybarEscape . wrap "[" "]"
+    , ppVisible         = const $ taffybarEscape . wrap "<" ">"
+    , ppHidden          = const $ taffybarEscape
+    , ppHiddenNoWindows = const $ taffybarEscape
+    , ppUrgent          = const $ taffybarEscape
+    , ppTitle           = taffybarEscape . shorten 80
+    , ppLayout          = taffybarEscape
+    }
 #else
   defaultPP {
-#endif
     ppCurrent         = taffybarEscape . wrap "[" "]"
     , ppVisible         = taffybarEscape . wrap "<" ">"
     , ppHidden          = taffybarEscape
@@ -70,15 +77,26 @@ taffybarDefaultPP =
     , ppTitle           = taffybarEscape . shorten 80
     , ppLayout          = taffybarEscape
     }
+#endif
+
 -- | The same as xmobarPP in XMonad.Hooks.DynamicLog
 taffybarPP :: PP
-taffybarPP = taffybarDefaultPP { ppCurrent = taffybarColor "yellow" "" . wrap "[" "]"
-                               , ppTitle   = taffybarColor "green"  "" . shorten 40
-                               , ppVisible = wrap "(" ")"
-                               , ppUrgent  = taffybarColor "red" "yellow"
-                               }
-
-
+taffybarPP =
+#if MIN_VERSION_xmonad_contrib(0, 12, 0)
+  taffybarDefaultPP {
+    ppCurrent = const $ taffybarColor "yellow" "" . wrap "[" "]"
+    , ppTitle   = taffybarColor "green"  "" . shorten 40
+    , ppVisible = const $ wrap "(" ")"
+    , ppUrgent  = const $ taffybarColor "red" "yellow"
+  }
+#else
+  taffybarDefaultPP {
+    ppCurrent = taffybarColor "yellow" "" . wrap "[" "]"
+    , ppTitle   = taffybarColor "green"  "" . shorten 40
+    , ppVisible = wrap "(" ")"
+    , ppUrgent  = taffybarColor "red" "yellow"
+  }
+#endif
 
 outputThroughDBus :: Client -> String -> IO ()
 outputThroughDBus client str = do
