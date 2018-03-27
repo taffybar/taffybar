@@ -77,8 +77,8 @@ layoutSwitcherNew pager = do
 pagerCallback :: PagerConfig -> Gtk.Label -> Event -> PagerIO ()
 pagerCallback cfg label _ = do
   layout <- liftPagerX11 $ readAsString Nothing xLayoutProp
-  let decorate = activeLayout cfg
-  lift $ Gtk.labelSetMarkup label (decorate layout)
+  markup <- lift $ activeLayoutIO cfg $ activeLayout cfg layout
+  lift $ Gtk.labelSetMarkup label markup
 
 -- | Build the graphical representation of the widget.
 assembleWidget :: Pager -> Gtk.Label -> IO Gtk.Widget

@@ -8,7 +8,9 @@
 -- Maintainer  : Ivan A. Malison
 -- Stability   : unstable
 -- Portability : unportable
------------------------------------------------------------------------------
+--
+-- This module provides a dbus interface that allows users to toggle the display
+-- of taffybar on each monitor while it is running.
 
 module System.Taffybar.ToggleMonitor (
   handleToggleRequests,
@@ -32,8 +34,21 @@ import           Prelude
 import           System.Directory
 import           System.FilePath.Posix
 import           System.Taffybar
-
 import           Text.Read ( readMaybe )
+
+-- $usage
+--
+-- To use this module, import it in your taffybar.hs and use the
+-- 'withToggleSupport' function to start taffybar, where you might otherwise
+-- have used 'defaultTaffybar', like so:
+--
+-- > main = withToggleSupport defaultTaffybarConfig {}
+--
+-- To toggle taffybar on the monitor that is currently active, issue the
+-- following command:
+--
+-- > dbus-send --print-reply=literal --dest=taffybar.toggle /taffybar/toggle taffybar.toggle.toggleCurrent
+
 
 toggleableMonitors
   :: MV.MVar (M.Map Int Bool)

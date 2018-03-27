@@ -86,15 +86,15 @@ module System.Taffybar (
   -- > main = do
   -- >   client <- connectSession
   -- >   let pp = defaultPP
-  -- >   xmonad defaultConfig { logHook = dbusLog client pp
-  -- >                        , manageHook = manageDocks
-  -- >                        }
+  -- >   xmonad $ docks defaultConfig { logHook = dbusLog client pp }
   --
-  -- The complexity is handled in the System.Taffybar.XMonadLog
-  -- module.  Note that manageDocks is required to have XMonad put
-  -- taffybar in the strut space that it reserves.  If you have
-  -- problems with taffybar appearing almost fullscreen, check to
-  -- see if you have manageDocks in your manageHook.
+  -- The complexity is handled in the System.Taffybar.XMonadLog module. Note
+  -- that the docks wrapper from ManageDocks is required to have XMonad put
+  -- taffybar in the strut space that it reserves. If you have problems with
+  -- taffybar appearing almost fullscreen, check to see if you are using this
+  -- wrapper. Note that the manageDocks hook that previous used to be sufficient
+  -- for this is no longer so (see
+  -- https://github.com/travitch/taffybar/issues/185).
 
   -- ** A note about DBus:
   -- |
