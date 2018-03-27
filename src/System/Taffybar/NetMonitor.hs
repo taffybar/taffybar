@@ -35,7 +35,7 @@ import qualified Data.Traversable as T
 import           Control.Applicative                     ((<$>))
 
 defaultNetFormat :: String
-defaultNetFormat = "▼ $inKB$kb/s ▲ $outKB$kb/s"
+defaultNetFormat = "▼ $inAuto$ ▲ $outAuto$"
 
 -- | Creates a new network monitor widget. It consists of two 'PollingLabel's,
 -- one for incoming and one for outgoing traffic fed by regular calls to
@@ -48,13 +48,12 @@ netMonitorNew interval interface = netMonitorMultiNew interval [interface]
 -- | Creates a new network monitor widget with custom template and precision.
 -- Similar to 'netMonitorNew'.
 --
--- The format template currently supports three units: bytes,
--- kilobytes, and megabytes.  Automatic intelligent unit selection is
--- planned, eventually.
+-- The format template currently supports four units: bytes,
+-- kilobytes, megabytes, and auto.
 netMonitorNewWith :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
                   -> String -- ^ Name of the network interface to monitor (e.g. \"eth0\", \"wlan1\")
                   -> Int -- ^ Precision for an output
-                  -> String -- ^ Template for an output. You can use variables: $inB$, $inKB$, $inMB$, $outB$, $outKB$, $outMB$
+                  -> String -- ^ Template for an output. You can use variables: $inB$, $inKB$, $inMB$, $inAuto$, $outB$, $outKB$, $outMB$, $outAuto$
                   -> IO Widget
 netMonitorNewWith interval interface prec template = netMonitorMultiNewWith interval [interface] prec template
 
@@ -66,13 +65,13 @@ netMonitorNewWith interval interface prec template = netMonitorMultiNewWith inte
 netMonitorMultiNew :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
               -> [String] -- ^ Name of the network interfaces to monitor (e.g. \"eth0\", \"wlan1\")
               -> IO Widget
-netMonitorMultiNew interval interfaces = netMonitorMultiNewWith interval interfaces 2 defaultNetFormat
+netMonitorMultiNew interval interfaces = netMonitorMultiNewWith interval interfaces 3 defaultNetFormat
 
 -- | Like `newMonitorNewWith` but for multiple interfaces.
 netMonitorMultiNewWith :: Double -- ^ Polling interval (in seconds, e.g. 1.5)
                   -> [String] -- ^ Name of the network interfaces to monitor (e.g. \"eth0\", \"wlan1\")
                   -> Int -- ^ Precision for an output
-                  -> String -- ^ Template for an output. You can use variables: $inB$, $inKB$, $inMB$, $outB$, $outKB$, $outMB$
+                  -> String -- ^ Template for an output. You can use variables: $inB$, $inKB$, $inMB$, $inAuto$, $outB$, $outKB$, $outMB$, $outAuto$
                   -> IO Widget
 netMonitorMultiNewWith interval interfaces prec template = do
   interfaceRefs <- T.forM interfaces $ \i -> (i,) <$> newIORef (0, 0)
@@ -104,9 +103,11 @@ showInfo template prec (incomingb, outgoingb) =
     attribs = [ ("inB", show incomingb)
               , ("inKB", toKB prec incomingb)
               , ("inMB", toMB prec incomingb)
+              , ("inAuto", toAuto prec incomingb)
               , ("outB", show outgoingb)
               , ("outKB", toKB prec outgoingb)
               , ("outMB", toMB prec outgoingb)
+              , ("outAuto", toAuto prec outgoingb)
               ]
   in
     render . setManyAttrib attribs $ newSTMP template
@@ -121,4 +122,18 @@ setDigits :: Int -> Double -> String
 setDigits dig a = printf format a
     where format = "%." ++ show dig ++ "f"
 
-
+toAuto :: Int -> Double -> String
+toAuto prec value = printf "%.*f%s" p v unit
+  where value' = max 0 value
+        mag :: Int
+        mag = if value' == 0 then 0 else max 0 $ min 4 $ floor $ logBase 1024 value'
+        v = value' / 1024 ** fromIntegral mag
+        unit = case mag of
+          0 -> "B/s"
+          1 -> "KiB/s"
+          2 -> "MiB/s"
+          3 -> "GiB/s"
+          4 -> "TiB/s"
+          _ -> "??B/s" -- unreachable
+        p :: Int
+        p = max 0 $ floor $ fromIntegral prec - logBase 10 v

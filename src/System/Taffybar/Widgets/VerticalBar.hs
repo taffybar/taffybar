@@ -12,55 +12,63 @@ module System.Taffybar.Widgets.VerticalBar (
   defaultBarConfigIO
   ) where
 
-import Control.Concurrent
+import           Control.Concurrent
+import           Control.Monad.Trans
 import qualified Graphics.Rendering.Cairo as C
-import Graphics.UI.Gtk
+import           Graphics.UI.Gtk
+import           System.Taffybar.Widgets.Util
 
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
-data VerticalBarState =
-  VerticalBarState { barIsBootstrapped :: Bool
-                   , barPercent :: Double
-                   , barCanvas :: DrawingArea
-                   , barConfig :: BarConfig
-                   }
+data VerticalBarState = VerticalBarState
+  { barIsBootstrapped :: Bool
+  , barPercent :: Double
+  , barCanvas :: DrawingArea
+  , barConfig :: BarConfig
+  }
 
 data BarDirection = HORIZONTAL | VERTICAL
 
-data BarConfig =
-  BarConfig { barBorderColor :: (Double, Double, Double) -- ^ Color of the border drawn around the widget
-            , barBackgroundColor :: Double -> (Double, Double, Double) -- ^ The background color of the widget
-            , barColor :: Double -> (Double, Double, Double) -- ^ A function to determine the color of the widget for the current data point
-            , barPadding :: Int -- ^ Number of pixels of padding around the widget
-            , barWidth :: Int
-            , barDirection :: BarDirection
-            }
+data BarConfig
+  = BarConfig -- | Color of the border drawn around the widget
+     { barBorderColor :: (Double, Double, Double)
+     -- | The background color of the widget
+    , barBackgroundColor :: Double -> (Double, Double, Double)
+     -- | A function to determine the color of the widget for the current data point
+    , barColor :: Double -> (Double, Double, Double)
+     -- | Number of pixels of padding around the widget
+    , barPadding :: Int
+    , barWidth :: Int
+    , barDirection :: BarDirection}
   | BarConfigIO { barBorderColorIO :: IO (Double, Double, Double)
                 , barBackgroundColorIO :: Double -> IO (Double, Double, Double)
                 , barColorIO :: Double -> IO (Double, Double, Double)
                 , barPadding :: Int
                 , barWidth :: Int
-                , barDirection :: BarDirection
-                }
+                , barDirection :: BarDirection}
 
 -- | A default bar configuration.  The color of the active portion of
 -- the bar must be specified.
 defaultBarConfig :: (Double -> (Double, Double, Double)) -> BarConfig
-defaultBarConfig c = BarConfig { barBorderColor = (0.5, 0.5, 0.5)
-                               , barBackgroundColor = const (0, 0, 0)
-                               , barColor = c
-                               , barPadding = 2
-                               , barWidth = 15
-                               , barDirection = VERTICAL
-                               }
+defaultBarConfig c =
+  BarConfig
+  { barBorderColor = (0.5, 0.5, 0.5)
+  , barBackgroundColor = const (0, 0, 0)
+  , barColor = c
+  , barPadding = 2
+  , barWidth = 15
+  , barDirection = VERTICAL
+  }
 
 defaultBarConfigIO :: (Double -> IO (Double, Double, Double)) -> BarConfig
-defaultBarConfigIO c = BarConfigIO { barBorderColorIO = return (0.5, 0.5, 0.5)
-                                   , barBackgroundColorIO = \_ -> return (0, 0, 0)
-                                   , barColorIO = c
-                                   , barPadding = 2
-                                   , barWidth = 15
-                                   , barDirection = VERTICAL
-                                 }
+defaultBarConfigIO c =
+  BarConfigIO
+  { barBorderColorIO = return (0.5, 0.5, 0.5)
+  , barBackgroundColorIO = \_ -> return (0, 0, 0)
+  , barColorIO = c
+  , barPadding = 2
+  , barWidth = 15
+  , barDirection = VERTICAL
+  }
 
 verticalBarSetPercent :: VerticalBarHandle -> Double -> IO ()
 verticalBarSetPercent (VBH mv) pct = do
@@ -142,30 +150,29 @@ renderBar pct cfg width height = do
   C.rectangle 0 0 activeWidth activeHeight
   C.fill
 
-drawBar :: MVar VerticalBarState -> DrawingArea -> IO ()
+drawBar :: MVar VerticalBarState -> DrawingArea -> C.Render ()
 drawBar mv drawArea = do
-  (w, h) <- widgetGetSize drawArea
-  drawWin <- widgetGetDrawWindow drawArea
-  s <- readMVar mv
-  let pct = barPercent s
-  modifyMVar_ mv (\s' -> return s' { barIsBootstrapped = True })
-  renderWithDrawable drawWin (renderBar pct (barConfig s) w h)
+  (w, h) <- widgetGetAllocatedSize drawArea
+  s <- liftIO $ do
+         s <- readMVar mv
+         modifyMVar_ mv (\s' -> return s' { barIsBootstrapped = True })
+         return s
+  renderBar (barPercent s) (barConfig s) w h
 
 verticalBarNew :: BarConfig -> IO (Widget, VerticalBarHandle)
 verticalBarNew cfg = do
   drawArea <- drawingAreaNew
-
-  mv <- newMVar VerticalBarState { barIsBootstrapped = False
-                                 , barPercent = 0
-                                 , barCanvas = drawArea
-                                 , barConfig = cfg
-                                 }
-
+  mv <-
+    newMVar
+      VerticalBarState
+      { barIsBootstrapped = False
+      , barPercent = 0
+      , barCanvas = drawArea
+      , barConfig = cfg
+      }
   widgetSetSizeRequest drawArea (barWidth cfg) (-1)
-  _ <- on drawArea exposeEvent $ tryEvent $ C.liftIO (drawBar mv drawArea)
-
+  _ <- on drawArea draw $ drawBar mv drawArea
   box <- hBoxNew False 1
   boxPackStart box drawArea PackGrow 0
   widgetShowAll box
-
   return (toWidget box, VBH mv)

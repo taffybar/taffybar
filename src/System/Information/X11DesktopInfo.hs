@@ -1,3 +1,4 @@
+{-# LANGUAGE StandaloneDeriving #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Information.X11DesktopInfo
@@ -24,6 +25,8 @@ module System.Information.X11DesktopInfo
   , X11Window
   , withDefaultCtx
   , getDefaultCtx
+  , getWindowState
+  , getWindowStateProperty
   , readAsInt
   , readAsListOfInt
   , readAsString
@@ -32,18 +35,34 @@ module System.Information.X11DesktopInfo
   , isWindowUrgent
   , getVisibleTags
   , getAtom
+  , getDisplay
   , eventLoop
   , sendCommandEvent
   , sendWindowEvent
+  , postX11RequestSyncProp
+  , getPrimaryOutputNumber
   ) where
 
+import Data.List
+import Data.Maybe
+
 import Codec.Binary.UTF8.String as UTF8
+import Control.Concurrent
+import GHC.IO.Exception
+import Control.Concurrent.MVar
 import Control.Monad.Reader
 import Data.Bits (testBit, (.|.))
+import Data.Functor ((<$>))
 import Data.List.Split (endBy)
-import Data.Maybe (fromMaybe)
 import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
+       hiding (rawGetWindowProperty, getWindowProperty8,
+               getWindowProperty16, getWindowProperty32,
+               getWMHints)
+import Graphics.X11.Xrandr
+import System.Information.SafeX11
+import System.IO
+import System.Timeout
 
 data X11Context = X11Context { contextDisplay :: Display, _contextRoot :: Window }
 type X11Property a = ReaderT X11Context IO a
@@ -58,6 +77,9 @@ withDefaultCtx fun = do
   res <- runReaderT fun ctx
   closeDisplay (contextDisplay ctx)
   return res
+
+getDisplay :: X11Property Display
+getDisplay = contextDisplay <$> ask
 
 -- | Retrieve the property of the given window (or the root window,
 -- if Nothing) with the given name as a value of type Int. If that
@@ -133,15 +155,13 @@ isWindowUrgent window = do
 -- instructions on how to do this), or an empty list of strings if the
 -- PagerHints hook is not available.
 getVisibleTags :: X11Property [String]
-getVisibleTags = return =<<
-  readAsListOfString Nothing "_XMONAD_VISIBLE_WORKSPACES"
+getVisibleTags = readAsListOfString Nothing "_XMONAD_VISIBLE_WORKSPACES"
 
 -- | Return the Atom with the given name.
 getAtom :: String -> X11Property Atom
 getAtom s = do
   (X11Context d _) <- ask
-  atom <- liftIO $ internAtom d s False
-  return atom
+  liftIO $ internAtom d s False
 
 -- | Spawn a new thread and listen inside it to all incoming events,
 -- invoking the given function to every event of type @MapNotifyEvent@ that
@@ -151,12 +171,11 @@ eventLoop :: (Event -> IO ()) -> X11Property ()
 eventLoop dispatch = do
   (X11Context d w) <- ask
   liftIO $ do
-    xSetErrorHandler
     selectInput d w $ propertyChangeMask .|. substructureNotifyMask
     allocaXEvent $ \e -> forever $ do
       event <- nextEvent d e >> getEvent e
       case event of
-        MapNotifyEvent _ _ _ _ _ window _ -> do
+        MapNotifyEvent _ _ _ _ _ window _ ->
           selectInput d window propertyChangeMask
         _ -> return ()
       dispatch event
@@ -183,6 +202,19 @@ getDefaultCtx = do
   w <- rootWindow d $ defaultScreen d
   return $ X11Context d w
 
+getWindowStateProperty :: X11Window -> String -> X11Property Bool
+getWindowStateProperty window property = not . null <$> getWindowState window [property]
+
+getWindowState :: X11Window -> [String] -> X11Property [String]
+getWindowState window request = do
+  let getAsLong s = fromIntegral <$> getAtom s
+  integers <- mapM getAsLong request
+  properties <- fetch getWindowProperty32 (Just window) "_NET_WM_STATE"
+  let integerToString = zip integers request
+      present = intersect integers $ fromMaybe [] properties
+      presentStrings = map (`lookup` integerToString) present
+  return $ catMaybes presentStrings
+
 -- | Apply the given function to the given window in order to obtain the X11
 -- property with the given name, or Nothing if no such property can be read.
 fetch :: (Integral a)
@@ -193,15 +225,13 @@ fetch :: (Integral a)
 fetch fetcher window name = do
   (X11Context dpy root) <- ask
   atom <- getAtom name
-  prop <- liftIO $ fetcher dpy atom (fromMaybe root window)
-  return prop
+  liftIO $ fetcher dpy atom (fromMaybe root window)
 
 -- | Retrieve the @WM_HINTS@ mask assigned by the X server to the given window.
 fetchWindowHints :: X11Window -> X11Property WMHints
 fetchWindowHints window = do
   (X11Context d _) <- ask
-  hints <- liftIO $ getWMHints d window
-  return hints
+  liftIO $ getWMHints d window
 
 -- | Emit an event of type @ClientMessage@ that can be listened to and
 -- consumed by XMonad event hooks.
@@ -211,9 +241,39 @@ sendCustomEvent :: Display
                 -> X11Window
                 -> X11Window
                 -> X11Property ()
-sendCustomEvent dpy cmd arg root win = do
+sendCustomEvent dpy cmd arg root win =
   liftIO $ allocaXEvent $ \e -> do
     setEventType e clientMessage
     setClientMessageEvent e win cmd 32 arg currentTime
     sendEvent dpy root False structureNotifyMask e
     sync dpy False
+
+postX11RequestSyncProp :: X11Property a -> a -> X11Property a
+postX11RequestSyncProp prop def = do
+  c <- ask
+  let action = runReaderT prop c
+  lift $ postX11RequestSyncDef def action
+
+isActiveOutput :: XRRScreenResources -> RROutput -> X11Property Bool
+isActiveOutput sres output = do
+  (X11Context display _) <- ask
+  maybeOutputInfo <- liftIO $ xrrGetOutputInfo display sres output
+  return $ maybe 0 xrr_oi_crtc maybeOutputInfo /= 0
+
+getActiveOutputs :: X11Property [RROutput]
+getActiveOutputs = do
+  (X11Context display rootw) <- ask
+  maybeSres <- liftIO $ xrrGetScreenResources display rootw
+  case maybeSres of
+    Just sres ->
+      filterM (isActiveOutput sres) $ xrr_sr_outputs sres
+    otherwise ->
+      return []
+
+-- | Get the index of the primary monitor as set and ordered by Xrandr.
+getPrimaryOutputNumber :: X11Property (Maybe Int)
+getPrimaryOutputNumber = do
+  (X11Context display rootw) <- ask
+  primary <- liftIO $ xrrGetOutputPrimary display rootw
+  outputs <- getActiveOutputs
+  return $ primary `elemIndex` outputs

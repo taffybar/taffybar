@@ -33,8 +33,6 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List ((\\), findIndices, sortBy)
 import Data.Maybe (listToMaybe)
 import Data.Ord (comparing)
-import Foreign.C.Types (CUChar(..))
-import Foreign.Marshal.Array (newArray)
 import qualified Graphics.UI.Gtk as Gtk
 import Graphics.X11.Xlib.Extras
 
@@ -54,7 +52,7 @@ data Workspace = Workspace { label     :: Gtk.Label
                            }
 type WindowSet = [(WorkspaceIdx, [X11Window])]
 type WindowInfo = Maybe (String, String, [EWMHIcon])
-type CustomIconF = String -> String -> Maybe FilePath
+type CustomIconF = Bool -> String -> String -> Maybe FilePath
 type ImageChoice = (Maybe EWMHIcon, Maybe FilePath, Maybe ColorRGBA)
 
 -- $usage
@@ -289,18 +287,17 @@ transition cfg desktop wss = do
       fillEmpty = fillEmptyImages cfg
       imgSize = imageSize cfg
       customIconF = customIcon cfg
-      preferCustom = preferCustomIcon cfg
-  when useImg $ updateImages desktop imgSize fillEmpty preferCustom customIconF
+  when useImg $ updateImages desktop imgSize fillEmpty customIconF
 
 -- | Update the GTK images using X properties.
-updateImages :: Desktop -> Int -> Bool -> Bool -> CustomIconF -> IO ()
-updateImages desktop imgSize fillEmpty preferCustom customIconF = do
+updateImages :: Desktop -> Int -> Bool -> CustomIconF -> IO ()
+updateImages desktop imgSize fillEmpty customIconF = do
   windowSet <- getWindowSet (allWorkspaces desktop)
   lastWinInfo <- getLastWindowInfo windowSet
   let images = map image desktop
       fillColor = if fillEmpty then Just (0, 0, 0, 0) else Nothing
       imageChoices = getImageChoices lastWinInfo customIconF fillColor imgSize
-  zipWithM_ (setImage imgSize preferCustom) images imageChoices
+  zipWithM_ (setImage imgSize) images imageChoices
 
 -- | Get EWMHIcons, custom icon files, and fill colors based on the window info.
 getImageChoices :: [WindowInfo] -> CustomIconF -> Maybe ColorRGBA -> Int -> [ImageChoice]
@@ -322,31 +319,22 @@ selectEWMHIcon _ _ = Nothing
 
 -- | Select a file using customIcon config.
 selectCustomIconFile :: CustomIconF -> WindowInfo -> Maybe FilePath
-selectCustomIconFile customIconF (Just (wTitle, wClass, _)) = customIconF wTitle wClass
+selectCustomIconFile customIconF (Just (wTitle, wClass, icons)) = customIconF (length icons > 0) wTitle wClass
 selectCustomIconFile _ _ = Nothing
 
 -- | Sets an image based on the image choice (EWMHIcon, custom file, and fill color).
-setImage :: Int -> Bool -> Gtk.Image -> ImageChoice -> IO ()
-setImage imgSize preferCustom img imgChoice = setImgAct imgChoice preferCustom
-  where setImgAct (_, Just file, _) True = setImageFromFile img imgSize file
-        setImgAct (Just icon, _, _) _    = setImageFromEWMHIcon img imgSize icon
-        setImgAct (_, Just file, _) _    = setImageFromFile img imgSize file
-        setImgAct (_, _, Just color) _   = setImageFromColor img imgSize color
-        setImgAct _ _                    = Gtk.imageClear img
+setImage :: Int -> Gtk.Image -> ImageChoice -> IO ()
+setImage imgSize img imgChoice = setImgAct imgChoice
+  where setImgAct (_, Just file, _)      = setImageFromFile img imgSize file
+        setImgAct (Just icon, _, _)      = setImageFromEWMHIcon img imgSize icon
+        setImgAct (_, _, Just color)     = setImageFromColor img imgSize color
+        setImgAct _                      = Gtk.imageClear img
 
 -- | Create a pixbuf from the pixel data in an EWMHIcon,
 -- scale it square, and set it in a GTK Image.
 setImageFromEWMHIcon :: Gtk.Image -> Int -> EWMHIcon -> IO ()
-setImageFromEWMHIcon img imgSize EWMHIcon {width=w, height=h, pixelsARGB=px} = do
-  let pixelsPerRow = w
-      bytesPerPixel = 4
-      rowStride = pixelsPerRow * bytesPerPixel
-      sampleBits = 8
-      hasAlpha = True
-      colorspace = Gtk.ColorspaceRgb
-      bytesRGBA = pixelsARGBToBytesRGBA px
-  cPtr <- newArray $ map CUChar bytesRGBA
-  pixbuf <- Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
+setImageFromEWMHIcon img imgSize icon = do
+  pixbuf <- pixBufFromEWMHIcon icon
   scaledPixbuf <- scalePixbuf imgSize pixbuf
   Gtk.imageSetFromPixbuf img scaledPixbuf
 

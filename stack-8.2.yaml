@@ -5,14 +5,13 @@ packages:
     commit: 517b24722b2cdab2dadbafa882ffcb6b8a1d01ff
   extra-dep: true
 extra-deps:
-  - alsa-core-0.5.0.1
-  - alsa-mixer-0.2.0.3
   - time-units-1.0.0
-  - rate-limit-1.1.1
+  - rate-limit-1.4.0
   - xmonad-contrib-0.13
-  - gtk-0.14.7
+  - gtk3-0.14.7
   - X11-xft-0.3.1
   - dbus-1.0.0
   - libxml-sax-0.7.5
   - xml-helpers-1.0.0
-resolver: lts-8.1
+  - gio-0.13.4.1
+resolver: lts-10.5

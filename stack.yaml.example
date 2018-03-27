@@ -1,0 +1,21 @@
+packages:
+- '.'
+- location: './taffybar'
+  extra-dep: true
+- location:
+    git: https://github.com/willdonnelly/dyre
+    commit: 11412752b483135e0c151ab90be17b217f837c4b
+  extra-dep: true
+- location:
+    git: https://github.com/travitch/gtk-traymanager.git
+    commit: 517b24722b2cdab2dadbafa882ffcb6b8a1d01ff
+  extra-dep: true
+extra-deps:
+- rate-limit-1.1.1
+- time-units-1.0.0
+- dbus-1.0.0
+- xmonad-contrib-0.13
+- X11-xft-0.3.1
+- libxml-sax-0.7.5
+- xml-helpers-1.0.0
+resolver: lts-8.2

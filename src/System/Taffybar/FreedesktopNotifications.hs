@@ -197,12 +197,16 @@ notificationDaemon :: (AutoMethod f1, AutoMethod f2)
 notificationDaemon onNote onCloseNote = do
   client <- connectSession
   _ <- requestName client "org.freedesktop.Notifications" [nameAllowReplacement, nameReplaceExisting]
-  export client "/org/freedesktop/Notifications"
-    [ autoMethod "org.freedesktop.Notifications" "GetServerInformation" getServerInformation
-    , autoMethod "org.freedesktop.Notifications" "GetCapabilities" getCapabilities
-    , autoMethod "org.freedesktop.Notifications" "CloseNotification" onCloseNote
-    , autoMethod "org.freedesktop.Notifications" "Notify" onNote
-    ]
+  let interface = defaultInterface
+                  { interfaceName = "org.freedesktop.Notifications"
+                  , interfaceMethods =
+                    [ autoMethod "GetServerInformation" getServerInformation
+                    , autoMethod "GetCapabilities" getCapabilities
+                    , autoMethod "CloseNotification" onCloseNote
+                    , autoMethod "Notify" onNote
+                    ]
+                  }
+  export client "/org/freedesktop/Notifications" interface
 
 -- | Wakeup the display thread and have it switch out the displayed
 -- message for the new current message.
@@ -215,7 +219,7 @@ displayThread s = forever $ do
   _ <- readChan (noteChan s)
   cur <- atomically $ readTVar (noteCurrent s)
   case cur of
-    Nothing -> postGUIAsync (widgetHideAll (noteContainer s))
+    Nothing -> postGUIAsync (widgetHide (noteContainer s))
     Just n -> postGUIAsync $ do
       labelSetMarkup (noteWidget s) (formatMessage s n)
       widgetShowAll (noteContainer s)
@@ -290,7 +294,7 @@ notifyAreaNew cfg = do
 
   containerAdd frame box
 
-  widgetHideAll frame
+  widgetHide frame
 
   istate <- initialNoteState (toWidget frame) textArea cfg
   _ <- on button buttonReleaseEvent (userCancel istate)

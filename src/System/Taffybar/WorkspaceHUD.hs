@@ -12,6 +12,9 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.WorkspaceHUD (
+  Context(..),
+  ControllerConstructor,
+  HUDIO,
   IconInfo(..),
   WWC(..),
   WindowData(..),
@@ -19,44 +22,60 @@ module System.Taffybar.WorkspaceHUD (
   WorkspaceButtonController(..),
   WorkspaceContentsController(..),
   WorkspaceHUDConfig(..),
+  WorkspaceState(..),
   WorkspaceUnderlineController(..),
   WorkspaceWidgetController(..),
+  IconController(..),
   buildBorderButtonController,
   buildButtonController,
   buildContentsController,
+  buildIconController,
+  buildLabelController,
+  buildPadBox,
   buildUnderlineButtonController,
   buildUnderlineController,
   buildWorkspaceHUD,
   buildWorkspaces,
+  defaultBuildContentsController,
   defaultGetIconInfo,
   defaultWorkspaceHUDConfig,
   getWorkspaceToWindows,
   hideEmpty,
   hudFromPagerConfig,
-  windowTitleClassIconGetter
+  liftPager,
+  liftX11Def,
+  setImage,
+  widgetSetClass,
+  windowTitleClassIconGetter,
 ) where
 
 import           Control.Applicative
+import           Control.Arrow ((&&&))
 import           Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.RateLimit
-import qualified Data.Char as S
 import qualified Data.Foldable as F
-import           Data.List (sortBy)
+import           Data.List (intersect, sortBy)
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.MultiMap as MM
 import qualified Data.Set as Set
 import           Data.Time.Units
+import           Data.Tuple.Select
+import           Data.Tuple.Sequence
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
+import           Graphics.UI.Gtk.General.StyleContext
 import qualified Graphics.UI.Gtk.Layout.Table as T
-import           Graphics.X11.Xlib.Extras hiding (xSetErrorHandler)
+import           Graphics.X11.Xlib.Extras
+       hiding (rawGetWindowProperty, getWindowProperty8,
+               getWindowProperty16, getWindowProperty32, xSetErrorHandler)
 import           Prelude
 import           System.Information.EWMHDesktopInfo
+import           System.Information.SafeX11
 import           System.Information.X11DesktopInfo
 import           System.Taffybar.IconImages
 import           System.Taffybar.Pager
@@ -70,6 +89,9 @@ data WorkspaceState
   | Urgent
   deriving (Show, Eq)
 
+workspaceStates :: [String]
+workspaceStates = map show [Active, Visible, Hidden, Empty, Urgent]
+
 data IconInfo
   = IIEWMH EWMHIcon
   | IIFilePath FilePath
@@ -80,12 +102,14 @@ data IconInfo
 transparentInfo :: IconInfo
 transparentInfo = IIColor (0, 0, 0, 0)
 
-data WindowData = WindowData { windowId :: X11Window
-                             , windowTitle :: String
-                             , windowClass :: String
-                             , windowUrgent :: Bool
-                             , windowActive :: Bool
-                             } deriving (Show, Eq)
+data WindowData = WindowData
+  { windowId :: X11Window
+  , windowTitle :: String
+  , windowClass :: String
+  , windowUrgent :: Bool
+  , windowActive :: Bool
+  , windowMinimized :: Bool
+  } deriving (Show, Eq)
 
 data WidgetUpdate = WorkspaceUpdate Workspace | IconUpdate [X11Window]
 
@@ -96,33 +120,61 @@ data Workspace = Workspace
   , windows :: [WindowData]
   } deriving (Show, Eq)
 
-data Context =
-  Context { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
-          , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
-          , loggingVar :: MV.MVar Bool
-          , hudWidget :: Gtk.HBox
-          , hudConfig :: WorkspaceHUDConfig
-          , hudPager :: Pager
-          }
+data Context = Context
+  { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
+  , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
+  , loggingVar :: MV.MVar Bool
+  , hudWidget :: Gtk.HBox
+  , hudConfig :: WorkspaceHUDConfig
+  , hudPager :: Pager
+  }
 
 type HUDIO a = ReaderT Context IO a
 
 liftPager :: PagerIO a -> HUDIO a
 liftPager action = asks hudPager >>= lift . runReaderT action
 
-liftX11 :: X11Property a -> HUDIO a
-liftX11 = liftPager . liftPagerX11
+liftX11Def :: a -> X11Property a -> HUDIO a
+liftX11Def = (liftPager .) . liftPagerX11Def
+
+widgetSetClass
+  :: W.WidgetClass widget
+  => widget -> String -> IO ()
+widgetSetClass widget klass = do
+  context <- Gtk.widgetGetStyleContext widget
+  styleContextAddClass context klass
+
+setWorkspaceWidgetStatusClass
+  :: W.WidgetClass widget
+  => Workspace -> widget -> IO ()
+setWorkspaceWidgetStatusClass workspace widget =
+  updateWidgetClasses widget [show $ workspaceState workspace] workspaceStates
+
+updateWidgetClasses
+  :: W.WidgetClass widget
+  => widget -> [String] -> [String] -> IO ()
+updateWidgetClasses widget toAdd toRemove = do
+  context <- Gtk.widgetGetStyleContext widget
+  let hasClass = styleContextHasClass context
+      addIfMissing klass =
+        hasClass klass >>= (`when` (styleContextAddClass context klass)) . not
+      removeIfPresent klass = when (not $ elem klass toAdd) $
+        hasClass klass >>= (`when` (styleContextRemoveClass context klass))
+  mapM_ removeIfPresent toRemove
+  mapM_ addIfMissing toAdd
 
 class WorkspaceWidgetController wc where
-  updateWidget :: wc -> WidgetUpdate -> HUDIO wc
   getWidget :: wc -> Gtk.Widget
+  updateWidget :: wc -> WidgetUpdate -> HUDIO wc
+  updateWidgetX11 :: wc -> WidgetUpdate -> HUDIO wc
+  updateWidgetX11 cont _ = return cont
 
 data WWC = forall a. WorkspaceWidgetController a => WWC a
 
 instance WorkspaceWidgetController WWC where
   getWidget (WWC wc) = getWidget wc
-  updateWidget (WWC wc) workspace =
-    WWC <$> updateWidget wc workspace
+  updateWidget (WWC wc) update = WWC <$> updateWidget wc update
+  updateWidgetX11 (WWC wc) update = WWC <$> updateWidgetX11 wc update
 
 type ControllerConstructor = Workspace -> HUDIO WWC
 type ParentControllerConstructor =
@@ -139,66 +191,85 @@ data WorkspaceHUDConfig =
   , maxIcons :: Maybe Int
   , minIcons :: Int
   , getIconInfo :: WindowData -> HUDIO IconInfo
-  , labelSetter :: Workspace -> String
-  , updateIconsOnTitleChange :: Bool
+  , labelSetter :: Workspace -> HUDIO String
   , updateOnWMIconChange :: Bool
   , showWorkspaceFn :: Workspace -> Bool
   , borderWidth :: Int
   , updateEvents :: [String]
   , updateRateLimitMicroseconds :: Integer
   , debugMode :: Bool
-  , sortIcons :: Bool
-  , handleX11Errors :: Bool
-  , redrawIconsOnStateChange :: Bool
+  , iconSort :: [WindowData] -> HUDIO [WindowData]
   , urgentWorkspaceState :: Bool
-  , innerPadding :: Int
-  , outerPadding :: Int
   }
 
 hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
 hudFromPagerConfig pagerConfig =
   let updater workspace
         | any windowUrgent ws = urgentWorkspace pagerConfig name
-        | otherwise = let getter = case state of
-                                     Urgent -> urgentWorkspace
-                                     Visible -> visibleWorkspace
-                                     Active -> activeWorkspace
-                                     Hidden -> hiddenWorkspace
-                                     Empty -> emptyWorkspace
-                          in getter pagerConfig name
-          where
-            ws = windows workspace
-            name = workspaceName workspace
-            state = workspaceState workspace
-      padded = if workspacePad pagerConfig
-               then prefixSpace . updater
-               else updater
-      getCustomImage wt wc = case customIcon pagerConfig wt wc of
-                               Just fp -> IIFilePath fp
-                               Nothing -> IINone
+        | otherwise =
+          let getter =
+                case state of
+                  Urgent -> urgentWorkspace
+                  Visible -> visibleWorkspace
+                  Active -> activeWorkspace
+                  Hidden -> hiddenWorkspace
+                  Empty -> emptyWorkspace
+          in getter pagerConfig name
+        where
+          ws = windows workspace
+          name = workspaceName workspace
+          state = workspaceState workspace
+      padded =
+        if workspacePad pagerConfig
+          then prefixSpace . updater
+          else updater
+      getCustomImage hasIcon wt wc =
+        case customIcon pagerConfig hasIcon wt wc of
+          Just fp -> IIFilePath fp
+          Nothing -> IINone
   in defaultWorkspaceHUDConfig
-       { labelSetter = padded
-       , minIcons = if fillEmptyImages pagerConfig then 1 else 0
-       , maxIcons = Just $ if useImages pagerConfig then 1 else 0
-       , getIconInfo = windowTitleClassIconGetter
-                       (preferCustomIcon pagerConfig) getCustomImage
-       , widgetGap = workspaceGap pagerConfig
-       , windowIconSize = imageSize pagerConfig
-       , widgetBuilder = if workspaceBorder pagerConfig
-                         then
-                           buildBorderButtonController
-                         else
-                           buildButtonController buildContentsController
-       , minWSWidgetSize = Nothing
-       }
-    where
-      prefixSpace "" = ""
-      prefixSpace s = " " ++ s
+     { labelSetter = return . padded
+     , minIcons =
+         if fillEmptyImages pagerConfig
+           then 1
+           else 0
+     , maxIcons =
+         Just $
+         if useImages pagerConfig
+           then 1
+           else 0
+     , getIconInfo =
+         windowTitleClassIconGetter
+           getCustomImage
+     , widgetGap = workspaceGap pagerConfig
+     , windowIconSize = imageSize pagerConfig
+     , widgetBuilder =
+         if workspaceBorder pagerConfig
+           then buildBorderButtonController
+           else buildButtonController defaultBuildContentsController
+     , minWSWidgetSize = Nothing
+     , iconSort = return
+     }
+  where
+    prefixSpace "" = ""
+    prefixSpace s = " " ++ s
+
+windowTitleClassIconGetter
+  :: (Bool -> String -> String -> IconInfo)
+  -> (WindowData -> HUDIO IconInfo)
+windowTitleClassIconGetter customIconF = fn
+  where
+    fn w@WindowData {windowTitle = wTitle, windowClass = wClass} = do
+      ewmhIcon <- defaultGetIconInfo w
+      let hasEwmhIcon = ewmhIcon /= IINone
+          custIcon = customIconF hasEwmhIcon wTitle wClass
+          hasCustomIcon = custIcon /= IINone
+      return $ if hasCustomIcon then custIcon else ewmhIcon
 
 defaultWorkspaceHUDConfig :: WorkspaceHUDConfig
 defaultWorkspaceHUDConfig =
   WorkspaceHUDConfig
-  { widgetBuilder = buildUnderlineButtonController
+  { widgetBuilder = buildButtonController defaultBuildContentsController
   , widgetGap = 0
   , windowIconSize = 16
   , underlineHeight = 4
@@ -207,26 +278,21 @@ defaultWorkspaceHUDConfig =
   , maxIcons = Nothing
   , minIcons = 0
   , getIconInfo = defaultGetIconInfo
-  , labelSetter = workspaceName
-  , updateIconsOnTitleChange = True
+  , labelSetter = return . workspaceName
   , updateOnWMIconChange = True
   , showWorkspaceFn = const True
   , borderWidth = 2
-  , sortIcons = True
+  , iconSort = sortWindowsByPosition
   , updateEvents =
-    [ "_NET_CURRENT_DESKTOP"
-    , "_NET_WM_DESKTOP"
-    , "_NET_DESKTOP_NAMES"
-    , "_NET_NUMBER_OF_DESKTOPS"
-    , "WM_HINTS"
-    ]
+      [ "_NET_CURRENT_DESKTOP"
+      , "_NET_WM_DESKTOP"
+      , "_NET_DESKTOP_NAMES"
+      , "_NET_NUMBER_OF_DESKTOPS"
+      , "WM_HINTS"
+      ]
   , updateRateLimitMicroseconds = 100000
   , debugMode = False
-  , handleX11Errors = True
-  , redrawIconsOnStateChange = False
   , urgentWorkspaceState = False
-  , innerPadding = 0
-  , outerPadding = 0
   }
 
 hideEmpty :: Workspace -> Bool
@@ -240,7 +306,7 @@ hudLogger ctx txt =
     when shouldLog $ putStrLn txt
 
 hudLog :: String -> HUDIO ()
-hudLog txt = ask >>= lift . flip hudLogger txt
+hudLog txt = ask >>= lift . flip hudLogger (printf "[WorkspaceHUD] %s" txt)
 
 updateVar :: MV.MVar a -> (a -> HUDIO a) -> HUDIO a
 updateVar var modify = do
@@ -252,21 +318,21 @@ updateWorkspacesVar = do
   workspacesRef <- asks workspacesVar
   updateVar workspacesRef buildWorkspaces
 
-getWorkspaceToWindows :: HUDIO (MM.MultiMap WorkspaceIdx X11Window)
-getWorkspaceToWindows = liftX11 $ getWindows >>=
+getWorkspaceToWindows :: [X11Window] -> X11Property (MM.MultiMap WorkspaceIdx X11Window)
+getWorkspaceToWindows =
   foldM
     (\theMap window ->
-       MM.insert <$> getWorkspace window
-                 <*> pure window <*> pure theMap)
+       MM.insert <$> getWorkspace window <*> pure window <*> pure theMap)
     MM.empty
 
-getUrgentWindows :: X11Property [X11Window]
-getUrgentWindows = getWindows >>= filterM isWindowUrgent
-
-getWindowData :: [X11Window] -> [X11Window] -> X11Window -> X11Property WindowData
+getWindowData :: [X11Window]
+              -> [X11Window]
+              -> X11Window
+              -> X11Property WindowData
 getWindowData activeWindows urgentWindows window = do
   wTitle <- getWindowTitle window
   wClass <- getWindowClass window
+  wMinimized <- getWindowStateProperty window "_NET_WM_STATE_HIDDEN"
   return
     WindowData
     { windowId = window
@@ -274,37 +340,42 @@ getWindowData activeWindows urgentWindows window = do
     , windowClass = wClass
     , windowUrgent = window `elem` urgentWindows
     , windowActive = window `elem` activeWindows
+    , windowMinimized = wMinimized
     }
 
 buildWorkspaces :: M.Map WorkspaceIdx Workspace
                 -> HUDIO (M.Map WorkspaceIdx Workspace)
-buildWorkspaces _ = do
-  context <- ask
-
-  names <- liftX11 getWorkspaceNames
-  workspaceToWindows <- getWorkspaceToWindows
-  urgentWindows <- liftX11 getUrgentWindows
-  activeWindows <- liftX11 $ readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
-  active:visible <- liftX11 getVisibleWorkspaces
-  let
-    getWorkspaceState idx ws
-        | urgentWorkspaceState (hudConfig context) &&
-          not (null urgentWindows) = Urgent
+buildWorkspaces _ = ask >>= \context -> liftX11Def M.empty $ do
+  names <- getWorkspaceNames
+  wins <- getWindows
+  workspaceToWindows <- getWorkspaceToWindows wins
+  urgentWindows <- filterM isWindowUrgent wins
+  activeWindows <- readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
+  active:visible <- getVisibleWorkspaces
+  let getWorkspaceState idx ws
         | idx == active = Active
         | idx `elem` visible = Visible
+        | urgentWorkspaceState (hudConfig context) &&
+          not (null (ws `intersect` urgentWindows)) =
+          Urgent
         | null ws = Empty
         | otherwise = Hidden
-
-  foldM (\theMap (idx, name) ->
-           do
-             let ws = MM.lookup idx workspaceToWindows
-             windowInfos <- liftX11 $ mapM (getWindowData activeWindows urgentWindows) ws
-             return $ M.insert idx
-                    Workspace { workspaceIdx = idx
-                              , workspaceName = name
-                              , workspaceState = getWorkspaceState idx ws
-                              , windows = windowInfos
-                              } theMap) M.empty names
+  foldM
+    (\theMap (idx, name) -> do
+       let ws = MM.lookup idx workspaceToWindows
+       windowInfos <- mapM (getWindowData activeWindows urgentWindows) ws
+       return $
+         M.insert
+           idx
+           Workspace
+           { workspaceIdx = idx
+           , workspaceName = name
+           , workspaceState = getWorkspaceState idx ws
+           , windows = windowInfos
+           }
+           theMap)
+    M.empty
+    names
 
 addWidgetsToTopLevel :: HUDIO ()
 addWidgetsToTopLevel = do
@@ -379,24 +450,22 @@ buildWorkspaceHUD cfg pager = do
   controllersRef <- MV.newMVar M.empty
   workspacesRef <- MV.newMVar M.empty
   loggingRef <- MV.newMVar False
-  let context = Context { controllersVar = controllersRef
-                        , workspacesVar = workspacesRef
-                        , loggingVar = loggingRef
-                        , hudWidget = cont
-                        , hudConfig = cfg
-                        , hudPager = pager
-                        }
-
+  let context =
+        Context
+        { controllersVar = controllersRef
+        , workspacesVar = workspacesRef
+        , loggingVar = loggingRef
+        , hudWidget = cont
+        , hudConfig = cfg
+        , hudPager = pager
+        }
   -- This will actually create all the widgets
   runReaderT updateAllWorkspaceWidgets context
-
   updateHandler <- onWorkspaceUpdate context
   mapM_ (subscribe pager updateHandler) $ updateEvents cfg
-
   iconHandler <- onIconsChanged context
   when (updateOnWMIconChange cfg) $
-       subscribe pager (onIconChanged context iconHandler) "_NET_WM_ICON"
-
+    subscribe pager (onIconChanged context iconHandler) "_NET_WM_ICON"
   return $ Gtk.toWidget cont
 
 updateAllWorkspaceWidgets :: HUDIO ()
@@ -421,24 +490,25 @@ updateAllWorkspaceWidgets = do
   doWidgetUpdate updateController
 
   hudLog "-Workspace- Showing and hiding controllers..."
-  showControllers
+  setControllerWidgetVisibility
 
-showControllers :: HUDIO ()
-showControllers = do
+setControllerWidgetVisibility :: HUDIO ()
+setControllerWidgetVisibility = do
   Context { workspacesVar = workspacesRef
           , controllersVar = controllersRef
           , hudConfig = cfg
           } <- ask
-  workspacesMap <- lift $ MV.readMVar workspacesRef
-  controllersMap <- lift $ MV.readMVar controllersRef
-  forM_ (M.elems workspacesMap) $ \ws ->
-    let c = M.lookup (workspaceIdx ws) controllersMap
-        mWidget = getWidget <$> c
-        action = lift . if showWorkspaceFn cfg ws
-                        then Gtk.widgetShow
-                        else Gtk.widgetHide
-    in
-      maybe (return ()) action mWidget
+  lift $ do
+    workspacesMap <- MV.readMVar workspacesRef
+    controllersMap <- MV.readMVar controllersRef
+    forM_ (M.elems workspacesMap) $ \ws ->
+      let c = M.lookup (workspaceIdx ws) controllersMap
+          mWidget = getWidget <$> c
+          action = if showWorkspaceFn cfg ws
+                   then Gtk.widgetShow
+                   else Gtk.widgetHide
+      in
+        maybe (return ()) action mWidget
 
 doWidgetUpdate :: (WorkspaceIdx -> WWC -> HUDIO WWC) -> HUDIO ()
 doWidgetUpdate updateController = do
@@ -530,98 +600,119 @@ onIconsChanged context =
              hudLog (printf "-Icon- -each- Updating %s icons." $ show idx) >>
              updateWidget c (IconUpdate $ Set.toList wids))
 
-data IconWidget = IconWidget { iconContainer :: Gtk.EventBox
-                             , iconImage :: Gtk.Image
-                             , iconWindow :: MV.MVar (Maybe WindowData)
-                             }
-
 data WorkspaceContentsController = WorkspaceContentsController
-  { containerEbox :: Gtk.EventBox
-  , containerWidget :: Gtk.Widget
-  , container :: Gtk.HBox
-  , label :: Gtk.Label
-  , iconImages :: [IconWidget]
-  , contentsWorkspace :: Workspace
+  { containerWidget :: Gtk.Widget
+  , contentsControllers :: [WWC]
   }
 
-buildContentsController :: ControllerConstructor
-buildContentsController ws = do
-  context <- ask
+buildContentsController :: [ControllerConstructor] -> ControllerConstructor
+buildContentsController constructors ws = do
+  controllers <- mapM ($ ws) constructors
   tempController <- lift $ do
-    lbl <- Gtk.labelNew (Nothing :: Maybe String)
-    hbox <- Gtk.hBoxNew False 0
-    ebox <- Gtk.eventBoxNew
-    Gtk.containerAdd hbox lbl
-    ial <- Gtk.alignmentNew 0.5 0.5 0 0
-    oal <- Gtk.alignmentNew 0.5 0.5 1 1
-    let ipadding = innerPadding $ hudConfig context
-        opadding = outerPadding $ hudConfig context
-    Gtk.alignmentSetPadding ial ipadding ipadding ipadding ipadding
-    Gtk.alignmentSetPadding oal opadding opadding opadding opadding
-    Gtk.containerAdd ial hbox
-    Gtk.containerAdd ebox ial
-    Gtk.containerAdd oal ebox
+    cons <- Gtk.hBoxNew False 0
+    mapM_ (Gtk.containerAdd cons . getWidget) controllers
+    outerBox <- buildPadBox cons
+    widgetSetClass cons "Contents"
     return
       WorkspaceContentsController
-      { containerEbox = ebox
-      , container = hbox
-      , containerWidget = Gtk.toWidget oal
-      , label = lbl
-      , iconImages = []
-      , contentsWorkspace =
-          ws {windows = [], workspaceName = workspaceName ws ++ "fake"}
+      { containerWidget = Gtk.toWidget outerBox
+      , contentsControllers = controllers
       }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
+buildPadBox :: W.WidgetClass widget => widget -> IO Gtk.EventBox
+buildPadBox cons = do
+  innerBox <- Gtk.hBoxNew False 0
+  outerBox <- Gtk.eventBoxNew
+  Gtk.containerAdd innerBox cons
+  Gtk.containerAdd outerBox innerBox
+  widgetSetClass innerBox "InnerPad"
+  widgetSetClass outerBox "OuterPad"
+  return outerBox
+
+defaultBuildContentsController :: ControllerConstructor
+defaultBuildContentsController =
+  buildContentsController [buildLabelController, buildIconController]
+
 instance WorkspaceWidgetController WorkspaceContentsController where
   getWidget = containerWidget
-  updateWidget cc (WorkspaceUpdate newWorkspace) = do
+  updateWidget cc update = do
+    Context {hudConfig = cfg} <- ask
+    lift $
+      maybe (return ()) (updateMinSize $ Gtk.toWidget $ containerWidget cc) $
+      minWSWidgetSize cfg
+    case update of
+      WorkspaceUpdate newWorkspace ->
+        lift $ setWorkspaceWidgetStatusClass newWorkspace $ containerWidget cc
+      _ -> return ()
+    newControllers <- mapM (`updateWidget` update) $ contentsControllers cc
+    return cc {contentsControllers = newControllers}
+  updateWidgetX11 cc update = do
+    newControllers <- mapM (`updateWidgetX11` update) $ contentsControllers cc
+    return cc {contentsControllers = newControllers}
+
+data LabelController = LabelController { label :: Gtk.Label }
+
+buildLabelController :: ControllerConstructor
+buildLabelController ws = do
+  tempController <- lift $ do
+    lbl <- Gtk.labelNew (Nothing :: Maybe String)
+    widgetSetClass lbl "WorkspaceLabel"
+    return LabelController { label = lbl }
+  WWC <$> updateWidget tempController (WorkspaceUpdate ws)
+
+instance WorkspaceWidgetController LabelController where
+  getWidget = Gtk.toWidget . label
+  updateWidget lc (WorkspaceUpdate newWorkspace) = do
     Context { hudConfig = cfg } <- ask
+    labelText <- labelSetter cfg newWorkspace
     lift $ do
-      let currentWorkspace = contentsWorkspace cc
-          getLabel = labelSetter cfg
+      Gtk.labelSetMarkup (label lc) labelText
+      setWorkspaceWidgetStatusClass newWorkspace $ label lc
+    return lc
+  updateWidget lc _ = return lc
 
-      when (getLabel currentWorkspace /= getLabel newWorkspace) $
-           Gtk.labelSetMarkup (label cc) (getLabel newWorkspace)
+data IconWidget = IconWidget
+  { iconContainer :: Gtk.EventBox
+  , iconImage :: Gtk.Image
+  , iconWindow :: MV.MVar (Maybe WindowData)
+  }
 
-      setContainerWidgetNames cc newWorkspace
+data IconController = IconController
+  { iconsContainer :: Gtk.HBox
+  , iconImages :: [IconWidget]
+  , iconWorkspace :: Workspace
+  }
 
-      maybe (return ()) (updateMinSize $ Gtk.toWidget $ container cc) $
-            minWSWidgetSize cfg
+buildIconController :: ControllerConstructor
+buildIconController ws = do
+  tempController <-
+    lift $ do
+      hbox <- Gtk.hBoxNew False 0
+      return
+        IconController
+        {iconsContainer = hbox, iconImages = [], iconWorkspace = ws}
+  WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
-    let previousState = workspaceState $ contentsWorkspace cc
-        stateChanged = previousState /= workspaceState newWorkspace
-        redrawForStateChange = redrawIconsOnStateChange cfg && stateChanged
+instance WorkspaceWidgetController IconController where
+  getWidget = Gtk.toWidget . iconsContainer
+  updateWidget ic (WorkspaceUpdate newWorkspace) = do
+    newImages <- updateImages ic newWorkspace
+    return ic { iconImages = newImages, iconWorkspace = newWorkspace }
+  updateWidget ic (IconUpdate updatedIcons) =
+    updateWindowIconsById ic updatedIcons >> return ic
 
-    newImages <- updateImages cc newWorkspace
-
-    when redrawForStateChange $ lift $ Gtk.widgetQueueDraw $ containerEbox cc
-
-    return cc { contentsWorkspace = newWorkspace
-              , iconImages = newImages
-              }
-  updateWidget cc (IconUpdate updatedIcons) =
-    updateWindowIconsById cc updatedIcons >> return cc
-
-updateWindowIconsById :: WorkspaceContentsController
+updateWindowIconsById :: IconController
                       -> [X11Window]
                       -> HUDIO ()
-updateWindowIconsById wcc windowIds =
-  mapM_ maybeUpdateWindowIcon $ iconImages wcc
+updateWindowIconsById ic windowIds =
+  mapM_ maybeUpdateWindowIcon $ iconImages ic
   where
     maybeUpdateWindowIcon widget =
       do
         info <- lift $ MV.readMVar $ iconWindow widget
         when (maybe False (flip elem windowIds . windowId) info) $
-         updateIconWidget wcc widget info True False
-
-setContainerWidgetNames :: WorkspaceContentsController -> Workspace -> IO ()
-setContainerWidgetNames wcc ws = do
-  let getWName = getWidgetName ws
-      contentsName = getWName "contents"
-      labelName = getWName "label"
-  Gtk.widgetSetName (containerEbox wcc) contentsName
-  Gtk.widgetSetName (label wcc) labelName
+         updateIconWidget ic widget info False
 
 updateMinSize :: Gtk.Widget -> Int  -> IO ()
 updateMinSize widget minWidth = do
@@ -631,73 +722,55 @@ updateMinSize widget minWidth = do
 
 defaultGetIconInfo :: WindowData -> HUDIO IconInfo
 defaultGetIconInfo w = do
-  icons <- liftX11 $ getWindowIcons $ windowId w
-  iconSize <- asks $ windowIconSize .hudConfig
+  icons <- liftX11Def [] $ postX11RequestSyncProp (getWindowIcons $ windowId w) []
+  iconSize <- asks $ windowIconSize . hudConfig
   return $
     if null icons
       then IINone
       else IIEWMH $ selectEWMHIcon iconSize icons
 
-windowTitleClassIconGetter
-  :: Bool
-  -> (String -> String -> IconInfo)
-  -> (WindowData -> HUDIO IconInfo)
-windowTitleClassIconGetter preferCustom customIconF = fn
-  where
-    fn w@WindowData {windowTitle = wTitle, windowClass = wClass} = do
-      let customResult = customIconF wTitle wClass
-      defaultResult <- defaultGetIconInfo w
-      let first =
-            if preferCustom
-              then customResult
-              else defaultResult
-      let second =
-            if preferCustom
-              then defaultResult
-              else customResult
-      return $
-        case first of
-          IINone -> second
-          _ -> first
+forkM :: Monad m => (c -> m a) -> (c -> m b) -> c -> m (a, b)
+forkM a b = sequenceT . (a &&& b)
 
-updateImages :: WorkspaceContentsController -> Workspace -> HUDIO [IconWidget]
-updateImages wcc ws = do
+sortWindowsByPosition :: [WindowData] -> HUDIO [WindowData]
+sortWindowsByPosition wins = do
+  let getGeometryHUD w = getDisplay >>= liftIO . (`safeGetGeometry` w)
+      getGeometries = mapM
+                      (forkM return ((((sel2 &&& sel3) <$>) .) getGeometryHUD) . windowId)
+                      wins
+  windowGeometries <- liftX11Def [] getGeometries
+  let getLeftPos wd =
+        fromMaybe (999999999, 99999999) $ lookup (windowId wd) windowGeometries
+      compareWindowData a b =
+        compare
+          (windowMinimized a, getLeftPos a)
+          (windowMinimized b, getLeftPos b)
+  return $ sortBy compareWindowData wins
+
+updateImages :: IconController -> Workspace -> HUDIO [IconWidget]
+updateImages ic ws = do
   Context {hudConfig = cfg} <- ask
+  sortedWindows <- iconSort cfg $ windows ws
   let updateIconWidget' getImage wdata ton = do
-        let forceHack = isNothing wdata && newImagesNeeded && ton
-            previousState = workspaceState $ contentsWorkspace wcc
-            stateChanged = previousState /= workspaceState ws
-            forceForStateChange = redrawIconsOnStateChange cfg && stateChanged
-            force = forceHack || forceForStateChange
         iconWidget <- getImage
-        _ <- updateIconWidget wcc iconWidget wdata force ton
+        _ <- updateIconWidget ic iconWidget wdata ton
         return iconWidget
-      existingImages = map return $ iconImages wcc
-      infiniteImages =
-        existingImages ++
-        repeat
-          (do iw <- buildIconWidget ws
-              lift $ Gtk.containerAdd (container wcc) $ iconContainer iw
-              return iw)
+      existingImages = map return $ iconImages ic
+      buildAndAddIconWidget = do
+        iw <- buildIconWidget ws
+        lift $ Gtk.containerAdd (iconsContainer ic) $ iconContainer iw
+        return iw
+      infiniteImages = existingImages ++ repeat buildAndAddIconWidget
       windowCount = length $ windows ws
       maxNeeded = maybe windowCount (min windowCount) $ maxIcons cfg
       newImagesNeeded = length existingImages < max (minIcons cfg) maxNeeded
+      -- XXX: Only one of the two things being zipped can be an infinite list,
+      -- which is why this newImagesNeeded contortion is needed.
       imgSrcs =
         if newImagesNeeded
           then infiniteImages
           else existingImages
-      getImgs =
-        case maxIcons cfg of
-          Just theMax -> take theMax imgSrcs
-          Nothing -> imgSrcs
-  -- XXX: Only one of the two things being zipped can be an infinite list, which
-  -- is why this newImagesNeeded contortion is needed.
-  let makeComparisonTuple wd = (windowClass wd, windowId wd)
-      compareWindowData a b = compare (makeComparisonTuple a) (makeComparisonTuple b)
-      sortedWindows = if sortIcons cfg then
-                        sortBy compareWindowData $ windows ws
-                      else
-                        windows ws
+      getImgs = maybe imgSrcs (`take` imgSrcs) $ maxIcons cfg
       justWindows = map Just sortedWindows
       windowDatas =
         if newImagesNeeded
@@ -707,7 +780,7 @@ updateImages wcc ws = do
       transparentOnNones = replicate (minIcons cfg) True ++ repeat False
   newImgs <-
     sequence $ zipWith3 updateIconWidget' getImgs windowDatas transparentOnNones
-  when newImagesNeeded $ lift $ Gtk.widgetShowAll $ container wcc
+  when newImagesNeeded $ lift $ Gtk.widgetShowAll $ iconsContainer ic
   return newImgs
 
 buildIconWidget :: Workspace -> HUDIO IconWidget
@@ -717,6 +790,8 @@ buildIconWidget ws = do
     img <- Gtk.imageNew
     ebox <- Gtk.eventBoxNew
     windowVar <- MV.newMVar Nothing
+    widgetSetClass img "IconImage"
+    widgetSetClass ebox "IconContainer"
     Gtk.containerAdd ebox img
     _ <-
       Gtk.on ebox Gtk.buttonPressEvent $
@@ -724,61 +799,51 @@ buildIconWidget ws = do
         info <- MV.readMVar windowVar
         case info of
           Just updatedInfo ->
-            flip runReaderT ctx $ liftX11 $ focusWindow $ windowId updatedInfo
+            flip runReaderT ctx $ liftX11Def () $ focusWindow $ windowId updatedInfo
           _ -> liftIO $ void $ switch ctx (workspaceIdx ws)
         return True
     return
       IconWidget {iconContainer = ebox, iconImage = img, iconWindow = windowVar}
 
+getWindowStatusString :: WindowData -> String
+getWindowStatusString WindowData { windowActive = True } = show Active
+getWindowStatusString WindowData { windowUrgent = True } = show Urgent
+getWindowStatusString WindowData { windowMinimized = True } = "Minimized"
+getWindowStatusString _ = "Normal"
+
+possibleStatusStrings :: [String]
+possibleStatusStrings = [show Active, show Urgent, "Minimized", "Normal", "Nodata"]
+
 updateIconWidget
-  :: WorkspaceContentsController
+  :: IconController
   -> IconWidget
   -> Maybe WindowData
   -> Bool
-  -> Bool
   -> HUDIO ()
-updateIconWidget _ IconWidget { iconContainer = iconButton
-                              , iconImage = image
-                              , iconWindow = windowRef
-                              } windowData forceUpdate transparentOnNone = do
+updateIconWidget _ IconWidget
+                   { iconContainer = iconButton
+                   , iconImage = image
+                   , iconWindow = windowRef
+                   } windowData transparentOnNone = do
   cfg <- asks hudConfig
-  void $ updateVar windowRef $ \currentData ->
-    let requireFullEqualityForSkip = updateIconsOnTitleChange cfg
-        sameWindow = (windowId <$> currentData) == (windowId <$> windowData)
-        dataRequiresUpdate =
-          (requireFullEqualityForSkip && (currentData /= windowData)) ||
-          not sameWindow
-    in when (forceUpdate || dataRequiresUpdate) setIconWidgetProperties >>
-       return windowData
-  where
-    setIconWidgetProperties = do
-      cfg <- asks hudConfig
-      info <-
-        case windowData of
-          Just dat -> getIconInfo cfg dat
-          Nothing -> return IINone
-      let imgSize = windowIconSize cfg
-          statusStr =
-            case windowData of
-              Just WindowData { windowActive = True } -> "active"
-              Just WindowData { windowUrgent = True } -> "urgent"
-              _ -> "normal"
-          iconInfo =
-            case info of
-              IINone ->
-                if transparentOnNone
+
+  let setIconWidgetProperties = do
+        info <- maybe (return IINone) (getIconInfo cfg) windowData
+        let imgSize = windowIconSize cfg
+            statusString = maybe "nodata" getWindowStatusString windowData
+            iconInfo =
+              case info of
+                IINone ->
+                  if transparentOnNone
                   then transparentInfo
                   else IINone
-              _ -> info
-      lift $ do
-        mpixBuf <- getPixBuf imgSize iconInfo
-        setImage imgSize image mpixBuf
-        let widgetName =
-              printf
-              "Workspace-icon-%s-%s"
-              (show $ maybe 0 windowId windowData)
-              statusStr
-        Gtk.widgetSetName iconButton (widgetName :: String)
+                _ -> info
+        lift $ do
+          mpixBuf <- getPixBuf imgSize iconInfo
+          setImage imgSize image mpixBuf
+          updateWidgetClasses iconButton [statusString] possibleStatusStrings
+
+  void $ updateVar windowRef $ const $ setIconWidgetProperties >> return windowData
 
 setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
 setImage imgSize img pixBuf =
@@ -796,11 +861,11 @@ getPixBuf imgSize = gpb
     gpb (IIColor color) = Just <$> pixBufFromColor imgSize color
     gpb _ = return Nothing
 
-data WorkspaceButtonController =
-  WorkspaceButtonController { button :: Gtk.EventBox
-                            , buttonWorkspace :: Workspace
-                            , contentsController :: WWC
-                            }
+data WorkspaceButtonController = WorkspaceButtonController
+  { button :: Gtk.EventBox
+  , buttonWorkspace :: Workspace
+  , contentsController :: WWC
+  }
 
 buildButtonController :: ParentControllerConstructor
 buildButtonController contentsBuilder workspace = do
@@ -815,8 +880,11 @@ buildButtonController contentsBuilder workspace = do
       Gtk.on ebox Gtk.scrollEvent $ do
         workspaces <- liftIO $ MV.readMVar workspacesRef
         let switchOne a =
-              liftIO $ flip runReaderT ctx $ liftX11 $
-              switchOneWorkspace a (length (M.toList workspaces) - 1) >>
+              liftIO $
+              flip runReaderT ctx $
+              liftX11Def
+                ()
+                (switchOneWorkspace a (length (M.toList workspaces) - 1)) >>
               return True
         dir <- Gtk.eventScrollDirection
         case dir of
@@ -824,15 +892,16 @@ buildButtonController contentsBuilder workspace = do
           Gtk.ScrollLeft -> switchOne True
           Gtk.ScrollDown -> switchOne False
           Gtk.ScrollRight -> switchOne False
+          Gtk.ScrollSmooth -> return False
     _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch ctx $ workspaceIdx workspace
     return $
-           WWC
-           WorkspaceButtonController
-           {button = ebox, buttonWorkspace = workspace, contentsController = cc}
+      WWC
+        WorkspaceButtonController
+        {button = ebox, buttonWorkspace = workspace, contentsController = cc}
 
 switch :: (MonadIO m) => Context -> WorkspaceIdx -> m Bool
 switch ctx idx = do
-  liftIO $ flip runReaderT ctx $ liftX11 $ switchToWorkspace idx
+  liftIO $ flip runReaderT ctx $ liftX11Def () $ switchToWorkspace idx
   return True
 
 instance WorkspaceWidgetController WorkspaceButtonController
@@ -864,15 +933,15 @@ buildUnderlineController contentsBuilder workspace = do
     T.tableAttach t u 0 1 1 2
        [T.Fill] [T.Shrink] (underlinePadding cfg) 0
 
+    widgetSetClass u "Underline"
     return $ WWC WorkspaceUnderlineController
       {table = t, underline = u, overlineController = cc}
 
 instance WorkspaceWidgetController WorkspaceUnderlineController where
   getWidget uc = Gtk.toWidget $ table uc
   updateWidget uc wu@(WorkspaceUpdate workspace) =
-    let widgetName = getWidgetName workspace "underline"
-        setWidgetName = Gtk.widgetSetName (underline uc) widgetName
-    in lift setWidgetName >> updateUnderline uc wu
+    lift (setWorkspaceWidgetStatusClass workspace (underline uc)) >>
+    updateUnderline uc wu
   updateWidget a b = updateUnderline a b
 
 updateUnderline :: WorkspaceUnderlineController
@@ -899,6 +968,8 @@ buildBorderController contentsBuilder workspace = do
     Gtk.containerSetBorderWidth cnt $ borderWidth cfg
     Gtk.containerAdd brd cnt
     Gtk.containerAdd cnt $ getWidget cc
+    widgetSetClass brd "Border"
+    widgetSetClass cnt "Container"
     return $
       WWC
         WorkspaceBorderController
@@ -907,11 +978,9 @@ buildBorderController contentsBuilder workspace = do
 instance WorkspaceWidgetController WorkspaceBorderController where
   getWidget bc = Gtk.toWidget $ border bc
   updateWidget bc wu@(WorkspaceUpdate workspace) =
-    let setBorderName = Gtk.widgetSetName (border bc) $
-                        getWidgetName workspace "Border"
-        setContentsName = Gtk.widgetSetName (borderContents bc) $
-                          getWidgetName workspace "Container"
-    in lift (setBorderName >> setContentsName) >> updateBorder bc wu
+    let setClasses = setWorkspaceWidgetStatusClass workspace
+    in lift (setClasses (border bc) >> setClasses (borderContents bc)) >>
+       updateBorder bc wu
   updateWidget a b = updateBorder a b
 
 updateBorder :: WorkspaceBorderController
@@ -921,18 +990,10 @@ updateBorder bc update = do
   newContents <- updateWidget (insideController bc) update
   return bc { insideController = newContents }
 
-getWidgetName :: Workspace -> String -> String
-getWidgetName ws wname =
-  printf
-    "Workspace-%s-%s-%s"
-    wname
-    (workspaceName ws)
-    (map S.toLower $ show $ workspaceState ws)
-
 buildUnderlineButtonController :: ControllerConstructor
 buildUnderlineButtonController =
-  buildButtonController (buildUnderlineController buildContentsController)
+  buildButtonController (buildUnderlineController defaultBuildContentsController)
 
 buildBorderButtonController :: ControllerConstructor
 buildBorderButtonController =
-  buildButtonController (buildBorderController buildContentsController)
+  buildButtonController (buildBorderController defaultBuildContentsController)

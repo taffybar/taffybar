@@ -30,6 +30,7 @@ There are also several more specialized widgets:
  * Weather widget
  * XMonad log widget (listens on dbus instead of stdin)
  * System tray
+ * Freedesktop.org menu
 
 [See full documentation of release version here.](https://hackage.haskell.org/package/taffybar)
 
