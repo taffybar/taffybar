@@ -10,7 +10,7 @@ module System.Taffybar.MPRIS2 ( mpris2New ) where
 import Control.Monad ( void )
 import Data.Maybe ( listToMaybe )
 import DBus
-import DBus.Client
+import DBus.Client hiding (getProperty)
 import Data.List (isPrefixOf)
 import Graphics.UI.Gtk hiding ( Signal, Variant )
 import Text.Printf

@@ -10,7 +10,7 @@ extra-deps:
   - xmonad-contrib-0.12
   - X11-xft-0.3.1
   - gtk-0.14.7
-  - dbus-0.10.12
+  - dbus-1.0.0
   - dyre-0.8.12
   - xdg-basedir-0.2.2
   - xmonad-0.12

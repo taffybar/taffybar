@@ -10,7 +10,7 @@ extra-deps:
   - xmonad-contrib-0.13
   - gtk3-0.14.7
   - X11-xft-0.3.1
-  - dbus-0.10.12
+  - dbus-1.0.0
   - libxml-sax-0.7.5
   - xml-helpers-1.0.0
   - gio-0.13.4.1

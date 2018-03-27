@@ -197,12 +197,16 @@ notificationDaemon :: (AutoMethod f1, AutoMethod f2)
 notificationDaemon onNote onCloseNote = do
   client <- connectSession
   _ <- requestName client "org.freedesktop.Notifications" [nameAllowReplacement, nameReplaceExisting]
-  export client "/org/freedesktop/Notifications"
-    [ autoMethod "org.freedesktop.Notifications" "GetServerInformation" getServerInformation
-    , autoMethod "org.freedesktop.Notifications" "GetCapabilities" getCapabilities
-    , autoMethod "org.freedesktop.Notifications" "CloseNotification" onCloseNote
-    , autoMethod "org.freedesktop.Notifications" "Notify" onNote
-    ]
+  let interface = defaultInterface
+                  { interfaceName = "org.freedesktop.Notifications"
+                  , interfaceMethods =
+                    [ autoMethod "GetServerInformation" getServerInformation
+                    , autoMethod "GetCapabilities" getCapabilities
+                    , autoMethod "CloseNotification" onCloseNote
+                    , autoMethod "Notify" onNote
+                    ]
+                  }
+  export client "/org/freedesktop/Notifications" interface
 
 -- | Wakeup the display thread and have it switch out the displayed
 -- message for the new current message.
