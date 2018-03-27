@@ -13,7 +13,7 @@ packages:
 extra-deps:
 - rate-limit-1.1.1
 - time-units-1.0.0
-- dbus-0.10.13
+- dbus-1.0.0
 - xmonad-contrib-0.13
 - X11-xft-0.3.1
 - libxml-sax-0.7.5
