@@ -12,40 +12,18 @@ before_install:
 - export PATH=/opt/ghc/$GHCVER/bin:$PATH
 - stack install gtk2hs-buildtools
 
+addons:
+  apt:
+    packages:
+      - libgtk-3-dev
+
 matrix:
   include:
   - env: GHCVER=7.8.4 STACK_YAML=stack-7.8.yaml
-    addons:
-      apt:
-        packages:
-          - libgtk-3-dev
   - env: GHCVER=7.10.3 STACK_YAML=stack-7.10.yaml
-    addons:
-      apt:
-        packages:
-          - libgtk-3-dev
   - env: GHCVER=8.0.2 STACK_YAML=stack-8.0.yaml
-    addons:
-      apt:
-        packages:
-          - libgtk-3-dev
   - env: GHCVER=8.2.2 STACK_YAML=stack-8.2.yaml
-    before_install:
-      - mkdir -p ~/.local/bin
-      - export PATH=$HOME/.local/bin:$PATH
-      - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-      - export PATH=/opt/ghc/$GHCVER/bin:$PATH
-      - stack setup --upgrade-cabal
-      - stack install gtk2hs-buildtools
-    addons:
-      apt:
-        packages:
-          - libgtk-3-dev
   - env: BUILD_TYPE='Test quick start'
-    addons:
-      apt:
-        packages:
-          - libgtk-3-dev
     sudo: required
     install: []
     script:
@@ -55,7 +33,7 @@ install:
 - stack --no-terminal --install-ghc $ARGS test --bench --dry-run || ( \
     stack --no-terminal $ARGS build cabal-install && \
     stack --no-terminal $ARGS solver --update-config)
-# Build the dependencies
+# Build the dependencies only
 - stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
 
 script:
