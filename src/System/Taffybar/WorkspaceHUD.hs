@@ -284,11 +284,12 @@ defaultWorkspaceHUDConfig =
   , borderWidth = 2
   , iconSort = sortWindowsByPosition
   , updateEvents =
-      [ "_NET_CURRENT_DESKTOP"
-      , "_NET_WM_DESKTOP"
+      [ "WM_HINTS"
+      , "_NET_CURRENT_DESKTOP"
       , "_NET_DESKTOP_NAMES"
       , "_NET_NUMBER_OF_DESKTOPS"
-      , "WM_HINTS"
+      , "_NET_WM_DESKTOP"
+      , "_NET_WM_STATE_HIDDEN"
       ]
   , updateRateLimitMicroseconds = 100000
   , debugMode = False
