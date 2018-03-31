@@ -73,7 +73,6 @@ library
   hs-source-dirs: src
   pkgconfig-depends: gtk+-3.0
   exposed-modules: System.Taffybar,
-                   System.Taffybar.XMonadLog,
                    System.Taffybar.Systray,
                    System.Taffybar.SimpleClock,
                    System.Taffybar.FreedesktopNotifications,
