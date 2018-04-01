@@ -15,8 +15,11 @@
 module System.Taffybar.Widgets.Util where
 
 import Control.Monad
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class
+import Data.Functor ((<$>))
+import Data.Tuple.Sequence
 import Graphics.UI.Gtk
+import Prelude
 
 -- | Execute the given action as a response to any of the given types
 -- of mouse button clicks.
@@ -39,13 +42,14 @@ attachPopup widget title window = do
   set window [ windowTitle := title
              , windowTypeHint := WindowTypeHintTooltip
              , windowSkipTaskbarHint := True
+             , windowSkipPagerHint := True
+             , windowTransientFor :=> getWindow
              ]
-  windowSetSkipPagerHint window True
   windowSetKeepAbove window True
   windowStick window
-  Just topLevel <- widgetGetAncestor widget gTypeWindow
-  let topLevelWindow = castToWindow topLevel
-  windowSetTransientFor window topLevelWindow
+  where getWindow = do
+          Just topLevelWindow <- (fmap castToWindow) <$> widgetGetAncestor widget gTypeWindow
+          return topLevelWindow
 
 -- | Display the given popup widget (previously prepared using the
 -- 'attachPopup' function) immediately beneath (or above) the given
@@ -57,8 +61,15 @@ displayPopup :: (WidgetClass w, WindowClass wnd) =>
 displayPopup widget window = do
   windowSetPosition window WinPosMouse
   (x, y ) <- windowGetPosition window
-  (_, y') <- widgetGetSize widget
+  (_, y') <- widgetGetSizeRequest widget
   widgetShowAll window
   if y > y'
     then windowMove window x (y - y')
     else windowMove window x y'
+
+widgetGetAllocatedSize
+  :: (WidgetClass self, MonadIO m)
+  => self -> m (Int, Int)
+widgetGetAllocatedSize widget =
+  liftIO $
+  sequenceT (widgetGetAllocatedWidth widget, widgetGetAllocatedHeight widget)

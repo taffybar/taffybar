@@ -12,6 +12,7 @@ module System.Taffybar.MPRIS
   , mprisNew
   ) where
 
+import Control.Monad ( void )
 import Data.Int ( Int32 )
 import qualified Data.Map as M
 import Data.Text ( Text )
@@ -20,6 +21,8 @@ import DBus
 import DBus.Client
 import Graphics.UI.Gtk hiding ( Signal, Variant )
 import Text.Printf
+
+
 
 data TrackInfo = TrackInfo
   { trackArtist :: Maybe String -- ^ Artist name, if available.
@@ -46,8 +49,8 @@ setupDBus cfg w = do
                                , matchMember = Just "StatusChange"
                                }
   client <- connectSession
-  listen client trackMatcher (trackCallback cfg w)
-  listen client stateMatcher (stateCallback w)
+  void $ addMatch client trackMatcher (trackCallback cfg w)
+  void $ addMatch client stateMatcher (stateCallback w)
 
 variantDictLookup :: (IsVariant b, Ord k) => k -> M.Map k Variant -> Maybe b
 variantDictLookup k m = do
@@ -80,8 +83,8 @@ stateCallback w s =
   case fromVariant (signalBody s !! 0) of
     Just st -> case structureItems st of
       (pstate:_) -> case (fromVariant pstate) :: Maybe Int32 of
-        Just 2 -> postGUIAsync $ widgetHideAll w
-        Just 1 -> postGUIAsync $ widgetHideAll w
+        Just 2 -> postGUIAsync $ widgetHide w
+        Just 1 -> postGUIAsync $ widgetHide w
         Just 0 -> postGUIAsync $ widgetShowAll w
         _ -> return ()
       _ -> return ()

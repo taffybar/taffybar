@@ -23,6 +23,7 @@ module System.Information.EWMHDesktopInfo
   ( X11Window      -- re-exported from X11DesktopInfo
   , X11WindowHandle
   , WorkspaceIdx(..)
+  , EWMHIcon(..)
   , withDefaultCtx -- re-exported from X11DesktopInfo
   , isWindowUrgent -- re-exported from X11DesktopInfo
   , getCurrentWorkspace
@@ -32,6 +33,7 @@ module System.Information.EWMHDesktopInfo
   , switchOneWorkspace
   , getWindowTitle
   , getWindowClass
+  , getWindowIcons
   , getActiveWindowTitle
   , getWindows
   , getWindowHandles
@@ -39,9 +41,21 @@ module System.Information.EWMHDesktopInfo
   , focusWindow
   ) where
 
-import Control.Applicative ((<$>))
+import Control.Applicative
+import Control.Monad.Trans
+import Control.Monad.Trans.Maybe (MaybeT(..))
+import Data.Maybe (listToMaybe, mapMaybe, fromMaybe)
 import Data.Tuple (swap)
-import Data.Maybe (listToMaybe, mapMaybe)
+import Data.Word
+import Debug.Trace
+import Foreign.ForeignPtr
+import Foreign.Marshal.Array
+import Foreign.Ptr
+import Foreign.Storable
+import System.Information.SafeX11
+
+import Prelude
+
 import System.Information.X11DesktopInfo
 
 -- | Convenience alias for a pair of the form (props, window), where props is a
@@ -51,6 +65,21 @@ type X11WindowHandle = ((WorkspaceIdx, String, String), X11Window)
 
 newtype WorkspaceIdx = WSIdx Int
                      deriving (Show, Read, Ord, Eq)
+
+-- A super annoying detail of the XGetWindowProperty interface is that: "If the
+-- returned format is 32, the returned data is represented as a long array and
+-- should be cast to that type to obtain the elements." This means that even
+-- though only the 4 least significant bits will ever contain any data, the
+-- array that is returned from X11 can have a larger word size. This means that
+-- we need to manipulate the underlying data in annoying ways to pass it to gtk
+-- appropriately.
+type PixelsWordType = Word64
+
+data EWMHIcon = EWMHIcon
+  { width :: Int
+  , height :: Int
+  , pixelsARGB :: Ptr PixelsWordType
+  } deriving (Show, Eq)
 
 noFocus :: String
 noFocus = "..."
@@ -67,7 +96,7 @@ getVisibleWorkspaces = do
   vis <- getVisibleTags
   allNames <- map swap <$> getWorkspaceNames
   cur <- getCurrentWorkspace
-  return $ cur : mapMaybe (flip lookup allNames) vis
+  return $ cur : mapMaybe (`lookup` allNames) vis
 
 -- | Return a list with the names of all the workspaces currently
 -- available.
@@ -112,6 +141,40 @@ getWindowTitle window = do
 -- | Get the class of the given X11 window.
 getWindowClass :: X11Window -> X11Property String
 getWindowClass window = readAsString (Just window) "WM_CLASS"
+
+-- | Get list of icon ARGB data from EWMH
+getWindowIcons :: X11Window -> X11Property [EWMHIcon]
+getWindowIcons window = fromMaybe [] <$> do
+  dpy <- getDisplay
+  atom <- getAtom "_NET_WM_ICON"
+  lift $ runMaybeT $ do
+    (ptr, arraySize) <- MaybeT $ rawGetWindowPropertyBytes 32 dpy atom window
+    ics <- lift $ withForeignPtr ptr $ parseIcons arraySize
+    return ics
+
+-- | Split icon raw integer data into EWMHIcons.
+-- Each icon raw data is an integer for width,
+--   followed by height,
+--   followed by exactly (width*height) ARGB pixels,
+--   optionally followed by the next icon.
+parseIcons :: Int -> Ptr PixelsWordType -> IO [EWMHIcon]
+parseIcons 0 _ = return []
+parseIcons totalSize arr = do
+  iwidth <- fromIntegral <$> peek arr
+  iheight <- fromIntegral <$> peekElemOff arr 1
+  let pixelsPtr = advancePtr arr 2
+      thisSize = iwidth * iheight
+      newArr = advancePtr pixelsPtr thisSize
+      thisIcon =
+        EWMHIcon
+        { width = iwidth
+        , height = iheight
+        , pixelsARGB = pixelsPtr
+        }
+      getRes newSize
+        | newSize < 0 = trace "This should not happen parseIcons" return []
+        | otherwise = (thisIcon :) <$> parseIcons newSize newArr -- Keep going
+  getRes $ totalSize - fromIntegral (thisSize + 2)
 
 withActiveWindow :: (X11Window -> X11Property String) -> X11Property String
 withActiveWindow getProp = do

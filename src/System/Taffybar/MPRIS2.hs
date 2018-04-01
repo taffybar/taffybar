@@ -7,9 +7,10 @@
 --
 module System.Taffybar.MPRIS2 ( mpris2New ) where
 
+import Control.Monad ( void )
 import Data.Maybe ( listToMaybe )
 import DBus
-import DBus.Client
+import DBus.Client hiding (getProperty)
 import Data.List (isPrefixOf)
 import Graphics.UI.Gtk hiding ( Signal, Variant )
 import Text.Printf
@@ -17,7 +18,7 @@ import Text.Printf
 mpris2New :: IO Widget
 mpris2New = do
   label <- labelNew (Nothing :: Maybe String)
-  widgetShowAll label
+  widgetHide label
   _ <- on label realize $ initLabel label
   return (toWidget label)
 
@@ -31,7 +32,7 @@ initLabel w = do
   client <- connectSession
   -- Set initial song state/info
   reqSongInfo w client
-  listen client propMatcher (callBack w)
+  void $ addMatch client propMatcher (callBack w)
   return ()
     where callBack label s = do
             let items = dictionaryItems $ unpack (signalBody s !! 1)
@@ -59,9 +60,9 @@ reqSongInfo w client = do
       reply' <- getProperty client (players !! 0) "PlaybackStatus"
       let status = (unpack . unpack) (methodReturnBody reply' !! 0) :: String
       case status of
-        "Playing" -> postGUIAsync $ widgetShowAll w
-        "Paused"  -> postGUIAsync $ widgetHideAll w
-        "Stopped" -> postGUIAsync $ widgetHideAll w
+        "Playing" -> postGUIAsync $ widgetShow w
+        "Paused"  -> postGUIAsync $ widgetHide w
+        "Stopped" -> postGUIAsync $ widgetHide w
         _         -> return ()
 
 getProperty :: Client -> String -> String -> IO MethodReturn
@@ -91,9 +92,9 @@ updatePlaybackStatus w items = do
   case lookup (toVariant ("PlaybackStatus" :: String)) items of
     Just a -> do
       case (unpack . unpack) a :: String of
-        "Playing" -> postGUIAsync $ widgetShowAll w
-        "Paused"  -> postGUIAsync $ widgetHideAll w
-        "Stopped" -> postGUIAsync $ widgetHideAll w
+        "Playing" -> postGUIAsync $ widgetShow w
+        "Paused"  -> postGUIAsync $ widgetHide w
+        "Stopped" -> postGUIAsync $ widgetHide w
         _         -> return ()
     Nothing -> do
       return ()

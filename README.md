@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/travitch/taffybar.svg?branch=master)](https://travis-ci.org/travitch/taffybar)
+
 This is a desktop information bar intended for use with XMonad and
 similar window managers.  It is similar in spirit to xmobar; it is
 different in that it gives up some simplicity for a reasonable helping
@@ -22,18 +24,29 @@ There are some generic pre-defined widgets available:
 There are also several more specialized widgets:
 
  * Battery widget
+ * Volume widget
+ * Network activity
  * Textual clock
  * Freedesktop.org notifications (via dbus)
  * MPRIS1 and MPRIS2 widgets
  * Weather widget
- * XMonad log widget (listens on dbus instead of stdin)
+ * Workspace, Window and Layout switchers
  * System tray
+ * Freedesktop.org menu
 
-TODO
-====
+[See full documentation of release version here.](https://hackage.haskell.org/package/taffybar)
 
-An incomplete list of things that would be cool to have:
+Installation
+============
+**NOTE**: `gtk2hs-buildtools` is needed for installations with GHC 8 and above, till there's better support for `setup-depends`.
 
- * xrandr widget (for dealing changing clone/extend mode and orientation)
- * Better behavior when adding/removing monitors (never tried it)
- * Make MPRIS more configurable
+### Cabal
+```
+cabal install taffybar
+```
+
+### Stack
+```
+stack install gtk2hs-buildtools
+stack install taffybar
+```

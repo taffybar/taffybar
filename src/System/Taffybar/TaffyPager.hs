@@ -24,8 +24,8 @@
 -- hints and X11 events.
 --
 -- This widget is actually only a convenience wrapper around a Pager, a
--- WorkspaceSwitcher, a LayoutSwitcher and a WindowSwitcher. If you are
--- looking for more advanced configurations (like having components
+-- WorkspaceSwitcher (now WorkspaceHUD), a LayoutSwitcher and a WindowSwitcher.
+-- If you are looking for more advanced configurations (like having components
 -- displayed separately, or using only part of them), consult directly the
 -- documentation for each of the components.
 --
@@ -34,16 +34,18 @@
 module System.Taffybar.TaffyPager (
   -- * Usage
   -- $usage
-  taffyPagerNew
-, PagerConfig (..)
+  PagerConfig (..)
 , defaultPagerConfig
+, taffyPagerHUDLegacy
+, taffyPagerHUDNew
+, taffyPagerNew
 ) where
 
 import Graphics.UI.Gtk
-import System.Taffybar.Pager
-import System.Taffybar.WorkspaceSwitcher
 import System.Taffybar.LayoutSwitcher
+import System.Taffybar.Pager
 import System.Taffybar.WindowSwitcher
+import System.Taffybar.WorkspaceHUD
 
 -- $usage
 --
@@ -68,17 +70,41 @@ import System.Taffybar.WindowSwitcher
 -- now you can use @pager@ as any other Taffybar widget.
 
 -- | Create a new TaffyPager widget.
+{-# DEPRECATED taffyPagerNew, taffyPagerHUDLegacy
+  "Using PagerConfig is deprecated; Use WorkspaceHUDConfig instead." #-}
 taffyPagerNew :: PagerConfig -> IO Widget
-taffyPagerNew cfg = do
+taffyPagerNew = taffyPagerHUDLegacy
+
+taffyPagerHUDNew :: PagerConfig -> WorkspaceHUDConfig -> IO Widget
+taffyPagerHUDNew cfg hudConf = do
   pgr <- pagerNew cfg
-  wss <- wspaceSwitcherNew pgr
+  whud <- buildWorkspaceHUD hudConf pgr
   los <- layoutSwitcherNew pgr
   wnd <- windowSwitcherNew pgr
   sp1 <- separator cfg
   sp2 <- separator cfg
   box <- hBoxNew False 0
 
-  boxPackStart box wss PackNatural 0
+  boxPackStart box whud PackNatural 0
+  boxPackStart box sp1 PackNatural 0
+  boxPackStart box los PackNatural 0
+  boxPackStart box sp2 PackNatural 0
+  boxPackStart box wnd PackNatural 0
+
+  widgetShowAll box
+  return (toWidget box)
+
+taffyPagerHUDLegacy :: PagerConfig -> IO Widget
+taffyPagerHUDLegacy cfg = do
+  pgr <- pagerNew cfg
+  whud <- buildWorkspaceHUD (hudFromPagerConfig cfg) pgr
+  los <- layoutSwitcherNew pgr
+  wnd <- windowSwitcherNew pgr
+  sp1 <- separator cfg
+  sp2 <- separator cfg
+  box <- hBoxNew False 0
+
+  boxPackStart box whud PackNatural 0
   boxPackStart box sp1 PackNatural 0
   boxPackStart box los PackNatural 0
   boxPackStart box sp2 PackNatural 0

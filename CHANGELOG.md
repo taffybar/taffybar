@@ -1,3 +1,45 @@
+# 1.0.0
+
+## Breaking Changes
+
+ * Migrate from Gtk2 to Gtk3, which replaces rc theming with css theming (Ivan Malison)
+
+## New Features
+
+ * Support for taffybar on multiple monitors (Ivan Malison)
+ * d-bus toggling of taffybar per monitor (Ivan Malison)
+ * A new workspace switcher widget called WorkspaceHUD (Ivan Malison)
+ * Support for multiple batteries via ``batteryContextsNew`` (Edd Steel)
+ * Add support for IO actions to configure vertical bar widgets
+ * Images in the workspace switcher - images are taken from EWMH via \_NET\_WM_ICON (Elliot Wolk)
+ * Preliminary support for i3wm (Saksham Sharma)
+ * Support for multiple network interfaces in NetMonitor (Robert Klotzner)
+ * Add a pager config field that configures the construction of window switcher titles (Ivan Malison)
+ * Quick start script for installing from git with stack (Ivan Malison)
+ * Add a volume widget (Nick Hu and Abdul Sattar)
+ * Add available memory field to MemoryInfo (Will Price)
+ * The freedesktop.org notifications widget now allows for notifications to never expire and can handle multiple notifications at once. In particular the default formatter now shows the number of pending notifications (Daniel Oliveira)
+
+...and many smaller tweaks.
+
+## Bug Fixes
+
+ * Fixes for outdated weather information sources
+ * Various styling fixes in the gtkrc code
+ * Share a single X11Connection between all components to fix the `user error (openDisplay)` error (Ivan Malison)
+ * Call initThreads at startup. This fixes ```taffybar-linux-x86_64: xcb_io.c:259: poll_for_event: Assertion `!xcb_xlib_threads_sequence_lost' failed.``` (Ivan Malison)
+ * Add an eventBox to window switcher to allow setting its background (Ivan Malison)
+ * #105 Prevent taffybar from crashing when two windows are closed
+   simultaneously, or when taffybar otherwise requests data about a window that
+   no longer exists.
+
+# 0.4.6
+
+ * Fix a longstanding bug in loading .rc files (Peder Stray)
+ * Add support for scrolling in the workspace switcher (Saksham Sharma)
+ * Improve default formatting of empty workspaces in the pager (Saksham Sharma)
+ * Relax gtk version bounds
+
 # 0.4.5
 
  * GHC 7.10 compat

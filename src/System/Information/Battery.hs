@@ -10,18 +10,18 @@ module System.Information.Battery (
   BatteryTechnology(..),
   BatteryType(..),
   -- * Accessors
-  batteryContextNew,
+  batteryContextsNew,
   getBatteryInfo
   ) where
 
 import Data.Map ( Map )
 import qualified Data.Map as M
-import Data.Maybe ( fromMaybe )
+import Data.Maybe ( fromMaybe, maybeToList )
 import Data.Word
 import Data.Int
 import DBus
 import DBus.Client
-import Data.List ( find, isInfixOf )
+import Data.List ( isInfixOf )
 import Data.Text ( Text )
 import qualified Data.Text as T
 import Safe ( atMay )
@@ -90,10 +90,15 @@ data BatteryInfo = BatteryInfo { batteryNativePath :: Text
 -}
                                }
 
--- | Find the first power source that is a battery in the list.  The
--- simple heuristic is a substring search on 'BAT'
-firstBattery :: [ObjectPath] -> Maybe ObjectPath
-firstBattery = find (isInfixOf "BAT" . formatObjectPath)
+-- | determine if a power source is a battery. The simple heuristic is a
+-- substring search on 'BAT'.
+isBattery :: ObjectPath -> Bool
+isBattery = isInfixOf "BAT" . formatObjectPath
+
+-- | Find the power sources that are batteries (according to
+-- 'isBattery')
+batteries :: [ObjectPath] -> [ObjectPath]
+batteries = filter isBattery
 
 -- | The name of the power daemon bus
 powerBusName :: BusName
@@ -168,20 +173,17 @@ getBatteryInfo (BC systemConn battPath) = do
                          toEnum $ fromIntegral $ readDictIntegral dict "Technology" 0
                        }
 
--- | Construct a battery context if possible.  This could fail if the
--- UPower daemon is not running.  The context can be used to get
--- actual battery state with 'getBatteryInfo'.
-batteryContextNew :: IO (Maybe BatteryContext)
-batteryContextNew = do
-  systemConn <- connectSystem
 
-  -- First, get the list of devices.  For now, we just get the stats
-  -- for the first battery
-  reply <- call_ systemConn (methodCall powerBaseObjectPath "org.freedesktop.UPower" "EnumerateDevices")
-        { methodCallDestination = Just powerBusName
-        }
+-- | Construct a battery context for every battery in the system. This
+-- could fail if the UPower daemon is not running. The contexts can be
+-- used to get actual battery state with 'getBatteryInfo'.
+batteryContextsNew :: IO [BatteryContext]
+batteryContextsNew = do
+  systemConn <- connectSystem
+  let mc = methodCall powerBaseObjectPath "org.freedesktop.UPower" "EnumerateDevices"
+  reply <- call_ systemConn mc { methodCallDestination = Just powerBusName }
   return $ do
-    body <- methodReturnBody reply `atMay` 0
-    powerDevices <- fromVariant body
-    battPath <- firstBattery powerDevices
+    body <- take 1 $ methodReturnBody reply
+    powerDevices <- maybeToList $ fromVariant body
+    battPath <- batteries powerDevices
     return $ BC systemConn battPath

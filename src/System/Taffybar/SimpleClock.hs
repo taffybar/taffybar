@@ -10,7 +10,7 @@ module System.Taffybar.SimpleClock (
   ClockConfig(..)
   ) where
 
-import Control.Monad.Trans ( MonadIO, liftIO )
+import Control.Monad.Trans ( liftIO )
 import Data.Time.Calendar ( toGregorian )
 import qualified Data.Time.Clock as Clock
 import Data.Time.Format
@@ -27,10 +27,10 @@ makeCalendar tzfn = do
   cal <- calendarNew
   containerAdd container cal
   -- update the date on show
-  _ <- onShow container $ liftIO $ resetCalendarDate cal tzfn
+  _ <- on container showSignal $ resetCalendarDate cal tzfn
   -- prevent calendar from being destroyed, it can be only hidden:
   _ <- on container deleteEvent $ do
-    liftIO (widgetHideAll container)
+    liftIO (widgetHide container)
     return True
   return container
 
@@ -46,7 +46,7 @@ toggleCalendar :: WidgetClass w => w -> Window -> IO Bool
 toggleCalendar w c = do
   isVis <- get c widgetVisible
   if isVis
-    then widgetHideAll c
+    then widgetHide c
     else do
       attachPopup w "Calendar" c
       displayPopup w c
