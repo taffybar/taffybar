@@ -16,6 +16,7 @@ addons:
   apt:
     packages:
       - libgtk-3-dev
+      - libasound2-dev
 
 matrix:
   include:
