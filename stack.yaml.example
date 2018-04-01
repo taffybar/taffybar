@@ -11,11 +11,12 @@ packages:
     commit: 517b24722b2cdab2dadbafa882ffcb6b8a1d01ff
   extra-dep: true
 extra-deps:
-- rate-limit-1.1.1
-- time-units-1.0.0
-- dbus-1.0.0
-- xmonad-contrib-0.13
-- X11-xft-0.3.1
-- libxml-sax-0.7.5
-- xml-helpers-1.0.0
+  - X11-xft-0.3.1
+  - alsa-mixer-0.2.0.3
+  - dbus-1.0.0
+  - libxml-sax-0.7.5
+  - rate-limit-1.1.1
+  - time-units-1.0.0
+  - xml-helpers-1.0.0
+  - xmonad-contrib-0.13
 resolver: lts-8.2
