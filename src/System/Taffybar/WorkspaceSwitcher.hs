@@ -20,11 +20,12 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.WorkspaceSwitcher (
+module System.Taffybar.WorkspaceSwitcher
+  {-# DEPRECATED "Use WorkspaceHUD instead of WorkspaceSwitcher" #-} (
   -- * Usage
   -- $usage
   wspaceSwitcherNew
-) where
+  ) where
 
 import Control.Applicative
 import qualified Control.Concurrent.MVar as MV
@@ -254,6 +255,7 @@ addButton switcherHbox desktop idx
         Gtk.ScrollLeft  -> switchOne True (length desktop - 1)
         Gtk.ScrollDown  -> switchOne False (length desktop - 1)
         Gtk.ScrollRight -> switchOne False (length desktop - 1)
+        Gtk.ScrollSmooth -> return False
     return ()
 
   | otherwise = return ()
