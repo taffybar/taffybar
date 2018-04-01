@@ -6,22 +6,20 @@
 
 ## New Features
 
-## Bug Fixes
-
-# 0.5.0
-
-## New Features
-
+ * Support for taffybar on multiple monitors (Ivan Malison)
+ * d-bus toggling of taffybar per monitor (Ivan Malison)
+ * A new workspace switcher widget called WorkspaceHUD (Ivan Malison)
  * Support for multiple batteries via ``batteryContextsNew`` (Edd Steel)
  * Add support for IO actions to configure vertical bar widgets
  * Images in the workspace switcher - images are taken from EWMH via \_NET\_WM_ICON (Elliot Wolk)
  * Preliminary support for i3wm (Saksham Sharma)
- * A new workspace switcher widget called WorkspaceHUD (Ivan Malison)
  * Support for multiple network interfaces in NetMonitor (Robert Klotzner)
- * Support for taffybar on multiple monitors (Ivan Malison)
- * d-bus toggling of taffybar per monitor (Ivan Malison)
  * Add a pager config field that configures the construction of window switcher titles (Ivan Malison)
  * Quick start script for installing from git with stack (Ivan Malison)
+ * Add a volume widget (Nick Hu and Abdul Sattar)
+ * Add available memory field to MemoryInfo (Will Price)
+
+...and many smaller tweaks.
 
 ## Bug Fixes
 
