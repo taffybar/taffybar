@@ -807,9 +807,9 @@ buildIconWidget ws = do
       IconWidget {iconContainer = ebox, iconImage = img, iconWindow = windowVar}
 
 getWindowStatusString :: WindowData -> String
+getWindowStatusString WindowData { windowMinimized = True } = "Minimized"
 getWindowStatusString WindowData { windowActive = True } = show Active
 getWindowStatusString WindowData { windowUrgent = True } = show Urgent
-getWindowStatusString WindowData { windowMinimized = True } = "Minimized"
 getWindowStatusString _ = "Normal"
 
 possibleStatusStrings :: [String]
