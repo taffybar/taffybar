@@ -18,6 +18,7 @@
  * Quick start script for installing from git with stack (Ivan Malison)
  * Add a volume widget (Nick Hu and Abdul Sattar)
  * Add available memory field to MemoryInfo (Will Price)
+ * The freedesktop.org notifications widget now allows for notifications to never expire and can handle multiple notifications at once. In particular the default formatter now shows the number of pending notifications (Daniel Oliveira)
 
 ...and many smaller tweaks.
 
