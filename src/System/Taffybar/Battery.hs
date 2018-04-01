@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | This module provides battery widgets using the UPower system
 -- service.
@@ -13,21 +13,21 @@ module System.Taffybar.Battery (
   defaultBatteryConfig
   ) where
 
-import Control.Applicative
-import qualified Control.Exception.Enclosed as E
-import Data.Int ( Int64 )
-import Data.IORef
-import Graphics.UI.Gtk
-import qualified System.IO as IO
-import Text.Printf ( printf )
-import Text.StringTemplate
-import Safe ( atMay )
+import           Control.Applicative
+import qualified Control.Exception.Enclosed           as E
+import           Data.Int                             (Int64)
+import           Data.IORef
+import           Graphics.UI.Gtk
+import           Safe                                 (atMay)
+import qualified System.IO                            as IO
+import           Text.Printf                          (printf)
+import           Text.StringTemplate
 
-import Prelude
+import           Prelude
 
-import System.Information.Battery
-import System.Taffybar.Widgets.PollingBar
-import System.Taffybar.Widgets.PollingLabel
+import           System.Information.Battery
+import           System.Taffybar.Widgets.PollingBar
+import           System.Taffybar.Widgets.PollingLabel
 
 
 -- | Just the battery info that will be used for display (this makes combining several easier).
@@ -96,7 +96,7 @@ battSumm rs fmt = do
   winfos <- sequence $ fmap (uncurry getBatteryWidgetInfo) (rs `zip` [0..])
   let ws :: [BatteryWidgetInfo]
       ws = flatten winfos
-      flatten [] = []
+      flatten []            = []
       flatten ((Just a):as) = a:(flatten as)
       flatten (Nothing:as)  = flatten as
       combined = combine ws
@@ -132,7 +132,7 @@ battPct :: IORef BatteryContext -> Int -> IO Double
 battPct i r = do
   minfo <- safeGetBatteryInfo i r
   case minfo of
-    Nothing -> return 0
+    Nothing   -> return 0
     Just info -> return (batteryPercentage info / 100)
 
 -- | A default configuration for the graphical battery display.  The
@@ -150,6 +150,7 @@ defaultBatteryConfig =
       | otherwise = (0, 1, 0)
 
 
+-- | A fancy graphical battery widget that represents batteries
 -- as colored vertical bars (one per battery).  There is also a
 -- textual percentage reppadout next to the bars, containing a summary of
 -- battery information.
