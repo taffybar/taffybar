@@ -202,17 +202,12 @@ import qualified System.IO as IO
 import System.Mem.StableName
 import Text.Printf ( printf )
 
-import Graphics.UI.Gtk.Abstract.Widget
 import Graphics.UI.Gtk.General.CssProvider
-import Graphics.UI.Gtk.General.StyleContext
 import Paths_taffybar ( getDataDir )
-import System.Glib.Signals
-import System.IO
 import System.Taffybar.StrutProperties
 
 data Position = Top | Bottom
   deriving (Show, Eq)
-
 
 strutProperties :: Position  -- ^ Bar position
                 -> Int       -- ^ Bar height
@@ -372,6 +367,7 @@ setTaffybarSize cfg window monNumber = do
     then setStrutProps
   else void $ on window realize setStrutProps
 
+startCSS :: IO CssProvider
 startCSS = do
   -- Override the default GTK theme path settings.  This causes the
   -- bar (by design) to ignore the real GTK theme and just use the

@@ -22,7 +22,6 @@ import Control.Monad ( forever )
 import Control.Monad.Trans ( liftIO )
 import Data.Int ( Int32 )
 import Data.Map ( Map )
-import Data.Monoid ( mconcat )
 import qualified Data.Sequence as S
 import Data.Sequence ( Seq, (|>), viewl, ViewL(..) )
 import Data.Text ( Text )
