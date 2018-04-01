@@ -9,6 +9,7 @@
 -- more advanced features could be supported if there is interest.
 module System.Taffybar.Battery (
   batteryBarNew,
+  batteryBarNewWithFormat,
   textBatteryNew,
   defaultBatteryConfig
   ) where
@@ -31,7 +32,10 @@ import           System.Taffybar.Widgets.PollingLabel
 
 
 -- | Just the battery info that will be used for display (this makes combining several easier).
-data BatteryWidgetInfo = BWI {seconds :: Maybe Int64, percent :: Int } deriving (Eq, Show)
+data BatteryWidgetInfo = BWI { seconds :: Maybe Int64
+                             , percent :: Int
+                             , status :: String
+                             } deriving (Eq, Show)
 
 -- | Combination for 'BatteryWidgetInfo'.
 -- If one battery lacks time information, combination has no time information
@@ -39,7 +43,9 @@ combine :: [BatteryWidgetInfo] -> Maybe BatteryWidgetInfo
 combine [] = Nothing
 combine bs =
   Just (BWI { seconds = sum <$> (sequence (seconds <$> bs))
-            , percent = (sum $ percent <$> bs) `div` (length bs) })
+            , percent = (sum $ percent <$> bs) `div` (length bs)
+            , status = status $ head bs
+            })
 
 -- | Format a duration expressed as seconds to hours and minutes
 formatDuration :: Maybe Int64 -> String
@@ -73,11 +79,19 @@ getBatteryWidgetInfo r i = do
       let battPctNum :: Int
           battPctNum = floor (batteryPercentage info)
           battTime :: Maybe Int64
-          battTime = case (batteryState info) of
-            BatteryStateCharging -> Just $ batteryTimeToFull info
+          battTime = case batteryState info of
+            BatteryStateCharging    -> Just $ batteryTimeToFull info
             BatteryStateDischarging -> Just $ batteryTimeToEmpty info
-            _ -> Nothing
-      return . Just $ BWI {seconds = battTime, percent = battPctNum}
+            _                       -> Nothing
+          battStatus :: String
+          battStatus = case batteryState info of
+            BatteryStateCharging    -> "Charging"
+            BatteryStateDischarging -> "Discharging"
+            _                       -> "✔"
+      return . Just $ BWI { seconds = battTime
+                          , percent = battPctNum
+                          , status = battStatus
+                          }
 
 
 -- | Given (maybe summarized) battery info and format: provides the string to display
@@ -87,6 +101,7 @@ formatBattInfo (Just info) fmt =
   let tpl = newSTMP fmt
       tpl' = setManyAttrib [ ("percentage", (show . percent) info)
                            , ("time", formatDuration (seconds info))
+                           , ("status", status info)
                            ] tpl
   in render tpl'
 
@@ -155,7 +170,14 @@ defaultBatteryConfig =
 -- textual percentage reppadout next to the bars, containing a summary of
 -- battery information.
 batteryBarNew :: BarConfig -> Double -> IO Widget
-batteryBarNew battCfg pollSeconds = do
+batteryBarNew battCfg pollSeconds =
+  batteryBarNewWithFormat battCfg "$percentage$%" pollSeconds
+
+-- | A battery bar constructor which allows using a custom format string
+-- in order to display more information, such as charging/discharging time
+-- and status. An example: "$percentage$% ($time$) - $status$".
+batteryBarNewWithFormat :: BarConfig -> String -> Double -> IO Widget
+batteryBarNewWithFormat battCfg formatString pollSeconds = do
   battCtxt <- batteryContextsNew
   case battCtxt of
     [] -> do
@@ -165,7 +187,7 @@ batteryBarNew battCfg pollSeconds = do
     cs -> do
       b <- hBoxNew False 1
       rs <- sequence $ fmap newIORef cs
-      txt <- textBatteryNew rs "$percentage$%" pollSeconds
+      txt <- textBatteryNew rs formatString pollSeconds
       let ris :: [(IORef BatteryContext, Int)]
           ris = rs `zip` [0..]
       bars <- sequence $ fmap (\(i, r) -> pollingBarNew battCfg pollSeconds (battPct i r)) ris
