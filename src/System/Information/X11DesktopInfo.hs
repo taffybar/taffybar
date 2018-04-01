@@ -47,9 +47,6 @@ import Data.List
 import Data.Maybe
 
 import Codec.Binary.UTF8.String as UTF8
-import Control.Concurrent
-import GHC.IO.Exception
-import Control.Concurrent.MVar
 import Control.Monad.Reader
 import Data.Bits (testBit, (.|.))
 import Data.Functor ((<$>))
@@ -60,9 +57,8 @@ import Graphics.X11.Xlib.Extras
                getWindowProperty16, getWindowProperty32,
                getWMHints)
 import Graphics.X11.Xrandr
+import Prelude
 import System.Information.SafeX11
-import System.IO
-import System.Timeout
 
 data X11Context = X11Context { contextDisplay :: Display, _contextRoot :: Window }
 type X11Property a = ReaderT X11Context IO a
@@ -264,11 +260,8 @@ getActiveOutputs :: X11Property [RROutput]
 getActiveOutputs = do
   (X11Context display rootw) <- ask
   maybeSres <- liftIO $ xrrGetScreenResources display rootw
-  case maybeSres of
-    Just sres ->
-      filterM (isActiveOutput sres) $ xrr_sr_outputs sres
-    otherwise ->
-      return []
+  maybe (return []) (\sres -> filterM (isActiveOutput sres) $ xrr_sr_outputs sres)
+        maybeSres
 
 -- | Get the index of the primary monitor as set and ordered by Xrandr.
 getPrimaryOutputNumber :: X11Property (Maybe Int)
