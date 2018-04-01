@@ -88,7 +88,6 @@ library
                    System.Taffybar.Battery,
                    System.Taffybar.CPUMonitor,
                    System.Taffybar.CommandRunner,
-                   System.Taffybar.Context,
                    System.Taffybar.DiskIOMonitor,
                    System.Taffybar.FSMonitor,
                    System.Taffybar.FreedesktopNotifications,
