@@ -24,11 +24,13 @@ There are some generic pre-defined widgets available:
 There are also several more specialized widgets:
 
  * Battery widget
+ * Volume widget
+ * Network activity
  * Textual clock
  * Freedesktop.org notifications (via dbus)
  * MPRIS1 and MPRIS2 widgets
  * Weather widget
- * XMonad log widget (listens on dbus instead of stdin)
+ * Workspace, Window and Layout switchers
  * System tray
  * Freedesktop.org menu
 
@@ -48,12 +50,3 @@ cabal install taffybar
 stack install gtk2hs-buildtools
 stack install taffybar
 ```
-
-TODO
-====
-
-An incomplete list of things that would be cool to have:
-
- * xrandr widget (for dealing changing clone/extend mode and orientation)
- * Better behavior when adding/removing monitors (never tried it)
- * Make MPRIS more configurable
