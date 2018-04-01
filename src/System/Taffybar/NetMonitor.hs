@@ -32,7 +32,6 @@ import           Text.Printf                          (printf)
 import           Text.StringTemplate
 import           Data.Maybe                           (catMaybes)
 import qualified Data.Traversable as T
-import           Control.Applicative                     ((<$>))
 
 defaultNetFormat :: String
 defaultNetFormat = "▼ $inAuto$ ▲ $outAuto$"

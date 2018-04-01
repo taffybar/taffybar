@@ -16,7 +16,6 @@ module System.Taffybar.Widgets.Util where
 
 import Control.Monad
 import Control.Monad.IO.Class
-import Data.Functor ((<$>))
 import Data.Tuple.Sequence
 import Graphics.UI.Gtk
 import Prelude

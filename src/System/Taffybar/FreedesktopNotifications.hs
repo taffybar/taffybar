@@ -150,7 +150,7 @@ notificationDaemon :: (AutoMethod f1, AutoMethod f2)
                       => f1 -> f2 -> IO ()
 notificationDaemon onNote onCloseNote = do
   client <- connectSession
-  requestName client "org.freedesktop.Notifications" [nameAllowReplacement, nameReplaceExisting]
+  _ <- requestName client "org.freedesktop.Notifications" [nameAllowReplacement, nameReplaceExisting]
   export client "/org/freedesktop/Notifications" interface
   where
     getServerInformation :: IO (Text, Text, Text, Text)

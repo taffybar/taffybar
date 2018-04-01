@@ -31,7 +31,7 @@ module System.Taffybar.Menu.DesktopEntry (
 
 where
 
-import Control.Monad.Error
+import Control.Monad.Except
 import Data.Char
 import qualified Data.ConfigFile as CF
 import Data.List
@@ -159,7 +159,7 @@ readDesktopEntry fp = do
 
   where doReadDesktopEntry :: FilePath -> IO (Maybe DesktopEntry)
         doReadDesktopEntry f = do
-          eResult <- runErrorT $ do
+          eResult <- runExceptT $ do
             cp <- join $ liftIO $ CF.readfile CF.emptyCP f
             items <- CF.items cp sectionMain
             return items

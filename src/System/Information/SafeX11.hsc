@@ -18,12 +18,10 @@ import           Control.Monad
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Maybe (MaybeT(..))
 import           Data.Either.Combinators
-import           Data.Functor ((<$>))
 import           Data.Typeable
 import           Foreign hiding (void)
 import           Foreign.C.Types
 import           GHC.ForeignPtr
-import           GHC.IO.Exception
 import           Graphics.X11.Xlib
 import           Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,

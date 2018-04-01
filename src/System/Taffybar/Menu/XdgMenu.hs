@@ -31,12 +31,10 @@ import           Control.Applicative
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Maybe
 import           Data.Char (toLower)
-import           Data.Functor ((<$>))
 import           Data.List
 import           Data.Maybe
 import qualified Data.Set as S
 import qualified Debug.Trace as D
-import           Data.Traversable (traverse)
 import           GHC.IO.Encoding
 import           Prelude
 import           Safe (headMay)
