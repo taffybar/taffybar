@@ -181,7 +181,7 @@ displayThread s = forever $ do
   ns <- readTVarIO (noteQueue s)
   postGUIAsync $
     if S.length ns == 0
-    then widgetHideAll (noteContainer s)
+    then widgetHide (noteContainer s)
     else do
       labelSetMarkup (noteWidget s) $ formatMessage (noteConfig s) (toList ns)
       widgetShowAll (noteContainer s)
