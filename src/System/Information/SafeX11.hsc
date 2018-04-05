@@ -10,7 +10,12 @@
 -- Stability   : unstable
 -- Portability : unportable
 -----------------------------------------------------------------------------
-module System.Information.SafeX11 where
+module System.Information.SafeX11
+  ( module Graphics.X11.Xlib.Extras
+  , module System.Information.SafeX11
+  , module Graphics.X11.Xlib
+  )
+  where
 
 import           Control.Concurrent
 import           Control.Exception
@@ -22,7 +27,7 @@ import           Data.Typeable
 import           Foreign hiding (void)
 import           Foreign.C.Types
 import           GHC.ForeignPtr
-import           Graphics.X11.Xlib
+import           Graphics.X11.Xlib hiding (refreshKeyboardMapping)
 import           Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,
                getWindowProperty16, getWindowProperty32,

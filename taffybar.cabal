@@ -58,6 +58,7 @@ library
                , time-locale-compat >= 0.1 && < 0.2
                , time-units >= 1.0.0
                , transformers >= 0.3.0.0
+               , transformers-base >= 0.4
                , tuple >= 0.3.0.2
                , unix
                , utf8-string
@@ -86,6 +87,7 @@ library
                    System.Information.X11DesktopInfo,
                    System.Taffybar,
                    System.Taffybar.Battery,
+                   System.Taffybar.Context,
                    System.Taffybar.CPUMonitor,
                    System.Taffybar.CommandRunner,
                    System.Taffybar.DiskIOMonitor,
