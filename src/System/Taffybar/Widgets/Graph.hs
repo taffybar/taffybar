@@ -10,9 +10,9 @@
 --
 -- Note: all of the data fed to this widget should be in the range
 -- [0,1].
-module System.Taffybar.Widgets.Graph
+module System.Taffybar.Widgets.Graph (
   -- * Types
-  ( GraphHandle
+    GraphHandle
   , GraphConfig(..)
   , GraphDirection(..)
   , GraphStyle(..)
@@ -52,9 +52,9 @@ data GraphStyle
 -- | The configuration options for the graph.  The padding is the
 -- number of pixels reserved as blank space around the widget in each
 -- direction.
-data GraphConfig = GraphConfig
+data GraphConfig = GraphConfig {
   -- | Number of pixels of padding on each side of the graph widget
-  { graphPadding :: Int
+    graphPadding :: Int
   -- | The background color of the graph (default black)
   , graphBackgroundColor :: (Double, Double, Double)
   -- | The border color drawn around the graph (default gray)
