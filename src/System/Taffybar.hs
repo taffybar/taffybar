@@ -186,45 +186,41 @@ import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
 import qualified Control.Concurrent.MVar as MV
 import Control.Monad ( when, foldM, void )
+import qualified Data.GI.Base
 import Data.List
 import qualified Data.Map as M
 import Data.Maybe ( fromMaybe )
+import Foreign.ForeignPtr
+import Foreign.Ptr
+import qualified GI.Gtk
+import Graphics.UI.GIGtkStrut
 import Graphics.UI.Gtk as Gtk
+import Graphics.UI.Gtk.Abstract.Widget as Gtk
 import Graphics.UI.Gtk.General.StyleContext
+import qualified Graphics.UI.Gtk.Types as Gtk
 import Graphics.X11.Xlib.Misc
 import Safe ( atMay )
 import System.Directory
 import System.Environment.XDG.BaseDir ( getUserConfigFile )
 import System.Exit ( exitFailure )
 import System.FilePath ( (</>) )
-import System.Information.X11DesktopInfo
 import qualified System.IO as IO
+import System.Information.X11DesktopInfo
 import System.Mem.StableName
 import Text.Printf ( printf )
 
 import Graphics.UI.Gtk.General.CssProvider
 import Paths_taffybar ( getDataDir )
-import System.Taffybar.StrutProperties
 
 data Position = Top | Bottom
   deriving (Show, Eq)
 
-strutProperties :: Position  -- ^ Bar position
-                -> Int       -- ^ Bar height
-                -> Rectangle -- ^ Current monitor rectangle
-                -> [Rectangle] -- ^ All monitors
-                -> StrutProperties
-strutProperties pos bh (Rectangle mX mY mW mH) monitors =
-    propertize pos sX sW sH
-    where sX = mX
-          sW = mW - 1
-          sH = case pos of Top    -> bh + mY
-                           Bottom -> bh + totalH - mY - mH
-          totalH = maximum $ map bottomY monitors
-          bottomY (Rectangle _ y _ h) = y + h
-          propertize p x w h = case p of
-              Top    -> (0, 0, h, 0, 0, 0, 0, 0, x, x+w, 0,   0)
-              Bottom -> (0, 0, 0, h, 0, 0, 0, 0, 0,   0, x, x+w)
+
+gtk2hsToGIGtkWindow :: Gtk.Window -> IO GI.Gtk.Window
+gtk2hsToGIGtkWindow window = do
+  let (wid) = Gtk.toWidget window
+  fPtr <- withForeignPtr (Gtk.unWidget wid) (flip GI.Gtk.newManagedPtr (return ()) . castPtr)
+  return $! GI.Gtk.Window fPtr
 
 data TaffybarConfig =
   TaffybarConfig { -- | The screen number to run the bar on (default is almost always fine)
@@ -252,6 +248,20 @@ data TaffybarConfig =
                  , endWidgets :: [IO Widget]
                  }
 
+toStrutConfig TaffybarConfig { barHeight = size
+                             , barPadding = padding
+                             , barPosition = pos
+                             } monitor =
+  defaultStrutConfig { strutHeight = ExactSize $ fromIntegral size
+                     , strutYPadding = fromIntegral padding
+                     , strutAlignment = Center
+                     , strutMonitor = Just $ fromIntegral monitor
+                     , strutPosition = case pos of
+                                         Top -> TopPos
+                                         Bottom -> BottomPos
+                     }
+
+-- XXX: Get rid of this (replace with Data.Unique if needed)
 type TaffybarConfigEQ = (TaffybarConfig, StableName TaffybarConfig)
 
 -- | The default configuration gives an empty bar 25 pixels high on monitor 0.
@@ -318,54 +328,6 @@ getDefaultConfigFile :: String -> IO FilePath
 getDefaultConfigFile name = do
   dataDir <- getDataDir
   return (dataDir </> name)
-
--- | Given a Taffybar configuration and the Taffybar window, this
--- action sets up the window size and strut properties. May be called
--- multiple times, e.g., when the monitor resolution changes.
-setTaffybarSize :: TaffybarConfig -> Window -> Int -> IO ()
-setTaffybarSize cfg window monNumber = do
-  screen <- windowGetScreen window
-  nmonitors <- screenGetNMonitors screen
-  allMonitorSizes <-
-    mapM (screenGetMonitorGeometry screen) [0 .. (nmonitors - 1)]
-  when (monNumber >= nmonitors) $
-    IO.hPutStrLn IO.stderr $
-      printf
-        "Monitor %d is not available in the selected screen"
-        monNumber
-  let monitorSize =
-        fromMaybe (head allMonitorSizes) $
-          allMonitorSizes `atMay` monNumber
-  let Rectangle x y w h = monitorSize
-      strutHeight = barHeight cfg + (2 * barPadding cfg)
-      yoff =
-        case barPosition cfg of
-          Top -> barPadding cfg
-          Bottom -> h - strutHeight
-  windowMove window x (y + yoff)
-  -- Set up the window size using fixed min and max sizes. This
-  -- prevents the contained horizontal box from affecting the window
-  -- size.
-  windowSetGeometryHints
-    window
-    (Nothing :: Maybe Widget)
-    (Just (w, barHeight cfg)) -- Min size.
-    (Just (w, barHeight cfg)) -- Max size.
-    Nothing
-    Nothing
-    Nothing
-  let setStrutProps =
-        setStrutProperties window $
-        strutProperties
-          (barPosition cfg)
-          strutHeight
-          monitorSize
-          allMonitorSizes
-
-  winRealized <- widgetGetRealized window
-  if winRealized
-    then setStrutProps
-  else void $ on window realize setStrutProps
 
 startCSS :: IO CssProvider
 startCSS = do
@@ -435,14 +397,14 @@ taffybarMain cfg = do
       makeTaffyWindow wcfg monNumber = do
         window <- windowNew
         let windowName = printf "Taffybar-%s" $ show monNumber :: String
+            strutConf = toStrutConfig wcfg monNumber
 
         styleContext <- Gtk.widgetGetStyleContext window
         styleContextAddClass styleContext "Taffybar"
         widgetSetName window windowName
 
-        windowSetTypeHint window WindowTypeHintDock
-        windowSetScreen window screen
-        setTaffybarSize wcfg window monNumber
+        giWindow <- gtk2hsToGIGtkWindow window
+        setupStrutWindow strutConf giWindow
 
         box <- hBoxNew False $ widgetSpacing wcfg
         containerAdd window box

@@ -40,9 +40,12 @@ library
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
                , filepath
+               , gi-gtk
                , glib
+               , gtk-strut
                , gtk-traymanager >= 1.0.0 && < 2.0.0
                , gtk3
+               , haskell-gi-base
                , mtl >= 2
                , multimap >= 1.2.1
                , old-locale
@@ -121,11 +124,9 @@ library
                    System.Taffybar.WorkspaceHUD,
                    System.Taffybar.WorkspaceSwitcher
                    
-  other-modules: System.Taffybar.StrutProperties,
-                 Paths_taffybar,
+  other-modules: Paths_taffybar,
                  System.Taffybar.Util
 
-  c-sources: src/gdk_property_change_wrapper.c
   cc-options: -fPIC
   ghc-options: -Wall -funbox-strict-fields
 
@@ -137,8 +138,11 @@ executable taffybar
                , directory
                , dyre >= 0.8.6
                , filepath
+               , gi-gtk
                , glib
+               , gtk-strut
                , gtk3
+               , haskell-gi-base
                , mtl
                , safe >= 0.3 && < 1
                , split >= 0.1.4.2
@@ -148,10 +152,8 @@ executable taffybar
   hs-source-dirs: src
   main-is: Main.hs
   other-modules: System.Taffybar,
-                 System.Taffybar.StrutProperties,
                  System.Information.X11DesktopInfo
   pkgconfig-depends: gtk+-3.0
-  c-sources: src/gdk_property_change_wrapper.c
   ghc-options: -Wall -rtsopts -threaded
 
 source-repository head
