@@ -1,10 +1,7 @@
 packages:
 - '.'
-- location:
-    git: https://github.com/travitch/gtk-traymanager.git
-    commit: 517b24722b2cdab2dadbafa882ffcb6b8a1d01ff
-  extra-dep: true
 extra-deps:
+  - gtk-traymanager-1.0.0
   - X11-xft-0.3.1
   - alsa-core-0.5.0.1
   - alsa-mixer-0.2.0.3
