@@ -69,6 +69,47 @@ module System.Taffybar (
   -- They are actually [IO Widget] since the bar needs to construct them
   -- after performing some GTK initialization.
 
+  -- * XMonad Integration (via EWMH hints and X11 events)
+  --
+  -- | The TaffyPager widget differs from its xounterpart in xmobar: it listens
+  -- for updates using EWMH hints and X11 events instead of reading from stdin.
+  -- See [System.Taffybar.TaffyPager] for more details.  First, you'll need to
+  -- configure XMonad to advetize the EWMH hints and X11 events:
+  --
+  -- > import XMonad.Hooks.EwmhDesktops (ewmh)
+  -- > import XMonad.Hooks.ManageDocks
+  -- > import System.Taffybar.Hooks.PagerHints (pagerHints)
+  -- >
+  -- > main = do
+  -- >   xmonad $ ewmh $ pagerHints $ defaultConfig { manageHook = manageDocks
+  -- >                                              }
+  --
+  -- And then your taffybar configuration can simply be:
+  --
+  -- > import System.Taffybar
+  -- > import System.Taffybar.Systray
+  -- > import System.Taffybar.TaffyPager
+  -- > import System.Taffybar.SimpleClock
+  -- > import System.Taffybar.Widgets.PollingGraph
+  -- > import System.Information.CPU
+  -- >
+  -- > cpuCallback = do
+  -- >   (_, systemLoad, totalLoad) <- cpuLoad
+  -- >   return [ totalLoad, systemLoad ]
+  -- >
+  -- > main = do
+  -- >   let cpuCfg = defaultGraphConfig { graphDataColors = [ (0, 1, 0, 1), (1, 0, 1, 0.5)]
+  -- >                                   , graphLabel = Just "cpu"
+  -- >                                   }
+  -- >       clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
+  -- >       pager = taffyPagerNew defaultPagerConfig
+  -- >       tray = systrayNew
+  -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
+  -- >   defaultTaffybar defaultTaffybarConfig { startWidgets = [ pager ]
+  -- >                                         , endWidgets = [ tray, clock, cpu ]
+  -- >                                         }
+  --
+
   -- * XMonad Integration (via DBus)
   --
   -- | The XMonadLog widget differs from its counterpart in xmobar: it
