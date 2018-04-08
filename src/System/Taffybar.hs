@@ -254,6 +254,7 @@ toStrutConfig TaffybarConfig { barHeight = size
                              } monitor =
   defaultStrutConfig { strutHeight = ExactSize $ fromIntegral size
                      , strutYPadding = fromIntegral padding
+                     , strutXPadding = fromIntegral padding
                      , strutAlignment = Center
                      , strutMonitor = Just $ fromIntegral monitor
                      , strutPosition = case pos of
