@@ -1,5 +1,5 @@
 name: taffybar
-version: 1.0.0
+version: 1.0.1
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
@@ -41,7 +41,7 @@ library
                , enclosed-exceptions >= 1.0.0.1
                , filepath
                , glib
-               , gtk-traymanager >= 1.0.0 && < 2.0.0
+               , gtk-traymanager >= 1.0.1 && < 2.0.0
                , gtk3
                , mtl >= 2
                , multimap >= 1.2.1
