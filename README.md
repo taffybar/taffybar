@@ -38,7 +38,7 @@ There are also several more specialized widgets:
 
 Installation
 ============
-**NOTE**: `gtk2hs-buildtools` is needed for installations with GHC 8 and above, till there's better support for `setup-depends`.
+**NOTE**: `gtk2hs-buildtools` is needed for installations with GHC 8 and above, until there's better support for `setup-depends` (See https://github.com/travitch/taffybar/issues/193).
 
 ### Cabal
 ```
