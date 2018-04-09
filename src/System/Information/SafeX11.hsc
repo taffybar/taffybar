@@ -33,7 +33,6 @@ import           Graphics.X11.Xlib.Extras
                getWindowProperty16, getWindowProperty32,
                xGetWMHints, getWMHints)
 import           Prelude
-import           Graphics.X11.Xlib.Types
 import           System.IO
 import           System.IO.Unsafe
 import           System.Timeout
