@@ -22,6 +22,7 @@ extra-deps:
 - gtk-strut-0.1.1.0
 - gtk-traymanager-1.0.1
 - gtk2hs-buildtools-0.13.3.1
+- happy-1.19.9
 - haskell-gi-0.21.0
 - haskell-gi-base-0.21.0
 - haskell-gi-overloading-1.0
