@@ -2,7 +2,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/IvanMalison/gtk2hs.git
-    commit: 8499fba47b81e469f99ec20371c96eea70ea69e4
+    commit: 6e2b94f62d94ff9c7e80546b884be48ab77c46bf
   extra-dep: true
   subdirs:
       - gtk
