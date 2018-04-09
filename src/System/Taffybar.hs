@@ -185,21 +185,17 @@ module System.Taffybar (
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
 import qualified Control.Concurrent.MVar as MV
-import Control.Monad ( when, foldM, void )
-import qualified Data.GI.Base
+import Control.Monad ( when, foldM  )
 import Data.List
 import qualified Data.Map as M
-import Data.Maybe ( fromMaybe )
 import Foreign.ForeignPtr
 import Foreign.Ptr
 import qualified GI.Gtk
 import Graphics.UI.GIGtkStrut
 import Graphics.UI.Gtk as Gtk
-import Graphics.UI.Gtk.Abstract.Widget as Gtk
 import Graphics.UI.Gtk.General.StyleContext
 import qualified Graphics.UI.Gtk.Types as Gtk
 import Graphics.X11.Xlib.Misc
-import Safe ( atMay )
 import System.Directory
 import System.Environment.XDG.BaseDir ( getUserConfigFile )
 import System.Exit ( exitFailure )
@@ -215,10 +211,9 @@ import Paths_taffybar ( getDataDir )
 data Position = Top | Bottom
   deriving (Show, Eq)
 
-
 gtk2hsToGIGtkWindow :: Gtk.Window -> IO GI.Gtk.Window
 gtk2hsToGIGtkWindow window = do
-  let (wid) = Gtk.toWidget window
+  let wid = Gtk.toWidget window
   fPtr <- withForeignPtr (Gtk.unWidget wid) (flip GI.Gtk.newManagedPtr (return ()) . castPtr)
   return $! GI.Gtk.Window fPtr
 
@@ -248,6 +243,7 @@ data TaffybarConfig =
                  , endWidgets :: [IO Widget]
                  }
 
+toStrutConfig :: Integral a => TaffybarConfig -> a -> StrutConfig
 toStrutConfig TaffybarConfig { barHeight = size
                              , barPadding = padding
                              , barPosition = pos

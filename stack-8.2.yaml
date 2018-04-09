@@ -25,4 +25,4 @@ extra-deps:
 - spool-0.1
 - time-units-1.0.0
 - xml-helpers-1.0.0
-resolver: lts-11.2
+resolver: lts-11.4
