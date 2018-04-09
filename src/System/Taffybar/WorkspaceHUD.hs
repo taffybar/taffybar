@@ -70,9 +70,6 @@ import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import           Graphics.UI.Gtk.General.StyleContext
 import qualified Graphics.UI.Gtk.Layout.Table as T
-import           Graphics.X11.Xlib.Extras
-       hiding (rawGetWindowProperty, getWindowProperty8,
-               getWindowProperty16, getWindowProperty32, xSetErrorHandler)
 import           Prelude
 import           System.Information.EWMHDesktopInfo
 import           System.Information.SafeX11
@@ -157,9 +154,9 @@ updateWidgetClasses widget toAdd toRemove = do
   context <- Gtk.widgetGetStyleContext widget
   let hasClass = styleContextHasClass context
       addIfMissing klass =
-        hasClass klass >>= (`when` (styleContextAddClass context klass)) . not
-      removeIfPresent klass = when (not $ elem klass toAdd) $
-        hasClass klass >>= (`when` (styleContextRemoveClass context klass))
+        hasClass klass >>= (`when` styleContextAddClass context klass) . not
+      removeIfPresent klass = unless (klass `elem` toAdd) $
+        hasClass klass >>= (`when` styleContextRemoveClass context klass)
   mapM_ removeIfPresent toRemove
   mapM_ addIfMissing toAdd
 
@@ -752,8 +749,8 @@ updateImages :: IconController -> Workspace -> HUDIO [IconWidget]
 updateImages ic ws = do
   Context {hudConfig = cfg} <- ask
   sortedWindows <- iconSort cfg $ windows ws
-  let updateIconWidget' getImage wdata ton = do
-        iconWidget <- getImage
+  let updateIconWidget' getImageAction wdata ton = do
+        iconWidget <- getImageAction
         _ <- updateIconWidget ic iconWidget wdata ton
         return iconWidget
       existingImages = map return $ iconImages ic

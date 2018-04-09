@@ -280,7 +280,7 @@ useMonitorNumber c@(cfg, _) = return umn
 usePrimaryMonitor :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
 usePrimaryMonitor c@(cfg, _) = do
   maybePrimary <- withDefaultCtx getPrimaryOutputNumber
-  let primary = maybe (monitorNumber cfg) id maybePrimary
+  let primary = fromMaybe (monitorNumber cfg) maybePrimary
   return $ \mnumber -> if mnumber == primary then Just c else Nothing
 
 allMonitors :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
