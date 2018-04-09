@@ -133,26 +133,10 @@ library
 executable taffybar
   default-language: Haskell2010
   build-depends: base > 3 && < 5
-               , X11 >= 1.5.0.1
-               , containers
-               , directory
-               , dyre >= 0.8.6
-               , filepath
-               , gi-gtk
-               , glib
-               , gtk-strut
-               , gtk3
-               , haskell-gi-base
-               , mtl
-               , safe >= 0.3 && < 1
-               , split >= 0.1.4.2
                , taffybar
-               , utf8-string
-               , xdg-basedir
-  hs-source-dirs: src
+
+  hs-source-dirs: app
   main-is: Main.hs
-  other-modules: System.Taffybar,
-                 System.Information.X11DesktopInfo
   pkgconfig-depends: gtk+-3.0
   ghc-options: -Wall -rtsopts -threaded
 
