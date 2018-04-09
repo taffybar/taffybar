@@ -189,7 +189,6 @@ data WorkspaceHUDConfig =
   , minIcons :: Int
   , getIconInfo :: WindowData -> HUDIO IconInfo
   , labelSetter :: Workspace -> HUDIO String
-  , updateOnWMIconChange :: Bool
   , showWorkspaceFn :: Workspace -> Bool
   , borderWidth :: Int
   , updateEvents :: [String]
@@ -276,7 +275,6 @@ defaultWorkspaceHUDConfig =
   , minIcons = 0
   , getIconInfo = defaultGetIconInfo
   , labelSetter = return . workspaceName
-  , updateOnWMIconChange = True
   , showWorkspaceFn = const True
   , borderWidth = 2
   , iconSort = sortWindowsByPosition
@@ -462,8 +460,7 @@ buildWorkspaceHUD cfg pager = do
   updateHandler <- onWorkspaceUpdate context
   mapM_ (subscribe pager updateHandler) $ updateEvents cfg
   iconHandler <- onIconsChanged context
-  when (updateOnWMIconChange cfg) $
-    subscribe pager (onIconChanged context iconHandler) "_NET_WM_ICON"
+  subscribe pager (onIconChanged context iconHandler) "_NET_WM_ICON"
   return $ Gtk.toWidget cont
 
 updateAllWorkspaceWidgets :: HUDIO ()

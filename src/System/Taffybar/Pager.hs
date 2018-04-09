@@ -44,24 +44,17 @@ module System.Taffybar.Pager
   , escape
   ) where
 
-import Control.Concurrent (forkIO)
+import qualified Control.Concurrent.MVar as MV
 import Control.Exception
-import Control.Exception.Enclosed (catchAny)
 import Control.Monad.Reader
-import Data.IORef
+import Data.Unique
+import System.Information.SafeX11
 import qualified Data.Map as M
 import Graphics.UI.Gtk (escapeMarkup)
-import Graphics.X11.Types
-import Graphics.X11.Xlib.Extras
-  hiding (rawGetWindowProperty, getWindowProperty8,
-          getWindowProperty16, getWindowProperty32)
 import System.Information.EWMHDesktopInfo
 import System.Information.X11DesktopInfo
+import qualified System.Taffybar.Context as TContext
 import Text.Printf (printf)
-
-type Listener = Event -> IO ()
-type Filter = Atom
-type SubscriptionList = IORef [(Listener, Filter)]
 
 -- | Structure contanining functions to customize the pretty printing of
 -- different widget elements.
@@ -105,8 +98,7 @@ data PagerConfig = PagerConfig
 -- | Structure containing the state of the Pager.
 data Pager = Pager
   { config  :: PagerConfig -- ^ the configuration settings.
-  , clients :: SubscriptionList -- ^ functions to apply on incoming events depending on their types.
-  , pagerX11ContextVar :: IORef X11Context
+  , tContext :: TContext.Context
   }
 
 type PagerIO a = ReaderT Pager IO a
@@ -119,8 +111,7 @@ liftPagerX11Def def prop = liftPagerX11 $ postX11RequestSyncProp prop def
 
 runWithPager :: Pager -> X11Property a -> IO a
 runWithPager pager prop = do
-  x11Ctx <- readIORef $ pagerX11ContextVar pager
-  -- runWithPager should probably changed so that it takes a default value
+  x11Ctx <- MV.readMVar $ TContext.x11ContextVar $ tContext pager
   runReaderT prop x11Ctx
 
 -- | Default pretty printing options.
@@ -164,39 +155,14 @@ defaultFormatEntry wsNames ((ws, wtitle, _), _) =
 -- | Creates a new Pager component (wrapped in the IO Monad) that can be
 -- used by widgets for subscribing X11 events.
 pagerNew :: PagerConfig -> IO Pager
-pagerNew cfg = do
-  ref <- newIORef []
-  ctx <- getDefaultCtx
-  ctxVar <- newIORef ctx
-  let pager = Pager cfg ref ctxVar
-  _ <- forkIO $ withDefaultCtx (eventLoop $ handleEvent ref)
-  return pager
-    where handleEvent :: SubscriptionList -> Event -> IO ()
-          handleEvent ref event = do
-            listeners <- readIORef ref
-            mapM_ (notify event) listeners
-
--- | Passes the given Event to the given Listener, but only if it was
--- registered for that type of events via 'subscribe'.
-notify :: Event -> (Listener, Filter) -> IO ()
-notify event (listener, eventFilter) =
-  case event of
-    PropertyEvent _ _ _ _ _ atom _ _ ->
-      when (atom == eventFilter) $ catchAny (listener event) ignoreException
-    _ -> return ()
+pagerNew cfg = Pager cfg <$> TContext.buildEmptyContext
 
 -- | Registers the given Listener as a subscriber of events of the given
 -- type: whenever a new event of the type with the given name arrives to
 -- the Pager, it will execute Listener on it.
-subscribe :: Pager -> Listener -> String -> IO ()
-subscribe pager listener filterName = do
-  eventFilter <- runWithPager pager $ getAtom filterName
-  registered <- readIORef (clients pager)
-  let next = (listener, eventFilter)
-  writeIORef (clients pager) (next : registered)
-
-ignoreException :: SomeException -> IO ()
-ignoreException _ = return ()
+subscribe :: Pager -> (Event -> IO ()) -> String -> IO Unique
+subscribe pager listener filterName =
+  runReaderT (TContext.subscribeToEvents [filterName] (lift . listener)) $ tContext pager
 
 -- | Creates markup with the given foreground and background colors and the
 -- given contents.

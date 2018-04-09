@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, ExistentialQuantification, RankNTypes, FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables, ExistentialQuantification, RankNTypes, FlexibleContexts, MonoLocalBinds #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Context
@@ -28,11 +28,8 @@ import           System.Information.X11DesktopInfo
 import           Unsafe.Coerce
 
 type Taffy m v = (MonadBase IO m) => ReaderT Context m v
-
 type Listener = Event -> Taffy IO ()
-
 type SubscriptionList = [(Unique, Listener)]
-
 data Value = forall t. Typeable t => Value t
 
 fromValue :: forall t. Typeable t => Value -> Maybe t
@@ -48,8 +45,26 @@ data Context = Context
   , contextState :: MV.MVar (M.Map TypeRep Value)
   }
 
+buildEmptyContext :: IO Context
+buildEmptyContext = do
+  listenersVar <- MV.newMVar []
+  state <- MV.newMVar M.empty
+  ctx <- getDefaultCtx
+  x11Context <- MV.newMVar ctx
+  let context = Context
+                { x11ContextVar = x11Context
+                , listeners = listenersVar
+                , contextState = state
+                }
+  _ <- forkIO $ runReaderT startX11EventHandler context
+  return context
+
 asksContextVar :: (r -> MV.MVar b) -> ReaderT r IO b
 asksContextVar getter = asks getter >>= lift . MV.readMVar
+
+runX11 :: ReaderT X11Context IO b -> ReaderT Context IO b
+runX11 action =
+  asksContextVar x11ContextVar >>= lift . runReaderT action
 
 getState :: forall t. Typeable t => Taffy IO (Maybe t)
 getState = do
@@ -88,14 +103,21 @@ subscribeToAll :: Listener -> Taffy IO Unique
 subscribeToAll listener = do
   identifier <- lift newUnique
   listenersVar <- asks listeners
-  lift $ MV.modifyMVar_ listenersVar $ return . ((identifier, listener):)
+  let
+    -- This type annotation probably has something to do with the warnings that
+    -- occur without MonoLocalBinds, but it still seems to be necessary
+    addListener :: SubscriptionList -> SubscriptionList
+    addListener = ((identifier, listener):)
+  lift $ MV.modifyMVar_ listenersVar (return . addListener)
   return identifier
 
-subscribeToEvents :: [Atom] -> Listener -> Taffy IO Unique
-subscribeToEvents events listener = subscribeToAll filteredListener
-  where filteredListener event@PropertyEvent { ev_atom = atom } =
-          when (atom `elem` events) $ catchAny (listener event) (const $ return ())
-        filteredListener _ = return ()
+subscribeToEvents :: [String] -> Listener -> Taffy IO Unique
+subscribeToEvents eventNames listener = do
+  eventAtoms <- mapM (runX11 . getAtom) eventNames
+  let filteredListener event@PropertyEvent { ev_atom = atom } =
+        when (atom `elem` eventAtoms) $ catchAny (listener event) (const $ return ())
+      filteredListener _ = return ()
+  subscribeToAll filteredListener
 
 handleX11Event :: Event -> Taffy IO ()
 handleX11Event event =
