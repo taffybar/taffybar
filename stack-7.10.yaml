@@ -1,7 +1,8 @@
 packages:
 - '.'
 extra-deps:
-  - gtk-traymanager-1.0.0
+  - Cabal-2.0.1.1
+  - gtk-traymanager-1.0.1
   - X11-xft-0.3.1
   - alsa-core-0.5.0.1
   - alsa-mixer-0.2.0.3
