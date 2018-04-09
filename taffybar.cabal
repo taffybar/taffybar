@@ -41,7 +41,7 @@ library
                , enclosed-exceptions >= 1.0.0.1
                , filepath
                , glib
-               , gtk-traymanager >= 1.0.0 && < 2.0.0
+               , gtk-traymanager >= 1.0.1 && < 2.0.0
                , gtk3
                , mtl >= 2
                , multimap >= 1.2.1
