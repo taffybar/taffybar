@@ -92,6 +92,11 @@ startX11EventHandler = taffyFork $ do
   lift $ withDefaultCtx $ eventLoop
          (\e -> runReaderT (handleX11Event e) c)
 
+unsubscribe :: Unique -> Taffy IO ()
+unsubscribe identifier = do
+  listenersVar <- asks listeners
+  lift $ MV.modifyMVar_ listenersVar $ return . filter ((== identifier) . fst)
+
 subscribeToAll :: Listener -> Taffy IO Unique
 subscribeToAll listener = do
   identifier <- lift newUnique

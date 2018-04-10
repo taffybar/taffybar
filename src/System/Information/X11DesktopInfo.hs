@@ -1,4 +1,3 @@
-{-# LANGUAGE StandaloneDeriving #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Information.X11DesktopInfo

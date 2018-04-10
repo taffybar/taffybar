@@ -40,12 +40,12 @@ module System.Taffybar.Pager
   , liftPagerX11Def
   , runWithPager
   , shorten
+  , unsubscribe
   , wrap
   , escape
   ) where
 
 import qualified Control.Concurrent.MVar as MV
-import Control.Exception
 import Control.Monad.Reader
 import Data.Unique
 import System.Information.SafeX11
@@ -162,7 +162,12 @@ pagerNew cfg = Pager cfg <$> TContext.buildEmptyContext
 -- the Pager, it will execute Listener on it.
 subscribe :: Pager -> (Event -> IO ()) -> String -> IO Unique
 subscribe pager listener filterName =
-  runReaderT (TContext.subscribeToEvents [filterName] (lift . listener)) $ tContext pager
+  runReaderT (TContext.subscribeToEvents [filterName] (lift . listener)) $
+             tContext pager
+
+unsubscribe :: Pager -> Unique -> IO ()
+unsubscribe pager identifier =
+  runReaderT (TContext.unsubscribe identifier) $ tContext pager
 
 -- | Creates markup with the given foreground and background colors and the
 -- given contents.

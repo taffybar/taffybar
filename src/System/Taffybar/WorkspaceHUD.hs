@@ -458,9 +458,12 @@ buildWorkspaceHUD cfg pager = do
   -- This will actually create all the widgets
   runReaderT updateAllWorkspaceWidgets context
   updateHandler <- onWorkspaceUpdate context
-  mapM_ (subscribe pager updateHandler) $ updateEvents cfg
+  subscriptions <- mapM (subscribe pager updateHandler) $ updateEvents cfg
   iconHandler <- onIconsChanged context
-  subscribe pager (onIconChanged context iconHandler) "_NET_WM_ICON"
+  iconSubscription <- subscribe pager (onIconChanged context iconHandler) "_NET_WM_ICON"
+  let doUnsubscribe =
+        mapM_ (unsubscribe pager) (iconSubscription:subscriptions)
+  _ <- Gtk.on cont W.unrealize doUnsubscribe
   return $ Gtk.toWidget cont
 
 updateAllWorkspaceWidgets :: HUDIO ()
@@ -542,7 +545,6 @@ updateWorkspaceControllers = do
             maybe (return theMap) (>>= return . flip (M.insert idx) theMap)
                     (buildController idx)
       foldM buildAndAddController oldRemoved $ Set.toList addWorkspaces
-
     -- Clear the container and repopulate it
     lift $ Gtk.containerForeach cont (Gtk.containerRemove cont)
     addWidgetsToTopLevel
