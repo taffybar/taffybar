@@ -19,7 +19,6 @@ import           Control.Monad
 import           Control.Monad.Base
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Reader
-import           Data.Bits
 import           Data.Data
 import qualified Data.Map as M
 import           Data.Unique
@@ -56,7 +55,7 @@ buildEmptyContext = do
                 , listeners = listenersVar
                 , contextState = state
                 }
-  _ <- forkIO $ runReaderT startX11EventHandler context
+  runReaderT startX11EventHandler context
   return context
 
 asksContextVar :: (r -> MV.MVar b) -> ReaderT r IO b
@@ -87,17 +86,11 @@ taffyFork = void . liftReader forkIO
 
 startX11EventHandler :: Taffy IO ()
 startX11EventHandler = taffyFork $ do
-  (X11Context d w) <- asksContextVar x11ContextVar
   c <- ask
-  lift $ do
-    selectInput d w $ propertyChangeMask .|. substructureNotifyMask
-    allocaXEvent $ \e -> forever $ do
-      event <- nextEvent d e >> getEvent e
-      case event of
-        MapNotifyEvent { ev_window = window } ->
-          selectInput d window propertyChangeMask
-        _ -> return ()
-      runReaderT (handleX11Event event) c
+  -- The event loop needs its own X11Context to separately handle communications
+  -- from the X server.
+  lift $ withDefaultCtx $ eventLoop
+         (\e -> runReaderT (handleX11Event e) c)
 
 subscribeToAll :: Listener -> Taffy IO Unique
 subscribeToAll listener = do
