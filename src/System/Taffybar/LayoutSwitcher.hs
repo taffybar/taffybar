@@ -29,6 +29,7 @@ module System.Taffybar.LayoutSwitcher (
 import Control.Monad.Trans
 import Control.Monad.Reader
 import qualified Graphics.UI.Gtk as Gtk
+import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import Graphics.X11.Xlib.Extras (Event)
 import System.Taffybar.Pager
 import System.Information.X11DesktopInfo
@@ -67,9 +68,11 @@ layoutSwitcherNew pager = do
   -- This callback is run in a separate thread and needs to use
   -- postGUIAsync
   let cfg = config pager
-      callback = Gtk.postGUIAsync . (flip runReaderT pager) . (pagerCallback cfg label)
-  subscribe pager callback xLayoutProp
-  assembleWidget pager label
+      callback = Gtk.postGUIAsync . flip runReaderT pager . pagerCallback cfg label
+  subscription <- subscribe pager callback xLayoutProp
+  widget <- assembleWidget pager label
+  _ <- Gtk.on widget W.unrealize (unsubscribe pager subscription)
+  return widget
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_XMONAD_CURRENT_LAYOUT" custom events. These events are emitted by

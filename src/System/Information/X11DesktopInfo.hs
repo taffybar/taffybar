@@ -1,4 +1,3 @@
-{-# LANGUAGE StandaloneDeriving #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Information.X11DesktopInfo
@@ -47,6 +46,7 @@ import Data.List
 import Data.Maybe
 
 import Codec.Binary.UTF8.String as UTF8
+import qualified Control.Concurrent.MVar as MV
 import Control.Monad.Reader
 import Data.Bits (testBit, (.|.))
 import Data.List.Split (endBy)
@@ -59,7 +59,11 @@ import Graphics.X11.Xrandr
 import Prelude
 import System.Information.SafeX11
 
-data X11Context = X11Context { contextDisplay :: Display, _contextRoot :: Window }
+data X11Context = X11Context
+  { contextDisplay :: Display
+  , _contextRoot :: Window
+  , atomCache :: MV.MVar [(String, Atom)]
+  }
 type X11Property a = ReaderT X11Context IO a
 type X11Window = Window
 type PropertyFetcher a = Display -> Atom -> Window -> IO (Maybe [a])
@@ -155,8 +159,14 @@ getVisibleTags = readAsListOfString Nothing "_XMONAD_VISIBLE_WORKSPACES"
 -- | Return the Atom with the given name.
 getAtom :: String -> X11Property Atom
 getAtom s = do
-  (X11Context d _) <- ask
-  liftIO $ internAtom d s False
+  (X11Context d _ cacheVar) <- ask
+  a <- lift $ lookup s <$> MV.readMVar cacheVar
+  let updateCacheAction = lift $ MV.modifyMVar cacheVar updateCache
+      updateCache currentCache =
+        do
+          atom <- internAtom d s False
+          return ((s, atom):currentCache, atom)
+  maybe updateCacheAction return a
 
 -- | Spawn a new thread and listen inside it to all incoming events,
 -- invoking the given function to every event of type @MapNotifyEvent@ that
@@ -164,13 +174,13 @@ getAtom s = do
 -- created windows.
 eventLoop :: (Event -> IO ()) -> X11Property ()
 eventLoop dispatch = do
-  (X11Context d w) <- ask
+  (X11Context d w _) <- ask
   liftIO $ do
     selectInput d w $ propertyChangeMask .|. substructureNotifyMask
     allocaXEvent $ \e -> forever $ do
       event <- nextEvent d e >> getEvent e
       case event of
-        MapNotifyEvent _ _ _ _ _ window _ ->
+        MapNotifyEvent { ev_window = window } ->
           selectInput d window propertyChangeMask
         _ -> return ()
       dispatch event
@@ -180,13 +190,13 @@ eventLoop dispatch = do
 -- process and acted upon in that context.
 sendCommandEvent :: Atom -> Atom -> X11Property ()
 sendCommandEvent cmd arg = do
-  (X11Context dpy root) <- ask
+  (X11Context dpy root _) <- ask
   sendCustomEvent dpy cmd arg root root
 
 -- | Similar to 'sendCommandEvent', but with an argument of type Window.
 sendWindowEvent :: Atom -> X11Window -> X11Property ()
 sendWindowEvent cmd win = do
-  (X11Context dpy root) <- ask
+  (X11Context dpy root _) <- ask
   sendCustomEvent dpy cmd cmd root win
 
 -- | Build a new X11Context containing the current X11 display and its root
@@ -195,7 +205,8 @@ getDefaultCtx :: IO X11Context
 getDefaultCtx = do
   d <- openDisplay ""
   w <- rootWindow d $ defaultScreen d
-  return $ X11Context d w
+  cache <- MV.newMVar []
+  return $ X11Context d w cache
 
 getWindowStateProperty :: X11Window -> String -> X11Property Bool
 getWindowStateProperty window property = not . null <$> getWindowState window [property]
@@ -218,14 +229,14 @@ fetch :: (Integral a)
       -> String            -- ^ Name of the property to retrieve.
       -> X11Property (Maybe [a])
 fetch fetcher window name = do
-  (X11Context dpy root) <- ask
+  (X11Context dpy root _) <- ask
   atom <- getAtom name
   liftIO $ fetcher dpy atom (fromMaybe root window)
 
 -- | Retrieve the @WM_HINTS@ mask assigned by the X server to the given window.
 fetchWindowHints :: X11Window -> X11Property WMHints
 fetchWindowHints window = do
-  (X11Context d _) <- ask
+  (X11Context d _ _) <- ask
   liftIO $ getWMHints d window
 
 -- | Emit an event of type @ClientMessage@ that can be listened to and
@@ -251,13 +262,13 @@ postX11RequestSyncProp prop def = do
 
 isActiveOutput :: XRRScreenResources -> RROutput -> X11Property Bool
 isActiveOutput sres output = do
-  (X11Context display _) <- ask
+  (X11Context display _ _) <- ask
   maybeOutputInfo <- liftIO $ xrrGetOutputInfo display sres output
   return $ maybe 0 xrr_oi_crtc maybeOutputInfo /= 0
 
 getActiveOutputs :: X11Property [RROutput]
 getActiveOutputs = do
-  (X11Context display rootw) <- ask
+  (X11Context display rootw _) <- ask
   maybeSres <- liftIO $ xrrGetScreenResources display rootw
   maybe (return []) (\sres -> filterM (isActiveOutput sres) $ xrr_sr_outputs sres)
         maybeSres
@@ -265,7 +276,7 @@ getActiveOutputs = do
 -- | Get the index of the primary monitor as set and ordered by Xrandr.
 getPrimaryOutputNumber :: X11Property (Maybe Int)
 getPrimaryOutputNumber = do
-  (X11Context display rootw) <- ask
+  (X11Context display rootw _) <- ask
   primary <- liftIO $ xrrGetOutputPrimary display rootw
   outputs <- getActiveOutputs
   return $ primary `elemIndex` outputs

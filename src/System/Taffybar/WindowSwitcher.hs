@@ -28,6 +28,7 @@ module System.Taffybar.WindowSwitcher (
 import           Control.Monad.Reader
 import qualified Data.Map as M
 import qualified Graphics.UI.Gtk as Gtk
+import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import           Graphics.X11.Xlib.Extras (Event)
 import           System.Information.EWMHDesktopInfo
 import           System.Information.X11DesktopInfo
@@ -63,8 +64,10 @@ windowSwitcherNew pager = do
   -- callback in another thread.  We need to use postGUIAsync in it.
   let cfg = config pager
       callback = pagerCallback cfg label
-  subscribe pager (runWithPager pager . callback) "_NET_ACTIVE_WINDOW"
-  assembleWidget pager label
+  subscription <- subscribe pager (runWithPager pager . callback) "_NET_ACTIVE_WINDOW"
+  widget <- assembleWidget pager label
+  _ <- Gtk.on widget W.unrealize (unsubscribe pager subscription)
+  return widget
 
 -- | Build a suitable callback function that can be registered as Listener
 -- of "_NET_ACTIVE_WINDOW" standard events. It will keep track of the

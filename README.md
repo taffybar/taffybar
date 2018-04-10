@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/travitch/taffybar.svg?branch=master)](https://travis-ci.org/travitch/taffybar)
+[![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/taffybar/Lobby)
 
 This is a desktop information bar intended for use with XMonad and
 similar window managers.  It is similar in spirit to xmobar; it is
