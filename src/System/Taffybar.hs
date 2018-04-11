@@ -188,6 +188,7 @@ import qualified Control.Concurrent.MVar as MV
 import Control.Monad ( when, foldM  )
 import Data.List
 import qualified Data.Map as M
+import Data.Maybe
 import Foreign.ForeignPtr
 import Foreign.Ptr
 import qualified GI.Gtk
