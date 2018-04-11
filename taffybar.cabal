@@ -121,8 +121,7 @@ library
                    System.Taffybar.Widgets.Util,
                    System.Taffybar.Widgets.VerticalBar,
                    System.Taffybar.WindowSwitcher,
-                   System.Taffybar.WorkspaceHUD,
-                   System.Taffybar.WorkspaceSwitcher
+                   System.Taffybar.WorkspaceHUD
                    
   other-modules: System.Taffybar.StrutProperties,
                  Paths_taffybar,
