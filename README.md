@@ -3,6 +3,7 @@ Taffybar
 [![Hackage](https://img.shields.io/hackage/v/taffybar.svg)](https://hackage.haskell.org/package/taffybar)
 [![Build Status](https://travis-ci.org/travitch/taffybar.svg?branch=master)](https://travis-ci.org/travitch/taffybar)
 [![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/taffybar/Lobby)
+[![License BSD3](https://img.shields.io/badge/license-BSD3-green.svg?dummy)](https://github.com/travitch/taffybar/blob/master/LICENSE)
 
 ![](https://github.com/travitch/taffybar/blob/master/doc/screenshot.png)
 
