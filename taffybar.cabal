@@ -16,9 +16,10 @@ extra-source-files: README.md,
                     taffybar.hs.example
 
 description:
-  A somewhat fancier desktop bar than xmobar.  This bar is based on
-  gtk2hs and provides several widgets (including a few graphical ones).
-  It also sports an optional snazzy system tray.
+  Taffybar is a gtk+3 (through gtk2hs) based desktop information bar, intended
+  primarily for use with XMonad, though it can also function alongside other EWMH
+  compliant window managers. It is similar in spirit to xmobar, but it differs in
+  that it gives up some simplicity for a reasonable helping of eye candy.
 
 flag network-uri
   description: network hack

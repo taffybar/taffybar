@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 
 REPO_URI="${1-https://github.com/travitch/taffybar}"
-TAFFY_CONFIG_DIR="$HOME/.config/taffybar/"
+CONFIG_DIR="${XDG_CONFIG_HOME-$HOME/.config}"
+TAFFY_CONFIG_DIR="$CONFIG_DIR/taffybar"
 
 ensure_in_taffybar_repo () {
-	if [ ! -f taffybar.cabal ]; then
+	mkdir -p "$TAFFY_CONFIG_DIR"
+	cd "$TAFFY_CONFIG_DIR"
+	if [ ! -e taffybar ]; then
 		git clone "$REPO_URI"
-		cd taffybar || exit
 	fi
-	REPO_LOCATION="$(pwd)"
+	cd taffybar || exit
 }
 
 # Check whether the given path is listed in the PATH environment variable
@@ -27,12 +29,10 @@ ensure_stack_present () {
 }
 
 setup_taffy_config () {
-	mkdir -p "$TAFFY_CONFIG_DIR"
 	cp -n my-taffybar.cabal.example "$TAFFY_CONFIG_DIR/my-taffybar.cabal"
 	cp -n taffybar.hs.example "$TAFFY_CONFIG_DIR/taffybar.hs"
 	cp -n stack.yaml.example "$TAFFY_CONFIG_DIR/stack.yaml"
 	cd "$TAFFY_CONFIG_DIR" || exit
-	cp -r "$REPO_LOCATION" .
 	stack install --install-ghc
 }
 
