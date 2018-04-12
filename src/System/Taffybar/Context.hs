@@ -1,4 +1,9 @@
-{-# LANGUAGE ScopedTypeVariables, ExistentialQuantification, RankNTypes, FlexibleContexts, MonoLocalBinds #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Context
