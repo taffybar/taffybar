@@ -65,7 +65,6 @@ import qualified Data.MultiMap as MM
 import qualified Data.Set as Set
 import           Data.Time.Units
 import           Data.Tuple.Select
-import           Data.Tuple.Sequence
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import           Graphics.UI.Gtk.General.StyleContext
@@ -76,6 +75,7 @@ import           System.Information.SafeX11
 import           System.Information.X11DesktopInfo
 import           System.Taffybar.IconImages
 import           System.Taffybar.Pager
+import           System.Taffybar.Util
 import           Text.Printf
 
 data WorkspaceState
@@ -725,9 +725,6 @@ defaultGetIconInfo w = do
     if null icons
       then IINone
       else IIEWMH $ selectEWMHIcon iconSize icons
-
-forkM :: Monad m => (c -> m a) -> (c -> m b) -> c -> m (a, b)
-forkM a b = sequenceT . (a &&& b)
 
 sortWindowsByPosition :: [WindowData] -> HUDIO [WindowData]
 sortWindowsByPosition wins = do

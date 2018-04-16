@@ -3,7 +3,7 @@
 module Main ( main ) where
 
 import System.Taffybar
+import System.Taffybar.Context
 
 main :: IO ()
-main = do
-  defaultTaffybar defaultTaffybarConfig
+main = dyreTaffybar defaultTaffybarConfig

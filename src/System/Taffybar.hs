@@ -1,5 +1,15 @@
--- | The main module of Taffybar
-module System.Taffybar (
+-----------------------------------------------------------------------------
+-- |
+-- Module      : System.Taffybar
+-- Copyright   : (c) Ivan A. Malison
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : Ivan A. Malison
+-- Stability   : unstable
+-- Portability : unportable
+-----------------------------------------------------------------------------
+module System.Taffybar
+  (
   -- * Detail
   --
   -- | This is a system status bar meant for use with window manager
@@ -169,155 +179,53 @@ module System.Taffybar (
   -- different mouse buttons to run various programs and it has a useful tooltip
   -- which shows the concrete numbers, which may not be clear in the graph
   -- itself.
-
-  TaffybarConfig(..),
-  TaffybarConfigEQ,
-  defaultTaffybar,
-  defaultTaffybarConfig,
-  Position(..),
-  taffybarMain,
-  allMonitors,
-  useMonitorNumber,
-  realMain,
-  usePrimaryMonitor,
+    taffybarDyreParams
+  , dyreTaffybar
+  , startTaffybar
+  , dyreTaffybarMain
   ) where
 
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
-import qualified Control.Concurrent.MVar as MV
-import Control.Monad ( when, foldM  )
-import Data.List
-import qualified Data.Map as M
-import Data.Maybe
-import Foreign.ForeignPtr
-import Foreign.Ptr
-import qualified GI.Gtk
-import Graphics.UI.GIGtkStrut
+import Control.Monad
+import Control.Monad.Trans.Reader
 import Graphics.UI.Gtk as Gtk
-import Graphics.UI.Gtk.General.StyleContext
-import qualified Graphics.UI.Gtk.Types as Gtk
+import Graphics.UI.Gtk.General.CssProvider
+import qualified Graphics.UI.Gtk.General.StyleContext as Gtk
 import Graphics.X11.Xlib.Misc
 import System.Directory
 import System.Environment.XDG.BaseDir ( getUserConfigFile )
 import System.Exit ( exitFailure )
 import System.FilePath ( (</>) )
 import qualified System.IO as IO
-import System.Information.X11DesktopInfo
-import System.Mem.StableName
-import Text.Printf ( printf )
+import System.Taffybar.Context
 
-import Graphics.UI.Gtk.General.CssProvider
 import Paths_taffybar ( getDataDir )
 
-data Position = Top | Bottom
-  deriving (Show, Eq)
-
-gtk2hsToGIGtkWindow :: Gtk.Window -> IO GI.Gtk.Window
-gtk2hsToGIGtkWindow window = do
-  let wid = Gtk.toWidget window
-  fPtr <- withForeignPtr (Gtk.unWidget wid) (flip GI.Gtk.newManagedPtr (return ()) . castPtr)
-  return $! GI.Gtk.Window fPtr
-
-data TaffybarConfig =
-  TaffybarConfig { -- | The screen number to run the bar on (default is almost always fine)
-                   screenNumber :: Int
-                 -- | The xinerama/xrandr monitor number to put the bar on (default: 0)
-                 , monitorNumber :: Int
-                 -- | Provides a way to specify which screens taffybar should appear on.
-                 , getMonitorConfig :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
-                 -- | A function providing a way to call back in to taffybar to
-                 -- refresh its configs/open closed state on each monitor.
-                 , startRefresher :: IO () -> IO ()
-                 -- | Number of pixels to reserve for the bar (default: 25 pixels)
-                 , barHeight :: Int
-                 -- | Number of additional pixels to reserve for the bar strut (default: 0)
-                 , barPadding :: Int
-                 -- | The position of the bar on the screen (default: Top)
-                 , barPosition :: Position
-                 -- | The number of pixels between widgets
-                 , widgetSpacing :: Int
-                 -- | Used by the application
-                 , errorMsg :: Maybe String
-                 -- | Widgets that are packed in order at the left end of the bar
-                 , startWidgets :: [IO Widget]
-                 -- | Widgets that are packed from right-to-left in the bar
-                 , endWidgets :: [IO Widget]
-                 }
-
-toStrutConfig :: Integral a => TaffybarConfig -> a -> StrutConfig
-toStrutConfig TaffybarConfig { barHeight = size
-                             , barPadding = padding
-                             , barPosition = pos
-                             } monitor =
-  defaultStrutConfig { strutHeight = ExactSize $ fromIntegral size
-                     , strutYPadding = fromIntegral padding
-                     , strutXPadding = fromIntegral padding
-                     , strutAlignment = Center
-                     , strutMonitor = Just $ fromIntegral monitor
-                     , strutPosition = case pos of
-                                         Top -> TopPos
-                                         Bottom -> BottomPos
-                     }
-
--- XXX: Get rid of this (replace with Data.Unique if needed)
-type TaffybarConfigEQ = (TaffybarConfig, StableName TaffybarConfig)
-
--- | The default configuration gives an empty bar 25 pixels high on monitor 0.
-defaultTaffybarConfig :: TaffybarConfig
-defaultTaffybarConfig =
-  TaffybarConfig { screenNumber = 0
-                 , monitorNumber = 0
-                 , getMonitorConfig = useMonitorNumber
-                 , startRefresher = const $ return ()
-                 , barHeight = 25
-                 , barPadding = 0
-                 , barPosition = Top
-                 , widgetSpacing = 10
-                 , errorMsg = Nothing
-                 , startWidgets = []
-                 , endWidgets = []
-                 }
-
-useMonitorNumber :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
-useMonitorNumber c@(cfg, _) = return umn
-  where umn mnumber
-            | mnumber == monitorNumber cfg = Just c
-            | otherwise = Nothing
-
--- | Use the primary monitor as set by Xrandr.
-usePrimaryMonitor :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
-usePrimaryMonitor c@(cfg, _) = do
-  maybePrimary <- withDefaultCtx getPrimaryOutputNumber
-  let primary = fromMaybe (monitorNumber cfg) maybePrimary
-  return $ \mnumber -> if mnumber == primary then Just c else Nothing
-
-allMonitors :: TaffybarConfigEQ -> IO (Int -> Maybe TaffybarConfigEQ)
-allMonitors cfg = return $ const $ Just cfg
-
-showError :: TaffybarConfig -> String -> TaffybarConfig
-showError cfg msg = cfg { errorMsg = Just msg }
-
--- | The default parameters need to tell GHC to compile using
--- -threaded so that the GTK event loops doesn't block all of the
--- widgets
-defaultParams :: Dyre.Params TaffybarConfig
-defaultParams =
+-- | The parameters that are passed to Dyre when taffybar is invoked with
+-- 'dyreTaffybar'.
+taffybarDyreParams :: Dyre.Params TaffybarConfig
+taffybarDyreParams =
   Dyre.defaultParams
   { Dyre.projectName = "taffybar"
-  , Dyre.realMain = realMain
+  , Dyre.realMain = dyreTaffybarMain
   , Dyre.showError = showError
   , Dyre.ghcOpts = ["-threaded", "-rtsopts"]
   , Dyre.rtsOptsHandling = Dyre.RTSAppend ["-I0", "-V0"]
   }
 
--- | The entry point of the application.  Feed it a custom config.
-defaultTaffybar :: TaffybarConfig -> IO ()
-defaultTaffybar = Dyre.wrapMain defaultParams
+-- | Use Dyre to configure and start taffybar. This will automatically recompile
+-- taffybar whenever there are changes to your taffybar.hs configuration file.
+dyreTaffybar :: TaffybarConfig -> IO ()
+dyreTaffybar = Dyre.wrapMain taffybarDyreParams
 
-realMain :: TaffybarConfig -> IO ()
-realMain cfg =
+showError :: TaffybarConfig -> String -> TaffybarConfig
+showError cfg msg = cfg { errorMsg = Just msg }
+
+dyreTaffybarMain :: TaffybarConfig -> IO ()
+dyreTaffybarMain cfg =
   case errorMsg cfg of
-    Nothing -> taffybarMain cfg
+    Nothing -> startTaffybar cfg
     Just err -> do
       IO.hPutStrLn IO.stderr ("Error: " ++ err)
       exitFailure
@@ -335,103 +243,26 @@ startCSS = do
   -- Users can override this default.
   taffybarProvider <- cssProviderNew
   let loadIfExists filePath =
-        doesFileExist filePath >>= flip when (cssProviderLoadFromPath taffybarProvider filePath)
+        doesFileExist filePath >>=
+        flip when (cssProviderLoadFromPath taffybarProvider filePath)
   loadIfExists =<< getDefaultConfigFile "taffybar.css"
   loadIfExists =<< getUserConfigFile "taffybar" "taffybar.css"
   Just scr <- screenGetDefault
-  styleContextAddProviderForScreen scr taffybarProvider 800
+  Gtk.styleContextAddProviderForScreen scr taffybarProvider 800
   return taffybarProvider
 
-taffybarMain :: TaffybarConfig -> IO ()
-taffybarMain cfg = do
-
+-- | Start taffybar with the provided 'TaffybarConfig'. Because this function
+-- will not handle recompiling taffybar automatically when taffybar.hs is
+-- updated, it is generally recommended that end users use 'dyreTaffybar'
+-- instead. If automatic recompilation is handled by another mechanism, or not
+-- desired for some reason, it is perfectly fine to use this function.
+startTaffybar :: TaffybarConfig -> IO ()
+startTaffybar config = do
   _ <- initThreads
   _ <- initGUI
   _ <- startCSS
 
-  Just disp <- displayGetDefault
-  nscreens <- displayGetNScreens disp
-  screen <- if screenNumber cfg < nscreens
-            then displayGetScreen disp (screenNumber cfg)
-            else error $ printf "Screen %d is not available in the default display"
-           (screenNumber cfg)
+  context <- buildContext config
 
-  cfgEq <- makeStableName cfg
-  taffyWindowsVar <- MV.newMVar M.empty
-
-  let refreshTaffyWindows = do
-        nmonitors <- screenGetNMonitors screen
-        getConfig <- getMonitorConfig cfg (cfg, cfgEq)
-        MV.modifyMVar_ taffyWindowsVar $ \monitorToWindow ->
-          do
-            let monitors = union [0 .. (nmonitors - 1)] $ M.keys monitorToWindow
-                updateBarOnWindow mapToUpdate monNum
-                  | monNum >= nmonitors = maybeDeleteWindow
-                  | otherwise = case M.lookup monNum monitorToWindow of
-                                  Just (currentConfig, window) ->
-                                    case getConfig monNum of
-                                      Just configEq@(_, newConfigEq) ->
-                                        if currentConfig == newConfigEq
-                                        then
-                                          return mapToUpdate
-                                        else
-                                          widgetDestroy window >>
-                                          makeAndAddWindow configEq
-                                      Nothing -> maybeDeleteWindow
-                                  Nothing ->
-                                    case getConfig monNum of
-                                      Just configEq -> makeAndAddWindow configEq
-                                      Nothing -> return mapToUpdate
-                  where makeAndAddWindow (newConfig, eqcfg) =
-                          do
-                            window <- makeTaffyWindow newConfig monNum
-                            return $ M.insert monNum (eqcfg, window) mapToUpdate
-                        deleteWindow (_, window) =
-                          widgetDestroy window >> return (M.delete monNum mapToUpdate)
-                        maybeDeleteWindow = maybe (return mapToUpdate) deleteWindow $
-                                            M.lookup monNum mapToUpdate
-            foldM updateBarOnWindow monitorToWindow monitors
-
-      makeTaffyWindow wcfg monNumber = do
-        window <- windowNew
-        let windowName = printf "Taffybar-%s" $ show monNumber :: String
-            strutConf = toStrutConfig wcfg monNumber
-
-        styleContext <- Gtk.widgetGetStyleContext window
-        styleContextAddClass styleContext "Taffybar"
-        widgetSetName window windowName
-
-        giWindow <- gtk2hsToGIGtkWindow window
-        setupStrutWindow strutConf giWindow
-
-        box <- hBoxNew False $ widgetSpacing wcfg
-        containerAdd window box
-
-        mapM_
-          (\io -> do
-             wid <- io
-             widgetSetSizeRequest wid (-1) (barHeight wcfg)
-             boxPackStart box wid PackNatural 0)
-          (startWidgets wcfg)
-
-        mapM_
-          (\io -> do
-             wid <- io
-             widgetSetSizeRequest wid (-1) (barHeight wcfg)
-             boxPackEnd box wid PackNatural 0)
-          (endWidgets wcfg)
-
-        widgetShow window
-        widgetShow box
-        return window
-
-  _ <- on screen screenMonitorsChanged refreshTaffyWindows
-
-  startRefresher cfg $ postGUIAsync refreshTaffyWindows
-
-  refreshTaffyWindows
-  -- Reset the size of the Taffybar window if the monitor setup has
-  -- changed, e.g., after a laptop user has attached an external
-  -- monitor.
   mainGUI
   return ()
