@@ -236,6 +236,9 @@ runX11 :: ReaderT X11Context IO b -> ReaderT Context IO b
 runX11 action =
   asksContextVar x11ContextVar >>= lift . runReaderT action
 
+runX11Def :: a -> X11Property a -> TaffyIO a
+runX11Def def prop = runX11 $ postX11RequestSyncProp prop def
+
 getState :: forall t. Typeable t => Taffy IO (Maybe t)
 getState = do
   stateMap <- asksContextVar contextState
