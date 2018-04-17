@@ -57,6 +57,7 @@ logT p m = lift $ logIO p m
 getActiveMonitorNumber :: MaybeT IO Int
 getActiveMonitorNumber = do
   screen <- MaybeT screenGetDefault
+  -- XXX: This doesn't work for the case where a monitor has no active window
   window <- MaybeT $ screenGetActiveWindow screen
   lift $ screenGetMonitorAtWindow screen window
 
