@@ -112,7 +112,6 @@ library
                  , System.Taffybar.SimpleClock
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Systray
-                 , System.Taffybar.TaffyPager
                  , System.Taffybar.Text.CPUMonitor
                  , System.Taffybar.Text.MemoryMonitor
                  , System.Taffybar.ToggleMonitor
