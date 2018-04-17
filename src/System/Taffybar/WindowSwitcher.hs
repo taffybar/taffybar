@@ -1,85 +1,72 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.WindowSwitcher
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
--- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Maintainer  : Ivan Malison <IvanMalison@gmail.com>
 -- Stability   : unstable
 -- Portability : unportable
 --
 -- Menu widget that shows the title of the currently focused window and that,
 -- when clicked, displays the list of all currently open windows allowing to
 -- switch to any of them.
---
--- N.B. If you're just looking for a drop-in replacement for the
--- "System.Taffybar.XMonadLog" widget that is clickable and doesn't require
--- DBus, you may want to see first "System.Taffybar.TaffyPager".
---
 -----------------------------------------------------------------------------
 
 module System.Taffybar.WindowSwitcher (
   -- * Usage
   -- $usage
-  windowSwitcherNew
+    windowSwitcherNew
+  , WindowSwitcherConfig(..)
+  , defaultWindowSwitcherConfig
 ) where
 
 import           Control.Monad.Reader
-import qualified Data.Map as M
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
-import           Graphics.X11.Xlib.Extras (Event)
 import           System.Information.EWMHDesktopInfo
-import           System.Information.X11DesktopInfo
-import           System.Taffybar.Pager
+import           System.Taffybar.Context
 
 -- $usage
 --
--- This widget requires that the EwmhDesktops hook from the XMonadContrib
--- project be installed in your @xmonad.hs@ file:
+-- The window switcher widget requires that the EwmhDesktops hook from the
+-- XMonadContrib project be installed in your @xmonad.hs@ file:
 --
 -- > import XMonad.Hooks.EwmhDesktops (ewmh)
 -- > main = do
 -- >   xmonad $ ewmh $ defaultConfig
 -- > ...
---
--- Once you've properly configured @xmonad.hs@, you can use the widget in
--- your @taffybar.hs@ file:
---
--- > import System.Taffybar.WindowSwitcher
--- > main = do
--- >   pager <- pagerNew defaultPagerConfig
--- >   let wnd = windowSwitcherNew pager
---
--- now you can use @wnd@ as any other Taffybar widget.
+
+data WindowSwitcherConfig = WindowSwitcherConfig
+  { getMenuLabel :: X11Window -> TaffyIO String
+  , getActiveLabel :: TaffyIO String
+  }
+
+defaultWindowSwitcherConfig :: WindowSwitcherConfig
+defaultWindowSwitcherConfig = WindowSwitcherConfig
+  { getMenuLabel = runX11Def "(nameless window)" . getWindowTitle
+  , getActiveLabel = runX11Def "(nameless window)" getActiveWindowTitle
+  }
 
 -- | Create a new WindowSwitcher widget that will use the given Pager as
 -- its source of events.
-windowSwitcherNew :: Pager -> IO Gtk.Widget
-windowSwitcherNew pager = do
-  label <- Gtk.labelNew (Nothing :: Maybe String)
-  Gtk.widgetSetName label "label"
-  -- This callback is registered through 'subscribe', which runs the
-  -- callback in another thread.  We need to use postGUIAsync in it.
-  let cfg = config pager
-      callback = pagerCallback cfg label
-  subscription <- subscribe pager (runWithPager pager . callback) "_NET_ACTIVE_WINDOW"
-  widget <- assembleWidget pager label
-  _ <- Gtk.on widget W.unrealize (unsubscribe pager subscription)
+windowSwitcherNew :: WindowSwitcherConfig -> TaffyIO Gtk.Widget
+windowSwitcherNew config = do
+  label <- lift $ do
+    label <- Gtk.labelNew (Nothing :: Maybe String)
+    Gtk.widgetSetName label "label"
+    return label
+
+  let setLabelTitle title = lift $ Gtk.postGUIAsync $ Gtk.labelSetMarkup label title
+      activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
+
+  subscription <- subscribeToEvents ["_NET_ACTIVE_WINDOW"] activeWindowUpdatedCallback
+  widget <- assembleWidget config label
+  _ <- liftReader (Gtk.on widget W.unrealize) (unsubscribe subscription)
   return widget
 
--- | Build a suitable callback function that can be registered as Listener
--- of "_NET_ACTIVE_WINDOW" standard events. It will keep track of the
--- currently focused window.
-pagerCallback :: PagerConfig -> Gtk.Label -> Event -> X11Property ()
-pagerCallback cfg label _ = do
-  title <- getActiveWindowTitle
-  let decorate = activeWindow cfg
-  lift $ Gtk.postGUIAsync $ Gtk.labelSetMarkup label (decorate $ nonEmpty title)
-
-assembleWidget :: Pager -> Gtk.Label -> IO Gtk.Widget
-assembleWidget pager label = do
+assembleWidget :: WindowSwitcherConfig -> Gtk.Label -> TaffyIO Gtk.Widget
+assembleWidget config label = ask >>= \context -> lift $ do
   ebox <- Gtk.eventBoxNew
   Gtk.widgetSetName ebox "WindowTitle"
   Gtk.containerAdd ebox label
@@ -99,43 +86,30 @@ assembleWidget pager label = do
   Gtk.widgetSetName menuTop "Taffybar_WindowSwitcher"
 
   Gtk.menuItemSetSubmenu title menu
+
   -- These callbacks are run in the GUI thread automatically and do
   -- not need to use postGUIAsync
-  _ <- Gtk.on title Gtk.menuItemActivate $ fillMenu pager menu
+  _ <- Gtk.on title Gtk.menuItemActivate $ runReaderT (fillMenu config menu) context
   _ <- Gtk.on title Gtk.menuItemDeselect $ emptyMenu menu
 
   Gtk.widgetShowAll switcher
   return $ Gtk.toWidget switcher
 
 -- | Populate the given menu widget with the list of all currently open windows.
-fillMenu :: Gtk.MenuClass menu => Pager -> menu -> IO ()
-fillMenu pager menu =
-  runWithPager pager $ do
-    handles <- getWindowHandles
-    if null handles
-      then return ()
-      else do
-        wsNames <- getWorkspaceNames
-        forM_ handles $ \handle ->
-          liftIO $ do
-            let formatEntry = windowSwitcherFormatter $ config pager
-            item <-
-              Gtk.menuItemNewWithLabel (formatEntry (M.fromList wsNames) handle)
-            _ <-
-              Gtk.on item Gtk.buttonPressEvent $
-              liftIO $ do
-                runWithPager pager $ focusWindow $ snd handle
-                return True
-            Gtk.menuShellAppend menu item
-            Gtk.widgetShow item
+fillMenu :: Gtk.MenuClass menu => WindowSwitcherConfig -> menu -> TaffyIO ()
+fillMenu config menu = ask >>= \context ->
+  runX11Def () $ do
+    windowIds <- getWindows
+    forM_ windowIds $ \windowId ->
+      lift $ do
+        labelText <- runReaderT (getMenuLabel config windowId) context
+        let focusCallback = runReaderT (runX11 $ focusWindow windowId) context >> return True
+        item <- Gtk.menuItemNewWithLabel labelText
+        _ <- Gtk.on item Gtk.buttonPressEvent $ liftIO focusCallback
+        Gtk.menuShellAppend menu item
+        Gtk.widgetShow item
 
 -- | Remove all contents from the given menu widget.
 emptyMenu :: Gtk.MenuClass menu => menu -> IO ()
 emptyMenu menu = Gtk.containerForeach menu $ \item ->
                  Gtk.containerRemove menu item >> Gtk.widgetDestroy item
-
-nonEmpty :: String -> String
-nonEmpty x =
-      case x of
-        [] -> "(nameless window)"
-        _ -> x

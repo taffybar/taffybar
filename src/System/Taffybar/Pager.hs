@@ -91,8 +91,6 @@ data PagerConfig = PagerConfig
   -- ^ fill empty images instead of clearing them
   , customIcon              :: Bool -> String -> String -> Maybe FilePath
   -- ^ get custom icon based on: has-EWMH-icon, window-title, window-class
-  , windowSwitcherFormatter :: M.Map WorkspaceIdx String -> X11WindowHandle -> String
-  -- ^ title windows for WindowSwitcher
   }
 
 -- | Structure containing the state of the Pager.
@@ -133,24 +131,7 @@ defaultPagerConfig = PagerConfig
   , imageSize               = 16
   , fillEmptyImages         = False
   , customIcon              = \_ _ _ -> Nothing
-  , windowSwitcherFormatter = defaultFormatEntry
   }
-
--- | Build the name to display in the list of windows by prepending the name
--- of the workspace it is currently in to the name of the window itself
-defaultFormatEntry
-  :: M.Map WorkspaceIdx String -- ^ List $ names of all available workspaces
-  -> X11WindowHandle -- ^ Handle of the window to name
-  -> String
-defaultFormatEntry wsNames ((ws, wtitle, _), _) =
-  printf "%s: %s " wsName $ nonEmpty wtitle
-  where
-    wsName = M.findWithDefault ("WS#" ++ show wsN) ws wsNames
-    WSIdx wsN = ws
-    nonEmpty x =
-      case x of
-        [] -> "(nameless window)"
-        _ -> x
 
 -- | Creates a new Pager component (wrapped in the IO Monad) that can be
 -- used by widgets for subscribing X11 events.

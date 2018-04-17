@@ -232,7 +232,7 @@ refreshTaffyWindows = liftReader Gtk.postGUIAsync $ do
 asksContextVar :: (r -> MV.MVar b) -> ReaderT r IO b
 asksContextVar getter = asks getter >>= lift . MV.readMVar
 
-runX11 :: ReaderT X11Context IO b -> ReaderT Context IO b
+runX11 :: X11Property a -> TaffyIO a
 runX11 action =
   asksContextVar x11ContextVar >>= lift . runReaderT action
 
