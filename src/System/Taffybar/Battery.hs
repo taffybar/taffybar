@@ -1,12 +1,23 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
--- | This module provides battery widgets using the UPower system
+-----------------------------------------------------------------------------
+-- |
+-- Module      : System.Taffybar.NetMonitor
+-- Copyright   : (c) Ivan A. Malison
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : Ivan A. Malison
+-- Stability   : unstable
+-- Portability : unportable
+--
+-- This module provides battery widgets using the UPower system
 -- service.
 --
 -- Currently it reports only the first battery it finds.  If it does
 -- not find a battery, it just returns an obnoxious widget with
 -- warning text in it.  Battery hotplugging is not supported.  These
 -- more advanced features could be supported if there is interest.
+-----------------------------------------------------------------------------
 module System.Taffybar.Battery (
   batteryBarNew,
   batteryBarNewWithFormat,
@@ -42,10 +53,10 @@ data BatteryWidgetInfo = BWI { seconds :: Maybe Int64
 combine :: [BatteryWidgetInfo] -> Maybe BatteryWidgetInfo
 combine [] = Nothing
 combine bs =
-  Just (BWI { seconds = sum <$> (sequence (seconds <$> bs))
-            , percent = (sum $ percent <$> bs) `div` (length bs)
-            , status = status $ head bs
-            })
+  Just BWI { seconds = sum <$> sequence (seconds <$> bs)
+           , percent = sum (percent <$> bs) `div` length bs
+           , status = status $ head bs
+           }
 
 -- | Format a duration expressed as seconds to hours and minutes
 formatDuration :: Maybe Int64 -> String
@@ -58,7 +69,7 @@ formatDuration (Just secs) = let minutes = secs `div` 60
 safeGetBatteryInfo :: IORef BatteryContext -> Int -> IO (Maybe BatteryInfo)
 safeGetBatteryInfo mv i = do
   ctxt <- readIORef mv
-  E.catchAny (getBatteryInfo ctxt) $ \_ -> reconnect
+  E.catchAny (getBatteryInfo ctxt) $ const reconnect
   where
     reconnect = do
       IO.hPutStrLn IO.stderr "reconnecting"
@@ -108,11 +119,11 @@ formatBattInfo (Just info) fmt =
 -- | Provides textual information regarding multiple batteries
 battSumm :: [IORef BatteryContext] -> String -> IO String
 battSumm rs fmt = do
-  winfos <- sequence $ fmap (uncurry getBatteryWidgetInfo) (rs `zip` [0..])
+  winfos <- traverse (uncurry getBatteryWidgetInfo) (rs `zip` [0..])
   let ws :: [BatteryWidgetInfo]
       ws = flatten winfos
       flatten []            = []
-      flatten ((Just a):as) = a:(flatten as)
+      flatten (Just a:as) = a:flatten as
       flatten (Nothing:as)  = flatten as
       combined = combine ws
   return $ formatBattInfo combined fmt
@@ -134,7 +145,7 @@ textBatteryNew :: [IORef BatteryContext]
 textBatteryNew [] _ _ =
   let lbl :: Maybe String
       lbl = Just "No battery"
-  in labelNew lbl >>= return . toWidget
+  in toWidget <$> labelNew lbl
 textBatteryNew rs fmt pollSeconds = do
     l <- pollingLabelNew "" pollSeconds (battSumm rs fmt)
     widgetShowAll l
@@ -170,8 +181,8 @@ defaultBatteryConfig =
 -- textual percentage reppadout next to the bars, containing a summary of
 -- battery information.
 batteryBarNew :: BarConfig -> Double -> IO Widget
-batteryBarNew battCfg pollSeconds =
-  batteryBarNewWithFormat battCfg "$percentage$%" pollSeconds
+batteryBarNew battCfg =
+  batteryBarNewWithFormat battCfg "$percentage$%"
 
 -- | A battery bar constructor which allows using a custom format string
 -- in order to display more information, such as charging/discharging time
@@ -186,11 +197,11 @@ batteryBarNewWithFormat battCfg formatString pollSeconds = do
       toWidget <$> labelNew lbl
     cs -> do
       b <- hBoxNew False 1
-      rs <- sequence $ fmap newIORef cs
+      rs <- traverse newIORef cs
       txt <- textBatteryNew rs formatString pollSeconds
       let ris :: [(IORef BatteryContext, Int)]
           ris = rs `zip` [0..]
-      bars <- sequence $ fmap (\(i, r) -> pollingBarNew battCfg pollSeconds (battPct i r)) ris
+      bars <- traverse (\(i, r) -> pollingBarNew battCfg pollSeconds (battPct i r)) ris
       mapM_ (\bar -> boxPackStart b bar PackNatural 0) bars
       boxPackStart b txt PackNatural 0
       widgetShowAll b
