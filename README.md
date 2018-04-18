@@ -12,13 +12,25 @@ primarily for use with XMonad, though it can also function alongside other EWMH
 compliant window managers. It is similar in spirit to xmobar, but it differs in
 that it gives up some simplicity for a reasonable helping of eye candy.
 
+Development Status
+------------------
+
+Taffybar is under active development and has many exciting but potentially
+breaking changes ahead. All of the planned changes that will be occuring in the
+near future are tracked in [this github
+project](https://github.com/travitch/taffybar/projects/1). Particularly
+significant is [#265](https://github.com/travitch/taffybar/issues/265) which is
+actually already complete, and available in [this
+branch](https://github.com/travitch/taffybar/tree/use_gtk-strut). New users are
+encouraged to build from source and use this aforementioned branch to avoid
+having to rewrite their configs when the new version of taffybar is released.
+
 Installation
-===============
+------------
 
 Taffybar can be installed in a number of different ways:
 
-Stack
------
+### Stack
 
 Though it is admittedly a bit complicated to set up properly, using stack is the
 preferred approach for installing taffybar, because it makes the build process
@@ -40,15 +52,15 @@ name of the binary can be changed in the cabal file in the taffybar
 configuration directory.
 
 
-Cabal
------
+### Cabal
+
 Cabal installation is a simple matter of installing taffybar from hackage:
 ```
 cabal install taffybar
 ```
 
 Configuration
-================
+-------------
 
 Like xmobar and XMonad, taffybar is configured in haskell. Taffybar depends on
 dyre to automatically detect changes to its configuration file
