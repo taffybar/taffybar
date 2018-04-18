@@ -388,7 +388,7 @@ addDebugWidgets = do
     return ()
 
 buildWorkspaceHUD :: WorkspaceHUDConfig -> TaffyIO Gtk.Widget
-buildWorkspaceHUD cfg = ask >>= \taffyContext -> lift $ do
+buildWorkspaceHUD cfg = ask >>= \tContext -> lift $ do
   cont <- Gtk.hBoxNew False (widgetGap cfg)
   controllersRef <- MV.newMVar M.empty
   workspacesRef <- MV.newMVar M.empty
@@ -400,18 +400,18 @@ buildWorkspaceHUD cfg = ask >>= \taffyContext -> lift $ do
         , loggingVar = loggingRef
         , hudWidget = cont
         , hudConfig = cfg
-        , taffyContext = taffyContext
+        , taffyContext = tContext
         }
   -- This will actually create all the widgets
   runReaderT updateAllWorkspaceWidgets context
   updateHandler <- onWorkspaceUpdate context
   iconHandler <- onIconsChanged context
   (workspaceSubscription, iconSubscription) <-
-    flip runReaderT taffyContext $ sequenceT
+    flip runReaderT tContext $ sequenceT
          ( subscribeToEvents (updateEvents cfg) $ lift . updateHandler
          , subscribeToEvents ["_NET_WM_ICON"] (lift . onIconChanged context iconHandler)
          )
-  let doUnsubscribe = flip runReaderT taffyContext $
+  let doUnsubscribe = flip runReaderT tContext $
         mapM_ unsubscribe [iconSubscription, workspaceSubscription]
   _ <- Gtk.on cont W.unrealize doUnsubscribe
   return $ Gtk.toWidget cont

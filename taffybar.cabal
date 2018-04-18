@@ -41,9 +41,11 @@ library
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
                , filepath
+               , gi-gdk
+               , gi-gdkx11
                , gi-gtk
                , glib
-               , gtk-strut
+               , gtk-strut >= 0.1.2.0
                , gtk-traymanager >= 1.0.1 && < 2.0.0
                , gtk3
                , haskell-gi-base

@@ -22,6 +22,7 @@ import qualified Control.Concurrent.MVar as MV
 import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad
 import           Control.Monad.Trans
+import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import qualified DBus.Client as DBus
 import           Data.Data
@@ -33,6 +34,8 @@ import           Data.Tuple.Sequence
 import           Data.Unique
 import           Foreign.ForeignPtr
 import           Foreign.Ptr
+import qualified GI.Gdk
+import qualified GI.GdkX11 as GdkX11
 import qualified GI.Gtk
 import           Graphics.UI.GIGtkStrut
 import           Graphics.UI.Gtk as Gtk
@@ -137,6 +140,8 @@ gtk2hsToGIGtkWindow window = do
   fPtr <- withForeignPtr (Gtk.unWidget wid) (flip GI.Gtk.newManagedPtr (return ()) . castPtr)
   return $! GI.Gtk.Window fPtr
 
+instance GdkX11.IsX11Window GI.Gdk.Window
+
 buildBarWindow :: Context -> BarConfig -> IO Gtk.Window
 buildBarWindow context barConfig = do
   logIO DEBUG $
@@ -177,10 +182,15 @@ buildBarWindow context barConfig = do
   logIO DEBUG "Building end widgets"
   mapM_ (addWidgetWith addToEnd) (endWidgets barConfig)
 
+  logIO DEBUG "Showing window"
   widgetShow window
   widgetShow box
   widgetShow centerBox
-  logIO DEBUG "Showing window"
+
+  runX11Context context () $ void $ runMaybeT $ do
+    gdkWindow <- MaybeT $ GI.Gtk.widgetGetWindow giWindow
+    xid <- GdkX11.x11WindowGetXid gdkWindow
+    lift $ doLowerWindow (fromIntegral xid)
 
   return window
 
@@ -239,6 +249,10 @@ runX11 action =
 
 runX11Def :: a -> X11Property a -> TaffyIO a
 runX11Def def prop = runX11 $ postX11RequestSyncProp prop def
+
+runX11Context :: MonadIO m => Context -> a -> X11Property a -> m a
+runX11Context context def prop =
+  liftIO $ runReaderT (runX11Def def prop) context
 
 getState :: forall t. Typeable t => Taffy IO (Maybe t)
 getState = do
