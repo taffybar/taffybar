@@ -108,7 +108,6 @@ library
                  , System.Taffybar.Menu.MenuWidget
                  , System.Taffybar.Menu.XdgMenu
                  , System.Taffybar.NetMonitor
-                 , System.Taffybar.Pager
                  , System.Taffybar.SimpleClock
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Systray

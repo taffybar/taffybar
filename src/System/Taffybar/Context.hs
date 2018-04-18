@@ -13,6 +13,7 @@
 -- Stability   : unstable
 -- Portability : unportable
 -----------------------------------------------------------------------------
+
 module System.Taffybar.Context where
 
 import           Control.Arrow ((&&&))
