@@ -44,8 +44,8 @@ data WindowSwitcherConfig = WindowSwitcherConfig
 
 defaultWindowSwitcherConfig :: WindowSwitcherConfig
 defaultWindowSwitcherConfig = WindowSwitcherConfig
-  { getMenuLabel = runX11Def "(nameless window)" . getWindowTitle
-  , getActiveLabel = runX11Def "(nameless window)" getActiveWindowTitle
+  { getMenuLabel = fmap Gtk.escapeMarkup . runX11Def "(nameless window)" . getWindowTitle
+  , getActiveLabel = Gtk.escapeMarkup <$> runX11Def "(nameless window)" getActiveWindowTitle
   }
 
 -- | Create a new WindowSwitcher widget that will use the given Pager as
