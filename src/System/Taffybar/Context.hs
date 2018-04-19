@@ -32,22 +32,23 @@ import qualified Data.Map as M
 import           Data.Tuple.Select
 import           Data.Tuple.Sequence
 import           Data.Unique
-import           Foreign.ForeignPtr
-import           Foreign.Ptr
 import qualified GI.Gdk
 import qualified GI.GdkX11 as GdkX11
 import qualified GI.Gtk
 import           Graphics.UI.GIGtkStrut
 import           Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.General.StyleContext as Gtk
-import qualified Graphics.UI.Gtk.Types as Gtk
 import           System.Information.SafeX11
 import           System.Information.X11DesktopInfo
 import           System.Log.Logger
+import           System.Taffybar.GtkLibCompat
 import           Text.Printf
 import           Unsafe.Coerce
 
+logIO :: System.Log.Logger.Priority -> String -> IO ()
 logIO = logM "System.Taffybar.Context"
+
+logT :: MonadTrans t => System.Log.Logger.Priority -> String -> t IO ()
 logT p m = lift $ logIO p m
 
 type Taffy m v = MonadIO m => ReaderT Context m v
@@ -134,12 +135,6 @@ buildContext TaffybarConfig
 buildEmptyContext :: IO Context
 buildEmptyContext = buildContext defaultTaffybarConfig
 
-gtk2hsToGIGtkWindow :: Gtk.Window -> IO GI.Gtk.Window
-gtk2hsToGIGtkWindow window = do
-  let wid = Gtk.toWidget window
-  fPtr <- withForeignPtr (Gtk.unWidget wid) (flip GI.Gtk.newManagedPtr (return ()) . castPtr)
-  return $! GI.Gtk.Window fPtr
-
 instance GdkX11.IsX11Window GI.Gdk.Window
 
 buildBarWindow :: Context -> BarConfig -> IO Gtk.Window
@@ -154,7 +149,7 @@ buildBarWindow context barConfig = do
   Gtk.boxSetCenterWidget box centerBox
 
   -- XXX: This conversion could leak memory
-  giWindow <- gtk2hsToGIGtkWindow window
+  giWindow <- toGIWindow window
   setupStrutWindow (strutConfig barConfig) giWindow
   Gtk.containerAdd window box
 
@@ -209,7 +204,7 @@ refreshTaffyWindows = liftReader Gtk.postGUIAsync $ do
               (remainingWindows, removedWindows) =
                 partition ((`elem` barConfigs) . sel1) currentWindows
               setPropertiesFromPair (barConf, window) =
-                gtk2hsToGIGtkWindow window >>=
+                toGIWindow window >>=
                 setupStrutWindow (strutConfig barConf)
 
           newWindowPairs <- lift $ do

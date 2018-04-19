@@ -39,9 +39,13 @@ import           System.Taffybar.Context
 
 data WindowSwitcherConfig = WindowSwitcherConfig
   { getMenuLabel :: X11Window -> TaffyIO String
+  -- ^ A monadic function that will be used to make a label for the window in
+  -- the window menu.
   , getActiveLabel :: TaffyIO String
+  -- ^ Action to build the label text for the active window.
   }
 
+-- TODO: Add something that truncates names that are too long
 defaultWindowSwitcherConfig :: WindowSwitcherConfig
 defaultWindowSwitcherConfig = WindowSwitcherConfig
   { getMenuLabel = fmap Gtk.escapeMarkup . runX11Def "(nameless window)" . getWindowTitle

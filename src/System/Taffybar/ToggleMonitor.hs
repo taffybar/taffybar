@@ -51,7 +51,10 @@ import           Text.Read ( readMaybe )
 --
 -- > dbus-send --print-reply=literal --dest=taffybar.toggle /taffybar/toggle taffybar.toggle.toggleCurrent
 
+logIO :: System.Log.Logger.Priority -> String -> IO ()
 logIO = logM "System.Taffybar.ToggleMonitor"
+
+logT :: MonadTrans t => System.Log.Logger.Priority -> String -> t IO ()
 logT p m = lift $ logIO p m
 
 getActiveMonitorNumber :: MaybeT IO Int
