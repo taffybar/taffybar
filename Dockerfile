@@ -1,4 +1,4 @@
-FROM debian:sid as taffyenv
+FROM debian:sid
 
 # Stack and things that install go here
 RUN mkdir -p "/root/.local/bin"
@@ -18,7 +18,8 @@ RUN stack install gtk2hs-buildtools
 
 # The stack file is all that is needed to install ghc, so only copying it avoids
 # rebuilding the layer if only other things in the file change.
-COPY ./stack.yaml /taffybar/
+ARG STACK_YAML
+COPY ./stack*.yaml /taffybar/
 RUN stack --no-terminal --install-ghc setup
 
 # As with installing GHC, we avoid doing a full copy so that we only rebuild
@@ -26,7 +27,6 @@ RUN stack --no-terminal --install-ghc setup
 COPY ./taffybar.cabal /taffybar/
 RUN stack build --no-terminal --only-dependencies
 
-FROM taffyenv as taffybuild
 # Actually build taffybar.
 COPY . /taffybar/
 RUN stack --no-terminal build

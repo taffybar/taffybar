@@ -6,7 +6,6 @@ services:
   - docker
 
 before_install:
-- mv "$STACK_YAML" stack.yaml
 - docker pull "taffybar/taffybar:latest-$STACK_YAML"
 
 matrix:
@@ -15,8 +14,5 @@ matrix:
   - env: STACK_YAML=stack-8.0.yaml
   - env: STACK_YAML=stack-8.2.yaml
 
-install:
-- docker build --target taffyenv --cache-from "taffybar/taffybar:latest-$STACK_YAML" .
-
 script:
-- docker build --target taffybuild --cache-from "taffybar/taffybar:latest-$STACK_YAML" .
+- docker build --cache-from "taffybar/taffybar:latest-$STACK_YAML" --build-arg STACK_YAML="$STACK_YAML" .
