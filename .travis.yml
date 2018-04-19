@@ -1,42 +1,22 @@
 language: generic
-cache:
-  directories:
-  - $HOME/.ghc
-  - $HOME/.cabal
-  - $HOME/.stack
+
+sudo: required
+
+services:
+  - docker
 
 before_install:
-- mkdir -p ~/.local/bin
-- export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-- export PATH=/opt/ghc/$GHCVER/bin:$PATH
-- stack install gtk2hs-buildtools
-
-addons:
-  apt:
-    packages:
-      - libgtk-3-dev
-      - libasound2-dev
-      - libgirepository1.0-dev
-      - libgdk-pixbuf2.0-dev
+- mv "$STACK_YAML" stack.yaml
+- docker pull "taffybar/taffybar:latest-$STACK_YAML"
 
 matrix:
   include:
-  - env: GHCVER=7.10.3 STACK_YAML=stack-7.10.yaml
-  - env: GHCVER=8.0.2 STACK_YAML=stack-8.0.yaml
-  - env: GHCVER=8.2.2 STACK_YAML=stack-8.2.yaml
-  - env: BUILD_TYPE='Test quick start'
-    sudo: required
-    install: []
-    script:
-      - ./quick-start.sh
+  - env: STACK_YAML=stack-7.10.yaml
+  - env: STACK_YAML=stack-8.0.yaml
+  - env: STACK_YAML=stack-8.2.yaml
 
 install:
-- stack --no-terminal --install-ghc $ARGS test --bench --dry-run || ( \
-    stack --no-terminal $ARGS build cabal-install && \
-    stack --no-terminal $ARGS solver --update-config)
-# Build the dependencies only
-- stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
+- docker build --target taffyenv --cache-from "taffybar/taffybar:latest-$STACK_YAML" .
 
 script:
- - stack --no-terminal --install-ghc build
+- docker build --target taffybuild --cache-from "taffybar/taffybar:latest-$STACK_YAML" .

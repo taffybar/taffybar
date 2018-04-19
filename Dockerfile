@@ -1,4 +1,4 @@
-FROM debian:sid
+FROM debian:sid as taffyenv
 
 # Stack and things that install go here
 RUN mkdir -p "/root/.local/bin"
@@ -26,6 +26,7 @@ RUN stack --no-terminal --install-ghc setup
 COPY ./taffybar.cabal /taffybar/
 RUN stack build --no-terminal --only-dependencies
 
+FROM taffyenv as taffybuild
 # Actually build taffybar.
 COPY . /taffybar/
 RUN stack --no-terminal build
