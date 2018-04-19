@@ -24,6 +24,7 @@ module System.Information.EWMHDesktopInfo
   , X11WindowHandle
   , WorkspaceIdx(..)
   , EWMHIcon(..)
+  , EWMHIconData
   , withDefaultCtx -- re-exported from X11DesktopInfo
   , isWindowUrgent -- re-exported from X11DesktopInfo
   , getCurrentWorkspace
@@ -31,9 +32,10 @@ module System.Information.EWMHDesktopInfo
   , getWorkspaceNames
   , switchToWorkspace
   , switchOneWorkspace
+  , withEWMHIcons
   , getWindowTitle
   , getWindowClass
-  , getWindowIcons
+  , getWindowIconsData
   , getActiveWindowTitle
   , getWindows
   , getWindowHandles
@@ -43,9 +45,8 @@ module System.Information.EWMHDesktopInfo
 
 import Control.Applicative
 import Control.Monad.Trans
-import Control.Monad.Trans.Maybe (MaybeT(..))
-import Data.Maybe (listToMaybe, mapMaybe, fromMaybe)
-import Data.Tuple (swap)
+import Data.Maybe
+import Data.Tuple
 import Data.Word
 import Debug.Trace
 import Foreign.ForeignPtr
@@ -74,6 +75,8 @@ newtype WorkspaceIdx = WSIdx Int
 -- we need to manipulate the underlying data in annoying ways to pass it to gtk
 -- appropriately.
 type PixelsWordType = Word64
+
+type EWMHIconData = (ForeignPtr PixelsWordType, Int)
 
 data EWMHIcon = EWMHIcon
   { width :: Int
@@ -142,21 +145,30 @@ getWindowTitle window = do
 getWindowClass :: X11Window -> X11Property String
 getWindowClass window = readAsString (Just window) "WM_CLASS"
 
--- | Get list of icon ARGB data from EWMH
-getWindowIcons :: X11Window -> X11Property [EWMHIcon]
-getWindowIcons window = fromMaybe [] <$> do
+-- | Get EWMHIconData for the given X11Window
+getWindowIconsData :: X11Window -> X11Property (Maybe EWMHIconData)
+getWindowIconsData window = do
   dpy <- getDisplay
   atom <- getAtom "_NET_WM_ICON"
-  lift $ runMaybeT $ do
-    (ptr, arraySize) <- MaybeT $ rawGetWindowPropertyBytes 32 dpy atom window
-    ics <- lift $ withForeignPtr ptr $ parseIcons arraySize
-    return ics
+  lift $ rawGetWindowPropertyBytes 32 dpy atom window
+
+-- | Operate on the data contained in 'EWMHIconData' in the easier to interact
+-- with format offered by 'EWMHIcon'. This function is much like
+-- 'withForeignPtr' in that the 'EWMHIcon' values that are provided to the
+-- callable argument should not be kept around in any way, because it can not be
+-- guaranteed that the finalizer for the memory to which those icon objects
+-- point will not be executed, after the call to 'withEWMHIcons' completes.
+withEWMHIcons :: EWMHIconData -> ([EWMHIcon] -> IO a) -> IO a
+withEWMHIcons (fptr, size) action =
+  withForeignPtr fptr ((>>= action) . parseIcons size)
 
 -- | Split icon raw integer data into EWMHIcons.
 -- Each icon raw data is an integer for width,
 --   followed by height,
 --   followed by exactly (width*height) ARGB pixels,
 --   optionally followed by the next icon.
+-- This function should not be made public, because its return value contains
+-- (sub)pointers whose allocation we do not control.
 parseIcons :: Int -> Ptr PixelsWordType -> IO [EWMHIcon]
 parseIcons 0 _ = return []
 parseIcons totalSize arr = do
