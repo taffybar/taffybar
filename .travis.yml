@@ -17,6 +17,8 @@ addons:
     packages:
       - libgtk-3-dev
       - libasound2-dev
+      - libgirepository1.0-dev
+      - libgdk-pixbuf2.0-dev
 
 matrix:
   include:
