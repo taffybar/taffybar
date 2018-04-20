@@ -1,3 +1,10 @@
+# 1.0.2
+
+## Bug Fixes
+
+ * Fix long standing memory leak that was caused by a failure to free memory
+   allocated for gtk pixbufs.
+
 # 1.0.0
 
 ## Breaking Changes
