@@ -2,11 +2,12 @@
 -- very well since it is based on eggtraymanager.
 module System.Taffybar.Systray ( systrayNew ) where
 
+import Control.Monad.Trans
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Misc.TrayManager
 
-systrayNew :: IO Widget
-systrayNew = do
+systrayNew :: MonadIO m => m Widget
+systrayNew = liftIO $ do
   box <- hBoxNew False 5
 
   trayManager <- trayManagerNew

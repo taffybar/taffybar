@@ -57,10 +57,9 @@ module System.Taffybar
   -- >                                   , graphLabel = Just "cpu"
   -- >                                   }
   -- >       clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
-  -- >       log = xmonadLogNew
   -- >       tray = systrayNew
   -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
-  -- >   defaultTaffybar defaultTaffybarConfig { startWidgets = [ log ]
+  -- >   defaultTaffybar defaultTaffybarConfig { startWidgets = [ ]
   -- >                                         , endWidgets = [ tray, clock, cpu ]
   -- >                                         }
   --
@@ -188,7 +187,6 @@ module System.Taffybar
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
 import Control.Monad
-import Control.Monad.Trans.Reader
 import Graphics.UI.Gtk as Gtk
 import Graphics.UI.Gtk.General.CssProvider
 import qualified Graphics.UI.Gtk.General.StyleContext as Gtk
@@ -261,8 +259,7 @@ startTaffybar config = do
   _ <- initThreads
   _ <- initGUI
   _ <- startCSS
-
-  context <- buildContext config
+  _ <- buildContext config
 
   mainGUI
   return ()

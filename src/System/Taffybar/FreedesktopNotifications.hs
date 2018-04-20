@@ -30,44 +30,41 @@ module System.Taffybar.FreedesktopNotifications (
   defaultNotificationConfig
   ) where
 
-import Control.Concurrent
-import Control.Concurrent.STM
-import Control.Monad ( forever, void )
-import Control.Monad.Trans ( liftIO )
-import Data.Int ( Int32 )
-import Data.Foldable
-import Data.Map ( Map )
-import Data.Monoid
+import           Control.Concurrent
+import           Control.Concurrent.STM
+import           Control.Monad ( forever, void )
+import           Control.Monad.Trans
+import           DBus
+import           DBus.Client
+import           Data.Foldable
+import           Data.Int ( Int32 )
+import           Data.Map ( Map )
+import           Data.Monoid
+import           Data.Sequence ( Seq, (|>), viewl, ViewL(..) )
 import qualified Data.Sequence as S
-import Data.Sequence ( Seq, (|>), viewl, ViewL(..) )
-import Data.Text ( Text )
+import           Data.Text ( Text )
 import qualified Data.Text as T
-import Data.Word ( Word32 )
-import DBus
-import DBus.Client
-import Graphics.UI.Gtk hiding ( Variant )
+import           Data.Word ( Word32 )
+import           Graphics.UI.Gtk hiding ( Variant )
 
 -- | A simple structure representing a Freedesktop notification
-data Notification = Notification { noteAppName :: Text
-                                 , noteReplaceId :: Word32
-                                 , noteSummary :: Text
-                                 , noteBody :: Text
-                                 , noteExpireTimeout :: Maybe Int32
-                                 , noteId :: Word32
-                                 }
-                    deriving (Show, Eq)
+data Notification = Notification
+  { noteAppName :: Text
+  , noteReplaceId :: Word32
+  , noteSummary :: Text
+  , noteBody :: Text
+  , noteExpireTimeout :: Maybe Int32
+  , noteId :: Word32
+  } deriving (Show, Eq)
 
-data NotifyState = NotifyState { noteWidget :: Label
-                               , noteContainer :: Widget
-                               , noteConfig :: NotificationConfig
-                                 -- ^ The associated configuration
-                               , noteQueue :: TVar (Seq Notification)
-                                 -- ^ The queue of active notifications
-                               , noteIdSource :: TVar Word32
-                                 -- ^ A source of fresh notification ids
-                               , noteChan :: Chan ()
-                                 -- ^ Writing to this channel wakes up the display thread
-                               }
+data NotifyState = NotifyState
+  { noteWidget :: Label
+  , noteContainer :: Widget
+  , noteConfig :: NotificationConfig -- ^ The associated configuration
+  , noteQueue :: TVar (Seq Notification) -- ^ The queue of active notifications
+  , noteIdSource :: TVar Word32 -- ^ A source of fresh notification ids
+  , noteChan :: Chan () -- ^ Writing to this channel wakes up the display thread
+  }
 
 initialNoteState :: Widget -> Label -> NotificationConfig -> IO NotifyState
 initialNoteState wrapper l cfg = do
@@ -97,7 +94,7 @@ noteNext s = atomically $ modifyTVar' (noteQueue s) aux
 
 -- | Generates a fresh notification id
 noteFreshId :: NotifyState -> IO Word32
-noteFreshId (NotifyState { noteIdSource }) = atomically $ do
+noteFreshId NotifyState { noteIdSource } = atomically $ do
   nId <- readTVar noteIdSource
   writeTVar noteIdSource (succ nId)
   return nId
@@ -186,12 +183,12 @@ displayThread s = forever $ do
       labelSetMarkup (noteWidget s) $ formatMessage (noteConfig s) (toList ns)
       widgetShowAll (noteContainer s)
   where
-    formatMessage (NotificationConfig {..}) ns =
+    formatMessage NotificationConfig {..} ns =
       take notificationMaxLength $ notificationFormatter ns
 
 --------------------------------------------------------------------------------
 startTimeoutThread :: NotifyState -> Notification -> IO ()
-startTimeoutThread s (Notification {..}) = case noteExpireTimeout of
+startTimeoutThread s Notification {..} = case noteExpireTimeout of
   Nothing -> return ()
   Just timeout -> void $ forkIO $ do
     threadDelay (fromIntegral timeout * 10^(6 :: Int))
@@ -199,11 +196,11 @@ startTimeoutThread s (Notification {..}) = case noteExpireTimeout of
     wakeupDisplayThread s
 
 --------------------------------------------------------------------------------
-data NotificationConfig =
-  NotificationConfig { notificationMaxTimeout :: Maybe Int32 -- ^ Maximum time that a notification will be displayed (in seconds).  Default: None
-                     , notificationMaxLength :: Int  -- ^ Maximum length displayed, in characters.  Default: 100
-                     , notificationFormatter :: [Notification] -> String -- ^ Function used to format notifications, takes the notifications from first to last
-                     }
+data NotificationConfig = NotificationConfig
+  { notificationMaxTimeout :: Maybe Int32 -- ^ Maximum time that a notification will be displayed (in seconds).  Default: None
+  , notificationMaxLength :: Int -- ^ Maximum length displayed, in characters.  Default: 100
+  , notificationFormatter :: [Notification] -> String -- ^ Function used to format notifications, takes the notifications from first to last
+  }
 
 defaultFormatter :: [Notification] -> String
 defaultFormatter ns =
@@ -231,8 +228,8 @@ defaultNotificationConfig =
                      }
 
 -- | Create a new notification area with the given configuration.
-notifyAreaNew :: NotificationConfig -> IO Widget
-notifyAreaNew cfg = do
+notifyAreaNew :: MonadIO m => NotificationConfig -> m Widget
+notifyAreaNew cfg = liftIO $ do
   frame <- frameNew
   box <- hBoxNew False 3
   textArea <- labelNew (Nothing :: Maybe String)

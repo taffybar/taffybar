@@ -10,16 +10,16 @@ module System.Taffybar.SimpleClock (
   ClockConfig(..)
   ) where
 
-import Control.Monad.Trans ( liftIO )
-import Data.Time.Calendar ( toGregorian )
+import           Control.Monad.Trans
+import           Data.Time.Calendar ( toGregorian )
 import qualified Data.Time.Clock as Clock
-import Data.Time.Format
-import Data.Time.LocalTime
-import Graphics.UI.Gtk
+import           Data.Time.Format
+import           Data.Time.LocalTime
 import qualified Data.Time.Locale.Compat as L
+import           Graphics.UI.Gtk
 
-import System.Taffybar.Widgets.PollingLabel
-import System.Taffybar.Widgets.Util
+import           System.Taffybar.Widgets.PollingLabel
+import           System.Taffybar.Widgets.Util
 
 makeCalendar :: IO TimeZone -> IO Window
 makeCalendar tzfn = do
@@ -52,12 +52,12 @@ toggleCalendar w c = do
       displayPopup w c
   return True
 
--- | Create the widget.  I recommend passing @Nothing@ for the
--- TimeLocale parameter.  The format string can include Pango markup
+-- | Create the widget. I recommend passing @Nothing@ for the TimeLocale
+-- parameter. The format string can include Pango markup
 -- (http://developer.gnome.org/pango/stable/PangoMarkupFormat.html).
-textClockNew :: Maybe L.TimeLocale -> String -> Double -> IO Widget
-textClockNew userLocale fmt updateSeconds =
-  textClockNewWith cfg fmt updateSeconds
+textClockNew :: MonadIO m => Maybe L.TimeLocale -> String -> Double -> m Widget
+textClockNew userLocale =
+  textClockNewWith cfg
   where
     cfg = defaultClockConfig { clockTimeLocale = userLocale }
 
@@ -93,8 +93,8 @@ foreign import ccall unsafe "time.h tzset"
 -- a configurable time zone through the 'ClockConfig'.
 --
 -- See also 'textClockNew'.
-textClockNewWith :: ClockConfig -> String -> Double -> IO Widget
-textClockNewWith cfg fmt updateSeconds = do
+textClockNewWith :: MonadIO m => ClockConfig -> String -> Double -> m Widget
+textClockNewWith cfg fmt updateSeconds = liftIO $ do
   let ti = TimeInfo { getTZ = maybe systemGetTZ return userZone
                     , getLocale = maybe (return L.defaultTimeLocale) return userLocale
                     }

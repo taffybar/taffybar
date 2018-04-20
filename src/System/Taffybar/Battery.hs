@@ -26,13 +26,14 @@ module System.Taffybar.Battery (
   ) where
 
 import           Control.Applicative
-import qualified Control.Exception.Enclosed           as E
-import           Data.Int                             (Int64)
+import qualified Control.Exception.Enclosed as E
+import           Control.Monad.Trans
 import           Data.IORef
+import           Data.Int (Int64)
 import           Graphics.UI.Gtk
-import           Safe                                 (atMay)
-import qualified System.IO                            as IO
-import           Text.Printf                          (printf)
+import           Safe (atMay)
+import qualified System.IO as IO
+import           Text.Printf (printf)
 import           Text.StringTemplate
 
 import           Prelude
@@ -180,8 +181,8 @@ defaultBatteryConfig =
 -- as colored vertical bars (one per battery).  There is also a
 -- textual percentage reppadout next to the bars, containing a summary of
 -- battery information.
-batteryBarNew :: BarConfig -> Double -> IO Widget
-batteryBarNew battCfg =
+batteryBarNew :: MonadIO m => BarConfig -> Double -> m Widget
+batteryBarNew battCfg = liftIO .
   batteryBarNewWithFormat battCfg "$percentage$%"
 
 -- | A battery bar constructor which allows using a custom format string

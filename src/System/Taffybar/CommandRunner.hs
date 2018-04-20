@@ -16,6 +16,7 @@
 module System.Taffybar.CommandRunner ( commandRunnerNew ) where
 
 import           Control.Monad
+import           Control.Monad.Trans
 import qualified Graphics.UI.Gtk as Gtk
 import           System.Exit (ExitCode (..))
 import qualified System.IO as IO
@@ -26,13 +27,15 @@ import           System.Taffybar.Widgets.Util
 -- | Creates a new command runner widget. This is a 'PollingLabel' fed by
 -- regular calls to command given by argument. The results of calling this function
 -- are displayed as string.
-commandRunnerNew :: Double   -- ^ Polling period (in seconds).
-                 -> String   -- ^ Command to execute. Should be in $PATH or an absolute path
-                 -> [String] -- ^ Command argument. May be @[]@
-                 -> String   -- ^ If command fails this will be displayed.
-                 -> String   -- ^ Output color
-                 -> IO Gtk.Widget
-commandRunnerNew interval cmd args defaultOutput color = do
+commandRunnerNew
+  :: MonadIO m
+  => Double -- ^ Polling period (in seconds).
+  -> String -- ^ Command to execute. Should be in $PATH or an absolute path
+  -> [String] -- ^ Command argument. May be @[]@
+  -> String -- ^ If command fails this will be displayed.
+  -> String -- ^ Output color
+  -> m Gtk.Widget
+commandRunnerNew interval cmd args defaultOutput color = liftIO $ do
     label  <- pollingLabelNew "" interval $ runCommand cmd args defaultOutput color
     Gtk.widgetShowAll label
     return $ Gtk.toWidget label

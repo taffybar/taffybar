@@ -14,6 +14,7 @@
 --------------------------------------------------------------------------------
 module System.Taffybar.CPUMonitor where
 
+import Control.Monad.Trans
 import Data.IORef
 import Graphics.UI.Gtk
 import System.Information.CPU2 (getCPUInfo)
@@ -23,11 +24,13 @@ import System.Taffybar.Widgets.PollingGraph
 -- | Creates a new CPU monitor. This is a PollingGraph fed by regular calls to
 -- getCPUInfo, associated to an IORef used to remember the values yielded by the
 -- last call to this function.
-cpuMonitorNew :: GraphConfig -- ^ Configuration data for the Graph.
-              -> Double      -- ^ Polling period (in seconds).
-              -> String      -- ^ Name of the core to watch (e.g. \"cpu\", \"cpu0\").
-              -> IO Widget
-cpuMonitorNew cfg interval cpu = do
+cpuMonitorNew
+  :: MonadIO m
+  => GraphConfig -- ^ Configuration data for the Graph.
+  -> Double -- ^ Polling period (in seconds).
+  -> String -- ^ Name of the core to watch (e.g. \"cpu\", \"cpu0\").
+  -> m Widget
+cpuMonitorNew cfg interval cpu = liftIO $ do
     info <- getCPUInfo cpu
     sample <- newIORef info
     pollingGraphNew cfg interval $ probe sample cpu
