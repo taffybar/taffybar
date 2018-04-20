@@ -73,33 +73,35 @@ defaultSimpleTaffyConfig = SimpleTaffyConfig
   }
 
 toStrutConfig :: SimpleTaffyConfig -> Int -> StrutConfig
-toStrutConfig SimpleTaffyConfig
-                { barHeight = size
-                , barPadding = padding
-                , barPosition = pos
-                } monitor =
-  defaultStrutConfig { strutHeight = ExactSize $ fromIntegral size
-                     , strutYPadding = fromIntegral padding
-                     , strutXPadding = fromIntegral padding
-                     , strutAlignment = Center
-                     , strutMonitor = Just $ fromIntegral monitor
-                     , strutPosition = case pos of
-                                         Top -> TopPos
-                                         Bottom -> BottomPos
-                     }
+toStrutConfig SimpleTaffyConfig { barHeight = size
+                                , barPadding = padding
+                                , barPosition = pos
+                                } monitor =
+  defaultStrutConfig
+  { strutHeight = ExactSize $ fromIntegral size
+  , strutYPadding = fromIntegral padding
+  , strutXPadding = fromIntegral padding
+  , strutAlignment = Center
+  , strutMonitor = Just $ fromIntegral monitor
+  , strutPosition =
+      case pos of
+        Top -> TopPos
+        Bottom -> BottomPos
+  }
 
 toBarConfig :: SimpleTaffyConfig -> Int -> IO BC.BarConfig
 toBarConfig config monitor = do
   let strutConfig = toStrutConfig config monitor
   barId <- newUnique
-  return BC.BarConfig
-           { BC.strutConfig = strutConfig
-           , BC.widgetSpacing = fromIntegral $ widgetSpacing config
-           , BC.startWidgets = startWidgets config
-           , BC.centerWidgets = centerWidgets config
-           , BC.endWidgets = endWidgets config
-           , BC.barId = barId
-           }
+  return
+    BC.BarConfig
+    { BC.strutConfig = strutConfig
+    , BC.widgetSpacing = fromIntegral $ widgetSpacing config
+    , BC.startWidgets = startWidgets config
+    , BC.centerWidgets = centerWidgets config
+    , BC.endWidgets = endWidgets config
+    , BC.barId = barId
+    }
 
 newtype SimpleBarConfigs = SimpleBarConfigs (MV.MVar [(Int, BC.BarConfig)])
 
@@ -119,11 +121,11 @@ toTaffyConfig conf = defaultTaffybarConfig { getBarConfigsParam = configGetter }
             let (alreadyPresent, toCreate) =
                   partition (isJust . snd) $
                   map (lookupWithIndex barConfigs) monitorNumbers
-                alreadyPresentConfigs = catMaybes $ map snd alreadyPresent
+                alreadyPresentConfigs = mapMaybe snd alreadyPresent
 
             newlyCreated <-
-              mapM ((forkM return (toBarConfig conf)) . fst) toCreate
-            let result = map snd (newlyCreated) ++ alreadyPresentConfigs
+              mapM (forkM return (toBarConfig conf) . fst) toCreate
+            let result = map snd newlyCreated ++ alreadyPresentConfigs
             return (barConfigs ++ newlyCreated, result)
 
       lift $ MV.modifyMVar configsVar lookupAndUpdate

@@ -42,8 +42,9 @@ module System.Taffybar
   -- Below is a fairly typical example:
   --
   -- > import System.Taffybar
+  -- > import System.Taffybar.SimpleConfig
   -- > import System.Taffybar.Systray
-  -- > import System.Taffybar.XMonadLog
+  -- > import System.Taffybar.WorkspaceHUD
   -- > import System.Taffybar.SimpleClock
   -- > import System.Taffybar.Widgets.PollingGraph
   -- > import System.Information.CPU
@@ -59,16 +60,19 @@ module System.Taffybar
   -- >       clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
   -- >       tray = systrayNew
   -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
-  -- >   defaultTaffybar defaultTaffybarConfig { startWidgets = [ ]
-  -- >                                         , endWidgets = [ tray, clock, cpu ]
-  -- >                                         }
+  -- >       hud = buildWorkspaceHUD defaultWorkspaceHUDConfig
+  -- >       simpleConfig = defaultSimpleTaffyConfig
+  -- >                        { startWidgets = [ hud ]
+  -- >                        , endWidgets = [ tray, clock, cpu ]
+  -- >                        }
+  -- >   simpleTaffybar simpleConfig
   --
-  -- This configuration creates a bar with four widgets.  On the left is
-  -- the XMonad log.  The rightmost widget is the system tray, with a
-  -- clock and then a CPU graph.  The clock is formatted using standard
-  -- strftime-style format strings (see the clock module).  Note that
-  -- the clock is colored using Pango markup (again, see the clock
-  -- module).
+  -- This configuration creates a bar with four widgets. On the left is a widget
+  -- that shows information about the workspace configuration. The rightmost
+  -- widget is the system tray, with a clock and then a CPU graph. The clock is
+  -- formatted using standard strftime-style format strings (see the clock
+  -- module). Note that the clock is colored using Pango markup (again, see the
+  -- clock module).
   --
   -- The CPU widget plots two graphs on the same widget: total CPU use
   -- in green and then system CPU use in a kind of semi-transparent
@@ -77,38 +81,11 @@ module System.Taffybar
   -- It is important to note that the widget lists are *not* [Widget].
   -- They are actually [IO Widget] since the bar needs to construct them
   -- after performing some GTK initialization.
-
-  -- * XMonad Integration (via DBus)
   --
-  -- | The XMonadLog widget differs from its counterpart in xmobar: it
-  -- listens for updates over DBus instead of reading from stdin.
-  -- This makes it easy to restart Taffybar independently of XMonad.
-  -- XMonad does not come with a DBus logger, so here is an example of
-  -- how to make it work.  Note: this requires the dbus-core (>0.9)
-  -- package, which is installed as a dependency of Taffybar.
-  --
-  -- > import XMonad.Hooks.DynamicLog
-  -- > import XMonad.Hooks.ManageDocks
-  -- > import DBus.Client
-  -- > import System.Taffybar.XMonadLog ( dbusLog )
-  -- >
-  -- > main = do
-  -- >   client <- connectSession
-  -- >   let pp = defaultPP
-  -- >   xmonad $ docks defaultConfig { logHook = dbusLog client pp }
-  --
-  -- The complexity is handled in the System.Taffybar.XMonadLog module. Note
-  -- that the docks wrapper from ManageDocks is required to have XMonad put
-  -- taffybar in the strut space that it reserves. If you have problems with
-  -- taffybar appearing almost fullscreen, check to see if you are using this
-  -- wrapper. Note that the manageDocks hook that previous used to be sufficient
-  -- for this is no longer so (see
-  -- https://github.com/travitch/taffybar/issues/185).
-
-  -- ** A note about DBus:
+  -- ** A note about taffybar's dependency on DBus:
   -- |
-  -- * If you start xmonad using a graphical login manager like gdm or
-  --   kdm, DBus should be started automatically for you.
+  -- * If you start your window manager using a graphical login manager like gdm
+  --   or kdm, DBus should be started automatically for you.
   --
   -- * If you start xmonad with a different graphical login manager that
   --   does not start DBus for you automatically, put the line @eval
@@ -122,62 +99,11 @@ module System.Taffybar
   -- * Colors
   --
   -- | While taffybar is based on GTK+, it ignores your GTK+ theme.
-  -- The default theme that it uses is in
-  -- @~\/.cabal\/share\/taffybar-\<version\>\/taffybar.rc@.  You can
-  -- customize this theme by copying it to
-  -- @~\/.config\/taffybar\/taffybar.rc@.  For an idea of the customizations you can make,
+  -- The default theme that it uses lives at
+  -- https://github.com/travitch/taffybar/blob/master/taffybar.css
+  -- You can alter this theme by editing @~\/.config\/taffybar\/taffybar.css@ to your liking.
+  -- For an idea of the customizations you can make,
   -- see <https://live.gnome.org/GnomeArt/Tutorials/GtkThemes>.
-
-  -- * Advanced Widget Example
-  --
-  -- | The following is an example leveraging GTK+ features that are not exposed
-  -- by the normal Taffybar widget hooks.
-  --
-  -- > import qualified Graphics.UI.Gtk as Gtk
-  -- > import System.Taffybar.Widgets.PollingGraph
-  -- > import System.Information.CPU
-  -- > import XMonad.Util.Run
-  -- >
-  -- > main = do
-  -- >   let
-  -- >     cpuReader widget = do
-  -- >       (userLoad, systemLoad, totalLoad) <- cpuLoad
-  -- >       Gtk.postGUIAsync $ do
-  -- >         let
-  -- >           user    = round $ 100 * userLoad   :: Int
-  -- >           system  = round $ 100 * systemLoad :: Int
-  -- >           tooltip = printf "%02i%% User\n%02i%% System" user system :: String
-  -- >         _ <- Gtk.widgetSetTooltipText widget $ Just tooltip
-  -- >         return ()
-  -- >       return [totalLoad, systemLoad]
-  -- >
-  -- >     cpuButtons = do
-  -- >       e <- Gtk.eventButton
-  -- >       case e of
-  -- >         Gtk.LeftButton   -> unsafeSpawn "terminator -e glances"
-  -- >         Gtk.RightButton  -> unsafeSpawn "terminator -e top"
-  -- >         Gtk.MiddleButton -> unsafeSpawn "gnome-system-monitor"
-  -- >         _ -> return ()
-  -- >       return True
-  -- >
-  -- >     cpuCfg = defaultGraphConfig { graphDataColors = [ (0, 1, 0, 1)
-  -- >                                                     , (1, 0, 1, 0.5)
-  -- >                                                     ]
-  -- >                                 }
-  -- >
-  -- >
-  -- >     cpu = do
-  -- >       ebox <- Gtk.eventBoxNew
-  -- >       btn <- pollingGraphNew cpuCfg 0.5 $ cpuReader $ Gtk.toWidget ebox
-  -- >       Gtk.containerAdd ebox btn
-  -- >       _ <- Gtk.on ebox Gtk.buttonPressEvent systemEvents
-  -- >       Gtk.widgetShowAll ebox
-  -- >       return $ Gtk.toWidget ebox
-  --
-  -- The resulting widget can be used like normal widgets, but you can use
-  -- different mouse buttons to run various programs and it has a useful tooltip
-  -- which shows the concrete numbers, which may not be clear in the graph
-  -- itself.
     taffybarDyreParams
   , dyreTaffybar
   , startTaffybar
