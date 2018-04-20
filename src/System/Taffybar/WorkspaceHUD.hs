@@ -90,7 +90,7 @@ workspaceStates :: [String]
 workspaceStates = map show [Active, Visible, Hidden, Empty, Urgent]
 
 data IconInfo
-  = IIEWMH EWMHIcon
+  = IIEWMH EWMHIconData
   | IIFilePath FilePath
   | IIColor ColorRGBA
   | IINone
@@ -718,13 +718,8 @@ updateMinSize widget minWidth = do
   when (w < minWidth) $ W.widgetSetSizeRequest widget minWidth  $ -1
 
 defaultGetIconInfo :: WindowData -> HUDIO IconInfo
-defaultGetIconInfo w = do
-  icons <- liftX11Def [] $ postX11RequestSyncProp (getWindowIcons $ windowId w) []
-  iconSize <- asks $ windowIconSize . hudConfig
-  return $
-    if null icons
-      then IINone
-      else IIEWMH $ selectEWMHIcon iconSize icons
+defaultGetIconInfo w =
+  maybe IINone IIEWMH <$> liftX11Def Nothing (getWindowIconsData $ windowId w)
 
 forkM :: Monad m => (c -> m a) -> (c -> m b) -> c -> m (a, b)
 forkM a b = sequenceT . (a &&& b)
@@ -853,7 +848,8 @@ setImage imgSize img pixBuf =
 getPixBuf :: Int -> IconInfo -> IO (Maybe Gtk.Pixbuf)
 getPixBuf imgSize = gpb
   where
-    gpb (IIEWMH icon) = Just <$> pixBufFromEWMHIcon icon
+    gpb (IIEWMH iconData) = Just <$>
+      withEWMHIcons iconData (pixBufFromEWMHIcon . selectEWMHIcon imgSize)
     gpb (IIFilePath file) = Just <$> pixBufFromFile imgSize file
     gpb (IIColor color) = Just <$> pixBufFromColor imgSize color
     gpb _ = return Nothing

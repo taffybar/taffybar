@@ -41,6 +41,11 @@ library
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
                , filepath
+               , haskell-gi-base
+               , gi-gdk
+               , gi-gdkpixbuf >= 2.0.15
+               , gi-gdkx11
+               , gi-gtk
                , glib
                , gtk-traymanager >= 1.0.1 && < 2.0.0
                , gtk3
@@ -121,12 +126,13 @@ library
                    System.Taffybar.Widgets.Util,
                    System.Taffybar.Widgets.VerticalBar,
                    System.Taffybar.WindowSwitcher,
-                   System.Taffybar.WorkspaceHUD,
-                   System.Taffybar.WorkspaceSwitcher
-                   
-  other-modules: System.Taffybar.StrutProperties,
-                 Paths_taffybar,
-                 System.Taffybar.Util
+                   System.Taffybar.WorkspaceHUD
+
+  other-modules: Paths_taffybar
+               , System.Taffybar.GtkLibCompat
+               , System.Taffybar.PixbufCompat
+               , System.Taffybar.StrutProperties
+               , System.Taffybar.Util
 
   c-sources: src/gdk_property_change_wrapper.c
   cc-options: -fPIC

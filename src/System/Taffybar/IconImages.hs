@@ -19,20 +19,22 @@ module System.Taffybar.IconImages (
   selectEWMHIcon
 ) where
 
+-- TODO: rename module to IconPixbuf
+
 import           Data.Bits
 import qualified Data.List as L
 import           Data.Ord ( comparing )
 import           Data.Word
-import           Foreign.C.Types (CUChar(..))
 import           Foreign.Marshal.Array
 import           Foreign.Ptr
 import           Foreign.Storable
 import qualified Graphics.UI.Gtk as Gtk
 import           System.Information.EWMHDesktopInfo
+import           System.Taffybar.GtkLibCompat
 
 type ColorRGBA = (Word8, Word8, Word8, Word8)
 
--- | Take the passed in pixbuf and ensure its scaled square.
+-- | Take the passed in pixbuf and scale it to the provided imageSize.
 scalePixbuf :: Int -> Gtk.Pixbuf -> IO Gtk.Pixbuf
 scalePixbuf imgSize pixbuf = do
   h <- Gtk.pixbufGetHeight pixbuf
@@ -55,12 +57,9 @@ colorspace = Gtk.ColorspaceRgb
 -- | Create a pixbuf from the pixel data in an EWMHIcon.
 pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
 pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
-  wPtr <- pixelsARGBToBytesABGR px (w*h)
-  let pixelsPerRow = w
-      bytesPerPixel = 4
-      rowStride = pixelsPerRow * bytesPerPixel
-      cPtr = castPtr wPtr
-  Gtk.pixbufNewFromData cPtr colorspace hasAlpha sampleBits w h rowStride
+  wPtr <- pixelsARGBToBytesABGR px (w * h)
+  pixbufNewFromData wPtr w h
+  -- Gtk.pixbufNewFromData (castPtr wPtr) colorspace hasAlpha sampleBits w h (w * 4)
 
 -- | Create a pixbuf with the indicated RGBA color.
 pixBufFromColor :: Int -> ColorRGBA -> IO Gtk.Pixbuf
@@ -70,9 +69,11 @@ pixBufFromColor imgSize (r, g, b, a) = do
   return pixbuf
 
 -- | Convert a C array of integer pixels in the ARGB format to the ABGR format.
+-- Returns an unmanged Ptr that points to a block of memory that must be freed
+-- manually.
 pixelsARGBToBytesABGR
   :: (Storable a, Bits a, Num a, Integral a)
-  => Ptr a -> Int -> IO (Ptr CUChar)
+  => Ptr a -> Int -> IO (Ptr Word8)
 pixelsARGBToBytesABGR ptr size = do
   target <- mallocArray (size * 4)
   let writeIndex i = do

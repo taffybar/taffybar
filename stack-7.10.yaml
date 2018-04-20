@@ -1,15 +1,40 @@
 packages:
 - '.'
+- location:
+    git: https://github.com/IvanMalison/gtk2hs.git
+    commit: 6e2b94f62d94ff9c7e80546b884be48ab77c46bf
+  extra-dep: true
+  subdirs:
+      - gtk
 extra-deps:
-  - Cabal-2.0.1.1
-  - gtk-traymanager-1.0.1
-  - X11-xft-0.3.1
-  - alsa-core-0.5.0.1
-  - alsa-mixer-0.2.0.3
-  - dbus-1.0.0
-  - gtk-0.14.7
-  - rate-limit-1.1.1
-  - time-units-1.0.0
-  - xml-helpers-1.0.0
-  - xmonad-contrib-0.12
-resolver: lts-6.26
+- Cabal-2.0.1.1
+- X11-1.8
+- X11-xft-0.3.1
+- alsa-core-0.5.0.1
+- alsa-mixer-0.2.0.3
+- dbus-1.0.1
+- directory-1.2.7.1
+- gi-dbusmenu-0.4.1
+- gi-dbusmenugtk3-0.4.1
+- gi-gdk-3.0.15
+- gi-gdkpixbuf-2.0.15
+- gi-gdkx11-3.0.2
+- gi-gio-2.0.16
+- gi-gtk-3.0.21
+- gi-pango-1.0.16
+- gi-xlib-2.0.2
+- gtk-strut-0.1.2.0
+- gtk-traymanager-1.0.1
+- gtk2hs-buildtools-0.13.3.1
+- happy-1.19.9
+- haskell-gi-0.21.0
+- haskell-gi-base-0.21.0
+- haskell-gi-overloading-1.0
+- libxml-sax-0.7.5
+- rate-limit-1.1.1
+- time-units-1.0.0
+- xml-helpers-1.0.0
+- xmonad-0.13
+- xmonad-contrib-0.13
+resolver: lts-6.35
+
