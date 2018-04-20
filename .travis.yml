@@ -5,9 +5,6 @@ sudo: required
 services:
   - docker
 
-before_install:
-- docker pull "taffybar/taffybar:latest-$STACK_YAML"
-
 matrix:
   include:
   # TODO renabled 7.10 and quickstart build
@@ -16,4 +13,4 @@ matrix:
   - env: STACK_YAML=stack-8.2.yaml
 
 script:
-- docker build --cache-from "taffybar/taffybar:latest-$STACK_YAML" --build-arg STACK_YAML="$STACK_YAML" .
+- docker build --build-arg STACK_YAML="$STACK_YAML" .
