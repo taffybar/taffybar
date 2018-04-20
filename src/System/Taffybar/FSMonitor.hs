@@ -16,23 +16,26 @@
 
 module System.Taffybar.FSMonitor ( fsMonitorNew ) where
 
+import           Control.Monad.Trans
 import qualified Graphics.UI.Gtk as Gtk
-import System.Process ( readProcess )
-import System.Taffybar.Widgets.PollingLabel ( pollingLabelNew )
+import           System.Process ( readProcess )
+import           System.Taffybar.Widgets.PollingLabel ( pollingLabelNew )
 
 -- | Creates a new filesystem monitor widget. It contains one 'PollingLabel'
 -- that displays the data returned by the df command. The usage level of all
 -- requested partitions is extracted in one single operation.
-fsMonitorNew :: Double -- ^ Polling interval (in seconds, e.g. 500)
-             -> [String] -- ^ Names of the partitions to monitor (e.g. [\"\/\", \"\/home\"])
-             -> IO Gtk.Widget
-fsMonitorNew interval fsList = do
+fsMonitorNew
+  :: MonadIO m
+  => Double -- ^ Polling interval (in seconds, e.g. 500)
+  -> [String] -- ^ Names of the partitions to monitor (e.g. [\"\/\", \"\/home\"])
+  -> m Gtk.Widget
+fsMonitorNew interval fsList = liftIO $ do
   label <- pollingLabelNew "" interval $ showFSInfo fsList
   Gtk.widgetShowAll label
   return $ Gtk.toWidget label
 
 showFSInfo :: [String] -> IO String
 showFSInfo fsList = do
-  fsOut <- readProcess "df" (["-kP"] ++ fsList) ""
+  fsOut <- readProcess "df" ("-kP":fsList) ""
   let fss = map (take 2 . reverse . words) $ drop 1 $ lines fsOut
   return $ unwords $ map ((\s -> "[" ++ s ++ "]") . unwords) fss

@@ -37,4 +37,3 @@ extra-deps:
 - xmonad-0.13
 - xmonad-contrib-0.13
 resolver: lts-6.35
-

@@ -12,7 +12,7 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.WorkspaceHUD (
-  Context(..),
+  HUDContext(..),
   ControllerConstructor,
   HUDIO,
   IconInfo(..),
@@ -41,8 +41,6 @@ module System.Taffybar.WorkspaceHUD (
   defaultWorkspaceHUDConfig,
   getWorkspaceToWindows,
   hideEmpty,
-  hudFromPagerConfig,
-  liftPager,
   liftX11Def,
   setImage,
   widgetSetClass,
@@ -74,8 +72,9 @@ import           Prelude
 import           System.Information.EWMHDesktopInfo
 import           System.Information.SafeX11
 import           System.Information.X11DesktopInfo
+import           System.Taffybar.Context
 import           System.Taffybar.IconImages
-import           System.Taffybar.Pager
+import           System.Taffybar.Util
 import           Text.Printf
 
 data WorkspaceState
@@ -117,22 +116,22 @@ data Workspace = Workspace
   , windows :: [WindowData]
   } deriving (Show, Eq)
 
-data Context = Context
+data HUDContext = HUDContext
   { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
   , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
   , loggingVar :: MV.MVar Bool
   , hudWidget :: Gtk.HBox
   , hudConfig :: WorkspaceHUDConfig
-  , hudPager :: Pager
+  , taffyContext :: Context
   }
 
-type HUDIO a = ReaderT Context IO a
+type HUDIO a = ReaderT HUDContext IO a
 
-liftPager :: PagerIO a -> HUDIO a
-liftPager action = asks hudPager >>= lift . runReaderT action
+liftContext :: TaffyIO a -> HUDIO a
+liftContext action = asks taffyContext >>= lift . runReaderT action
 
 liftX11Def :: a -> X11Property a -> HUDIO a
-liftX11Def = (liftPager .) . liftPagerX11Def
+liftX11Def def prop = liftContext $ runX11Def def prop
 
 widgetSetClass
   :: W.WidgetClass widget
@@ -198,58 +197,6 @@ data WorkspaceHUDConfig =
   , urgentWorkspaceState :: Bool
   }
 
-hudFromPagerConfig :: PagerConfig -> WorkspaceHUDConfig
-hudFromPagerConfig pagerConfig =
-  let updater workspace
-        | any windowUrgent ws = urgentWorkspace pagerConfig name
-        | otherwise =
-          let getter =
-                case state of
-                  Urgent -> urgentWorkspace
-                  Visible -> visibleWorkspace
-                  Active -> activeWorkspace
-                  Hidden -> hiddenWorkspace
-                  Empty -> emptyWorkspace
-          in getter pagerConfig name
-        where
-          ws = windows workspace
-          name = workspaceName workspace
-          state = workspaceState workspace
-      padded =
-        if workspacePad pagerConfig
-          then prefixSpace . updater
-          else updater
-      getCustomImage hasIcon wt wc =
-        case customIcon pagerConfig hasIcon wt wc of
-          Just fp -> IIFilePath fp
-          Nothing -> IINone
-  in defaultWorkspaceHUDConfig
-     { labelSetter = return . padded
-     , minIcons =
-         if fillEmptyImages pagerConfig
-           then 1
-           else 0
-     , maxIcons =
-         Just $
-         if useImages pagerConfig
-           then 1
-           else 0
-     , getIconInfo =
-         windowTitleClassIconGetter
-           getCustomImage
-     , widgetGap = workspaceGap pagerConfig
-     , windowIconSize = imageSize pagerConfig
-     , widgetBuilder =
-         if workspaceBorder pagerConfig
-           then buildBorderButtonController
-           else buildButtonController defaultBuildContentsController
-     , minWSWidgetSize = Nothing
-     , iconSort = return
-     }
-  where
-    prefixSpace "" = ""
-    prefixSpace s = " " ++ s
-
 windowTitleClassIconGetter
   :: (Bool -> String -> String -> IconInfo)
   -> (WindowData -> HUDIO IconInfo)
@@ -295,7 +242,7 @@ hideEmpty :: Workspace -> Bool
 hideEmpty Workspace { workspaceState = Empty } = False
 hideEmpty _ = True
 
-hudLogger :: Context -> String -> IO ()
+hudLogger :: HUDContext -> String -> IO ()
 hudLogger ctx txt =
   do
     shouldLog <- MV.readMVar $ loggingVar ctx
@@ -375,7 +322,7 @@ buildWorkspaces _ = ask >>= \context -> liftX11Def M.empty $ do
 
 addWidgetsToTopLevel :: HUDIO ()
 addWidgetsToTopLevel = do
-  Context { controllersVar = controllersRef
+  HUDContext { controllersVar = controllersRef
           , hudWidget = cont
           , hudConfig = cfg
           } <- ask
@@ -440,29 +387,32 @@ addDebugWidgets = do
     Gtk.containerAdd cont rebuildBarBox
     return ()
 
-buildWorkspaceHUD :: WorkspaceHUDConfig -> Pager -> IO Gtk.Widget
-buildWorkspaceHUD cfg pager = do
+buildWorkspaceHUD :: WorkspaceHUDConfig -> TaffyIO Gtk.Widget
+buildWorkspaceHUD cfg = ask >>= \tContext -> lift $ do
   cont <- Gtk.hBoxNew False (widgetGap cfg)
   controllersRef <- MV.newMVar M.empty
   workspacesRef <- MV.newMVar M.empty
   loggingRef <- MV.newMVar False
   let context =
-        Context
+        HUDContext
         { controllersVar = controllersRef
         , workspacesVar = workspacesRef
         , loggingVar = loggingRef
         , hudWidget = cont
         , hudConfig = cfg
-        , hudPager = pager
+        , taffyContext = tContext
         }
   -- This will actually create all the widgets
   runReaderT updateAllWorkspaceWidgets context
   updateHandler <- onWorkspaceUpdate context
-  subscriptions <- mapM (subscribe pager updateHandler) $ updateEvents cfg
   iconHandler <- onIconsChanged context
-  iconSubscription <- subscribe pager (onIconChanged context iconHandler) "_NET_WM_ICON"
-  let doUnsubscribe =
-        mapM_ (unsubscribe pager) (iconSubscription:subscriptions)
+  (workspaceSubscription, iconSubscription) <-
+    flip runReaderT tContext $ sequenceT
+         ( subscribeToEvents (updateEvents cfg) $ lift . updateHandler
+         , subscribeToEvents ["_NET_WM_ICON"] (lift . onIconChanged context iconHandler)
+         )
+  let doUnsubscribe = flip runReaderT tContext $
+        mapM_ unsubscribe [iconSubscription, workspaceSubscription]
   _ <- Gtk.on cont W.unrealize doUnsubscribe
   return $ Gtk.toWidget cont
 
@@ -492,7 +442,7 @@ updateAllWorkspaceWidgets = do
 
 setControllerWidgetVisibility :: HUDIO ()
 setControllerWidgetVisibility = do
-  Context { workspacesVar = workspacesRef
+  HUDContext { workspacesVar = workspacesRef
           , controllersVar = controllersRef
           , hudConfig = cfg
           } <- ask
@@ -510,7 +460,7 @@ setControllerWidgetVisibility = do
 
 doWidgetUpdate :: (WorkspaceIdx -> WWC -> HUDIO WWC) -> HUDIO ()
 doWidgetUpdate updateController = do
-  c@Context { controllersVar = controllersRef } <- ask
+  c@HUDContext { controllersVar = controllersRef } <- ask
   lift $ MV.modifyMVar_ controllersRef $ \controllers -> do
     controllersList <-
       mapM
@@ -522,7 +472,7 @@ doWidgetUpdate updateController = do
 
 updateWorkspaceControllers :: HUDIO ()
 updateWorkspaceControllers = do
-  Context { controllersVar = controllersRef
+  HUDContext { controllersVar = controllersRef
           , workspacesVar = workspacesRef
           , hudWidget = cont
           , hudConfig = cfg
@@ -551,7 +501,7 @@ updateWorkspaceControllers = do
 
 rateLimitFn
   :: forall req resp.
-     Context
+     HUDContext
   -> (req -> IO resp)
   -> ResultsCombiner req resp
   -> IO (req -> IO resp)
@@ -560,7 +510,7 @@ rateLimitFn context =
       rate = fromMicroseconds limit :: Microsecond in
   generateRateLimitedFunction $ PerInvocation rate
 
-onWorkspaceUpdate :: Context -> IO (Event -> IO ())
+onWorkspaceUpdate :: HUDContext -> IO (Event -> IO ())
 onWorkspaceUpdate context = do
   rateLimited <- rateLimitFn context doUpdate combineRequests
   let withLog event = do
@@ -574,7 +524,7 @@ onWorkspaceUpdate context = do
     combineRequests _ b = Just (b, const ((), ()))
     doUpdate _ = Gtk.postGUIAsync $ runReaderT updateAllWorkspaceWidgets context
 
-onIconChanged :: Context -> (Set.Set X11Window -> IO ()) -> Event -> IO ()
+onIconChanged :: HUDContext -> (Set.Set X11Window -> IO ()) -> Event -> IO ()
 onIconChanged context handler event = do
   let logger = hudLogger context
   case event of
@@ -583,7 +533,7 @@ onIconChanged context handler event = do
       handler $ Set.singleton wid
     _ -> return ()
 
-onIconsChanged :: Context -> IO (Set.Set X11Window -> IO ())
+onIconsChanged :: HUDContext -> IO (Set.Set X11Window -> IO ())
 onIconsChanged context =
   (.) (void . forkIO) <$> rateLimitFn context onIconsChanged' combineRequests
   where
@@ -634,7 +584,7 @@ defaultBuildContentsController =
 instance WorkspaceWidgetController WorkspaceContentsController where
   getWidget = containerWidget
   updateWidget cc update = do
-    Context {hudConfig = cfg} <- ask
+    HUDContext {hudConfig = cfg} <- ask
     lift $
       maybe (return ()) (updateMinSize $ Gtk.toWidget $ containerWidget cc) $
       minWSWidgetSize cfg
@@ -661,7 +611,7 @@ buildLabelController ws = do
 instance WorkspaceWidgetController LabelController where
   getWidget = Gtk.toWidget . label
   updateWidget lc (WorkspaceUpdate newWorkspace) = do
-    Context { hudConfig = cfg } <- ask
+    HUDContext { hudConfig = cfg } <- ask
     labelText <- labelSetter cfg newWorkspace
     lift $ do
       Gtk.labelSetMarkup (label lc) labelText
@@ -721,9 +671,6 @@ defaultGetIconInfo :: WindowData -> HUDIO IconInfo
 defaultGetIconInfo w =
   maybe IINone IIEWMH <$> liftX11Def Nothing (getWindowIconsData $ windowId w)
 
-forkM :: Monad m => (c -> m a) -> (c -> m b) -> c -> m (a, b)
-forkM a b = sequenceT . (a &&& b)
-
 sortWindowsByPosition :: [WindowData] -> HUDIO [WindowData]
 sortWindowsByPosition wins = do
   let getGeometryHUD w = getDisplay >>= liftIO . (`safeGetGeometry` w)
@@ -741,7 +688,7 @@ sortWindowsByPosition wins = do
 
 updateImages :: IconController -> Workspace -> HUDIO [IconWidget]
 updateImages ic ws = do
-  Context {hudConfig = cfg} <- ask
+  HUDContext {hudConfig = cfg} <- ask
   sortedWindows <- iconSort cfg $ windows ws
   let updateIconWidget' getImageAction wdata ton = do
         iconWidget <- getImageAction
@@ -892,7 +839,7 @@ buildButtonController contentsBuilder workspace = do
         WorkspaceButtonController
         {button = ebox, buttonWorkspace = workspace, contentsController = cc}
 
-switch :: (MonadIO m) => Context -> WorkspaceIdx -> m Bool
+switch :: (MonadIO m) => HUDContext -> WorkspaceIdx -> m Bool
 switch ctx idx = do
   liftIO $ flip runReaderT ctx $ liftX11Def () $ switchToWorkspace idx
   return True

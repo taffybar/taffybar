@@ -11,18 +11,18 @@ module System.Taffybar.Widgets.PollingGraph (
   defaultGraphConfig
   ) where
 
-import Control.Concurrent
+import           Control.Concurrent
 import qualified Control.Exception.Enclosed as E
-import Control.Monad ( forever )
-import Graphics.UI.Gtk
+import           Control.Monad ( forever )
+import           Control.Monad.Trans
+import           Graphics.UI.Gtk
 
-import System.Taffybar.Widgets.Graph
+import           System.Taffybar.Widgets.Graph
 
-pollingGraphNew :: GraphConfig
-                   -> Double
-                   -> IO [Double]
-                   -> IO Widget
-pollingGraphNew cfg pollSeconds action = do
+pollingGraphNew
+  :: MonadIO m
+  => GraphConfig -> Double -> IO [Double] -> m Widget
+pollingGraphNew cfg pollSeconds action = liftIO $ do
   (da, h) <- graphNew cfg
 
   _ <- on da realize $ do

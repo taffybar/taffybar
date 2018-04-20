@@ -3,16 +3,14 @@ module System.Taffybar.Volume (
   volumeControlNew
 ) where
 
+import Control.Monad.Trans
+import Graphics.UI.Gtk
 import System.Information.Volume
 import System.Taffybar.Widgets.PollingLabel
-import Graphics.UI.Gtk
 
 -- | Creates a new text volume meter
-volumeTextNew :: String
-                 -> String
-                 -> Double
-                 -> IO Widget
-volumeTextNew mixer control pollSeconds = do
+volumeTextNew :: MonadIO m => String -> String -> Double -> m Widget
+volumeTextNew mixer control pollSeconds = liftIO $ do
   l <- pollingLabelNew "" pollSeconds . fmap show $ getVolume mixer control
   widgetShowAll l
   return l

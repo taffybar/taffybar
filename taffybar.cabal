@@ -41,14 +41,16 @@ library
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
                , filepath
-               , haskell-gi-base
                , gi-gdk
                , gi-gdkpixbuf >= 2.0.15
                , gi-gdkx11
                , gi-gtk
                , glib
+               , gtk-strut >= 0.1.2.0
                , gtk-traymanager >= 1.0.1 && < 2.0.0
                , gtk3
+               , haskell-gi-base
+               , hslogger
                , mtl >= 2
                , multimap >= 1.2.1
                , old-locale
@@ -80,61 +82,58 @@ library
     build-depends: network-uri < 2.6, network < 2.6
   hs-source-dirs: src
   pkgconfig-depends: gtk+-3.0
-  exposed-modules: System.Information.Battery,
-                   System.Information.CPU,
-                   System.Information.CPU2,
-                   System.Information.DiskIO,
-                   System.Information.EWMHDesktopInfo,
-                   System.Information.Memory,
-                   System.Information.Network,
-                   System.Information.SafeX11
-                   System.Information.StreamInfo,
-                   System.Information.Volume,
-                   System.Information.X11DesktopInfo,
-                   System.Taffybar,
-                   System.Taffybar.Battery,
-                   System.Taffybar.Context,
-                   System.Taffybar.CPUMonitor,
-                   System.Taffybar.CommandRunner,
-                   System.Taffybar.DiskIOMonitor,
-                   System.Taffybar.FSMonitor,
-                   System.Taffybar.FreedesktopNotifications,
-                   System.Taffybar.Hooks.PagerHints,
-                   System.Taffybar.IconImages,
-                   System.Taffybar.LayoutSwitcher,
-                   System.Taffybar.MPRIS,
-                   System.Taffybar.MPRIS2,
-                   System.Taffybar.Menu.DesktopEntry,
-                   System.Taffybar.Menu.Menu,
-                   System.Taffybar.Menu.MenuWidget,
-                   System.Taffybar.Menu.XdgMenu,
-                   System.Taffybar.NetMonitor,
-                   System.Taffybar.Pager,
-                   System.Taffybar.SimpleClock,
-                   System.Taffybar.Systray,
-                   System.Taffybar.TaffyPager,
-                   System.Taffybar.Text.CPUMonitor,
-                   System.Taffybar.Text.MemoryMonitor,
-                   System.Taffybar.ToggleMonitor,
-                   System.Taffybar.Volume,
-                   System.Taffybar.Weather,
-                   System.Taffybar.Widgets.Graph,
-                   System.Taffybar.Widgets.Icon,
-                   System.Taffybar.Widgets.PollingBar,
-                   System.Taffybar.Widgets.PollingGraph,
-                   System.Taffybar.Widgets.PollingLabel,
-                   System.Taffybar.Widgets.Util,
-                   System.Taffybar.Widgets.VerticalBar,
-                   System.Taffybar.WindowSwitcher,
-                   System.Taffybar.WorkspaceHUD
-
+  exposed-modules: System.Information.Battery
+                 , System.Information.CPU
+                 , System.Information.CPU2
+                 , System.Information.DiskIO
+                 , System.Information.EWMHDesktopInfo
+                 , System.Information.Memory
+                 , System.Information.Network
+                 , System.Information.SafeX11
+                 , System.Information.StreamInfo
+                 , System.Information.Volume
+                 , System.Information.X11DesktopInfo
+                 , System.Taffybar
+                 , System.Taffybar.Battery
+                 , System.Taffybar.CPUMonitor
+                 , System.Taffybar.CommandRunner
+                 , System.Taffybar.Context
+                 , System.Taffybar.DiskIOMonitor
+                 , System.Taffybar.FSMonitor
+                 , System.Taffybar.FreedesktopNotifications
+                 , System.Taffybar.Hooks.PagerHints
+                 , System.Taffybar.IconImages
+                 , System.Taffybar.LayoutSwitcher
+                 , System.Taffybar.MPRIS
+                 , System.Taffybar.MPRIS2
+                 , System.Taffybar.Menu.DesktopEntry
+                 , System.Taffybar.Menu.Menu
+                 , System.Taffybar.Menu.MenuWidget
+                 , System.Taffybar.Menu.XdgMenu
+                 , System.Taffybar.NetMonitor
+                 , System.Taffybar.SimpleClock
+                 , System.Taffybar.SimpleConfig
+                 , System.Taffybar.Systray
+                 , System.Taffybar.Text.CPUMonitor
+                 , System.Taffybar.Text.MemoryMonitor
+                 , System.Taffybar.ToggleMonitor
+                 , System.Taffybar.Volume
+                 , System.Taffybar.Weather
+                 , System.Taffybar.Widgets.Graph
+                 , System.Taffybar.Widgets.Icon
+                 , System.Taffybar.Widgets.PollingBar
+                 , System.Taffybar.Widgets.PollingGraph
+                 , System.Taffybar.Widgets.PollingLabel
+                 , System.Taffybar.Widgets.Util
+                 , System.Taffybar.Widgets.VerticalBar
+                 , System.Taffybar.WindowSwitcher
+                 , System.Taffybar.WorkspaceHUD
+                   
   other-modules: Paths_taffybar
                , System.Taffybar.GtkLibCompat
                , System.Taffybar.PixbufCompat
-               , System.Taffybar.StrutProperties
                , System.Taffybar.Util
 
-  c-sources: src/gdk_property_change_wrapper.c
   cc-options: -fPIC
   ghc-options: -Wall -funbox-strict-fields
 
@@ -146,7 +145,6 @@ executable taffybar
   hs-source-dirs: app
   main-is: Main.hs
   pkgconfig-depends: gtk+-3.0
-  c-sources: src/gdk_property_change_wrapper.c
   ghc-options: -Wall -rtsopts -threaded
 
 source-repository head

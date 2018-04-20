@@ -22,17 +22,17 @@ module System.Taffybar.Widgets.Graph (
   , defaultGraphConfig
   ) where
 
-import           System.Taffybar.Widgets.Util
-import           Prelude hiding ( mapM_ )
 import           Control.Concurrent
-import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
-import           Data.Foldable ( mapM_ )
 import           Control.Monad ( when )
-import           Control.Monad.Trans ( liftIO )
+import           Control.Monad.Trans
+import           Data.Foldable ( mapM_ )
+import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import qualified Data.Sequence as S
 import qualified Graphics.Rendering.Cairo as C
 import qualified Graphics.Rendering.Cairo.Matrix as M
 import qualified Graphics.UI.Gtk as Gtk
+import           Prelude hiding ( mapM_ )
+import           System.Taffybar.Widgets.Util
 
 newtype GraphHandle = GH (MVar GraphState)
 data GraphState =
@@ -101,11 +101,9 @@ graphAddSample (GH mv) rawData = do
       newHists = case graphHistory s of
         [] -> map S.singleton pcts
         _ -> map (\(p,h) -> S.take histSize $ p <| h) histsAndNewVals
-  case graphIsBootstrapped s of
-    False -> return ()
-    True -> do
-      modifyMVar_ mv (\s' -> return s' { graphHistory = newHists })
-      Gtk.postGUIAsync $ Gtk.widgetQueueDraw drawArea
+  when (graphIsBootstrapped s) $ do
+    modifyMVar_ mv (\s' -> return s' { graphHistory = newHists })
+    Gtk.postGUIAsync $ Gtk.widgetQueueDraw drawArea
   where
     pcts = map (clamp 0 1) rawData
 
@@ -161,9 +159,8 @@ renderGraph hists cfg w h xStep = do
 
   -- If right-to-left direction is requested, apply an horizontal inversion
   -- transformation with an offset to the right equal to the width of the widget.
-  if graphDirection cfg == RIGHT_TO_LEFT
-      then C.transform $ M.Matrix (-1) 0 0 1 (fromIntegral w) 0
-      else return ()
+  when (graphDirection cfg == RIGHT_TO_LEFT) $
+      C.transform $ M.Matrix (-1) 0 0 1 (fromIntegral w) 0
 
   let pctToY pct = fromIntegral h * (1 - pct)
       renderDataSet hist color style
@@ -215,8 +212,8 @@ drawGraph mv drawArea = do
     [] -> renderFrameAndBackground cfg w h
     _ -> renderGraph hist cfg w h xStep
 
-graphNew :: GraphConfig -> IO (Gtk.Widget, GraphHandle)
-graphNew cfg = do
+graphNew :: MonadIO m => GraphConfig -> m (Gtk.Widget, GraphHandle)
+graphNew cfg = liftIO $ do
   drawArea <- Gtk.drawingAreaNew
   mv <- newMVar GraphState { graphIsBootstrapped = False
                            , graphHistory = []

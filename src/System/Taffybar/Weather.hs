@@ -71,13 +71,14 @@ module System.Taffybar.Weather (
   defaultWeatherConfig
   ) where
 
+import Control.Monad.Trans
+import Graphics.UI.Gtk
+import qualified Network.Browser as Browser
 import Network.HTTP
 import Network.URI
-import Graphics.UI.Gtk
 import Text.Parsec
 import Text.Printf
 import Text.StringTemplate
-import qualified Network.Browser as Browser
 
 import System.Taffybar.Widgets.PollingLabel
 
@@ -113,7 +114,7 @@ pTime = do
   _ <- char ' '
   (h:hh:mi:mimi) <- getNumbersAsString
   _ <- char ' '
-  return (y, m, d ,([h]++[hh]++":"++[mi]++mimi))
+  return (y, m, d , [h]++[hh]++":"++[mi]++mimi)
 
 pTemp :: Parser (Int, Int)
 pTemp = do
@@ -122,11 +123,11 @@ pTemp = do
   _ <- manyTill anyChar $ char '('
   c <- manyTill num $ char ' '
   _ <- skipRestOfLine
-  return $ (floor (read c :: Double), floor (read f :: Double))
+  return (floor (read c :: Double), floor (read f :: Double))
 
 pRh :: Parser Int
 pRh = do
-  s <- manyTill digit $ (char '%' <|> char '.')
+  s <- manyTill digit $ char '%' <|> char '.'
   return $ read s
 
 pPressure :: Parser Int
@@ -165,8 +166,7 @@ getAfterString s = pAfter <|> return ("<" ++ s ++ " not found!>")
   where
     pAfter = do
       _ <- try $ manyTill skipRestOfLine $ string s
-      v <- manyTill anyChar $ newline
-      return v
+      manyTill anyChar newline
 
 skipTillString :: String -> Parser String
 skipTillString s =
@@ -180,7 +180,6 @@ skipRestOfLine :: Parser Char
 skipRestOfLine = do
   _ <- many $ noneOf "\n\r"
   newline
-
 
 -- | Simple: download the document at a URL.  Taken from Real World
 -- Haskell.
@@ -240,11 +239,12 @@ getCurrentWeather getter labelTpl tooltipTpl formatter = do
   dat <- getter
   case dat of
     Right wi ->
-        return $ case formatter of
-                   DefaultWeatherFormatter -> (escapeMarkup $ defaultFormatter labelTpl wi,
-                                               Just $ escapeMarkup $ defaultFormatter tooltipTpl wi)
-                   WeatherFormatter f -> (f wi, Just $ f wi)
-
+      return $
+      case formatter of
+        DefaultWeatherFormatter ->
+          ( escapeMarkup $ defaultFormatter labelTpl wi
+          , Just $ escapeMarkup $ defaultFormatter tooltipTpl wi)
+        WeatherFormatter f -> (f wi, Just $ f wi)
     Left err -> do
       putStrLn err
       return ("N/A", Nothing)
@@ -256,39 +256,44 @@ baseUrl = "http://tgftp.nws.noaa.gov/data/observations/metar/decoded"
 -- | A wrapper to allow users to specify a custom weather formatter.
 -- The default interpolates variables into a string as described
 -- above.  Custom formatters can do basically anything.
-data WeatherFormatter = WeatherFormatter (WeatherInfo -> String) -- ^ Specify a custom formatter for 'WeatherInfo'
-                      | DefaultWeatherFormatter -- ^ Use the default StringTemplate formatter
+data WeatherFormatter
+  = WeatherFormatter (WeatherInfo -> String) -- ^ Specify a custom formatter for 'WeatherInfo'
+  | DefaultWeatherFormatter -- ^ Use the default StringTemplate formatter
 
 -- | The configuration for the weather widget.  You can provide a custom
 -- format string through 'weatherTemplate' as described above, or you can
 -- provide a custom function to turn a 'WeatherInfo' into a String via the
 -- 'weatherFormatter' field.
-data WeatherConfig =
-  WeatherConfig { weatherStation         :: String   -- ^ The weather station to poll. No default
-                , weatherTemplate        :: String  -- ^ Template string, as described above.  Default: $tempF$ °F
-                , weatherTemplateTooltip :: String  -- ^ Template string, as described above.  Default: $tempF$ °F
-                , weatherFormatter       :: WeatherFormatter -- ^ Default: substitute in all interpolated variables (above)
-                , weatherProxy           :: Maybe String -- ^ The proxy server, e.g. "http://proxy:port". Default: Nothing
-                }
+data WeatherConfig = WeatherConfig
+  { weatherStation :: String -- ^ The weather station to poll. No default
+  , weatherTemplate :: String -- ^ Template string, as described above.  Default: $tempF$ °F
+  , weatherTemplateTooltip :: String -- ^ Template string, as described above.  Default: $tempF$ °F
+  , weatherFormatter :: WeatherFormatter -- ^ Default: substitute in all interpolated variables (above)
+  , weatherProxy :: Maybe String -- ^ The proxy server, e.g. "http://proxy:port". Default: Nothing
+  }
 
 -- | A sensible default configuration for the weather widget that just
 -- renders the temperature.
 defaultWeatherConfig :: String -> WeatherConfig
-defaultWeatherConfig station = WeatherConfig
-  { weatherStation         = station
-  , weatherTemplate        = "$tempF$ °F"
-  , weatherTemplateTooltip = unlines ["Station: $stationPlace$",
-                                      "Time: $day$.$month$.$year$ $hour$",
-                                      "Temperature: $tempF$ °F",
-                                      "Pressure: $pressure$ hPa",
-                                      "Wind: $wind$",
-                                      "Visibility: $visibility$",
-                                      "Sky Condition: $skyCondition$",
-                                      "Dew Point: $dewPoint$",
-                                      "Humidity: $humidity$"
-                                     ]
-  , weatherFormatter       = DefaultWeatherFormatter
-  , weatherProxy           = Nothing}
+defaultWeatherConfig station =
+  WeatherConfig
+  { weatherStation = station
+  , weatherTemplate = "$tempF$ °F"
+  , weatherTemplateTooltip =
+      unlines
+        [ "Station: $stationPlace$"
+        , "Time: $day$.$month$.$year$ $hour$"
+        , "Temperature: $tempF$ °F"
+        , "Pressure: $pressure$ hPa"
+        , "Wind: $wind$"
+        , "Visibility: $visibility$"
+        , "Sky Condition: $skyCondition$"
+        , "Dew Point: $dewPoint$"
+        , "Humidity: $humidity$"
+        ]
+  , weatherFormatter = DefaultWeatherFormatter
+  , weatherProxy = Nothing
+  }
 
 -- | Create a periodically-updating weather widget that polls NOAA.
 weatherNew :: WeatherConfig -- ^ Configuration to render
@@ -301,13 +306,15 @@ weatherNew cfg delayMinutes = do
     (weatherFormatter cfg) delayMinutes
 
 -- | Create a periodically-updating weather widget using custom weather getter
-weatherCustomNew :: IO (Either String WeatherInfo) -- ^ Weather querying action
-                 -> String                         -- ^ Weather template
-                 -> String                         -- ^ Weather template
-                 -> WeatherFormatter               -- ^ Weather formatter
-                 -> Double                         -- ^ Polling period in _minutes_
-                 -> IO Widget
-weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = do
+weatherCustomNew
+  :: MonadIO m
+  => IO (Either String WeatherInfo) -- ^ Weather querying action
+  -> String -- ^ Weather template
+  -> String -- ^ Weather template
+  -> WeatherFormatter -- ^ Weather formatter
+  -> Double -- ^ Polling period in _minutes_
+  -> m Widget
+weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = liftIO $ do
   let labelTpl' = newSTMP labelTpl
       tooltipTpl' = newSTMP tooltipTpl
 

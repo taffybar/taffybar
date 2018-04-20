@@ -15,25 +15,27 @@
 
 module System.Taffybar.CommandRunner ( commandRunnerNew ) where
 
-import qualified Graphics.UI.Gtk                      as Gtk
-import           System.Taffybar.Pager                (colorize)
-import           System.Taffybar.Widgets.PollingLabel
-
 import           Control.Monad
-import           System.Exit                          (ExitCode (..))
+import           Control.Monad.Trans
+import qualified Graphics.UI.Gtk as Gtk
+import           System.Exit (ExitCode (..))
 import qualified System.IO as IO
 import qualified System.Process as P
+import           System.Taffybar.Widgets.PollingLabel
+import           System.Taffybar.Widgets.Util
 
 -- | Creates a new command runner widget. This is a 'PollingLabel' fed by
 -- regular calls to command given by argument. The results of calling this function
 -- are displayed as string.
-commandRunnerNew :: Double   -- ^ Polling period (in seconds).
-                 -> String   -- ^ Command to execute. Should be in $PATH or an absolute path
-                 -> [String] -- ^ Command argument. May be @[]@
-                 -> String   -- ^ If command fails this will be displayed.
-                 -> String   -- ^ Output color
-                 -> IO Gtk.Widget
-commandRunnerNew interval cmd args defaultOutput color = do
+commandRunnerNew
+  :: MonadIO m
+  => Double -- ^ Polling period (in seconds).
+  -> String -- ^ Command to execute. Should be in $PATH or an absolute path
+  -> [String] -- ^ Command argument. May be @[]@
+  -> String -- ^ If command fails this will be displayed.
+  -> String -- ^ Output color
+  -> m Gtk.Widget
+commandRunnerNew interval cmd args defaultOutput color = liftIO $ do
     label  <- pollingLabelNew "" interval $ runCommand cmd args defaultOutput color
     Gtk.widgetShowAll label
     return $ Gtk.toWidget label
@@ -41,8 +43,7 @@ commandRunnerNew interval cmd args defaultOutput color = do
 runCommand :: FilePath -> [String] -> String -> String -> IO String
 runCommand cmd args defaultOutput color = do
   (ecode, stdout, stderr) <- P.readProcessWithExitCode cmd args ""
-  unless (null stderr) $ do
-    IO.hPutStrLn IO.stderr stderr
+  unless (null stderr) $ IO.hPutStrLn IO.stderr stderr
   return $ colorize color "" $ case ecode of
     ExitSuccess -> stdout
     ExitFailure _ -> defaultOutput

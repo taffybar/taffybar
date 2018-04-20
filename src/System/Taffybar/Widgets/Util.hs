@@ -19,6 +19,7 @@ import Control.Monad.IO.Class
 import Data.Tuple.Sequence
 import Graphics.UI.Gtk
 import Prelude
+import Text.Printf
 
 -- | Execute the given action as a response to any of the given types
 -- of mouse button clicks.
@@ -27,7 +28,7 @@ onClick :: [Click] -- ^ Types of button clicks to listen to.
         -> EventM EButton Bool
 onClick triggers action = tryEvent $ do
   click <- eventClick
-  when (click `elem` triggers) $ liftIO action >> return ()
+  when (click `elem` triggers) $ void $ liftIO action
 
 -- | Attach the given widget as a popup with the given title to the
 -- given window. The newly attached popup is not shown initially. Use
@@ -47,7 +48,7 @@ attachPopup widget title window = do
   windowSetKeepAbove window True
   windowStick window
   where getWindow = do
-          Just topLevelWindow <- (fmap castToWindow) <$> widgetGetAncestor widget gTypeWindow
+          Just topLevelWindow <- fmap castToWindow <$> widgetGetAncestor widget gTypeWindow
           return topLevelWindow
 
 -- | Display the given popup widget (previously prepared using the
@@ -72,3 +73,14 @@ widgetGetAllocatedSize
 widgetGetAllocatedSize widget =
   liftIO $
   sequenceT (widgetGetAllocatedWidth widget, widgetGetAllocatedHeight widget)
+
+-- | Creates markup with the given foreground and background colors and the
+-- given contents.
+colorize :: String -- ^ Foreground color.
+         -> String -- ^ Background color.
+         -> String -- ^ Contents.
+         -> String
+colorize fg bg = printf "<span%s%s>%s</span>" (attr "fg" fg) (attr "bg" bg)
+  where attr name value
+          | null value = ""
+          | otherwise  = printf " %scolor=\"%s\"" name value

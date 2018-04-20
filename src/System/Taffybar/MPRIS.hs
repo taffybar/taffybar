@@ -12,15 +12,17 @@ module System.Taffybar.MPRIS
   , mprisNew
   ) where
 
-import Control.Monad ( void )
-import Data.Int ( Int32 )
+import           Control.Monad ( void )
+import           Control.Monad.Trans
+import           DBus
+import           DBus.Client
+import           Data.Int ( Int32 )
 import qualified Data.Map as M
-import Data.Text ( Text )
+import           Data.Maybe
+import           Data.Text ( Text )
 import qualified Data.Text as T
-import DBus
-import DBus.Client
-import Graphics.UI.Gtk hiding ( Signal, Variant )
-import Text.Printf
+import           Graphics.UI.Gtk hiding ( Signal, Variant )
+import           Text.Printf
 
 
 
@@ -37,17 +39,17 @@ data MPRISConfig = MPRISConfig
 setupDBus :: MPRISConfig -> Label -> IO ()
 setupDBus cfg w = do
   let trackMatcher = matchAny { matchSender = Nothing
-                               , matchDestination = Nothing
-                               , matchPath = Just "/Player"
-                               , matchInterface = Just "org.freedesktop.MediaPlayer"
-                               , matchMember = Just "TrackChange"
-                               }
+                              , matchDestination = Nothing
+                              , matchPath = Just "/Player"
+                              , matchInterface = Just "org.freedesktop.MediaPlayer"
+                              , matchMember = Just "TrackChange"
+                              }
       stateMatcher = matchAny { matchSender = Nothing
-                               , matchDestination = Nothing
-                               , matchPath = Just "/Player"
-                               , matchInterface = Just "org.freedesktop.MediaPlayer"
-                               , matchMember = Just "StatusChange"
-                               }
+                              , matchDestination = Nothing
+                              , matchPath = Just "/Player"
+                              , matchInterface = Just "org.freedesktop.MediaPlayer"
+                              , matchMember = Just "StatusChange"
+                              }
   client <- connectSession
   void $ addMatch client trackMatcher (trackCallback cfg w)
   void $ addMatch client stateMatcher (stateCallback w)
@@ -65,7 +67,7 @@ trackCallback cfg w s = do
       [variant] = signalBody s
   case v of
     Just m -> do
-      let getInfo key = fmap (escapeMarkup . T.unpack) $ variantDictLookup key m
+      let getInfo key = escapeMarkup . T.unpack <$> variantDictLookup key m
           txt = trackLabel cfg info
           info = TrackInfo { trackArtist = getInfo "artist"
                            , trackTitle  = getInfo "title"
@@ -80,9 +82,9 @@ trackCallback cfg w s = do
 
 stateCallback :: Label -> Signal -> IO ()
 stateCallback w s =
-  case fromVariant (signalBody s !! 0) of
+  case fromVariant (head $ signalBody s) of
     Just st -> case structureItems st of
-      (pstate:_) -> case (fromVariant pstate) :: Maybe Int32 of
+      (pstate:_) -> case fromVariant pstate :: Maybe Int32 of
         Just 2 -> postGUIAsync $ widgetHide w
         Just 1 -> postGUIAsync $ widgetHide w
         Just 0 -> postGUIAsync $ widgetShowAll w
@@ -94,14 +96,14 @@ defaultMPRISConfig :: MPRISConfig
 defaultMPRISConfig = MPRISConfig
   { trackLabel = display
   }
-  where artist track  = maybe "[unknown]" id (trackArtist track)
-        title  track  = maybe "[unknown]" id (trackTitle  track)
+  where artist track  = fromMaybe "[unknown]" (trackArtist track)
+        title  track  = fromMaybe "[unknown]" (trackTitle  track)
         display :: TrackInfo -> String
         display track = "<span fgcolor='yellow'>▶</span> " ++
                         printf "%s - %s" (artist track) (title track)
 
-mprisNew :: MPRISConfig -> IO Widget
-mprisNew cfg = do
+mprisNew :: MonadIO m => MPRISConfig -> m Widget
+mprisNew cfg = liftIO $ do
   l <- labelNew (Nothing :: Maybe String)
 
   _ <- on l realize $ setupDBus cfg l

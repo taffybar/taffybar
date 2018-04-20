@@ -22,24 +22,25 @@ module System.Information.X11DesktopInfo
   ( X11Context(..)
   , X11Property
   , X11Window
-  , withDefaultCtx
+  , doLowerWindow
+  , eventLoop
+  , getAtom
   , getDefaultCtx
+  , getDisplay
+  , getPrimaryOutputNumber
+  , getVisibleTags
   , getWindowState
   , getWindowStateProperty
+  , isWindowUrgent
+  , postX11RequestSyncProp
   , readAsInt
   , readAsListOfInt
-  , readAsString
   , readAsListOfString
   , readAsListOfWindow
-  , isWindowUrgent
-  , getVisibleTags
-  , getAtom
-  , getDisplay
-  , eventLoop
+  , readAsString
   , sendCommandEvent
   , sendWindowEvent
-  , postX11RequestSyncProp
-  , getPrimaryOutputNumber
+  , withDefaultCtx
   ) where
 
 import Data.List
@@ -280,3 +281,7 @@ getPrimaryOutputNumber = do
   primary <- liftIO $ xrrGetOutputPrimary display rootw
   outputs <- getActiveOutputs
   return $ primary `elemIndex` outputs
+
+doLowerWindow :: X11Window -> X11Property ()
+doLowerWindow window =
+  asks contextDisplay >>= lift . flip lowerWindow window
