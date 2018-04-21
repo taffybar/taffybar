@@ -6,19 +6,20 @@ module System.Information.Memory (
 toMB :: String -> Double
 toMB size = (read size :: Double) / 1024
 
-data MemoryInfo = MemoryInfo { memoryTotal :: Double
-                             , memoryFree :: Double
-                             , memoryBuffer :: Double
-                             , memoryCache :: Double
-                             , memorySwapTotal :: Double
-                             , memorySwapFree :: Double
-                             , memorySwapUsed :: Double -- swapTotal - swapFree
-                             , memorySwapUsedRatio :: Double -- swapUsed / swapTotal
-                             , memoryAvailable :: Double -- An estimate of how much memory is available for starting new apps
-                             , memoryRest :: Double      -- free + buffer + cache
-                             , memoryUsed :: Double      -- total - rest
-                             , memoryUsedRatio :: Double -- used / total
-                             }
+data MemoryInfo = MemoryInfo
+  { memoryTotal :: Double
+  , memoryFree :: Double
+  , memoryBuffer :: Double
+  , memoryCache :: Double
+  , memorySwapTotal :: Double
+  , memorySwapFree :: Double
+  , memorySwapUsed :: Double -- swapTotal - swapFree
+  , memorySwapUsedRatio :: Double -- swapUsed / swapTotal
+  , memoryAvailable :: Double -- An estimate of how much memory is available for starting new apps
+  , memoryRest :: Double -- free + buffer + cache
+  , memoryUsed :: Double -- total - rest
+  , memoryUsedRatio :: Double -- used / total
+  }
 
 emptyMemoryInfo :: MemoryInfo
 emptyMemoryInfo = MemoryInfo 0 0 0 0 0 0 0 0 0 0 0 0

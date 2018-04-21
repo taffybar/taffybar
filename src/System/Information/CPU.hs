@@ -7,7 +7,7 @@ procData :: IO [Double]
 procData = do
   h <- openFile "/proc/stat" ReadMode
   firstLine <- hGetLine h
-  (length firstLine) `seq` return ()
+  length firstLine `seq` return ()
   hClose h
   return (procParser firstLine)
 
@@ -27,9 +27,9 @@ cpuLoad = do
   threadDelay 50000
   b <- procData
   let dif = zipWith (-) b a
-      tot = foldr (+) 0 dif
+      tot = sum dif
       pct = map (/ tot) dif
-      user = foldr (+) 0 $ take 2 pct
+      user = sum $ take 2 pct
       system = pct !! 2
       t = user + system
   return (truncVal user, truncVal system, truncVal t)
