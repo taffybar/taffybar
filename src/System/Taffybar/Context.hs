@@ -41,7 +41,7 @@ import qualified Graphics.UI.Gtk.General.StyleContext as Gtk
 import           System.Information.SafeX11
 import           System.Information.X11DesktopInfo
 import           System.Log.Logger
-import           System.Taffybar.GtkLibCompat
+import           System.Taffybar.Compat.GtkLibs
 import           Text.Printf
 import           Unsafe.Coerce
 

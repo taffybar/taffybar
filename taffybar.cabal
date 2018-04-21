@@ -134,10 +134,9 @@ library
                  , System.Taffybar.WorkspaceHUD
                    
   other-modules: Paths_taffybar
-               , System.Taffybar.GtkLibCompat
                , System.Information.DBusClients
                , System.Information.DBusObjects
-               , System.Taffybar.PixbufCompat
+               , System.Taffybar.Compat.GtkLibs
                , System.Taffybar.Util
 
   cc-options: -fPIC

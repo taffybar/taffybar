@@ -25,3 +25,6 @@ ifM cond whenTrue whenFalse =
 
 forkM :: Monad m => (c -> m a) -> (c -> m b) -> c -> m (a, b)
 forkM a b = sequenceT . (a &&& b)
+
+maybeToEither :: b -> Maybe a -> Either b a
+maybeToEither = flip maybe Right . Left
