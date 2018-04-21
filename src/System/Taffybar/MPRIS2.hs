@@ -45,7 +45,8 @@ initLabel label = do
         { matchPath = Just "/org/mpris/MediaPlayer2"
         }
   lift $ do
-    DBus.registerForPropertiesChanged client propMatcher signalCallback
+    handler <- DBus.registerForPropertiesChanged client propMatcher signalCallback
+    _ <- on label unrealize (removeMatch client handler)
     doUpdate
 
 setLabelText :: Label -> [NowPlaying] -> IO ()
