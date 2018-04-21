@@ -12,8 +12,6 @@
 
 module System.Information.MPRIS2 where
 
-import Debug.Trace
-
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
