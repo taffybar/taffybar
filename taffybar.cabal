@@ -11,9 +11,12 @@ cabal-version: >=1.10
 tested-with: GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2
 homepage: http://github.com/travitch/taffybar
 data-files: taffybar.css
-extra-source-files: README.md,
-                    CHANGELOG.md,
-                    taffybar.hs.example
+extra-source-files:
+  README.md
+  CHANGELOG.md
+  taffybar.hs.example
+  dbus-xml/org.mpris.MediaPlayer2.Player.xml
+
 
 description:
   Taffybar is a gtk+3 (through gtk2hs) based desktop information bar, intended
@@ -88,6 +91,7 @@ library
                  , System.Information.DiskIO
                  , System.Information.EWMHDesktopInfo
                  , System.Information.Memory
+                 , System.Information.MPRIS2
                  , System.Information.Network
                  , System.Information.SafeX11
                  , System.Information.StreamInfo
@@ -131,6 +135,8 @@ library
                    
   other-modules: Paths_taffybar
                , System.Taffybar.GtkLibCompat
+               , System.Information.DBusClients
+               , System.Information.DBusObjects
                , System.Taffybar.PixbufCompat
                , System.Taffybar.Util
 
