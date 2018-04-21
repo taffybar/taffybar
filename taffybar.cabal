@@ -52,7 +52,8 @@ library
                , gtk-strut >= 0.1.2.0
                , gtk-traymanager >= 1.0.1 && < 2.0.0
                , gtk3
-               , haskell-gi-base
+               , haskell-gi >= 0.21.2
+               , haskell-gi-base >= 0.21.1
                , hslogger
                , mtl >= 2
                , multimap >= 1.2.1

@@ -27,8 +27,8 @@ extra-deps:
 - gtk-traymanager-1.0.1
 - gtk2hs-buildtools-0.13.3.1
 - happy-1.19.9
-- haskell-gi-0.21.0
-- haskell-gi-base-0.21.0
+- haskell-gi-base-0.21.1
+- haskell-gi-0.21.2
 - haskell-gi-overloading-1.0
 - libxml-sax-0.7.5
 - rate-limit-1.1.1

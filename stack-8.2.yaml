@@ -21,7 +21,8 @@ extra-deps:
 - gio-0.13.4.1
 - gtk-strut-0.1.2.0
 - gtk-traymanager-1.0.1
-- haskell-gi-base-0.21.0
+- haskell-gi-base-0.21.1
+- haskell-gi-0.21.2
 - libxml-sax-0.7.5
 - rate-limit-1.1.1
 - spool-0.1
