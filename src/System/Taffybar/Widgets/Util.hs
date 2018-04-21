@@ -14,11 +14,12 @@
 
 module System.Taffybar.Widgets.Util where
 
-import Control.Monad
+import Control.Monad ( when, forever, void )
 import Control.Monad.IO.Class
+import Data.Functor ( ($>) )
 import Data.Tuple.Sequence
+import Control.Concurrent ( forkIO )
 import Graphics.UI.Gtk
-import Prelude
 import Text.Printf
 
 -- | Execute the given action as a response to any of the given types
@@ -74,6 +75,7 @@ widgetGetAllocatedSize widget =
   liftIO $
   sequenceT (widgetGetAllocatedWidth widget, widgetGetAllocatedHeight widget)
 
+
 -- | Creates markup with the given foreground and background colors and the
 -- given contents.
 colorize :: String -- ^ Foreground color.
@@ -84,3 +86,9 @@ colorize fg bg = printf "<span%s%s>%s</span>" (attr "fg" fg) (attr "bg" bg)
   where attr name value
           | null value = ""
           | otherwise  = printf " %scolor=\"%s\"" name value
+
+backgroundLoop :: IO a -> IO ()
+backgroundLoop = void . forkIO . forever
+
+drawOn :: WidgetClass object => object -> IO () -> IO object
+drawOn drawArea action = on drawArea realize action $> drawArea

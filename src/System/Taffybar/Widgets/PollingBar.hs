@@ -7,27 +7,27 @@ module System.Taffybar.Widgets.PollingBar (
   BarDirection(..),
   -- * Constructors and accessors
   pollingBarNew,
+  verticalBarFromCallback,
   defaultBarConfig
   ) where
 
 import Control.Concurrent
-import qualified Control.Exception.Enclosed as E
+import Control.Exception.Enclosed ( tryAny )
 import Control.Monad ( forever )
 import Graphics.UI.Gtk
+import System.Taffybar.Widgets.Util ( backgroundLoop, drawOn )
 
 import System.Taffybar.Widgets.VerticalBar
 
-pollingBarNew :: BarConfig -> Double -> IO Double -> IO Widget
-pollingBarNew cfg pollSeconds action = do
+verticalBarFromCallback :: BarConfig -> IO Double -> IO Widget
+verticalBarFromCallback cfg action = do
   (drawArea, h) <- verticalBarNew cfg
+  drawOn drawArea $
+    backgroundLoop $ do
+      esample <- tryAny action
+      traverse (verticalBarSetPercent h) esample
 
-  _ <- on drawArea realize $ do
-    _ <- forkIO $ forever $ do
-      esample <- E.tryAny action
-      case esample of
-        Left _ -> return ()
-        Right sample -> verticalBarSetPercent h sample
-      threadDelay $ floor (pollSeconds * 1000000)
-    return ()
-
-  return drawArea
+pollingBarNew :: BarConfig -> Double -> IO Double -> IO Widget
+pollingBarNew cfg pollSeconds action =
+  verticalBarFromCallback cfg $ action <* delay
+  where delay = threadDelay $ floor (pollSeconds * 1000000)
