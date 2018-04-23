@@ -188,8 +188,8 @@ batteryBarNew battCfg = liftIO .
 -- | A battery bar constructor which allows using a custom format string
 -- in order to display more information, such as charging/discharging time
 -- and status. An example: "$percentage$% ($time$) - $status$".
-batteryBarNewWithFormat :: BarConfig -> String -> Double -> IO Widget
-batteryBarNewWithFormat battCfg formatString pollSeconds = do
+batteryBarNewWithFormat :: MonadIO m => BarConfig -> String -> Double -> m Widget
+batteryBarNewWithFormat battCfg formatString pollSeconds = liftIO $ do
   battCtxt <- batteryContextsNew
   case battCtxt of
     [] -> do
