@@ -1,11 +1,5 @@
 packages:
 - '.'
-- location:
-    git: https://github.com/IvanMalison/gtk2hs.git
-    commit: 6e2b94f62d94ff9c7e80546b884be48ab77c46bf
-  extra-dep: true
-  subdirs:
-      - gtk
 extra-deps:
 - X11-xft-0.3.1
 - dbus-1.0.1
@@ -17,6 +11,7 @@ extra-deps:
 - gi-gio-2.0.16
 - gi-gtk-3.0.21
 - gi-pango-1.0.16
+- gtk3-0.14.9
 - gi-xlib-2.0.2
 - gio-0.13.4.1
 - gtk-sni-tray-0.1.0.0
