@@ -27,9 +27,9 @@ import           DBus
 import           DBus.Client
 import           Data.Int
 import qualified Data.Map as M
+import qualified GI.Gdk as Gdk
 import           Data.Maybe
 import           Graphics.UI.GIGtkStrut
-import           Graphics.UI.Gtk.Gdk.Screen
 import           Paths_taffybar ( getDataDir )
 import           Prelude
 import           System.Directory
@@ -59,10 +59,28 @@ logT p m = lift $ logIO p m
 
 getActiveMonitorNumber :: MaybeT IO Int
 getActiveMonitorNumber = do
-  screen <- MaybeT screenGetDefault
-  -- XXX: This doesn't work for the case where a monitor has no active window
-  window <- MaybeT $ screenGetActiveWindow screen
-  lift $ screenGetMonitorAtWindow screen window
+  display <- MaybeT $ Gdk.displayGetDefault
+  seat <- lift $ Gdk.displayGetDefaultSeat display
+  device <- MaybeT $ Gdk.seatGetPointer seat
+  lift $ do
+    (_, x, y) <- Gdk.deviceGetPosition device
+    Gdk.displayGetMonitorAtPoint display x y >>= getMonitorNumber
+
+getMonitorNumber :: Gdk.Monitor -> IO Int
+getMonitorNumber monitor = do
+  display <- Gdk.monitorGetDisplay monitor
+  monitorCount <- Gdk.displayGetNMonitors display
+  monitors <- mapM (Gdk.displayGetMonitor display) [0..(monitorCount-1)]
+  monitorGeometry <- Gdk.getMonitorGeometry monitor
+  let equalsMonitor (Just other, _) =
+        do
+          otherGeometry <- Gdk.getMonitorGeometry other
+          case (otherGeometry, monitorGeometry) of
+               (Nothing, Nothing) -> return True
+               (Just g1, Just g2) -> Gdk.rectangleEqual g1 g2
+               _ -> return False
+      equalsMonitor _ = return False
+  snd . fromMaybe (Nothing, 0) . listToMaybe <$> (filterM equalsMonitor $ zip monitors [0..])
 
 taffybarTogglePath :: ObjectPath
 taffybarTogglePath = "/taffybar/toggle"
