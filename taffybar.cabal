@@ -49,6 +49,7 @@ library
                , gi-gdkx11
                , gi-gtk
                , glib
+               , gtk-sni-tray >= 0.1.0.0
                , gtk-strut >= 0.1.2.0
                , gtk-traymanager >= 1.0.1 && < 2.0.0
                , gtk3
@@ -64,6 +65,7 @@ library
                , rate-limit >= 1.1.1
                , safe >= 0.3 && < 1
                , split >= 0.1.4.2
+               , status-notifier-item >= 0.2.1.0
                , stm
                , text
                , time >= 1.4 && < 1.9
@@ -91,8 +93,8 @@ library
                  , System.Information.CPU2
                  , System.Information.DiskIO
                  , System.Information.EWMHDesktopInfo
-                 , System.Information.Memory
                  , System.Information.MPRIS2
+                 , System.Information.Memory
                  , System.Information.Network
                  , System.Information.SafeX11
                  , System.Information.StreamInfo
@@ -116,6 +118,7 @@ library
                  , System.Taffybar.Menu.MenuWidget
                  , System.Taffybar.Menu.XdgMenu
                  , System.Taffybar.NetMonitor
+                 , System.Taffybar.SNITray
                  , System.Taffybar.SimpleClock
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Systray

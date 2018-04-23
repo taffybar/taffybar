@@ -13,7 +13,7 @@ compliant window managers. It is similar in spirit to xmobar, but it differs in
 that it gives up some simplicity for a reasonable helping of eye candy.
 
 Development Status
-------------------
+----------------------
 
 Taffybar is under active development and has many exciting but potentially
 breaking changes ahead. All of the planned changes that will be occuring in the
@@ -26,7 +26,7 @@ encouraged to build from source and use this aforementioned branch to avoid
 having to rewrite their configs when the new version of taffybar is released.
 
 Installation
-------------
+---------------
 
 Taffybar can be installed in a number of different ways:
 

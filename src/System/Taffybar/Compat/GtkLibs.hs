@@ -26,6 +26,10 @@ fromGIPixBuf :: PB.Pixbuf -> IO Gtk.Pixbuf
 fromGIPixBuf (PB.Pixbuf pbManagedPtr) =
   wrapNewGObject Gtk.mkPixbuf (castPtr <$> disownManagedPtr pbManagedPtr)
 
+fromGIWidget :: GI.Gtk.Widget -> IO Gtk.Widget
+fromGIWidget (GI.Gtk.Widget wManagedPtr) =
+  wrapNewGObject Gtk.mkWidget (castPtr <$> disownManagedPtr wManagedPtr)
+
 toGIWindow :: Gtk.Window -> IO GI.Gtk.Window
 toGIWindow window = do
   let wid = Gtk.toWidget window
