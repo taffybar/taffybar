@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.ToggleMonitor
+-- Module      : System.Taffybar.DBus.Toggle
 -- Copyright   : (c) Ivan A. Malison
 -- License     : BSD3-style (see LICENSE)
 --
@@ -13,7 +13,7 @@
 -- of taffybar on each monitor while it is running.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.ToggleMonitor (
+module System.Taffybar.DBus.Toggle (
   handleDBusToggles
 ) where
 
@@ -52,7 +52,7 @@ import           Text.Read ( readMaybe )
 -- > dbus-send --print-reply=literal --dest=taffybar.toggle /taffybar/toggle taffybar.toggle.toggleCurrent
 
 logIO :: System.Log.Logger.Priority -> String -> IO ()
-logIO = logM "System.Taffybar.ToggleMonitor"
+logIO = logM "System.Taffybar.DBus.Toggle"
 
 logT :: MonadTrans t => System.Log.Logger.Priority -> String -> t IO ()
 logT p m = lift $ logIO p m

@@ -105,6 +105,7 @@ library
                  , System.Taffybar.CPUMonitor
                  , System.Taffybar.CommandRunner
                  , System.Taffybar.Context
+                 , System.Taffybar.DBus.Toggle
                  , System.Taffybar.DiskIOMonitor
                  , System.Taffybar.FSMonitor
                  , System.Taffybar.FreedesktopNotifications
@@ -124,7 +125,6 @@ library
                  , System.Taffybar.Systray
                  , System.Taffybar.Text.CPUMonitor
                  , System.Taffybar.Text.MemoryMonitor
-                 , System.Taffybar.ToggleMonitor
                  , System.Taffybar.Volume
                  , System.Taffybar.Weather
                  , System.Taffybar.Widgets.Graph
