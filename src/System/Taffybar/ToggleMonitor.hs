@@ -134,6 +134,7 @@ exportTogglesInterface = do
             takeInt $ toggleTaffyOnMon (const False)
           , autoMethod "showOnMonitor" $
             takeInt $ toggleTaffyOnMon (const True)
+          , autoMethod "refresh" $ runReaderT refreshTaffyWindows ctx
           ]
         }
   lift $ do

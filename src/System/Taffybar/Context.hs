@@ -122,6 +122,13 @@ buildContext TaffybarConfig
                 , getBarConfigs = barConfigGetter
                 , existingWindows = windowsVar
                 }
+  runMaybeT $ MaybeT GI.Gdk.displayGetDefault >>=
+              (lift . GI.Gdk.displayGetDefaultScreen) >>=
+              (lift . flip GI.Gdk.afterScreenMonitorsChanged
+               -- XXX: We have to do a force refresh here because there is no
+               -- way to reliably move windows, since the window manager can do
+               -- whatever it pleases.
+               (runReaderT forceRefreshTaffyWindows context))
   flip runReaderT context $ do
     logT DEBUG "Starting X11 Handler"
     startX11EventHandler
@@ -234,6 +241,15 @@ refreshTaffyWindows = liftReader Gtk.postGUIAsync $ do
   lift $ MV.modifyMVar_ windowsVar rebuildWindows
   logT DEBUG "Finished refreshing windows"
   return ()
+
+forceRefreshTaffyWindows :: TaffyIO ()
+forceRefreshTaffyWindows =
+  asks existingWindows >>= lift . flip MV.modifyMVar_ deleteWindows >>
+       refreshTaffyWindows
+    where deleteWindows windows =
+            do
+              mapM_ (Gtk.widgetDestroy . sel2) windows
+              return []
 
 asksContextVar :: (r -> MV.MVar b) -> ReaderT r IO b
 asksContextVar getter = asks getter >>= lift . MV.readMVar
