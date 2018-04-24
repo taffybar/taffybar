@@ -44,7 +44,7 @@ module System.Taffybar
   -- > import System.Taffybar
   -- > import System.Taffybar.SimpleConfig
   -- > import System.Taffybar.Systray
-  -- > import System.Taffybar.WorkspaceHUD
+  -- > import System.Taffybar.Workspaces
   -- > import System.Taffybar.SimpleClock
   -- > import System.Taffybar.Widgets.PollingGraph
   -- > import System.Information.CPU
@@ -60,9 +60,9 @@ module System.Taffybar
   -- >       clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
   -- >       tray = systrayNew
   -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
-  -- >       hud = buildWorkspaceHUD defaultWorkspaceHUDConfig
+  -- >       workspacs = buildWorkspaces defaultWorkspacesConfig
   -- >       simpleConfig = defaultSimpleTaffyConfig
-  -- >                        { startWidgets = [ hud ]
+  -- >                        { startWidgets = [ workspaces ]
   -- >                        , endWidgets = [ tray, clock, cpu ]
   -- >                        }
   -- >   simpleTaffybar simpleConfig
