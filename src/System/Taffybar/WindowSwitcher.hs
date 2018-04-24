@@ -26,6 +26,7 @@ import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import           System.Information.EWMHDesktopInfo
 import           System.Taffybar.Context
+import           System.Taffybar.Util
 
 -- $usage
 --
@@ -45,11 +46,14 @@ data WindowSwitcherConfig = WindowSwitcherConfig
   -- ^ Action to build the label text for the active window.
   }
 
--- TODO: Add something that truncates names that are too long
 defaultWindowSwitcherConfig :: WindowSwitcherConfig
-defaultWindowSwitcherConfig = WindowSwitcherConfig
-  { getMenuLabel = fmap Gtk.escapeMarkup . runX11Def "(nameless window)" . getWindowTitle
-  , getActiveLabel = Gtk.escapeMarkup <$> runX11Def "(nameless window)" getActiveWindowTitle
+defaultWindowSwitcherConfig =
+  WindowSwitcherConfig
+  { getMenuLabel =
+      fmap (Gtk.escapeMarkup . truncateString 35) .
+      runX11Def "(nameless window)" . getWindowTitle
+  , getActiveLabel =
+      Gtk.escapeMarkup <$> runX11Def "(nameless window)" getActiveWindowTitle
   }
 
 -- | Create a new WindowSwitcher widget that will use the given Pager as

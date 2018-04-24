@@ -28,3 +28,8 @@ forkM a b = sequenceT . (a &&& b)
 
 maybeToEither :: b -> Maybe a -> Either b a
 maybeToEither = flip maybe Right . Left
+
+truncateString :: Int -> String -> String
+truncateString n xs
+  | length xs <= n = xs
+  | otherwise      = take n xs ++ "…"

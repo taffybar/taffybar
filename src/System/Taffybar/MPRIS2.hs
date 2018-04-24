@@ -23,6 +23,7 @@ import           Data.List
 import           Graphics.UI.Gtk hiding ( Signal, Variant )
 import           System.Information.MPRIS2
 import           System.Taffybar.Context
+import           System.Taffybar.Util
 import           Text.Printf
 
 mpris2New :: TaffyIO Widget
@@ -62,8 +63,3 @@ setLabelText label playingInfos =
       setText np =
         postGUIAsync $ labelSetMarkup label (playingText np) >> widgetShow label
   in maybe (widgetHide label) setText mfirstPlaying
-
-truncateString :: Int -> String -> String
-truncateString n xs
-  | length xs <= n = xs
-  | otherwise      = take n xs ++ "…"
