@@ -19,6 +19,8 @@ module System.Taffybar.WindowSwitcher (
     windowSwitcherNew
   , WindowSwitcherConfig(..)
   , defaultWindowSwitcherConfig
+  , truncatedGetActiveLabel
+  , truncatedGetMenuLabel
 ) where
 
 import           Control.Monad.Reader
@@ -46,14 +48,20 @@ data WindowSwitcherConfig = WindowSwitcherConfig
   -- ^ Action to build the label text for the active window.
   }
 
+truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO String
+truncatedGetMenuLabel maxLength =
+  fmap (Gtk.escapeMarkup . truncateString maxLength) .
+  runX11Def "(nameless window)" . getWindowTitle
+
+truncatedGetActiveLabel :: Int -> TaffyIO String
+truncatedGetActiveLabel maxLength =
+  truncateString maxLength <$> runX11Def "(nameless window)" getActiveWindowTitle
+
 defaultWindowSwitcherConfig :: WindowSwitcherConfig
 defaultWindowSwitcherConfig =
   WindowSwitcherConfig
-  { getMenuLabel =
-      fmap (Gtk.escapeMarkup . truncateString 35) .
-      runX11Def "(nameless window)" . getWindowTitle
-  , getActiveLabel =
-      Gtk.escapeMarkup <$> runX11Def "(nameless window)" getActiveWindowTitle
+  { getMenuLabel = truncatedGetMenuLabel 35
+  , getActiveLabel = truncatedGetActiveLabel 35
   }
 
 -- | Create a new WindowSwitcher widget that will use the given Pager as
