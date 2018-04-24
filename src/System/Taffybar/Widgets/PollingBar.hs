@@ -13,7 +13,6 @@ module System.Taffybar.Widgets.PollingBar (
 
 import Control.Concurrent
 import Control.Exception.Enclosed ( tryAny )
-import Control.Monad ( forever )
 import Graphics.UI.Gtk
 import System.Taffybar.Widgets.Util ( backgroundLoop, drawOn )
 
