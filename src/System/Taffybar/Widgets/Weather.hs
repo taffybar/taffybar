@@ -60,7 +60,7 @@
 -- Implementation Note: the weather data parsing code is taken from
 -- xmobar.  This version of the code makes direct HTTP requests
 -- instead of invoking a separate cURL process.
-module System.Taffybar.Weather (
+module System.Taffybar.Widgets.Weather (
   -- * Types
   WeatherConfig(..),
   WeatherInfo(..),
@@ -80,7 +80,7 @@ import Text.Parsec
 import Text.Printf
 import Text.StringTemplate
 
-import System.Taffybar.Widgets.PollingLabel
+import System.Taffybar.Widgets.Generic.PollingLabel
 
 data WeatherInfo =
     WI { stationPlace :: String

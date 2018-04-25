@@ -1,6 +1,6 @@
 -- | A vertical bar that can plot data in the range [0, 1].  The
 -- colors are configurable.
-module System.Taffybar.Widgets.VerticalBar (
+module System.Taffybar.Widgets.Generic.VerticalBar (
   -- * Types
   VerticalBarHandle,
   BarConfig(..),

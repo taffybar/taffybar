@@ -10,7 +10,7 @@
 --
 -- Note: all of the data fed to this widget should be in the range
 -- [0,1].
-module System.Taffybar.Widgets.Graph (
+module System.Taffybar.Widgets.Generic.Graph (
   -- * Types
     GraphHandle
   , GraphConfig(..)

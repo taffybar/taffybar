@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Windows
+-- Module      : System.Taffybar.Widgets.Windows
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -13,7 +13,7 @@
 -- switch to any of them.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Windows (
+module System.Taffybar.Widgets.Windows (
   -- * Usage
   -- $usage
     windowsNew

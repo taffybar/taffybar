@@ -1,6 +1,6 @@
 --------------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.CPUMonitor
+-- Module      : System.Taffybar.Widgets.CPUMonitor
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -12,14 +12,14 @@
 -- user and system CPU times in one selected core, or in all cores available.
 --
 --------------------------------------------------------------------------------
-module System.Taffybar.CPUMonitor where
+module System.Taffybar.Widgets.CPUMonitor where
 
 import Control.Monad.Trans
 import Data.IORef
 import Graphics.UI.Gtk
 import System.Taffybar.Information.CPU2 (getCPUInfo)
 import System.Taffybar.Information.StreamInfo (getAccLoad)
-import System.Taffybar.Widgets.PollingGraph
+import System.Taffybar.Widgets.Generic.PollingGraph
 
 -- | Creates a new CPU monitor. This is a PollingGraph fed by regular calls to
 -- getCPUInfo, associated to an IORef used to remember the values yielded by the

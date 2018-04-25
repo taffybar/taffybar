@@ -5,7 +5,7 @@
 -- only works with version 1 of the MPRIS protocol
 -- (http://www.mpris.org/1.0/spec.html).  Support for version 2 will
 -- be in a separate widget.
-module System.Taffybar.MPRIS
+module System.Taffybar.Widgets.MPRIS
   ( TrackInfo (..)
   , MPRISConfig (..)
   , defaultMPRISConfig

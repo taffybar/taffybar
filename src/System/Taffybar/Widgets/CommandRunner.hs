@@ -1,6 +1,6 @@
 --------------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.CommandRunner
+-- Module      : System.Taffybar.Widgets.CommandRunner
 -- Copyright   : (c) Arseniy Seroka
 -- License     : BSD3-style (see LICENSE)
 --
@@ -13,7 +13,7 @@
 --
 --------------------------------------------------------------------------------
 
-module System.Taffybar.CommandRunner ( commandRunnerNew ) where
+module System.Taffybar.Widgets.CommandRunner ( commandRunnerNew ) where
 
 import           Control.Monad
 import           Control.Monad.Trans
@@ -21,7 +21,7 @@ import qualified Graphics.UI.Gtk as Gtk
 import           System.Exit (ExitCode (..))
 import qualified System.IO as IO
 import qualified System.Process as P
-import           System.Taffybar.Widgets.PollingLabel
+import           System.Taffybar.Widgets.Generic.PollingLabel
 import           System.Taffybar.Widgets.Util
 
 -- | Creates a new command runner widget. This is a 'PollingLabel' fed by

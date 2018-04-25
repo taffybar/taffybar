@@ -1,6 +1,6 @@
 --------------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.DiskIOMonitor
+-- Module      : System.Taffybar.Widgets.DiskIOMonitor
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -13,12 +13,12 @@
 --
 --------------------------------------------------------------------------------
 
-module System.Taffybar.DiskIOMonitor ( dioMonitorNew ) where
+module System.Taffybar.Widgets.DiskIOMonitor ( dioMonitorNew ) where
 
 import           Control.Monad.Trans
 import qualified Graphics.UI.Gtk as Gtk
 import           System.Taffybar.Information.DiskIO ( getDiskTransfer )
-import           System.Taffybar.Widgets.PollingGraph ( GraphConfig, pollingGraphNew )
+import           System.Taffybar.Widgets.Generic.PollingGraph ( GraphConfig, pollingGraphNew )
 
 -- | Creates a new disk IO monitor widget. This is a 'PollingGraph' fed by
 -- regular calls to 'getDiskTransfer'. The results of calling this function

@@ -2,7 +2,7 @@
 {-# LANGUAGE TupleSections #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.NetMonitor
+-- Module      : System.Taffybar.Widgets.NetMonitor
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -16,7 +16,7 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.NetMonitor (
+module System.Taffybar.Widgets.NetMonitor (
   netMonitorNew,
   netMonitorNewWith,
   netMonitorMultiNew,
@@ -30,7 +30,7 @@ import           Data.Maybe (catMaybes)
 import qualified Data.Traversable as T
 import           Graphics.UI.Gtk
 import           System.Taffybar.Information.Network (getNetInfo)
-import           System.Taffybar.Widgets.PollingLabel
+import           System.Taffybar.Widgets.Generic.PollingLabel
 import           Text.Printf (printf)
 import           Text.StringTemplate
 

@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables, ExistentialQuantification, RankNTypes #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Workspaces
+-- Module      : System.Taffybar.Widgets.Workspaces
 -- Copyright   : (c) Ivan A. Malison
 -- License     : BSD3-style (see LICENSE)
 --
@@ -11,7 +11,7 @@
 -- Portability : unportable
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Workspaces (
+module System.Taffybar.Widgets.Workspaces (
   ControllerConstructor,
   IconController(..),
   IconInfo(..),

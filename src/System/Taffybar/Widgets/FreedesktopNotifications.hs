@@ -21,7 +21,7 @@
 -- It sleeps until the specific timeout and then removes every notification
 -- with that id from the queue
 
-module System.Taffybar.FreedesktopNotifications (
+module System.Taffybar.Widgets.FreedesktopNotifications (
   -- * Types
   Notification(..),
   NotificationConfig(..),

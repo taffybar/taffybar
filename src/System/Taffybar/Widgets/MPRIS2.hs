@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.MPRIS2
+-- Module      : System.Taffybar.Widgets.MPRIS2
 -- Copyright   : (c) Ivan A. Malison
 -- License     : BSD3-style (see LICENSE)
 --
@@ -13,7 +13,7 @@
 -- media players implement this. This widget works with version 2 of the MPRIS
 -- protocol (https://specifications.freedesktop.org/mpris-spec/latest/).
 -----------------------------------------------------------------------------
-module System.Taffybar.MPRIS2 ( mpris2New ) where
+module System.Taffybar.Widgets.MPRIS2 ( mpris2New ) where
 
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Reader

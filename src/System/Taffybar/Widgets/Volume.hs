@@ -1,4 +1,4 @@
-module System.Taffybar.Volume (
+module System.Taffybar.Widgets.Volume (
   volumeTextNew,
   volumeControlNew
 ) where
@@ -6,7 +6,7 @@ module System.Taffybar.Volume (
 import Control.Monad.Trans
 import Graphics.UI.Gtk
 import System.Taffybar.Information.Volume
-import System.Taffybar.Widgets.PollingLabel
+import System.Taffybar.Widgets.Generic.PollingLabel
 
 -- | Creates a new text volume meter
 volumeTextNew :: MonadIO m => String -> String -> Double -> m Widget
