@@ -134,7 +134,7 @@ library
                  , System.Taffybar.Widgets.PollingLabel
                  , System.Taffybar.Widgets.Util
                  , System.Taffybar.Widgets.VerticalBar
-                 , System.Taffybar.WindowSwitcher
+                 , System.Taffybar.Windows
                  , System.Taffybar.Workspaces
                    
   other-modules: Paths_taffybar

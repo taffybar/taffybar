@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.WindowSwitcher
+-- Module      : System.Taffybar.Windows
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -13,12 +13,12 @@
 -- switch to any of them.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.WindowSwitcher (
+module System.Taffybar.Windows (
   -- * Usage
   -- $usage
-    windowSwitcherNew
-  , WindowSwitcherConfig(..)
-  , defaultWindowSwitcherConfig
+    windowsNew
+  , WindowsConfig(..)
+  , defaultWindowsConfig
   , truncatedGetActiveLabel
   , truncatedGetMenuLabel
 ) where
@@ -40,7 +40,7 @@ import           System.Taffybar.Util
 -- >   xmonad $ ewmh $ defaultConfig
 -- > ...
 
-data WindowSwitcherConfig = WindowSwitcherConfig
+data WindowsConfig = WindowsConfig
   { getMenuLabel :: X11Window -> TaffyIO String
   -- ^ A monadic function that will be used to make a label for the window in
   -- the window menu.
@@ -57,17 +57,17 @@ truncatedGetActiveLabel :: Int -> TaffyIO String
 truncatedGetActiveLabel maxLength =
   truncateString maxLength <$> runX11Def "(nameless window)" getActiveWindowTitle
 
-defaultWindowSwitcherConfig :: WindowSwitcherConfig
-defaultWindowSwitcherConfig =
-  WindowSwitcherConfig
+defaultWindowsConfig :: WindowsConfig
+defaultWindowsConfig =
+  WindowsConfig
   { getMenuLabel = truncatedGetMenuLabel 35
   , getActiveLabel = truncatedGetActiveLabel 35
   }
 
--- | Create a new WindowSwitcher widget that will use the given Pager as
+-- | Create a new Windows widget that will use the given Pager as
 -- its source of events.
-windowSwitcherNew :: WindowSwitcherConfig -> TaffyIO Gtk.Widget
-windowSwitcherNew config = do
+windowsNew :: WindowsConfig -> TaffyIO Gtk.Widget
+windowsNew config = do
   label <- lift $ do
     label <- Gtk.labelNew (Nothing :: Maybe String)
     Gtk.widgetSetName label "label"
@@ -81,7 +81,7 @@ windowSwitcherNew config = do
   _ <- liftReader (Gtk.on widget W.unrealize) (unsubscribe subscription)
   return widget
 
-assembleWidget :: WindowSwitcherConfig -> Gtk.Label -> TaffyIO Gtk.Widget
+assembleWidget :: WindowsConfig -> Gtk.Label -> TaffyIO Gtk.Widget
 assembleWidget config label = ask >>= \context -> lift $ do
   ebox <- Gtk.eventBoxNew
   Gtk.widgetSetName ebox "WindowTitle"
@@ -92,14 +92,14 @@ assembleWidget config label = ask >>= \context -> lift $ do
   Gtk.containerAdd title ebox
 
   switcher <- Gtk.menuBarNew
-  Gtk.widgetSetName switcher "WindowSwitcher"
+  Gtk.widgetSetName switcher "Windows"
   Gtk.containerAdd switcher title
 
   menu <- Gtk.menuNew
   Gtk.widgetSetName menu "menu"
 
   menuTop <- Gtk.widgetGetToplevel menu
-  Gtk.widgetSetName menuTop "Taffybar_WindowSwitcher"
+  Gtk.widgetSetName menuTop "Taffybar_Windows"
 
   Gtk.menuItemSetSubmenu title menu
 
@@ -112,7 +112,7 @@ assembleWidget config label = ask >>= \context -> lift $ do
   return $ Gtk.toWidget switcher
 
 -- | Populate the given menu widget with the list of all currently open windows.
-fillMenu :: Gtk.MenuClass menu => WindowSwitcherConfig -> menu -> TaffyIO ()
+fillMenu :: Gtk.MenuClass menu => WindowsConfig -> menu -> TaffyIO ()
 fillMenu config menu = ask >>= \context ->
   runX11Def () $ do
     windowIds <- getWindows
