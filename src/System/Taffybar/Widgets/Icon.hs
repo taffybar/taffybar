@@ -1,10 +1,9 @@
 -- | This is a simple static image widget, and a polling image widget that
 -- updates its contents by calling a callback at a set interval.
 module System.Taffybar.Widgets.Icon
-(
-  iconImageWidgetNew,
-  pollingIconImageWidgetNew
-) where
+  ( iconImageWidgetNew
+  , pollingIconImageWidgetNew
+  ) where
 
 import Control.Concurrent ( forkIO, threadDelay )
 import Control.Exception as E
@@ -35,10 +34,11 @@ iconImageWidgetNew path = do
 --
 -- If the IO action throws an exception, it will be swallowed and the
 -- label will not update until the update interval expires.
-pollingIconImageWidgetNew :: FilePath       -- ^ Initial file path of the icon
-                             -> Double      -- ^ Update interval (in seconds)
-                             -> IO FilePath -- ^ Command to run to get the input filepath
-                             -> IO Widget
+pollingIconImageWidgetNew
+  :: FilePath -- ^ Initial file path of the icon
+  -> Double -- ^ Update interval (in seconds)
+  -> IO FilePath -- ^ Command to run to get the input filepath
+  -> IO Widget
 pollingIconImageWidgetNew path interval cmd = do
   box <- hBoxNew False 0
   icon <- imageNewFromFile path

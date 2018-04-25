@@ -75,7 +75,6 @@ widgetGetAllocatedSize widget =
   liftIO $
   sequenceT (widgetGetAllocatedWidth widget, widgetGetAllocatedHeight widget)
 
-
 -- | Creates markup with the given foreground and background colors and the
 -- given contents.
 colorize :: String -- ^ Foreground color.
