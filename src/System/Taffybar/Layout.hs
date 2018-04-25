@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.LayoutSwitcher
+-- Module      : System.Taffybar.Layout
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -14,12 +14,12 @@
 -- to switch to the first one (as configured in @xmonad.hs@)
 -----------------------------------------------------------------------------
 
-module System.Taffybar.LayoutSwitcher (
+module System.Taffybar.Layout (
   -- * Usage
   -- $usage
-    LayoutSwitcherConfig(..)
-  , defaultLayoutSwitcherConfig
-  , layoutSwitcherNew
+    LayoutConfig(..)
+  , defaultLayoutConfig
+  , layoutNew
 ) where
 
 import Control.Monad.Trans
@@ -43,28 +43,28 @@ import System.Taffybar.Context
 -- Once you've properly configured @xmonad.hs@, you can use the widget in
 -- your @taffybar.hs@ file:
 --
--- > import System.Taffybar.LayoutSwitcher
+-- > import System.Taffybar.Layout
 -- > main = do
--- >   let los = layoutSwitcherNew defaultLayoutSwitcherConfig
+-- >   let los = layoutSwitcherNew defaultLayoutConfig
 --
 -- now you can use @los@ as any other Taffybar widget.
 
-data LayoutSwitcherConfig = LayoutSwitcherConfig
+data LayoutConfig = LayoutConfig
   { formatLayout :: String -> TaffyIO String
   }
 
-defaultLayoutSwitcherConfig :: LayoutSwitcherConfig
-defaultLayoutSwitcherConfig = LayoutSwitcherConfig return
+defaultLayoutConfig :: LayoutConfig
+defaultLayoutConfig = LayoutConfig return
 
 -- | Name of the X11 events to subscribe, and of the hint to look for for
 -- the name of the current layout.
 xLayoutProp :: String
 xLayoutProp = "_XMONAD_CURRENT_LAYOUT"
 
--- | Create a new LayoutSwitcher widget that will use the given Pager as
+-- | Create a new Layout widget that will use the given Pager as
 -- its source of events.
-layoutSwitcherNew :: LayoutSwitcherConfig -> TaffyIO Gtk.Widget
-layoutSwitcherNew config = do
+layoutNew :: LayoutConfig -> TaffyIO Gtk.Widget
+layoutNew config = do
   ctx <- ask
   label <- lift $ Gtk.labelNew (Nothing :: Maybe String)
 

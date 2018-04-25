@@ -111,7 +111,7 @@ library
                  , System.Taffybar.FreedesktopNotifications
                  , System.Taffybar.Hooks.PagerHints
                  , System.Taffybar.IconImages
-                 , System.Taffybar.LayoutSwitcher
+                 , System.Taffybar.Layout
                  , System.Taffybar.MPRIS
                  , System.Taffybar.MPRIS2
                  , System.Taffybar.Menu.DesktopEntry
