@@ -69,9 +69,9 @@ import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import           Graphics.UI.Gtk.General.StyleContext
 import qualified Graphics.UI.Gtk.Layout.Table as T
 import           Prelude
-import           System.Information.EWMHDesktopInfo
-import           System.Information.SafeX11
-import           System.Information.X11DesktopInfo
+import           System.Taffybar.Information.EWMHDesktopInfo
+import           System.Taffybar.Information.SafeX11
+import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Context
 import           System.Taffybar.IconImages
 import           System.Taffybar.Util

@@ -26,7 +26,7 @@ import Control.Monad.Trans
 import Control.Monad.Reader
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
-import System.Information.X11DesktopInfo
+import System.Taffybar.Information.X11DesktopInfo
 import System.Taffybar.Widgets.Util
 import System.Taffybar.Context
 

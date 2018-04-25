@@ -1,4 +1,4 @@
-module System.Information.Memory (
+module System.Taffybar.Information.Memory (
   MemoryInfo(..),
   parseMeminfo
   ) where

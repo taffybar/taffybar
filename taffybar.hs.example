@@ -1,7 +1,7 @@
 module Main where
 
-import System.Information.CPU
-import System.Information.Memory
+import System.Taffybar.Information.CPU
+import System.Taffybar.Information.Memory
 import System.Taffybar
 import System.Taffybar.FreedesktopNotifications
 import System.Taffybar.MPRIS

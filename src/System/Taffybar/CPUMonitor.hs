@@ -17,8 +17,8 @@ module System.Taffybar.CPUMonitor where
 import Control.Monad.Trans
 import Data.IORef
 import Graphics.UI.Gtk
-import System.Information.CPU2 (getCPUInfo)
-import System.Information.StreamInfo (getAccLoad)
+import System.Taffybar.Information.CPU2 (getCPUInfo)
+import System.Taffybar.Information.StreamInfo (getAccLoad)
 import System.Taffybar.Widgets.PollingGraph
 
 -- | Creates a new CPU monitor. This is a PollingGraph fed by regular calls to

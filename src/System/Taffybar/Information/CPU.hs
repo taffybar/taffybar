@@ -1,4 +1,4 @@
-module System.Information.CPU ( cpuLoad ) where
+module System.Taffybar.Information.CPU ( cpuLoad ) where
 
 import Control.Concurrent ( threadDelay )
 import System.IO ( IOMode(ReadMode), openFile, hGetLine, hClose )

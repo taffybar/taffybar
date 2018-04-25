@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Information.Network
+-- Module      : System.Taffybar.Information.Network
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -10,18 +10,18 @@
 --
 -- Provides information about network traffic over selected interfaces,
 -- obtained from parsing the @\/proc\/net\/dev@ file using some of the
--- facilities provided by the "System.Information.StreamInfo" module.
+-- facilities provided by the "System.Taffybar.Information.StreamInfo" module.
 --
 -----------------------------------------------------------------------------
 
-module System.Information.Network ( getNetInfo ) where
+module System.Taffybar.Information.Network ( getNetInfo ) where
 
 import Control.Applicative
 import Control.Monad
 import Control.Exception (catch, SomeException)
 import Data.Maybe ( mapMaybe )
 import Safe ( atMay, initSafe, readDef )
-import System.Information.StreamInfo ( getParsedInfo )
+import System.Taffybar.Information.StreamInfo ( getParsedInfo )
 import Control.Monad.Trans.Maybe (MaybeT(..))
 
 import Prelude

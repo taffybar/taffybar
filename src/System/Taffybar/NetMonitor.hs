@@ -11,7 +11,7 @@
 -- Portability : unportable
 --
 -- Simple text widget that displays incoming\/outgoing network traffic over
--- one selected interface, as provided by the "System.Information.Network"
+-- one selected interface, as provided by the "System.Taffybar.Information.Network"
 -- module.
 --
 -----------------------------------------------------------------------------
@@ -29,7 +29,7 @@ import           Data.IORef
 import           Data.Maybe (catMaybes)
 import qualified Data.Traversable as T
 import           Graphics.UI.Gtk
-import           System.Information.Network (getNetInfo)
+import           System.Taffybar.Information.Network (getNetInfo)
 import           System.Taffybar.Widgets.PollingLabel
 import           Text.Printf (printf)
 import           Text.StringTemplate

@@ -29,7 +29,7 @@ import           Foreign.Marshal.Array
 import           Foreign.Ptr
 import           Foreign.Storable
 import qualified Graphics.UI.Gtk as Gtk
-import           System.Information.EWMHDesktopInfo
+import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Compat.GtkLibs
 
 type ColorRGBA = (Word8, Word8, Word8, Word8)

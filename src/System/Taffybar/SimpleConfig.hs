@@ -25,7 +25,7 @@ import           Data.Maybe
 import           Data.Unique
 import           Graphics.UI.GIGtkStrut
 import           Graphics.UI.Gtk as Gtk
-import           System.Information.X11DesktopInfo
+import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar
 import qualified System.Taffybar.Context as BC (BarConfig(..))
 import           System.Taffybar.Context hiding (BarConfig(..))

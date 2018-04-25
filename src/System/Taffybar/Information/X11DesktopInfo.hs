@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Information.X11DesktopInfo
+-- Module      : System.Taffybar.Information.X11DesktopInfo
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -18,7 +18,7 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Information.X11DesktopInfo
+module System.Taffybar.Information.X11DesktopInfo
   ( X11Context(..)
   , X11Property
   , X11Window
@@ -58,7 +58,7 @@ import Graphics.X11.Xlib.Extras
                getWMHints)
 import Graphics.X11.Xrandr
 import Prelude
-import System.Information.SafeX11
+import System.Taffybar.Information.SafeX11
 
 data X11Context = X11Context
   { contextDisplay :: Display

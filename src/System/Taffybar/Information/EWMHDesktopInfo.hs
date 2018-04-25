@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Information.EWMHDesktopInfo
+-- Module      : System.Taffybar.Information.EWMHDesktopInfo
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -19,7 +19,7 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Information.EWMHDesktopInfo
+module System.Taffybar.Information.EWMHDesktopInfo
   ( X11Window      -- re-exported from X11DesktopInfo
   , X11WindowHandle
   , WorkspaceIdx(..)
@@ -53,11 +53,11 @@ import Foreign.ForeignPtr
 import Foreign.Marshal.Array
 import Foreign.Ptr
 import Foreign.Storable
-import System.Information.SafeX11
+import System.Taffybar.Information.SafeX11
 
 import Prelude
 
-import System.Information.X11DesktopInfo
+import System.Taffybar.Information.X11DesktopInfo
 
 -- | Convenience alias for a pair of the form (props, window), where props is a
 -- tuple of the form (workspace index, window title, window class), and window

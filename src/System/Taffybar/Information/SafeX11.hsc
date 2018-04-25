@@ -2,7 +2,7 @@
   InterruptibleFFI, ExistentialQuantification, DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Information.SafeX11
+-- Module      : System.Taffybar.Information.SafeX11
 -- Copyright   : (c) Ivan A. Malison
 -- License     : BSD3-style (see LICENSE)
 --
@@ -10,10 +10,10 @@
 -- Stability   : unstable
 -- Portability : unportable
 -----------------------------------------------------------------------------
-module System.Information.SafeX11
+module System.Taffybar.Information.SafeX11
   ( module Graphics.X11.Xlib
   , module Graphics.X11.Xlib.Extras
-  , module System.Information.SafeX11
+  , module System.Taffybar.Information.SafeX11
   )
   where
 

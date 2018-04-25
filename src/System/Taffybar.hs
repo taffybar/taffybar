@@ -47,7 +47,7 @@ module System.Taffybar
   -- > import System.Taffybar.Workspaces
   -- > import System.Taffybar.SimpleClock
   -- > import System.Taffybar.Widgets.PollingGraph
-  -- > import System.Information.CPU
+  -- > import System.Taffybar.Information.CPU
   -- >
   -- > cpuCallback = do
   -- >   (_, systemLoad, totalLoad) <- cpuLoad

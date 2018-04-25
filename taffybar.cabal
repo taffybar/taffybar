@@ -88,19 +88,7 @@ library
     build-depends: network-uri < 2.6, network < 2.6
   hs-source-dirs: src
   pkgconfig-depends: gtk+-3.0
-  exposed-modules: System.Information.Battery
-                 , System.Information.CPU
-                 , System.Information.CPU2
-                 , System.Information.DiskIO
-                 , System.Information.EWMHDesktopInfo
-                 , System.Information.MPRIS2
-                 , System.Information.Memory
-                 , System.Information.Network
-                 , System.Information.SafeX11
-                 , System.Information.StreamInfo
-                 , System.Information.Volume
-                 , System.Information.X11DesktopInfo
-                 , System.Taffybar
+  exposed-modules: System.Taffybar
                  , System.Taffybar.Battery
                  , System.Taffybar.CPUMonitor
                  , System.Taffybar.CommandRunner
@@ -111,6 +99,18 @@ library
                  , System.Taffybar.FreedesktopNotifications
                  , System.Taffybar.Hooks.PagerHints
                  , System.Taffybar.IconImages
+                 , System.Taffybar.Information.Battery
+                 , System.Taffybar.Information.CPU
+                 , System.Taffybar.Information.CPU2
+                 , System.Taffybar.Information.DiskIO
+                 , System.Taffybar.Information.EWMHDesktopInfo
+                 , System.Taffybar.Information.MPRIS2
+                 , System.Taffybar.Information.Memory
+                 , System.Taffybar.Information.Network
+                 , System.Taffybar.Information.SafeX11
+                 , System.Taffybar.Information.StreamInfo
+                 , System.Taffybar.Information.Volume
+                 , System.Taffybar.Information.X11DesktopInfo
                  , System.Taffybar.Layout
                  , System.Taffybar.MPRIS
                  , System.Taffybar.MPRIS2
@@ -138,8 +138,8 @@ library
                  , System.Taffybar.Workspaces
                    
   other-modules: Paths_taffybar
-               , System.Information.DBusClients
-               , System.Information.DBusObjects
+               , System.Taffybar.Information.DBusClients
+               , System.Taffybar.Information.DBusObjects
                , System.Taffybar.Compat.GtkLibs
                , System.Taffybar.Util
 

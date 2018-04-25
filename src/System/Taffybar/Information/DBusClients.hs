@@ -1,8 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
-module System.Information.DBusClients where
+module System.Taffybar.Information.DBusClients where
 
 import DBus.Generation
-import System.Information.DBusObjects
+import System.Taffybar.Information.DBusObjects
 
 generateClient playerGenerationParams playerInterface
 generateSignalsFromInterface playerGenerationParams playerInterface

@@ -2,7 +2,7 @@
 -- | This is a simple library to query the Linux UPower daemon (via
 -- DBus) for battery information.  Currently, it only retrieves
 -- information for the first battery it finds.
-module System.Information.Battery (
+module System.Taffybar.Information.Battery (
   -- * Types
   BatteryContext,
   BatteryInfo(..),

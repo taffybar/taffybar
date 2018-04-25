@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module System.Information.DBusObjects where
+module System.Taffybar.Information.DBusObjects where
 
 import System.IO.Unsafe
 import DBus.Generation

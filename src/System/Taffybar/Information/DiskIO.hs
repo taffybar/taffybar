@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Information.DiskIO
+-- Module      : System.Taffybar.Information.DiskIO
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -10,14 +10,14 @@
 --
 -- Provides information about read/write operations in a given disk or
 -- partition, obtained from parsing the @\/proc\/diskstats@ file with some
--- of the facilities included in the "System.Information.StreamInfo" module.
+-- of the facilities included in the "System.Taffybar.Information.StreamInfo" module.
 -----------------------------------------------------------------------------
 
-module System.Information.DiskIO ( getDiskTransfer ) where
+module System.Taffybar.Information.DiskIO ( getDiskTransfer ) where
 
 import Data.Maybe ( mapMaybe )
 import Safe ( atMay, headMay, readDef )
-import System.Information.StreamInfo ( getParsedInfo, getTransfer )
+import System.Taffybar.Information.StreamInfo ( getParsedInfo, getTransfer )
 
 -- | Returns a two-element list containing the speed of transfer for read and
 -- write operations performed in the given disk\/partition (e.g. \"sda\",

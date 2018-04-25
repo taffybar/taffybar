@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Information.MPRIS2
+-- Module      : System.Taffybar.Information.MPRIS2
 -- Copyright   : (c) Ivan A. Malison
 -- License     : BSD3-style (see LICENSE)
 --
@@ -10,7 +10,7 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Information.MPRIS2 where
+module System.Taffybar.Information.MPRIS2 where
 
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Except
@@ -23,7 +23,7 @@ import           Data.Coerce
 import           Data.List
 import qualified Data.Map as M
 import           Data.Maybe
-import           System.Information.DBusClients
+import           System.Taffybar.Information.DBusClients
 import           System.Log.Logger
 import           Text.Printf
 
@@ -36,7 +36,7 @@ data NowPlaying = NowPlaying
 eitherToMaybeWithLog :: (MonadIO m, Show a1) => Either a1 a2 -> m (Maybe a2)
 eitherToMaybeWithLog (Right v) = return $ Just v
 eitherToMaybeWithLog (Left e) = liftIO $ do
-  logM "System.Information.MPRIS2" WARNING $ printf "Got error: %s" $ show e
+  logM "System.Taffybar.Information.MPRIS2" WARNING $ printf "Got error: %s" $ show e
   return Nothing
 
 getNowPlayingInfo :: MonadIO m => DBus.Client -> m [NowPlaying]

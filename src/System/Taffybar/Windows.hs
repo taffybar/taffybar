@@ -26,7 +26,7 @@ module System.Taffybar.Windows (
 import           Control.Monad.Reader
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
-import           System.Information.EWMHDesktopInfo
+import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Context
 import           System.Taffybar.Util
 

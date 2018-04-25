@@ -21,7 +21,7 @@ import           DBus.Client hiding ( getProperty )
 import qualified DBus.TH as DBus
 import           Data.List
 import           Graphics.UI.Gtk hiding ( Signal, Variant )
-import           System.Information.MPRIS2
+import           System.Taffybar.Information.MPRIS2
 import           System.Taffybar.Context
 import           System.Taffybar.Util
 import           Text.Printf

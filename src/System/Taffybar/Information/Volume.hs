@@ -1,4 +1,4 @@
-module System.Information.Volume (
+module System.Taffybar.Information.Volume (
   getVolume,
   setVolume
 ) where

@@ -17,7 +17,7 @@ module System.Taffybar.DiskIOMonitor ( dioMonitorNew ) where
 
 import           Control.Monad.Trans
 import qualified Graphics.UI.Gtk as Gtk
-import           System.Information.DiskIO ( getDiskTransfer )
+import           System.Taffybar.Information.DiskIO ( getDiskTransfer )
 import           System.Taffybar.Widgets.PollingGraph ( GraphConfig, pollingGraphNew )
 
 -- | Creates a new disk IO monitor widget. This is a 'PollingGraph' fed by

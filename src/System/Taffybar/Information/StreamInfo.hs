@@ -1,6 +1,6 @@
 --------------------------------------------------------------------------------
 -- |
--- Module      : System.Information.StreamInfo
+-- Module      : System.Taffybar.Information.StreamInfo
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -15,7 +15,7 @@
 --
 --------------------------------------------------------------------------------
 
-module System.Information.StreamInfo
+module System.Taffybar.Information.StreamInfo
     ( getParsedInfo
     , getLoad
     , getAccLoad

@@ -38,7 +38,7 @@ import           Text.StringTemplate
 
 import           Prelude
 
-import           System.Information.Battery
+import           System.Taffybar.Information.Battery
 import           System.Taffybar.Widgets.PollingBar
 import           System.Taffybar.Widgets.PollingLabel
 

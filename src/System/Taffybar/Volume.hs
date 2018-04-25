@@ -5,7 +5,7 @@ module System.Taffybar.Volume (
 
 import Control.Monad.Trans
 import Graphics.UI.Gtk
-import System.Information.Volume
+import System.Taffybar.Information.Volume
 import System.Taffybar.Widgets.PollingLabel
 
 -- | Creates a new text volume meter

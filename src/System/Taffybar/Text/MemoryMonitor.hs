@@ -1,7 +1,7 @@
 module System.Taffybar.Text.MemoryMonitor(textMemoryMonitorNew) where
 
 import qualified Text.StringTemplate as ST
-import System.Information.Memory
+import System.Taffybar.Information.Memory
 import System.Taffybar.Widgets.PollingLabel ( pollingLabelNew )
 import qualified Graphics.UI.Gtk as Gtk
 
