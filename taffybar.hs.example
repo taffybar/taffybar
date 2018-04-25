@@ -1,17 +1,11 @@
 module Main where
 
-import System.Taffybar.Information.CPU
-import System.Taffybar.Information.Memory
-import System.Taffybar
-import System.Taffybar.FreedesktopNotifications
-import System.Taffybar.Widgets.MPRIS2
-import System.Taffybar.Widgets.SimpleClock
-import System.Taffybar.Widgets.Systray
-import System.Taffybar.TaffyPager
-import System.Taffybar.Widgets.Weather
-import System.Taffybar.Widgets.Generic.PollingBar
-import System.Taffybar.Widgets.Generic.PollingGraph
-import System.Taffybar.Widgets.Workspaces
+import           System.Taffybar
+import           System.Taffybar.Information.CPU
+import           System.Taffybar.Information.Memory
+import           System.Taffybar.SimpleConfig
+import           System.Taffybar.Widgets
+import           System.Taffybar.Widgets.Generic.PollingGraph
 
 memCallback = do
   mi <- parseMeminfo
@@ -22,14 +16,17 @@ cpuCallback = do
   return [totalLoad, systemLoad]
 
 main = do
-  let memCfg = defaultGraphConfig { graphDataColors = [(1, 0, 0, 1)]
-                                  , graphLabel = Just "mem"
-                                  }
-      cpuCfg = defaultGraphConfig { graphDataColors = [ (0, 1, 0, 1)
-                                                      , (1, 0, 1, 0.5)
-                                                      ]
-                                  , graphLabel = Just "cpu"
-                                  }
+  let memCfg = defaultGraphConfig
+               { graphDataColors = [(1, 0, 0, 1)]
+               , graphLabel = Just "mem"
+               }
+      cpuCfg = defaultGraphConfig
+               { graphDataColors =
+                   [ (0, 1, 0, 1)
+                   , (1, 0, 1, 0.5)
+                   ]
+               , graphLabel = Just "cpu"
+               }
   let clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
       workspaces = buildWorkspaces defaultWorkspacesConfig
       note = notifyAreaNew defaultNotificationConfig
@@ -38,6 +35,7 @@ main = do
       mem = pollingGraphNew memCfg 1 memCallback
       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
       tray = systrayNew
-  defaultTaffybar defaultTaffybarConfig { startWidgets = [ workspaces, note ]
-                                        , endWidgets = [ tray, wea, clock, mem, cpu, mpris ]
-                                        }
+  simpleTaffybar defaultSimpleTaffyConfig
+                   { startWidgets = [ workspaces, note ]
+                   , endWidgets = [ tray, wea, clock, mem, cpu, mpris ]
+                   }

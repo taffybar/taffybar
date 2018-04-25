@@ -11,40 +11,39 @@
 -- Portability : unportable
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widgets.Workspaces (
-  ControllerConstructor,
-  IconController(..),
-  IconInfo(..),
-  WWC(..),
-  WindowData(..),
-  Workspace(..),
-  WorkspaceButtonController(..),
-  WorkspaceContentsController(..),
-  WorkspaceState(..),
-  WorkspaceUnderlineController(..),
-  WorkspaceWidgetController(..),
-  WorkspacesConfig(..),
-  WorkspacesContext(..),
-  WorkspacesIO,
-  buildBorderButtonController,
-  buildButtonController,
-  buildContentsController,
-  buildIconController,
-  buildLabelController,
-  buildPadBox,
-  buildUnderlineButtonController,
-  buildUnderlineController,
-  buildWorkspaceData,
-  defaultBuildContentsController,
-  defaultGetIconInfo,
-  defaultWorkspacesConfig,
-  getWorkspaceToWindows,
-  hideEmpty,
-  liftX11Def,
-  workspacesNew,
-  setImage,
-  widgetSetClass,
-  windowTitleClassIconGetter,
+module System.Taffybar.Widgets.Workspaces
+  ( ControllerConstructor
+  , IconController(..)
+  , IconInfo(..)
+  , WWC(..)
+  , WindowData(..)
+  , Workspace(..)
+  , WorkspaceButtonController(..)
+  , WorkspaceContentsController(..)
+  , WorkspaceState(..)
+  , WorkspaceUnderlineController(..)
+  , WorkspaceWidgetController(..)
+  , WorkspacesConfig(..)
+  , WorkspacesContext(..)
+  , WorkspacesIO
+  , buildBorderButtonController
+  , buildButtonController
+  , buildContentsController
+  , buildIconController
+  , buildLabelController
+  , buildPadBox
+  , buildUnderlineButtonController
+  , buildUnderlineController
+  , buildWorkspaceData
+  , defaultBuildContentsController
+  , defaultGetIconInfo
+  , defaultWorkspacesConfig
+  , getWorkspaceToWindows
+  , hideEmpty
+  , liftX11Def
+  , workspacesNew
+  , setImage
+  , windowTitleClassIconGetter
 ) where
 
 import           Control.Applicative
@@ -60,6 +59,7 @@ import           Data.List (intersect, sortBy)
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.MultiMap as MM
+import           Data.Ord
 import qualified Data.Set as Set
 import           Data.Time.Units
 import           Data.Tuple.Select
@@ -69,12 +69,13 @@ import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import           Graphics.UI.Gtk.General.StyleContext
 import qualified Graphics.UI.Gtk.Layout.Table as T
 import           Prelude
+import           System.Taffybar.Context
+import           System.Taffybar.IconImages
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
-import           System.Taffybar.Context
-import           System.Taffybar.IconImages
 import           System.Taffybar.Util
+import           System.Taffybar.Widgets.Util
 import           Text.Printf
 
 data WorkspaceState
@@ -132,13 +133,6 @@ liftContext action = asks taffyContext >>= lift . runReaderT action
 
 liftX11Def :: a -> X11Property a -> WorkspacesIO a
 liftX11Def def prop = liftContext $ runX11Def def prop
-
-widgetSetClass
-  :: W.WidgetClass widget
-  => widget -> String -> IO ()
-widgetSetClass widget klass = do
-  context <- Gtk.widgetGetStyleContext widget
-  styleContextAddClass context klass
 
 setWorkspaceWidgetStatusClass
   :: W.WidgetClass widget
@@ -791,6 +785,13 @@ setImage imgSize img pixBuf =
       scaledPixbuf <- scalePixbuf imgSize pixbuf
       Gtk.imageSetFromPixbuf img scaledPixbuf
     Nothing -> Gtk.imageClear img
+
+selectEWMHIcon :: Int -> [EWMHIcon] -> EWMHIcon
+selectEWMHIcon imgSize icons = head prefIcon
+  where sortedIcons = sortBy (comparing height) icons
+        smallestLargerIcon = take 1 $ dropWhile ((<= imgSize) . height) sortedIcons
+        largestIcon = take 1 $ reverse sortedIcons
+        prefIcon = smallestLargerIcon ++ largestIcon
 
 getPixBuf :: Int -> IconInfo -> IO (Maybe Gtk.Pixbuf)
 getPixBuf imgSize = gpb

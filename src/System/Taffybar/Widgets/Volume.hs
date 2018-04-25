@@ -1,7 +1,7 @@
-module System.Taffybar.Widgets.Volume (
-  volumeTextNew,
-  volumeControlNew
-) where
+module System.Taffybar.Widgets.Volume
+  ( volumeTextNew
+  , volumeControlNew
+  ) where
 
 import Control.Monad.Trans
 import Graphics.UI.Gtk

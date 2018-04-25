@@ -21,13 +21,11 @@
 -- It sleeps until the specific timeout and then removes every notification
 -- with that id from the queue
 
-module System.Taffybar.Widgets.FreedesktopNotifications (
-  -- * Types
-  Notification(..),
-  NotificationConfig(..),
-  -- * Constructor
-  notifyAreaNew,
-  defaultNotificationConfig
+module System.Taffybar.Widgets.FreedesktopNotifications
+  ( Notification(..)
+  , NotificationConfig(..)
+  , defaultNotificationConfig
+  , notifyAreaNew
   ) where
 
 import           Control.Concurrent

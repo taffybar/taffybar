@@ -33,8 +33,10 @@ getHost = do
                }
             return host
 
-buildSNITray :: TaffyIO Gtk.Widget
-buildSNITray = do
+-- | Build a new StatusNotifierItem tray that will share a host with any other
+-- trays that are constructed automatically
+sniTrayNew :: TaffyIO Gtk.Widget
+sniTrayNew = do
   host <- getHost
   client <- asks dbusClient
   lift $ do

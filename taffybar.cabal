@@ -111,6 +111,7 @@ library
                  , System.Taffybar.Information.StreamInfo
                  , System.Taffybar.Information.Volume
                  , System.Taffybar.Information.X11DesktopInfo
+                 , System.Taffybar.Widgets
                  , System.Taffybar.Widgets.Layout
                  , System.Taffybar.Widgets.MPRIS
                  , System.Taffybar.Widgets.MPRIS2

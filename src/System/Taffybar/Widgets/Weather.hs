@@ -60,15 +60,13 @@
 -- Implementation Note: the weather data parsing code is taken from
 -- xmobar.  This version of the code makes direct HTTP requests
 -- instead of invoking a separate cURL process.
-module System.Taffybar.Widgets.Weather (
-  -- * Types
-  WeatherConfig(..),
-  WeatherInfo(..),
-  WeatherFormatter(WeatherFormatter),
-  -- * Constructor
-  weatherNew,
-  weatherCustomNew,
-  defaultWeatherConfig
+module System.Taffybar.Widgets.Weather
+  ( WeatherConfig(..)
+  , WeatherInfo(..)
+  , WeatherFormatter(WeatherFormatter)
+  , weatherNew
+  , weatherCustomNew
+  , defaultWeatherConfig
   ) where
 
 import Control.Monad.Trans

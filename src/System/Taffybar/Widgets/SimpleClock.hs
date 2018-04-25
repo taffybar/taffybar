@@ -3,11 +3,11 @@
 -- | This module implements a very simple text-based clock widget.
 -- The widget also toggles a calendar widget when clicked.  This
 -- calendar is not fancy at all and has no data backend.
-module System.Taffybar.Widgets.SimpleClock (
-  textClockNew,
-  textClockNewWith,
-  defaultClockConfig,
-  ClockConfig(..)
+module System.Taffybar.Widgets.SimpleClock
+  ( textClockNew
+  , textClockNewWith
+  , defaultClockConfig
+  , ClockConfig(..)
   ) where
 
 import           Control.Monad.Trans

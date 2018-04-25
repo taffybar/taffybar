@@ -14,12 +14,13 @@
 
 module System.Taffybar.Widgets.Util where
 
+import Control.Concurrent ( forkIO )
 import Control.Monad ( when, forever, void )
 import Control.Monad.IO.Class
 import Data.Functor ( ($>) )
 import Data.Tuple.Sequence
-import Control.Concurrent ( forkIO )
-import Graphics.UI.Gtk
+import Graphics.UI.Gtk as Gtk
+import Graphics.UI.Gtk.General.StyleContext
 import Text.Printf
 
 -- | Execute the given action as a response to any of the given types
@@ -91,3 +92,10 @@ backgroundLoop = void . forkIO . forever
 
 drawOn :: WidgetClass object => object -> IO () -> IO object
 drawOn drawArea action = on drawArea realize action $> drawArea
+
+widgetSetClass
+  :: Gtk.WidgetClass widget
+  => widget -> String -> IO ()
+widgetSetClass widget klass = do
+  context <- Gtk.widgetGetStyleContext widget
+  styleContextAddClass context klass

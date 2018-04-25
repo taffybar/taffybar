@@ -18,11 +18,11 @@
 -- warning text in it.  Battery hotplugging is not supported.  These
 -- more advanced features could be supported if there is interest.
 -----------------------------------------------------------------------------
-module System.Taffybar.Widgets.Battery (
-  batteryBarNew,
-  batteryBarNewWithFormat,
-  textBatteryNew,
-  defaultBatteryConfig
+module System.Taffybar.Widgets.Battery
+  ( batteryBarNew
+  , batteryBarNewWithFormat
+  , textBatteryNew
+  , defaultBatteryConfig
   ) where
 
 import           Control.Applicative
@@ -43,21 +43,25 @@ import           System.Taffybar.Widgets.Generic.PollingBar
 import           System.Taffybar.Widgets.Generic.PollingLabel
 
 
--- | Just the battery info that will be used for display (this makes combining several easier).
-data BatteryWidgetInfo = BWI { seconds :: Maybe Int64
-                             , percent :: Int
-                             , status :: String
-                             } deriving (Eq, Show)
+-- | Just the battery info that will be used for display (this makes combining
+-- several easier).
+data BatteryWidgetInfo = BWI
+  { seconds :: Maybe Int64
+  , percent :: Int
+  , status :: String
+  } deriving (Eq, Show)
 
 -- | Combination for 'BatteryWidgetInfo'.
 -- If one battery lacks time information, combination has no time information
 combine :: [BatteryWidgetInfo] -> Maybe BatteryWidgetInfo
 combine [] = Nothing
 combine bs =
-  Just BWI { seconds = sum <$> sequence (seconds <$> bs)
-           , percent = sum (percent <$> bs) `div` length bs
-           , status = status $ head bs
-           }
+  Just
+    BWI
+    { seconds = sum <$> sequence (seconds <$> bs)
+    , percent = sum (percent <$> bs) `div` length bs
+    , status = status $ head bs
+    }
 
 -- | Format a duration expressed as seconds to hours and minutes
 formatDuration :: Maybe Int64 -> String
@@ -130,11 +134,10 @@ battSumm rs fmt = do
   return $ formatBattInfo combined fmt
 
 
--- | A simple textual battery widget that auto-updates once every
--- polling period (specified in seconds).  The displayed format is
--- specified format string where $percentage$ is replaced with the
--- percentage of battery remaining and $time$ is replaced with the
--- time until the battery is fully charged/discharged.
+-- | A simple textual battery widget that auto-updates once every polling period
+-- (specified in seconds). The displayed format is specified format string where
+-- $percentage$ is replaced with the percentage of battery remaining and $time$
+-- is replaced with the time until the battery is fully charged/discharged.
 --
 -- Multiple battery values are combined as follows:
 -- - for time remaining, the largest value is used.
@@ -177,33 +180,36 @@ defaultBatteryConfig =
       | otherwise = (0, 1, 0)
 
 
--- | A fancy graphical battery widget that represents batteries
--- as colored vertical bars (one per battery).  There is also a
--- textual percentage reppadout next to the bars, containing a summary of
--- battery information.
+-- | A fancy graphical battery widget that represents batteries as colored
+-- vertical bars (one per battery). There is also a textual percentage reppadout
+-- next to the bars, containing a summary of battery information.
 batteryBarNew :: MonadIO m => BarConfig -> Double -> m Widget
 batteryBarNew battCfg = liftIO .
   batteryBarNewWithFormat battCfg "$percentage$%"
 
--- | A battery bar constructor which allows using a custom format string
--- in order to display more information, such as charging/discharging time
--- and status. An example: "$percentage$% ($time$) - $status$".
+-- | A battery bar constructor which allows using a custom format string in
+-- order to display more information, such as charging/discharging time and
+-- status. An example: "$percentage$% ($time$) - $status$".
 batteryBarNewWithFormat :: MonadIO m => BarConfig -> String -> Double -> m Widget
-batteryBarNewWithFormat battCfg formatString pollSeconds = liftIO $ do
-  battCtxt <- batteryContextsNew
-  case battCtxt of
-    [] -> do
-      let lbl :: Maybe String
-          lbl = Just "No battery"
-      toWidget <$> labelNew lbl
-    cs -> do
-      b <- hBoxNew False 1
-      rs <- traverse newIORef cs
-      txt <- textBatteryNew rs formatString pollSeconds
-      let ris :: [(IORef BatteryContext, Int)]
-          ris = rs `zip` [0..]
-      bars <- traverse (\(i, r) -> pollingBarNew battCfg pollSeconds (battPct i r)) ris
-      mapM_ (\bar -> boxPackStart b bar PackNatural 0) bars
-      boxPackStart b txt PackNatural 0
-      widgetShowAll b
-      return (toWidget b)
+batteryBarNewWithFormat battCfg formatString pollSeconds =
+  liftIO $ do
+    battCtxt <- batteryContextsNew
+    case battCtxt of
+      [] -> do
+        let lbl :: Maybe String
+            lbl = Just "No battery"
+        toWidget <$> labelNew lbl
+      cs -> do
+        b <- hBoxNew False 1
+        rs <- traverse newIORef cs
+        txt <- textBatteryNew rs formatString pollSeconds
+        let ris :: [(IORef BatteryContext, Int)]
+            ris = rs `zip` [0 ..]
+        bars <-
+          traverse
+            (\(i, r) -> pollingBarNew battCfg pollSeconds (battPct i r))
+            ris
+        mapM_ (\bar -> boxPackStart b bar PackNatural 0) bars
+        boxPackStart b txt PackNatural 0
+        widgetShowAll b
+        return (toWidget b)

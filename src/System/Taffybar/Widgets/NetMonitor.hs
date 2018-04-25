@@ -16,12 +16,12 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widgets.NetMonitor (
-  netMonitorNew,
-  netMonitorNewWith,
-  netMonitorMultiNew,
-  netMonitorMultiNewWith,
-  defaultNetFormat
+module System.Taffybar.Widgets.NetMonitor
+  ( defaultNetFormat
+  , netMonitorMultiNew
+  , netMonitorMultiNewWith
+  , netMonitorNew
+  , netMonitorNewWith
   ) where
 
 import           Control.Monad.Trans

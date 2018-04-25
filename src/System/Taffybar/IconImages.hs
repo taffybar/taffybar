@@ -15,15 +15,12 @@ module System.Taffybar.IconImages (
   pixBufFromEWMHIcon,
   pixelsARGBToBytesABGR,
   pixBufFromColor,
-  pixBufFromFile,
-  selectEWMHIcon
+  pixBufFromFile
 ) where
 
 -- TODO: rename module to IconPixbuf
 
 import           Data.Bits
-import qualified Data.List as L
-import           Data.Ord ( comparing )
 import           Data.Word
 import           Foreign.Marshal.Array
 import           Foreign.Ptr
@@ -59,7 +56,6 @@ pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
 pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
   wPtr <- pixelsARGBToBytesABGR px (w * h)
   pixbufNewFromData wPtr w h
-  -- Gtk.pixbufNewFromData (castPtr wPtr) colorspace hasAlpha sampleBits w h (w * 4)
 
 -- | Create a pixbuf with the indicated RGBA color.
 pixBufFromColor :: Int -> ColorRGBA -> IO Gtk.Pixbuf
@@ -99,10 +95,3 @@ pixelsARGBToBytesABGR ptr size = do
 pixBufFromFile :: Int -> FilePath -> IO Gtk.Pixbuf
 pixBufFromFile imgSize file =
   Gtk.pixbufNewFromFileAtScale file imgSize imgSize False
-
-selectEWMHIcon :: Int -> [EWMHIcon] -> EWMHIcon
-selectEWMHIcon imgSize icons = head prefIcon
-  where sortedIcons = L.sortBy (comparing height) icons
-        smallestLargerIcon = take 1 $ dropWhile ((<= imgSize) . height) sortedIcons
-        largestIcon = take 1 $ reverse sortedIcons
-        prefIcon = smallestLargerIcon ++ largestIcon
