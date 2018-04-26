@@ -1,6 +1,5 @@
 module System.Taffybar.Widgets
   ( module System.Taffybar.Widgets.Util
-  , module System.Taffybar.Widgets
   -- | * "System.Taffybar.Widgets.Battery"
   , batteryBarNew
   , batteryBarNewWithFormat
