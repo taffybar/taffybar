@@ -13,6 +13,7 @@ module System.Taffybar.Widgets.SNITray where
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Reader
 import qualified GI.Gtk
+import           Graphics.UI.GIGtkStrut
 import qualified Graphics.UI.Gtk as Gtk
 import qualified StatusNotifier.Host.Service as H
 import           StatusNotifier.Tray
@@ -48,5 +49,6 @@ sniTrayNew = do
         , trayOrientation = GI.Gtk.OrientationHorizontal
         , trayImageSize = Expand
         , trayIconExpand = False
+        , trayAlignment = End
         }
     GI.Gtk.toWidget tray >>= fromGIWidget
