@@ -511,7 +511,7 @@ buildContentsController constructors ws = do
     cons <- Gtk.hBoxNew False 0
     mapM_ (Gtk.containerAdd cons . getWidget) controllers
     outerBox <- buildPadBox cons
-    widgetSetClass cons "Contents"
+    _ <- widgetSetClass cons "Contents"
     return
       WorkspaceContentsController
       { containerWidget = Gtk.toWidget outerBox
@@ -525,8 +525,8 @@ buildPadBox cons = do
   outerBox <- Gtk.eventBoxNew
   Gtk.containerAdd innerBox cons
   Gtk.containerAdd outerBox innerBox
-  widgetSetClass innerBox "InnerPad"
-  widgetSetClass outerBox "OuterPad"
+  _ <- widgetSetClass innerBox "InnerPad"
+  _ <- widgetSetClass outerBox "OuterPad"
   return outerBox
 
 defaultBuildContentsController :: ControllerConstructor
@@ -556,7 +556,7 @@ buildLabelController :: ControllerConstructor
 buildLabelController ws = do
   tempController <- lift $ do
     lbl <- Gtk.labelNew (Nothing :: Maybe String)
-    widgetSetClass lbl "WorkspaceLabel"
+    _ <- widgetSetClass lbl "WorkspaceLabel"
     return LabelController { label = lbl }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
@@ -681,8 +681,8 @@ buildIconWidget ws = do
     img <- Gtk.imageNew
     ebox <- Gtk.eventBoxNew
     windowVar <- MV.newMVar Nothing
-    widgetSetClass img "IconImage"
-    widgetSetClass ebox "IconContainer"
+    _ <- widgetSetClass img "IconImage"
+    _ <- widgetSetClass ebox "IconContainer"
     Gtk.containerAdd ebox img
     _ <-
       Gtk.on ebox Gtk.buttonPressEvent $
@@ -832,7 +832,7 @@ buildUnderlineController contentsBuilder workspace = do
     T.tableAttach t u 0 1 1 2
        [T.Fill] [T.Shrink] (underlinePadding cfg) 0
 
-    widgetSetClass u "Underline"
+    _ <- widgetSetClass u "Underline"
     return $ WWC WorkspaceUnderlineController
       {table = t, underline = u, overlineController = cc}
 
@@ -867,8 +867,8 @@ buildBorderController contentsBuilder workspace = do
     Gtk.containerSetBorderWidth cnt $ borderWidth cfg
     Gtk.containerAdd brd cnt
     Gtk.containerAdd cnt $ getWidget cc
-    widgetSetClass brd "Border"
-    widgetSetClass cnt "Container"
+    _ <- widgetSetClass brd "Border"
+    _ <- widgetSetClass cnt "Container"
     return $
       WWC
         WorkspaceBorderController

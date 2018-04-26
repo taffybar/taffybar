@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widgets.Windows
@@ -24,11 +25,15 @@ module System.Taffybar.Widgets.Windows (
 ) where
 
 import           Control.Monad.Reader
-import qualified Graphics.UI.Gtk as Gtk
-import qualified Graphics.UI.Gtk.Abstract.Widget as W
-import           System.Taffybar.Information.EWMHDesktopInfo
+import qualified Data.Text as T
+import qualified GI.Gdk as Gdk
+import qualified GI.Gtk as Gtk
+import qualified Graphics.UI.Gtk as Gtk2hs
+import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
+import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Util
+import           System.Taffybar.Widgets.Util
 
 -- $usage
 --
@@ -50,7 +55,7 @@ data WindowsConfig = WindowsConfig
 
 truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO String
 truncatedGetMenuLabel maxLength =
-  fmap (Gtk.escapeMarkup . truncateString maxLength) .
+  fmap (Gtk2hs.escapeMarkup . truncateString maxLength) .
   runX11Def "(nameless window)" . getWindowTitle
 
 truncatedGetActiveLabel :: Int -> TaffyIO String
@@ -66,53 +71,41 @@ defaultWindowsConfig =
 
 -- | Create a new Windows widget that will use the given Pager as
 -- its source of events.
-windowsNew :: WindowsConfig -> TaffyIO Gtk.Widget
-windowsNew config = do
+windowsNew :: WindowsConfig -> TaffyIO Gtk2hs.Widget
+windowsNew config = (`widgetSetClass` "Windows") =<< fromGIWidget =<< do
   label <- lift $ do
-    label <- Gtk.labelNew (Nothing :: Maybe String)
+    label <- Gtk.labelNew Nothing
     Gtk.widgetSetName label "label"
     return label
 
-  let setLabelTitle title = lift $ Gtk.postGUIAsync $ Gtk.labelSetMarkup label title
+  let setLabelTitle title = lift $ runOnUIThread $ Gtk.labelSetMarkup label (T.pack title)
       activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
 
   subscription <- subscribeToEvents ["_NET_ACTIVE_WINDOW"] activeWindowUpdatedCallback
-  widget <- assembleWidget config label
-  _ <- liftReader (Gtk.on widget W.unrealize) (unsubscribe subscription)
-  return widget
+  menuButton <- buildMenuButton config label
+  _ <- liftReader (Gtk.onWidgetUnrealize label) (unsubscribe subscription)
+  return menuButton
 
-assembleWidget :: WindowsConfig -> Gtk.Label -> TaffyIO Gtk.Widget
-assembleWidget config label = ask >>= \context -> lift $ do
-  ebox <- Gtk.eventBoxNew
-  Gtk.widgetSetName ebox "WindowTitle"
-  Gtk.containerAdd ebox label
-
-  title <- Gtk.menuItemNew
-  Gtk.widgetSetName title "title"
-  Gtk.containerAdd title ebox
-
-  switcher <- Gtk.menuBarNew
-  Gtk.widgetSetName switcher "Windows"
-  Gtk.containerAdd switcher title
-
+buildMenuButton :: WindowsConfig -> Gtk.Label -> TaffyIO Gtk.Widget
+buildMenuButton config label = ask >>= \context -> lift $ do
+  menuButton <- Gtk.eventBoxNew
   menu <- Gtk.menuNew
-  Gtk.widgetSetName menu "menu"
-
-  menuTop <- Gtk.widgetGetToplevel menu
-  Gtk.widgetSetName menuTop "Taffybar_Windows"
-
-  Gtk.menuItemSetSubmenu title menu
+  Gtk.containerAdd menuButton label
 
   -- These callbacks are run in the GUI thread automatically and do
   -- not need to use postGUIAsync
-  _ <- Gtk.on title Gtk.menuItemActivate $ runReaderT (fillMenu config menu) context
-  _ <- Gtk.on title Gtk.menuItemDeselect $ emptyMenu menu
+  _ <- Gtk.onWidgetButtonPressEvent menuButton $ const $
+       emptyMenu menu >>
+       runReaderT (fillMenu config menu) context >>
+       Gtk.menuPopupAtWidget menu menuButton
+          Gdk.GravitySouthWest Gdk.GravityNorthWest Nothing >>
+       return False
 
-  Gtk.widgetShowAll switcher
-  return $ Gtk.toWidget switcher
+  Gtk.widgetShowAll menuButton
+  Gtk.toWidget menuButton
 
 -- | Populate the given menu widget with the list of all currently open windows.
-fillMenu :: Gtk.MenuClass menu => WindowsConfig -> menu -> TaffyIO ()
+fillMenu :: Gtk.IsMenuShell a => WindowsConfig -> a -> ReaderT Context IO () 
 fillMenu config menu = ask >>= \context ->
   runX11Def () $ do
     windowIds <- getWindows
@@ -120,12 +113,13 @@ fillMenu config menu = ask >>= \context ->
       lift $ do
         labelText <- runReaderT (getMenuLabel config windowId) context
         let focusCallback = runReaderT (runX11 $ focusWindow windowId) context >> return True
-        item <- Gtk.menuItemNewWithLabel labelText
-        _ <- Gtk.on item Gtk.buttonPressEvent $ liftIO focusCallback
+        item <- Gtk.menuItemNewWithLabel $ T.pack labelText
+        _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
         Gtk.menuShellAppend menu item
         Gtk.widgetShow item
 
 -- | Remove all contents from the given menu widget.
-emptyMenu :: Gtk.MenuClass menu => menu -> IO ()
-emptyMenu menu = Gtk.containerForeach menu $ \item ->
-                 Gtk.containerRemove menu item >> Gtk.widgetDestroy item
+emptyMenu :: (Gtk.IsContainer a, MonadIO m) => a -> m ()
+emptyMenu menu =
+  Gtk.containerForeach menu $ \item ->
+    Gtk.containerRemove menu item >> Gtk.widgetDestroy item

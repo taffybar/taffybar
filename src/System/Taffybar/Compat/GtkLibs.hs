@@ -10,6 +10,7 @@
 -----------------------------------------------------------------------------
 module System.Taffybar.Compat.GtkLibs where
 
+import           Control.Monad.IO.Class
 import           Data.GI.Base.ManagedPtr
 import           Data.Word
 import           Foreign.ForeignPtr
@@ -22,16 +23,16 @@ import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Types as Gtk
 import           System.Glib.GObject
 
-fromGIPixBuf :: PB.Pixbuf -> IO Gtk.Pixbuf
-fromGIPixBuf (PB.Pixbuf pbManagedPtr) =
+fromGIPixBuf :: MonadIO m => PB.Pixbuf -> m Gtk.Pixbuf
+fromGIPixBuf (PB.Pixbuf pbManagedPtr) = liftIO $
   wrapNewGObject Gtk.mkPixbuf (castPtr <$> disownManagedPtr pbManagedPtr)
 
-fromGIWidget :: GI.Gtk.Widget -> IO Gtk.Widget
-fromGIWidget (GI.Gtk.Widget wManagedPtr) =
+fromGIWidget :: MonadIO m => GI.Gtk.Widget -> m Gtk.Widget
+fromGIWidget (GI.Gtk.Widget wManagedPtr) = liftIO $
   wrapNewGObject Gtk.mkWidget (castPtr <$> disownManagedPtr wManagedPtr)
 
-toGIWindow :: Gtk.Window -> IO GI.Gtk.Window
-toGIWindow window = do
+toGIWindow :: MonadIO m => Gtk.Window -> m GI.Gtk.Window
+toGIWindow window = liftIO $ do
   let wid = Gtk.toWidget window
   fPtr <- withForeignPtr (Gtk.unWidget wid) $ flip GI.Gtk.newManagedPtr (return ()) . castPtr
   return $! GI.Gtk.Window fPtr

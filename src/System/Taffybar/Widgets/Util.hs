@@ -94,8 +94,9 @@ drawOn :: WidgetClass object => object -> IO () -> IO object
 drawOn drawArea action = on drawArea realize action $> drawArea
 
 widgetSetClass
-  :: Gtk.WidgetClass widget
-  => widget -> String -> IO ()
-widgetSetClass widget klass = do
+  :: (Gtk.WidgetClass widget, MonadIO m)
+  => widget -> String -> m widget
+widgetSetClass widget klass = liftIO $ do
   context <- Gtk.widgetGetStyleContext widget
   styleContextAddClass context klass
+  return widget

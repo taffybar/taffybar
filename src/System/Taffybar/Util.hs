@@ -12,7 +12,11 @@
 module System.Taffybar.Util where
 
 import           Control.Arrow ((&&&))
+import           Control.Monad
+import           Control.Monad.Trans
 import           Data.Tuple.Sequence
+import qualified GI.GLib as GLib
+import qualified GI.Gdk as Gdk
 
 infixl 4 ??
 (??) :: Functor f => f (a -> b) -> a -> f b
@@ -33,3 +37,8 @@ truncateString :: Int -> String -> String
 truncateString n xs
   | length xs <= n = xs
   | otherwise      = take n xs ++ "…"
+
+runOnUIThread :: MonadIO m => IO a -> m ()
+runOnUIThread action =
+  void $ Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT $
+       action >> return False
