@@ -20,8 +20,6 @@ breaking changes ahead. All of the planned changes that will be occuring in the
 near future are tracked in [this github
 project](https://github.com/travitch/taffybar/projects/1).
 
-At the moment, the master branch and latest version (1.0.2) are not cabal installable (see [#288](https://github.com/travitch/taffybar/issues/288)), as they are waiting on a release of gtk2hs. New users are encouraged to build from source using stack.
-
 Installation
 ---------------
 
