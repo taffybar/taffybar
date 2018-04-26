@@ -38,10 +38,12 @@ import qualified GI.Gtk
 import           Graphics.UI.GIGtkStrut
 import           Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.General.StyleContext as Gtk
-import           System.Taffybar.Information.SafeX11
-import           System.Taffybar.Information.X11DesktopInfo
 import           System.Log.Logger
 import           System.Taffybar.Compat.GtkLibs
+import           System.Taffybar.Information.SafeX11
+import           System.Taffybar.Information.X11DesktopInfo
+import           System.Taffybar.TransparentWindow
+import           System.Taffybar.Widgets.Util
 import           Text.Printf
 import           Unsafe.Coerce
 
@@ -122,7 +124,7 @@ buildContext TaffybarConfig
                 , getBarConfigs = barConfigGetter
                 , existingWindows = windowsVar
                 }
-  runMaybeT $ MaybeT GI.Gdk.displayGetDefault >>=
+  _ <- runMaybeT $ MaybeT GI.Gdk.displayGetDefault >>=
               (lift . GI.Gdk.displayGetDefaultScreen) >>=
               (lift . flip GI.Gdk.afterScreenMonitorsChanged
                -- XXX: We have to do a force refresh here because there is no
@@ -152,6 +154,7 @@ buildBarWindow context barConfig = do
 
   window <- Gtk.windowNew
   box <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
+  widgetSetClass box "TaffyBox"
   centerBox <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
   Gtk.boxSetCenterWidget box centerBox
 
@@ -183,6 +186,8 @@ buildBarWindow context barConfig = do
   mapM_ (addWidgetWith addToCenter) (centerWidgets barConfig)
   logIO DEBUG "Building end widgets"
   mapM_ (addWidgetWith addToEnd) (endWidgets barConfig)
+
+  makeWindowTransparent giWindow
 
   logIO DEBUG "Showing window"
   widgetShow window

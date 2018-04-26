@@ -44,9 +44,11 @@ library
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
                , filepath
+               , gi-cairo
                , gi-gdk
                , gi-gdkpixbuf >= 2.0.15
                , gi-gdkx11
+               , gi-glib
                , gi-gtk
                , glib
                , gtk-sni-tray >= 0.1.0.0
@@ -89,14 +91,8 @@ library
   hs-source-dirs: src
   pkgconfig-depends: gtk+-3.0
   exposed-modules: System.Taffybar
-                 , System.Taffybar.Widgets.Battery
-                 , System.Taffybar.Widgets.CPUMonitor
-                 , System.Taffybar.Widgets.CommandRunner
                  , System.Taffybar.Context
                  , System.Taffybar.DBus.Toggle
-                 , System.Taffybar.Widgets.DiskIOMonitor
-                 , System.Taffybar.Widgets.FSMonitor
-                 , System.Taffybar.Widgets.FreedesktopNotifications
                  , System.Taffybar.Hooks.PagerHints
                  , System.Taffybar.IconImages
                  , System.Taffybar.Information.Battery
@@ -111,30 +107,37 @@ library
                  , System.Taffybar.Information.StreamInfo
                  , System.Taffybar.Information.Volume
                  , System.Taffybar.Information.X11DesktopInfo
-                 , System.Taffybar.Widgets
-                 , System.Taffybar.Widgets.Layout
-                 , System.Taffybar.Widgets.MPRIS
-                 , System.Taffybar.Widgets.MPRIS2
                  , System.Taffybar.Menu.DesktopEntry
                  , System.Taffybar.Menu.Menu
                  , System.Taffybar.Menu.MenuWidget
                  , System.Taffybar.Menu.XdgMenu
-                 , System.Taffybar.Widgets.NetMonitor
-                 , System.Taffybar.Widgets.SNITray
-                 , System.Taffybar.Widgets.SimpleClock
                  , System.Taffybar.SimpleConfig
-                 , System.Taffybar.Widgets.Systray
                  , System.Taffybar.Text.CPUMonitor
                  , System.Taffybar.Text.MemoryMonitor
-                 , System.Taffybar.Widgets.Volume
-                 , System.Taffybar.Widgets.Weather
+                 , System.Taffybar.TransparentWindow
+                 , System.Taffybar.Widgets
+                 , System.Taffybar.Widgets.Battery
+                 , System.Taffybar.Widgets.CPUMonitor
+                 , System.Taffybar.Widgets.CommandRunner
+                 , System.Taffybar.Widgets.DiskIOMonitor
+                 , System.Taffybar.Widgets.FSMonitor
+                 , System.Taffybar.Widgets.FreedesktopNotifications
                  , System.Taffybar.Widgets.Generic.Graph
                  , System.Taffybar.Widgets.Generic.Icon
                  , System.Taffybar.Widgets.Generic.PollingBar
                  , System.Taffybar.Widgets.Generic.PollingGraph
                  , System.Taffybar.Widgets.Generic.PollingLabel
                  , System.Taffybar.Widgets.Generic.VerticalBar
+                 , System.Taffybar.Widgets.Layout
+                 , System.Taffybar.Widgets.MPRIS
+                 , System.Taffybar.Widgets.MPRIS2
+                 , System.Taffybar.Widgets.NetMonitor
+                 , System.Taffybar.Widgets.SNITray
+                 , System.Taffybar.Widgets.SimpleClock
+                 , System.Taffybar.Widgets.Systray
                  , System.Taffybar.Widgets.Util
+                 , System.Taffybar.Widgets.Volume
+                 , System.Taffybar.Widgets.Weather
                  , System.Taffybar.Widgets.Windows
                  , System.Taffybar.Widgets.Workspaces
                    
