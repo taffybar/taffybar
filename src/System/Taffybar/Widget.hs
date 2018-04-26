@@ -12,6 +12,9 @@ module System.Taffybar.Widget
   -- | * "System.Taffybar.Widget.CommandRunner"
   , commandRunnerNew
 
+  -- * "System.Taffybar.Widget.Decorators"
+  , module System.Taffybar.Widget.Decorators
+
   -- | * "System.Taffybar.Widget.DiskIOMonitor"
   , dioMonitorNew
 
@@ -85,6 +88,7 @@ module System.Taffybar.Widget
 import System.Taffybar.Widget.Battery
 import System.Taffybar.Widget.CPUMonitor
 import System.Taffybar.Widget.CommandRunner
+import System.Taffybar.Widget.Decorators
 import System.Taffybar.Widget.DiskIOMonitor
 import System.Taffybar.Widget.FSMonitor
 import System.Taffybar.Widget.FreedesktopNotifications

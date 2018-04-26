@@ -31,7 +31,6 @@ module System.Taffybar.Widget.Workspaces
   , buildContentsController
   , buildIconController
   , buildLabelController
-  , buildPadBox
   , buildUnderlineButtonController
   , buildUnderlineController
   , buildWorkspaceData
@@ -75,6 +74,7 @@ import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
+import           System.Taffybar.Widget.Decorators
 import           System.Taffybar.Widget.Util
 import           Text.Printf
 
@@ -518,16 +518,6 @@ buildContentsController constructors ws = do
       , contentsControllers = controllers
       }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
-
-buildPadBox :: W.WidgetClass widget => widget -> IO Gtk.EventBox
-buildPadBox cons = do
-  innerBox <- Gtk.hBoxNew False 0
-  outerBox <- Gtk.eventBoxNew
-  Gtk.containerAdd innerBox cons
-  Gtk.containerAdd outerBox innerBox
-  _ <- widgetSetClass innerBox "InnerPad"
-  _ <- widgetSetClass outerBox "OuterPad"
-  return outerBox
 
 defaultBuildContentsController :: ControllerConstructor
 defaultBuildContentsController =

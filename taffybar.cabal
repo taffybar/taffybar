@@ -119,6 +119,7 @@ library
                  , System.Taffybar.Widget.Battery
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
+                 , System.Taffybar.Widget.Decorators
                  , System.Taffybar.Widget.DiskIOMonitor
                  , System.Taffybar.Widget.FSMonitor
                  , System.Taffybar.Widget.FreedesktopNotifications
