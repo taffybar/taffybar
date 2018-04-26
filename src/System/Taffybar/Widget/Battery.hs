@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Widgets.Battery
+-- Module      : System.Taffybar.Widget.Battery
 -- Copyright   : (c) Ivan A. Malison
 -- License     : BSD3-style (see LICENSE)
 --
@@ -18,7 +18,7 @@
 -- warning text in it.  Battery hotplugging is not supported.  These
 -- more advanced features could be supported if there is interest.
 -----------------------------------------------------------------------------
-module System.Taffybar.Widgets.Battery
+module System.Taffybar.Widget.Battery
   ( batteryBarNew
   , batteryBarNewWithFormat
   , textBatteryNew
@@ -39,8 +39,8 @@ import           Text.StringTemplate
 import           Prelude
 
 import           System.Taffybar.Information.Battery
-import           System.Taffybar.Widgets.Generic.PollingBar
-import           System.Taffybar.Widgets.Generic.PollingLabel
+import           System.Taffybar.Widget.Generic.PollingBar
+import           System.Taffybar.Widget.Generic.PollingLabel
 
 
 -- | Just the battery info that will be used for display (this makes combining

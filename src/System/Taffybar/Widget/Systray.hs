@@ -1,6 +1,6 @@
 -- | This is a very basic system tray widget.  That said, it works
 -- very well since it is based on eggtraymanager.
-module System.Taffybar.Widgets.Systray {-# DEPRECATED "Use SNITray instead" #-} ( systrayNew ) where
+module System.Taffybar.Widget.Systray {-# DEPRECATED "Use SNITray instead" #-} ( systrayNew ) where
 
 import Control.Monad.Trans
 import Graphics.UI.Gtk

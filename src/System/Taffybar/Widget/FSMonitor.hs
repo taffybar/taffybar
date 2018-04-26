@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Widgets.FSMonitor
+-- Module      : System.Taffybar.Widget.FSMonitor
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -14,12 +14,12 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widgets.FSMonitor ( fsMonitorNew ) where
+module System.Taffybar.Widget.FSMonitor ( fsMonitorNew ) where
 
 import           Control.Monad.Trans
 import qualified Graphics.UI.Gtk as Gtk
 import           System.Process ( readProcess )
-import           System.Taffybar.Widgets.Generic.PollingLabel ( pollingLabelNew )
+import           System.Taffybar.Widget.Generic.PollingLabel ( pollingLabelNew )
 
 -- | Creates a new filesystem monitor widget. It contains one 'PollingLabel'
 -- that displays the data returned by the df command. The usage level of all

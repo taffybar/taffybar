@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Widgets.SNITray
+-- Module      : System.Taffybar.Widget.SNITray
 -- Copyright   : (c) Ivan A. Malison
 -- License     : BSD3-style (see LICENSE)
 --
@@ -8,7 +8,7 @@
 -- Stability   : unstable
 -- Portability : unportable
 -----------------------------------------------------------------------------
-module System.Taffybar.Widgets.SNITray where
+module System.Taffybar.Widget.SNITray where
 
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Reader

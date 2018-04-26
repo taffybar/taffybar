@@ -1,6 +1,6 @@
 -- | This is a simple static image widget, and a polling image widget that
 -- updates its contents by calling a callback at a set interval.
-module System.Taffybar.Widgets.Generic.Icon
+module System.Taffybar.Widget.Generic.Icon
   ( iconImageWidgetNew
   , pollingIconImageWidgetNew
   ) where

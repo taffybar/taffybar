@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Widgets.Layout
+-- Module      : System.Taffybar.Widget.Layout
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -14,7 +14,7 @@
 -- to switch to the first one (as configured in @xmonad.hs@)
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widgets.Layout (
+module System.Taffybar.Widget.Layout (
   -- * Usage
   -- $usage
     LayoutConfig(..)
@@ -27,7 +27,7 @@ import Control.Monad.Reader
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import System.Taffybar.Information.X11DesktopInfo
-import System.Taffybar.Widgets.Util
+import System.Taffybar.Widget.Util
 import System.Taffybar.Context
 
 -- $usage
@@ -43,7 +43,7 @@ import System.Taffybar.Context
 -- Once you've properly configured @xmonad.hs@, you can use the widget in
 -- your @taffybar.hs@ file:
 --
--- > import System.Taffybar.Widgets.Layout
+-- > import System.Taffybar.Widget.Layout
 -- > main = do
 -- >   let los = layoutSwitcherNew defaultLayoutConfig
 --

@@ -1,6 +1,6 @@
 -- | A vertical bar that can plot data in the range [0, 1].  The
 -- colors are configurable.
-module System.Taffybar.Widgets.Generic.VerticalBar (
+module System.Taffybar.Widget.Generic.VerticalBar (
   -- * Types
   VerticalBarHandle,
   BarConfig(..),
@@ -16,7 +16,7 @@ import           Control.Concurrent
 import           Control.Monad.Trans
 import qualified Graphics.Rendering.Cairo as C
 import           Graphics.UI.Gtk
-import           System.Taffybar.Widgets.Util
+import           System.Taffybar.Widget.Util
 
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
 data VerticalBarState = VerticalBarState

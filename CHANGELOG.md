@@ -31,9 +31,9 @@
    - Everything in System.Information has been moved to
      System.Information.Taffybar
    - All Widgets that were found in System.Taffybar have been moved to
-     System.Taffybar.Widgets
+     System.Taffybar.Widget
    - The helper widgets that were previously located in System.Taffybar.Widgets
-     have been moved to System.Taffybar.Widgets.Generic
+     have been moved to System.Taffybar.Widget.Generic
 
  * Module renames:
 

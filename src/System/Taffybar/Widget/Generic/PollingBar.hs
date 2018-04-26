@@ -1,6 +1,6 @@
 -- | Like the vertical bar, but this widget automatically updates
 -- itself with a callback at fixed intervals.
-module System.Taffybar.Widgets.Generic.PollingBar (
+module System.Taffybar.Widget.Generic.PollingBar (
   -- * Types
   VerticalBarHandle,
   BarConfig(..),
@@ -14,9 +14,9 @@ module System.Taffybar.Widgets.Generic.PollingBar (
 import Control.Concurrent
 import Control.Exception.Enclosed ( tryAny )
 import Graphics.UI.Gtk
-import System.Taffybar.Widgets.Util ( backgroundLoop, drawOn )
+import System.Taffybar.Widget.Util ( backgroundLoop, drawOn )
 
-import System.Taffybar.Widgets.Generic.VerticalBar
+import System.Taffybar.Widget.Generic.VerticalBar
 
 verticalBarFromCallback :: BarConfig -> IO Double -> IO Widget
 verticalBarFromCallback cfg action = do

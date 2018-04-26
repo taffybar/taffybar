@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | This is a simple text widget that updates its contents by calling
 -- a callback at a set interval.
-module System.Taffybar.Widgets.Generic.PollingLabel ( pollingLabelNew,
+module System.Taffybar.Widget.Generic.PollingLabel ( pollingLabelNew,
                                               pollingLabelNewWithTooltip) where
 
 import Control.Concurrent ( forkIO, threadDelay )

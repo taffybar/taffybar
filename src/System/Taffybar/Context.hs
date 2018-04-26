@@ -43,7 +43,7 @@ import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.TransparentWindow
-import           System.Taffybar.Widgets.Util
+import           System.Taffybar.Widget.Util
 import           Text.Printf
 import           Unsafe.Coerce
 

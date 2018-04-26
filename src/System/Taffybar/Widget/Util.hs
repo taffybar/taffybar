@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Widgets.Util
+-- Module      : System.Taffybar.Widget.Util
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widgets.Util where
+module System.Taffybar.Widget.Util where
 
 import Control.Concurrent ( forkIO )
 import Control.Monad ( when, forever, void )

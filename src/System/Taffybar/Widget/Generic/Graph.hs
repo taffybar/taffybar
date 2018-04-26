@@ -10,7 +10,7 @@
 --
 -- Note: all of the data fed to this widget should be in the range
 -- [0,1].
-module System.Taffybar.Widgets.Generic.Graph (
+module System.Taffybar.Widget.Generic.Graph (
   -- * Types
     GraphHandle
   , GraphConfig(..)
@@ -32,7 +32,7 @@ import qualified Graphics.Rendering.Cairo as C
 import qualified Graphics.Rendering.Cairo.Matrix as M
 import qualified Graphics.UI.Gtk as Gtk
 import           Prelude hiding ( mapM_ )
-import           System.Taffybar.Widgets.Util
+import           System.Taffybar.Widget.Util
 
 newtype GraphHandle = GH (MVar GraphState)
 data GraphState =

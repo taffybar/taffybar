@@ -1,6 +1,6 @@
 -- | A variant of the Graph widget that automatically updates itself
 -- with a callback at a fixed interval.
-module System.Taffybar.Widgets.Generic.PollingGraph (
+module System.Taffybar.Widget.Generic.PollingGraph (
   -- * Types
   GraphHandle,
   GraphConfig(..),
@@ -17,7 +17,7 @@ import           Control.Monad ( forever )
 import           Control.Monad.Trans
 import           Graphics.UI.Gtk
 
-import           System.Taffybar.Widgets.Generic.Graph
+import           System.Taffybar.Widget.Generic.Graph
 
 pollingGraphNew
   :: MonadIO m

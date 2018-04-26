@@ -3,7 +3,7 @@
 -- | This module implements a very simple text-based clock widget.
 -- The widget also toggles a calendar widget when clicked.  This
 -- calendar is not fancy at all and has no data backend.
-module System.Taffybar.Widgets.SimpleClock
+module System.Taffybar.Widget.SimpleClock
   ( textClockNew
   , textClockNewWith
   , defaultClockConfig
@@ -18,8 +18,8 @@ import           Data.Time.LocalTime
 import qualified Data.Time.Locale.Compat as L
 import           Graphics.UI.Gtk
 
-import           System.Taffybar.Widgets.Generic.PollingLabel
-import           System.Taffybar.Widgets.Util
+import           System.Taffybar.Widget.Generic.PollingLabel
+import           System.Taffybar.Widget.Util
 
 makeCalendar :: IO TimeZone -> IO Window
 makeCalendar tzfn = do

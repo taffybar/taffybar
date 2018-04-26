@@ -43,10 +43,10 @@ module System.Taffybar
   --
   -- > import System.Taffybar
   -- > import System.Taffybar.SimpleConfig
-  -- > import System.Taffybar.Widgets.Systray
-  -- > import System.Taffybar.Widgets.Workspaces
-  -- > import System.Taffybar.Widgets.SimpleClock
-  -- > import System.Taffybar.Widgets.Generic.PollingGraph
+  -- > import System.Taffybar.Widget.Systray
+  -- > import System.Taffybar.Widget.Workspaces
+  -- > import System.Taffybar.Widget.SimpleClock
+  -- > import System.Taffybar.Widget.Generic.PollingGraph
   -- > import System.Taffybar.Information.CPU
   -- >
   -- > cpuCallback = do

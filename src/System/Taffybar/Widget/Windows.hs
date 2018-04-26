@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Widgets.Windows
+-- Module      : System.Taffybar.Widget.Windows
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -14,7 +14,7 @@
 -- switch to any of them.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widgets.Windows (
+module System.Taffybar.Widget.Windows (
   -- * Usage
   -- $usage
     windowsNew
@@ -33,7 +33,7 @@ import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Util
-import           System.Taffybar.Widgets.Util
+import           System.Taffybar.Widget.Util
 
 -- $usage
 --

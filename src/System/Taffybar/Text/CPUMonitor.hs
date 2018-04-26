@@ -3,7 +3,7 @@ module System.Taffybar.Text.CPUMonitor (textCpuMonitorNew) where
 import Text.Printf ( printf )
 import qualified Text.StringTemplate as ST
 import System.Taffybar.Information.CPU
-import System.Taffybar.Widgets.Generic.PollingLabel ( pollingLabelNew )
+import System.Taffybar.Widget.Generic.PollingLabel ( pollingLabelNew )
 import qualified Graphics.UI.Gtk as Gtk
 
 -- | Creates a simple textual CPU monitor. It updates once every polling

@@ -4,8 +4,8 @@ import           System.Taffybar
 import           System.Taffybar.Information.CPU
 import           System.Taffybar.Information.Memory
 import           System.Taffybar.SimpleConfig
-import           System.Taffybar.Widgets
-import           System.Taffybar.Widgets.Generic.PollingGraph
+import           System.Taffybar.Widget
+import           System.Taffybar.Widget.Generic.PollingGraph
 
 memCallback = do
   mi <- parseMeminfo
