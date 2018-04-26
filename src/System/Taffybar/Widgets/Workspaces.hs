@@ -186,7 +186,6 @@ data WorkspacesConfig =
   , borderWidth :: Int
   , updateEvents :: [String]
   , updateRateLimitMicroseconds :: Integer
-  , debugMode :: Bool
   , iconSort :: [WindowData] -> WorkspacesIO [WindowData]
   , urgentWorkspaceState :: Bool
   }
@@ -228,7 +227,6 @@ defaultWorkspacesConfig =
       , "_NET_WM_STATE_HIDDEN"
       ]
   , updateRateLimitMicroseconds = 100000
-  , debugMode = False
   , urgentWorkspaceState = False
   }
 
@@ -316,15 +314,14 @@ buildWorkspaceData _ = ask >>= \context -> liftX11Def M.empty $ do
 
 addWidgetsToTopLevel :: WorkspacesIO ()
 addWidgetsToTopLevel = do
-  WorkspacesContext { controllersVar = controllersRef
-          , hudWidget = cont
-          , hudConfig = cfg
-          } <- ask
+  WorkspacesContext
+    { controllersVar = controllersRef
+    , hudWidget = cont
+    } <- ask
   controllersMap <- lift $ MV.readMVar controllersRef
   -- Elems returns elements in ascending order of their keys so this will always
   -- add the widgets in the correct order
   mapM_ addWidget $ M.elems controllersMap
-  when (debugMode cfg) addDebugWidgets
   lift $ Gtk.widgetShowAll cont
 
 addWidget :: WWC -> WorkspacesIO ()
@@ -341,45 +338,6 @@ addWidget controller = do
       then Gtk.widgetReparent (getWidget controller) hbox
       else Gtk.containerAdd hbox workspaceWidget
     Gtk.containerAdd cont hbox
-
-addDebugWidgets :: WorkspacesIO ()
-addDebugWidgets = do
-  ctx <- ask
-  cont <- asks hudWidget
-  loggingRef <- asks loggingVar
-  let getLabelText state = printf "ToggleLogging: %s" $ show state :: String
-  lift $ do
-    enableLoggingBox <- Gtk.eventBoxNew
-    rebuildBarBox <- Gtk.eventBoxNew
-    Gtk.widgetSetName enableLoggingBox "Workspaces-toggleLogging"
-    Gtk.widgetSetName rebuildBarBox "Workspaces-rebuildButton"
-    loggingEnabled <- MV.readMVar loggingRef
-    logLabel <- Gtk.labelNew $ Just $ getLabelText loggingEnabled
-    rebuildLabel <- Gtk.labelNew $ Just "Rebuild Bar"
-    Gtk.widgetSetName logLabel "Workspaces-toggleLogging"
-    Gtk.widgetSetName rebuildLabel "Workspaces-rebuildButton"
-    let toggleLogging =
-          MV.modifyMVar_
-            loggingRef
-            (\current -> do
-               let newState = not current
-                   labelText = getLabelText newState
-               Gtk.labelSetMarkup logLabel labelText
-               return $ not current) >>
-          return True
-        -- Clear the container and repopulate it
-        rebuildBar
-         = do
-          Gtk.containerForeach cont (Gtk.containerRemove cont)
-          runReaderT (addWidgetsToTopLevel >> updateAllWorkspaceWidgets) ctx
-          return True
-    Gtk.containerAdd enableLoggingBox logLabel
-    Gtk.containerAdd rebuildBarBox rebuildLabel
-    _ <- Gtk.on enableLoggingBox Gtk.buttonPressEvent (liftIO toggleLogging)
-    _ <- Gtk.on rebuildBarBox Gtk.buttonPressEvent (liftIO rebuildBar)
-    Gtk.containerAdd cont enableLoggingBox
-    Gtk.containerAdd cont rebuildBarBox
-    return ()
 
 workspacesNew :: WorkspacesConfig -> TaffyIO Gtk.Widget
 workspacesNew cfg = ask >>= \tContext -> lift $ do
