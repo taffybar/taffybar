@@ -1,9 +1,68 @@
+# 2.0.0
+
+## Breaking Changes
+
+ * An entirely new config system has been put in place. TaffybarConfig now lives
+   in System.Taffybar.Context, but for most users, System.Taffybar.SimpleConfig
+   is the configuration interface that should be used.
+
+ * The main entry point to taffybar is now dyreTaffybar instead of
+   defaultTaffybar.
+
+ * All widget constructors provided to both config systems must now be of type
+   TaffyIO `Gtk.Widget`. If you have an existing `IO Gtk.Widget` you can convert it
+   using liftIO. All widgets provided by taffybar are now of type
+   `MonadIO m => m Gtk.Widget`.
+
+ * Module removals:
+
+   - WorkspaceSwitcher: Workspaces is much more abstract and makes this widget
+     redundant.
+   - Pager: The Context module solves the problem that Pager solved in a much
+     more general way. It also makes it so that the user doesn't even need to
+     know about the Pager component at all.
+   - TaffyPager: Since you no longer need to explicitly initialize a Pager, it's
+     not really very hard to simply add the (Workspaces, Layout, Windows) triple
+     to your config any more.
+   - XMonadLog: This module has long been deprecated
+
+ * Module moves:
+
+   - Everything in System.Information has been moved to
+     System.Information.Taffybar
+   - All Widgets that were found in System.Taffybar have been moved to
+     System.Taffybar.Widgets
+   - The helper widgets that were previously located in System.Taffybar.Widgets
+     have been moved to System.Taffybar.Widgets.Generic
+
+ * Module renames:
+
+	- WorkspaceHUD -> Workspaces
+	- WindowSwitcher -> Windows
+	- LayoutSwitcher -> Layout
+	- ToggleMonitors -> DBus.Toggle
+
+ * Many widgets have subtle interface changes that may break existing configurations.
+
+## New Features
+
+ * Widgets can now be placed in the center of taffybar with the `centerWidgets`
+   configuration parameter.
+ * taffybar is now transparent by default, but you will need to use a compositor
+   for transparency to work. https://github.com/chjj/compton is recommended. If
+   you do not want a transparent taffybar set a background color on the class
+   `TaffyBox` in taffybar.css.
+ * StatusNotifierItem support has been added to taffybar in the SNITray module.
+ * Monitor configuration changes are handled automatically. Unfortunately the
+   bar must be completely recreated when this happens.
+
 # 1.0.2
 
 ## Bug Fixes
 
  * Fix long standing memory leak that was caused by a failure to free memory
    allocated for gtk pixbufs.
+ * Widgets unregister from X11 event listening.
 
 # 1.0.0
 
