@@ -100,7 +100,7 @@ module System.Taffybar
   --
   -- | While taffybar is based on GTK+, it ignores your GTK+ theme.
   -- The default theme that it uses lives at
-  -- https://github.com/travitch/taffybar/blob/master/taffybar.css
+  -- https://github.com/taffybar/taffybar/blob/master/taffybar.css
   -- You can alter this theme by editing @~\/.config\/taffybar\/taffybar.css@ to your liking.
   -- For an idea of the customizations you can make,
   -- see <https://live.gnome.org/GnomeArt/Tutorials/GtkThemes>.
