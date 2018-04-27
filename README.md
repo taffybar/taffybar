@@ -1,11 +1,11 @@
 Taffybar
 ==========
 [![Hackage](https://img.shields.io/hackage/v/taffybar.svg)](https://hackage.haskell.org/package/taffybar)
-[![Build Status](https://travis-ci.org/travitch/taffybar.svg?branch=master)](https://travis-ci.org/travitch/taffybar)
+[![Build Status](https://travis-ci.org/taffybar/taffybar.svg?branch=master)](https://travis-ci.org/taffybar/taffybar)
 [![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/taffybar/Lobby)
-[![License BSD3](https://img.shields.io/badge/license-BSD3-green.svg?dummy)](https://github.com/travitch/taffybar/blob/master/LICENSE)
+[![License BSD3](https://img.shields.io/badge/license-BSD3-green.svg?dummy)](https://github.com/taffybar/taffybar/blob/master/LICENSE)
 
-![](https://github.com/travitch/taffybar/blob/master/doc/screenshot.png)
+![](https://github.com/taffybar/taffybar/blob/master/doc/screenshot.png)
 
 Taffybar is a gtk+3 (through gtk2hs) based desktop information bar, intended
 primarily for use with XMonad, though it can also function alongside other EWMH
@@ -18,7 +18,7 @@ Development Status
 Taffybar is under active development and has many exciting but potentially
 breaking changes ahead. All of the planned changes that will be occuring in the
 near future are tracked in [this github
-project](https://github.com/travitch/taffybar/projects/1).
+project](https://github.com/taffybar/taffybar/projects/1).
 
 Installation
 ---------------
@@ -34,7 +34,7 @@ general, you should be able to get things working by using the taffybar's
 quick-start script:
 
 ```
-curl -sSL https://raw.githubusercontent.com/travitch/taffybar/master/quick-start.sh | bash
+curl -sSL https://raw.githubusercontent.com/taffybar/taffybar/master/quick-start.sh | bash
 ```
 
 This script will clone the taffybar repository into a subdirectory of the

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-REPO_URI="${1-https://github.com/travitch/taffybar}"
+REPO_URI="${1-https://github.com/taffybar/taffybar}"
 CONFIG_DIR="${XDG_CONFIG_HOME-$HOME/.config}"
 TAFFY_CONFIG_DIR="$CONFIG_DIR/taffybar"
 
