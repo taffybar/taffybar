@@ -60,7 +60,7 @@ module System.Taffybar
   -- >       clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
   -- >       tray = systrayNew
   -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
-  -- >       workspacs = buildWorkspaces defaultWorkspacesConfig
+  -- >       workspacs = workspacesNew defaultWorkspacesConfig
   -- >       simpleConfig = defaultSimpleTaffyConfig
   -- >                        { startWidgets = [ workspaces ]
   -- >                        , endWidgets = [ tray, clock, cpu ]
