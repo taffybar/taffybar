@@ -41,7 +41,7 @@ data SimpleTaffyConfig = SimpleTaffyConfig
   {
   -- | The xinerama/xrandr monitor number to put the bar on (default: PrimaryMonitor)
     monitorsAction :: TaffyIO [Int]
-  -- | Number of pixels to reserve for the bar (default: 25 pixels)
+  -- | Number of pixels to reserve for the bar
   , barHeight :: Int
   -- | Number of additional pixels to reserve for the bar strut (default: 0)
   , barPadding :: Int
