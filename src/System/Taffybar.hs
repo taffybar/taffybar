@@ -60,7 +60,7 @@ module System.Taffybar
   -- >       clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
   -- >       tray = systrayNew
   -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
-  -- >       workspacs = buildWorkspaces defaultWorkspacesConfig
+  -- >       workspacs = workspacesNew defaultWorkspacesConfig
   -- >       simpleConfig = defaultSimpleTaffyConfig
   -- >                        { startWidgets = [ workspaces ]
   -- >                        , endWidgets = [ tray, clock, cpu ]
@@ -100,7 +100,7 @@ module System.Taffybar
   --
   -- | While taffybar is based on GTK+, it ignores your GTK+ theme.
   -- The default theme that it uses lives at
-  -- https://github.com/travitch/taffybar/blob/master/taffybar.css
+  -- https://github.com/taffybar/taffybar/blob/master/taffybar.css
   -- You can alter this theme by editing @~\/.config\/taffybar\/taffybar.css@ to your liking.
   -- For an idea of the customizations you can make,
   -- see <https://live.gnome.org/GnomeArt/Tutorials/GtkThemes>.
