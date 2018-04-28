@@ -28,7 +28,9 @@ main = do
                , graphLabel = Just "cpu"
                }
   let clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
-      workspaces = buildWorkspaces defaultWorkspacesConfig
+      workspaces = workspacesNew defaultWorkspacesConfig
+      windows = windowsNew defaultWindowsConfig
+      layout = layoutNew defaultLayoutconfig
       note = notifyAreaNew defaultNotificationConfig
       wea = weatherNew (defaultWeatherConfig "KMSN") 10
       mpris = mpris2New
@@ -36,6 +38,6 @@ main = do
       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
       tray = systrayNew
   simpleTaffybar defaultSimpleTaffyConfig
-                   { startWidgets = [ workspaces, note ]
+                   { startWidgets = [ workspaces, layout, windows, note ]
                    , endWidgets = [ tray, wea, clock, mem, cpu, mpris ]
                    }
