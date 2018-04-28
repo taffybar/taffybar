@@ -31,6 +31,12 @@ fromGIWidget :: MonadIO m => GI.Gtk.Widget -> m Gtk.Widget
 fromGIWidget (GI.Gtk.Widget wManagedPtr) = liftIO $
   wrapNewGObject Gtk.mkWidget (castPtr <$> disownManagedPtr wManagedPtr)
 
+toGIWidget :: MonadIO m => Gtk.Widget -> m GI.Gtk.Widget
+toGIWidget widget = liftIO $ do
+  fPtr <- withForeignPtr (Gtk.unWidget widget) $
+          flip GI.Gtk.newManagedPtr (return ()) . castPtr
+  return $! GI.Gtk.Widget fPtr
+
 toGIWindow :: MonadIO m => Gtk.Window -> m GI.Gtk.Window
 toGIWindow window = liftIO $ do
   let wid = Gtk.toWidget window

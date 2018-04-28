@@ -23,6 +23,10 @@
 	font-size: 12pt;
 }
 
+.Menu {
+	background-color: @bg-color;
+}
+
 .IconContainer {
 	transition: background-color .5s;
 	border-radius: 5px;

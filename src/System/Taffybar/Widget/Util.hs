@@ -14,14 +14,16 @@
 
 module System.Taffybar.Widget.Util where
 
-import Control.Concurrent ( forkIO )
-import Control.Monad ( when, forever, void )
-import Control.Monad.IO.Class
-import Data.Functor ( ($>) )
-import Data.Tuple.Sequence
-import Graphics.UI.Gtk as Gtk
-import Graphics.UI.Gtk.General.StyleContext
-import Text.Printf
+import           Control.Concurrent ( forkIO )
+import           Control.Monad ( when, forever, void )
+import           Control.Monad.IO.Class
+import           Data.Functor ( ($>) )
+import           Data.Tuple.Sequence
+import qualified GI.Gtk
+import           Graphics.UI.Gtk as Gtk
+import           Graphics.UI.Gtk.General.StyleContext
+import           System.Taffybar.Compat.GtkLibs
+import           Text.Printf
 
 -- | Execute the given action as a response to any of the given types
 -- of mouse button clicks.
@@ -100,3 +102,6 @@ widgetSetClass widget klass = liftIO $ do
   context <- Gtk.widgetGetStyleContext widget
   styleContextAddClass context klass
   return widget
+
+widgetSetClassGI widget klass =
+  GI.Gtk.toWidget widget >>= fromGIWidget >>= flip widgetSetClass klass >> return widget

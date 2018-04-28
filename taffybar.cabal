@@ -123,6 +123,7 @@ library
                  , System.Taffybar.Widget.DiskIOMonitor
                  , System.Taffybar.Widget.FSMonitor
                  , System.Taffybar.Widget.FreedesktopNotifications
+                 , System.Taffybar.Widget.Generic.DynamicMenu
                  , System.Taffybar.Widget.Generic.Graph
                  , System.Taffybar.Widget.Generic.Icon
                  , System.Taffybar.Widget.Generic.PollingBar

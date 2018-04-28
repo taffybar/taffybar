@@ -26,13 +26,13 @@ module System.Taffybar.Widget.Windows (
 
 import           Control.Monad.Reader
 import qualified Data.Text as T
-import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Util
+import           System.Taffybar.Widget.Generic.DynamicMenu
 import           System.Taffybar.Widget.Util
 
 -- $usage
@@ -82,27 +82,15 @@ windowsNew config = (`widgetSetClass` "Windows") =<< fromGIWidget =<< do
       activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
 
   subscription <- subscribeToEvents ["_NET_ACTIVE_WINDOW"] activeWindowUpdatedCallback
-  menuButton <- buildMenuButton config label
   _ <- liftReader (Gtk.onWidgetUnrealize label) (unsubscribe subscription)
-  return menuButton
 
-buildMenuButton :: WindowsConfig -> Gtk.Label -> TaffyIO Gtk.Widget
-buildMenuButton config label = ask >>= \context -> lift $ do
-  menuButton <- Gtk.eventBoxNew
-  menu <- Gtk.menuNew
-  Gtk.containerAdd menuButton label
+  context <- ask
 
-  -- These callbacks are run in the GUI thread automatically and do
-  -- not need to use postGUIAsync
-  _ <- Gtk.onWidgetButtonPressEvent menuButton $ const $
-       emptyMenu menu >>
-       runReaderT (fillMenu config menu) context >>
-       Gtk.menuPopupAtWidget menu menuButton
-          Gdk.GravitySouthWest Gdk.GravityNorthWest Nothing >>
-       return False
-
-  Gtk.widgetShowAll menuButton
-  Gtk.toWidget menuButton
+  labelWidget <- Gtk.toWidget label
+  dynamicMenuNew
+    DynamicMenuConfig { dmClickWidget = labelWidget
+                      , dmPopulateMenu = flip runReaderT context . (fillMenu config)
+                      }
 
 -- | Populate the given menu widget with the list of all currently open windows.
 fillMenu :: Gtk.IsMenuShell a => WindowsConfig -> a -> ReaderT Context IO () 
@@ -117,9 +105,3 @@ fillMenu config menu = ask >>= \context ->
         _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
         Gtk.menuShellAppend menu item
         Gtk.widgetShow item
-
--- | Remove all contents from the given menu widget.
-emptyMenu :: (Gtk.IsContainer a, MonadIO m) => a -> m ()
-emptyMenu menu =
-  Gtk.containerForeach menu $ \item ->
-    Gtk.containerRemove menu item >> Gtk.widgetDestroy item
