@@ -104,4 +104,5 @@ widgetSetClass widget klass = liftIO $ do
   return widget
 
 widgetSetClassGI widget klass =
-  GI.Gtk.toWidget widget >>= fromGIWidget >>= flip widgetSetClass klass >> return widget
+  GI.Gtk.toWidget widget >>= fromGIWidget >>= flip widgetSetClass klass >>
+    return widget
