@@ -63,8 +63,8 @@ library
                , old-locale
                , parsec >= 3.1
                , process >= 1.0.1.1
-               , process
                , rate-limit >= 1.1.1
+               , regex-compat
                , safe >= 0.3 && < 1
                , split >= 0.1.4.2
                , status-notifier-item >= 0.2.1.0
@@ -91,6 +91,7 @@ library
   hs-source-dirs: src
   pkgconfig-depends: gtk+-3.0
   exposed-modules: System.Taffybar
+                 , System.Taffybar.Auth
                  , System.Taffybar.Context
                  , System.Taffybar.DBus.Toggle
                  , System.Taffybar.Hooks.PagerHints

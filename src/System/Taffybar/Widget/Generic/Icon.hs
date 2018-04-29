@@ -16,12 +16,7 @@ import Graphics.UI.Gtk
 --
 -- returns a widget with icon at @path@.
 iconImageWidgetNew :: FilePath -> IO Widget
-iconImageWidgetNew path = do
-  box <- hBoxNew False 0
-  icon <- imageNewFromFile path
-  boxPackStart box icon PackNatural 0
-  widgetShowAll box
-  return $ toWidget box
+iconImageWidgetNew path = imageNewFromFile path >>= putInBox
 
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
@@ -40,7 +35,6 @@ pollingIconImageWidgetNew
   -> IO FilePath -- ^ Command to run to get the input filepath
   -> IO Widget
 pollingIconImageWidgetNew path interval cmd = do
-  box <- hBoxNew False 0
   icon <- imageNewFromFile path
   _ <- on icon realize $ do
     _ <- forkIO $ forever $ do
@@ -50,6 +44,11 @@ pollingIconImageWidgetNew path interval cmd = do
       E.catch tryUpdate ignoreIOException
       threadDelay $ floor (interval * 1000000)
     return ()
+  putInBox icon
+
+putInBox :: WidgetClass child => child -> IO Widget
+putInBox icon = do
+  box <- hBoxNew False 0
   boxPackStart box icon PackNatural 0
   widgetShowAll box
   return $ toWidget box

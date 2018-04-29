@@ -103,6 +103,8 @@ widgetSetClass widget klass = liftIO $ do
   styleContextAddClass context klass
   return widget
 
+widgetSetClassGI :: (GI.Gtk.IsWidget b, MonadIO m) => b -> String -> m b
 widgetSetClassGI widget klass =
   GI.Gtk.toWidget widget >>= fromGIWidget >>= flip widgetSetClass klass >>
     return widget
+

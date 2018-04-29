@@ -1,8 +1,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | This is a simple text widget that updates its contents by calling
 -- a callback at a set interval.
-module System.Taffybar.Widget.Generic.PollingLabel ( pollingLabelNew,
-                                              pollingLabelNewWithTooltip) where
+module System.Taffybar.Widget.Generic.PollingLabel
+  ( pollingLabelNew
+  , pollingLabelNewWithTooltip
+  ) where
 
 import Control.Concurrent ( forkIO, threadDelay )
 import Control.Exception.Enclosed as E
@@ -14,18 +16,19 @@ import Graphics.UI.Gtk
 --
 -- > pollingLabelNew initialString cmd interval
 --
--- returns a widget with initial text @initialString@.  The widget
--- forks a thread to update its contents every @interval@ seconds.
--- The command should return a string with any HTML entities escaped.
--- This is not checked by the function, since Pango markup shouldn't
--- be escaped.  Proper input sanitization is up to the caller.
+-- returns a widget with initial text @initialString@. The widget forks a thread
+-- to update its contents every @interval@ seconds. The command should return a
+-- string with any HTML entities escaped. This is not checked by the function,
+-- since Pango markup shouldn't be escaped. Proper input sanitization is up to
+-- the caller.
 --
--- If the IO action throws an exception, it will be swallowed and the
--- label will not update until the update interval expires.
-pollingLabelNew :: String       -- ^ Initial value for the label
-                   -> Double    -- ^ Update interval (in seconds)
-                   -> IO String -- ^ Command to run to get the input string
-                   -> IO Widget
+-- If the IO action throws an exception, it will be swallowed and the label will
+-- not update until the update interval expires.
+pollingLabelNew
+  :: String -- ^ Initial value for the label
+  -> Double -- ^ Update interval (in seconds)
+  -> IO String -- ^ Command to run to get the input string
+  -> IO Widget
 pollingLabelNew initialString interval cmd = do
   l <- labelNew (Nothing :: Maybe String)
   labelSetMarkup l initialString
@@ -41,10 +44,11 @@ pollingLabelNew initialString interval cmd = do
 
   return (toWidget l)
 
-pollingLabelNewWithTooltip :: String -- ^ Initial value for the label
-                           -> Double -- ^ Update interval (in seconds)
-                           -> IO (String, Maybe String) -- ^ Command to run to get the input string
-                           -> IO Widget
+pollingLabelNewWithTooltip
+  :: String -- ^ Initial value for the label
+  -> Double -- ^ Update interval (in seconds)
+  -> IO (String, Maybe String) -- ^ Command to run to get the input string
+  -> IO Widget
 pollingLabelNewWithTooltip initialString interval cmd = do
   l <- labelNew (Nothing :: Maybe String)
   labelSetMarkup l initialString
@@ -55,8 +59,8 @@ pollingLabelNewWithTooltip initialString interval cmd = do
       case estr of
         Left _ -> return ()
         Right (labelStr, tooltipStr) -> postGUIAsync $ do
-                                          labelSetMarkup l labelStr
-                                          widgetSetTooltipMarkup l tooltipStr
+          labelSetMarkup l labelStr
+          widgetSetTooltipMarkup l tooltipStr
       threadDelay $ floor (interval * 1000000)
     return ()
 
