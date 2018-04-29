@@ -18,8 +18,6 @@ extra-source-files:
   CHANGELOG.md
   taffybar.hs.example
   dbus-xml/org.mpris.MediaPlayer2.Player.xml
-
-
 description:
   Taffybar is a gtk+3 (through gtk2hs) based desktop information bar, intended
   primarily for use with XMonad, though it can also function alongside other EWMH
@@ -57,6 +55,7 @@ library
                , gi-gdkx11
                , gi-glib
                , gi-gtk
+               , github
                , glib
                , gtk-sni-tray >= 0.1.3.0
                , gtk-strut >= 0.1.2.0
@@ -85,6 +84,7 @@ library
                , tuple >= 0.3.0.2
                , unix
                , utf8-string
+               , vector
                , xdg-basedir >= 0.2 && < 0.3
                , xml
                , xml-helpers
@@ -139,6 +139,7 @@ library
                  , System.Taffybar.Widget.Generic.PollingGraph
                  , System.Taffybar.Widget.Generic.PollingLabel
                  , System.Taffybar.Widget.Generic.VerticalBar
+                 , System.Taffybar.Widget.GitHubNotifications
                  , System.Taffybar.Widget.Layout
                  , System.Taffybar.Widget.MPRIS2
                  , System.Taffybar.Widget.NetworkGraph

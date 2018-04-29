@@ -18,6 +18,10 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.FSMonitor"
   , fsMonitorNew
 
+
+  -- | * "System.Taffybar.Widget.GitHubNotifications"
+  , module System.Taffybar.Widget.GitHubNotifications
+
   -- * "System.Taffybar.Widget.FreedesktopNotifications"
   , Notification(..)
   , NotificationConfig(..)
@@ -90,6 +94,7 @@ import System.Taffybar.Widget.CommandRunner
 import System.Taffybar.Widget.Decorators
 import System.Taffybar.Widget.DiskIOMonitor
 import System.Taffybar.Widget.FSMonitor
+import System.Taffybar.Widget.GitHubNotifications
 import System.Taffybar.Widget.FreedesktopNotifications
 import System.Taffybar.Widget.Layout
 import System.Taffybar.Widget.MPRIS2
