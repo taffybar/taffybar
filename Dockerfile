@@ -6,5 +6,6 @@ WORKDIR /taffybar
 # (see https://docs.docker.com/engine/reference/builder/#from)
 ARG STACK_YAML
 COPY . /taffybar
+RUN rm -rf ~/.stack/indices/
 RUN stack update
 RUN stack build --no-terminal
