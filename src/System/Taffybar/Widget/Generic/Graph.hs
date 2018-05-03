@@ -44,6 +44,8 @@ data GraphState =
 
 data GraphDirection = LEFT_TO_RIGHT | RIGHT_TO_LEFT deriving (Eq)
 
+type RGBA = (Double, Double, Double, Double)
+
 -- | The style of the graph. Generally, you will want to draw all 'Area' graphs first, and then all 'Line' graphs.
 data GraphStyle
     = Area -- ^ Thea area below the value is filled
@@ -56,13 +58,13 @@ data GraphConfig = GraphConfig {
   -- | Number of pixels of padding on each side of the graph widget
     graphPadding :: Int
   -- | The background color of the graph (default black)
-  , graphBackgroundColor :: (Double, Double, Double)
+  , graphBackgroundColor :: RGBA
   -- | The border color drawn around the graph (default gray)
-  , graphBorderColor :: (Double, Double, Double)
+  , graphBorderColor :: RGBA
   -- | The width of the border (default 1, use 0 to disable the border)
   , graphBorderWidth :: Int
   -- | Colors for each data set (default cycles between red, green and blue)
-  , graphDataColors :: [(Double, Double, Double, Double)]
+  , graphDataColors :: [RGBA]
   -- | How to draw each data point (default @repeat Area@)
   , graphDataStyles :: [GraphStyle]
   -- | The number of data points to retain for each data set (default 20)
@@ -79,8 +81,8 @@ defaultGraphConfig :: GraphConfig
 defaultGraphConfig =
   GraphConfig
   { graphPadding = 2
-  , graphBackgroundColor = (0.0, 0.0, 0.0)
-  , graphBorderColor = (0.5, 0.5, 0.5)
+  , graphBackgroundColor = (0.0, 0.0, 0.0, 1.0)
+  , graphBorderColor = (0.5, 0.5, 0.5, 1.0)
   , graphBorderWidth = 1
   , graphDataColors = cycle [(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0)]
   , graphDataStyles = repeat Area
@@ -117,15 +119,15 @@ outlineData pctToY xStep pct = do
 
 renderFrameAndBackground :: GraphConfig -> Int -> Int -> C.Render ()
 renderFrameAndBackground cfg w h = do
-  let (backR, backG, backB) = graphBackgroundColor cfg
-      (frameR, frameG, frameB) = graphBorderColor cfg
+  let (backR, backG, backB, backA) = graphBackgroundColor cfg
+      (frameR, frameG, frameB, frameA) = graphBorderColor cfg
       pad = graphPadding cfg
       fpad = fromIntegral pad
       fw = fromIntegral w
       fh = fromIntegral h
 
   -- Draw the requested background
-  C.setSourceRGB backR backG backB
+  C.setSourceRGBA backR backG backB backA
   C.rectangle fpad fpad (fw - 2 * fpad) (fh - 2 * fpad)
   C.fill
 
@@ -135,7 +137,7 @@ renderFrameAndBackground cfg w h = do
   when (graphBorderWidth cfg > 0) $ do
     let p = fromIntegral (graphBorderWidth cfg)
     C.setLineWidth p
-    C.setSourceRGB frameR frameG frameB
+    C.setSourceRGBA frameR frameG frameB frameA
     C.rectangle (fpad + (p / 2)) (fpad + (p / 2)) (fw - 2 * fpad - p) (fh - 2 * fpad - p)
     C.stroke
 

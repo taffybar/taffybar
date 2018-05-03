@@ -14,6 +14,9 @@
    using liftIO. All widgets provided by taffybar are now of type
    `MonadIO m => m Gtk.Widget`.
 
+ * The `graphBackgroundColor` and `graphBackgroundColor` are now RGBA quadruples
+   instead of RGB triples.
+
  * Module removals:
 
    - WorkspaceSwitcher: Workspaces is much more abstract and makes this widget
