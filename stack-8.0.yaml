@@ -1,5 +1,9 @@
 packages:
 - '.'
+- location:
+    git: https://github.com/IvanMalison/github.git
+    commit: 7ead76d48e91faae3cf41037d47343d0b50048d6
+  extra-dep: true
 extra-deps:
 - X11-xft-0.3.1
 - alsa-core-0.5.0.1
