@@ -93,10 +93,11 @@ library
   pkgconfig-depends: gtk+-3.0
   exposed-modules: System.Taffybar
                  , System.Taffybar.Auth
+                 , System.Taffybar.Compat.GtkLibs
                  , System.Taffybar.Context
                  , System.Taffybar.DBus
                  , System.Taffybar.DBus.Toggle
-                 , System.Taffybar.Hooks.PagerHints
+                 , System.Taffybar.Hooks
                  , System.Taffybar.IconImages
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.CPU
@@ -111,6 +112,7 @@ library
                  , System.Taffybar.Information.Volume
                  , System.Taffybar.Information.X11DesktopInfo
                  , System.Taffybar.SimpleConfig
+                 , System.Taffybar.Support.PagerHints
                  , System.Taffybar.TransparentWindow
                  , System.Taffybar.Widget
                  , System.Taffybar.Widget.Battery
@@ -120,6 +122,7 @@ library
                  , System.Taffybar.Widget.DiskIOMonitor
                  , System.Taffybar.Widget.FSMonitor
                  , System.Taffybar.Widget.FreedesktopNotifications
+                 , System.Taffybar.Widget.Generic.ChannelGraph
                  , System.Taffybar.Widget.Generic.DynamicMenu
                  , System.Taffybar.Widget.Generic.Graph
                  , System.Taffybar.Widget.Generic.Icon
@@ -131,11 +134,13 @@ library
                  , System.Taffybar.Widget.MPRIS
                  , System.Taffybar.Widget.MPRIS2
                  , System.Taffybar.Widget.NetMonitor
+                 , System.Taffybar.Widget.NetworkGraph
                  , System.Taffybar.Widget.SNITray
                  , System.Taffybar.Widget.SimpleClock
                  , System.Taffybar.Widget.Systray
                  , System.Taffybar.Widget.Text.CPUMonitor
                  , System.Taffybar.Widget.Text.MemoryMonitor
+                 , System.Taffybar.Widget.Text.NetworkMonitor
                  , System.Taffybar.Widget.Util
                  , System.Taffybar.Widget.Volume
                  , System.Taffybar.Widget.Weather
@@ -149,7 +154,6 @@ library
   other-modules: Paths_taffybar
                , System.Taffybar.Information.DBusClients
                , System.Taffybar.Information.DBusObjects
-               , System.Taffybar.Compat.GtkLibs
                , System.Taffybar.Util
 
   cc-options: -fPIC

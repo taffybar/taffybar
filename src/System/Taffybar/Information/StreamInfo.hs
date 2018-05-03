@@ -32,7 +32,7 @@ import Data.Maybe ( fromMaybe )
 getParsedInfo :: FilePath -> (String -> [(String, [a])]) -> String -> IO [a]
 getParsedInfo path parser selector = do
     file <- readFile path
-    (length file) `seq` return ()
+    length file `seq` return ()
     return (fromMaybe [] $ lookup selector $ parser file)
 
 truncVal :: (RealFloat a) => a -> a
@@ -44,7 +44,7 @@ truncVal v
 -- elements against their sum.
 toRatioList :: (Integral a, RealFloat b) => [a] -> [b]
 toRatioList deltas = map truncVal ratios
-    where total = fromIntegral $ foldr (+) 0 deltas
+    where total = fromIntegral $ sum deltas
           ratios = map ((/total) . fromIntegral) deltas
 
 -- | Execute the given action twice with the given delay in-between and return
@@ -87,4 +87,3 @@ getAccLoad :: (Integral a, RealFloat b) => IORef [a] -> IO [a] -> IO [b]
 getAccLoad sample action = do
      deltas <- accProbe action sample
      return $ toRatioList deltas
-

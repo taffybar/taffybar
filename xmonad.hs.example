@@ -3,7 +3,7 @@ module Main where
 import           XMonad
 import           XMonad.Hooks.EwmhDesktops        (ewmh)
 import           XMonad.Hooks.ManageDocks
-import           System.Taffybar.Hooks.PagerHints (pagerHints)
+import           System.Taffybar.Support.PagerHints (pagerHints)
 
        -- xmonad entrypoint
 main = xmonad $

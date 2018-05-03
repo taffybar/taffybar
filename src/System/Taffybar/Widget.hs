@@ -41,12 +41,8 @@ module System.Taffybar.Widget
   -- | * "System.Taffybar.Widget.MPRIS2"
   , mpris2New
 
-  -- | * "System.Taffybar.Widget.NetMonitor"
-  , defaultNetFormat
-  , netMonitorMultiNew
-  , netMonitorMultiNewWith
-  , netMonitorNew
-  , netMonitorNewWith
+  -- | * "System.Taffybar.Widget.NetworkGraph"
+  , module System.Taffybar.Widget.NetworkGraph
 
   -- | * "System.Taffybar.Widget.SNITray"
   , sniTrayNew
@@ -62,6 +58,9 @@ module System.Taffybar.Widget
 
   -- | * "System.Taffybar.Widget.Text.MemoryMonitor"
   , module System.Taffybar.Widget.Text.MemoryMonitor
+
+  -- | * "System.Taffybar.Widget.Text.NetworkMonitor"
+  , module System.Taffybar.Widget.Text.NetworkMonitor
 
   -- | * "System.Taffybar.Widget.Volume"
   , volumeTextNew
@@ -104,11 +103,12 @@ import System.Taffybar.Widget.FreedesktopNotifications
 import System.Taffybar.Widget.Layout
 import System.Taffybar.Widget.MPRIS
 import System.Taffybar.Widget.MPRIS2
-import System.Taffybar.Widget.NetMonitor
+import System.Taffybar.Widget.NetworkGraph
 import System.Taffybar.Widget.SNITray
 import System.Taffybar.Widget.SimpleClock
 import System.Taffybar.Widget.Text.CPUMonitor
 import System.Taffybar.Widget.Text.MemoryMonitor
+import System.Taffybar.Widget.Text.NetworkMonitor
 import System.Taffybar.Widget.Util
 import System.Taffybar.Widget.Volume
 import System.Taffybar.Widget.Weather

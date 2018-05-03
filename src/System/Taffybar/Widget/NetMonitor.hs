@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 -----------------------------------------------------------------------------
 -- |
@@ -17,11 +16,13 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Widget.NetMonitor
+  {-# DEPRECATED "Use System.Taffybar.Widget.Text.NetworkMonitor instead" #-}
   ( defaultNetFormat
   , netMonitorMultiNew
   , netMonitorMultiNewWith
   , netMonitorNew
   , netMonitorNewWith
+  , showInfo
   ) where
 
 import           Control.Monad.Trans
@@ -31,11 +32,9 @@ import qualified Data.Traversable as T
 import           Graphics.UI.Gtk
 import           System.Taffybar.Information.Network (getNetInfo)
 import           System.Taffybar.Widget.Generic.PollingLabel
+import           System.Taffybar.Widget.Text.NetworkMonitor
 import           Text.Printf (printf)
 import           Text.StringTemplate
-
-defaultNetFormat :: String
-defaultNetFormat = "▼ $inAuto$ ▲ $outAuto$"
 
 -- | Creates a new network monitor widget. It consists of two 'PollingLabel's,
 -- one for incoming and one for outgoing traffic fed by regular calls to
@@ -105,44 +104,3 @@ calcSpeed interval sample result@(r1, r2) = do
     (s1, s2) <- readIORef sample
     writeIORef sample result
     return (max 0 (fromIntegral (r1 - s1) / interval), max 0 (fromIntegral (r2 - s2) / interval))
-
-showInfo :: String -> Int -> (Double, Double) -> String
-showInfo template prec (incomingb, outgoingb) =
-  let
-    attribs = [ ("inB", show incomingb)
-              , ("inKB", toKB prec incomingb)
-              , ("inMB", toMB prec incomingb)
-              , ("inAuto", toAuto prec incomingb)
-              , ("outB", show outgoingb)
-              , ("outKB", toKB prec outgoingb)
-              , ("outMB", toMB prec outgoingb)
-              , ("outAuto", toAuto prec outgoingb)
-              ]
-  in
-    render . setManyAttrib attribs $ newSTMP template
-
-toKB :: Int -> Double -> String
-toKB prec = setDigits prec . (/1024)
-
-toMB :: Int -> Double -> String
-toMB prec = setDigits prec . (/ (1024 * 1024))
-
-setDigits :: Int -> Double -> String
-setDigits dig = printf format
-    where format = "%." ++ show dig ++ "f"
-
-toAuto :: Int -> Double -> String
-toAuto prec value = printf "%.*f%s" p v unit
-  where value' = max 0 value
-        mag :: Int
-        mag = if value' == 0 then 0 else max 0 $ min 4 $ floor $ logBase 1024 value'
-        v = value' / 1024 ** fromIntegral mag
-        unit = case mag of
-          0 -> "B/s"
-          1 -> "KiB/s"
-          2 -> "MiB/s"
-          3 -> "GiB/s"
-          4 -> "TiB/s"
-          _ -> "??B/s" -- unreachable
-        p :: Int
-        p = max 0 $ floor $ fromIntegral prec - logBase 10 v

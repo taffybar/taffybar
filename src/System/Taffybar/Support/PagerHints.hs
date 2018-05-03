@@ -30,7 +30,7 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Hooks.PagerHints (
+module System.Taffybar.Support.PagerHints (
   -- * Usage
   -- $usage
   pagerHints

@@ -32,10 +32,10 @@ import System.Taffybar.Context
 
 -- $usage
 --
--- This widget requires that the "System.Taffybar.Hooks.PagerHints" hook be
+-- This widget requires that the "System.Taffybar.Support.PagerHints" hook be
 -- installed in your @xmonad.hs@:
 --
--- > import System.Taffybar.Hooks.PagerHints (pagerHints)
+-- > import System.Taffybar.Support.PagerHints (pagerHints)
 -- > main = do
 -- >   xmonad $ ewmh $ pagerHints $ defaultConfig
 -- > ...

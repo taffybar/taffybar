@@ -12,7 +12,7 @@
 -- properties. One of them ('getVisibleTags') depends on the PagerHints hook
 -- being installed in your @~\/.xmonad\/xmonad.hs@ configuration:
 --
--- > import System.Taffybar.Hooks.PagerHints (pagerHints)
+-- > import System.Taffybar.Support.PagerHints (pagerHints)
 -- >
 -- > main = xmonad $ ewmh $ pagerHints $ ...
 --

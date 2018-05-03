@@ -13,25 +13,24 @@ module System.Taffybar.Widget.Generic.PollingGraph (
 
 import           Control.Concurrent
 import qualified Control.Exception.Enclosed as E
-import           Control.Monad ( forever )
+import           Control.Monad
 import           Control.Monad.Trans
 import           Graphics.UI.Gtk
-
+import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.Graph
 
 pollingGraphNew
   :: MonadIO m
   => GraphConfig -> Double -> IO [Double] -> m Widget
 pollingGraphNew cfg pollSeconds action = liftIO $ do
-  (da, h) <- graphNew cfg
+  (graphWidget, graphHandle) <- graphNew cfg
 
-  _ <- on da realize $ do
-       _ <- forkIO $ forever $ do
+  _ <- on graphWidget realize $ do
+       sampleThread <- foreverWithDelay pollSeconds $ do
          esample <- E.tryAny action
          case esample of
            Left _ -> return ()
-           Right sample -> graphAddSample h sample
-         threadDelay $ floor (pollSeconds * 1000000)
-       return ()
+           Right sample -> graphAddSample graphHandle sample
+       void $ on graphWidget unrealize $ killThread sampleThread
 
-  return da
+  return graphWidget

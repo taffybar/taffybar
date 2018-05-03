@@ -73,10 +73,7 @@ defaultWindowsConfig =
 -- its source of events.
 windowsNew :: WindowsConfig -> TaffyIO Gtk2hs.Widget
 windowsNew config = (`widgetSetClass` "Windows") =<< fromGIWidget =<< do
-  label <- lift $ do
-    label <- Gtk.labelNew Nothing
-    Gtk.widgetSetName label "label"
-    return label
+  label <- lift $ Gtk.labelNew Nothing
 
   let setLabelTitle title = lift $ runOnUIThread $ Gtk.labelSetMarkup label (T.pack title)
       activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
