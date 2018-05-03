@@ -13,9 +13,9 @@
 -- of taffybar on each monitor while it is running.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.DBus.Toggle (
-  handleDBusToggles
-) where
+module System.Taffybar.DBus.Toggle
+  ( handleDBusToggles
+  ) where
 
 import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV

@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonoLocalBinds #-}
@@ -37,7 +38,6 @@ import qualified GI.GdkX11 as GdkX11
 import qualified GI.Gtk
 import           Graphics.UI.GIGtkStrut
 import           Graphics.UI.Gtk as Gtk
-import qualified Graphics.UI.Gtk.General.StyleContext as Gtk
 import           System.Log.Logger
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.SafeX11
@@ -106,12 +106,14 @@ data Context = Context
 
 buildContext :: TaffybarConfig -> IO Context
 buildContext TaffybarConfig
-               { dbusClientParam = maybeDbus
+               { dbusClientParam = maybeDBus
                , getBarConfigsParam = barConfigGetter
                , startupHook = startup
                } = do
   logIO DEBUG "Building context"
-  dbusC <- maybe DBus.connectSession return maybeDbus
+  dbusC <- maybe DBus.connectSession return maybeDBus
+  _ <- DBus.requestName dbusC "org.taffybar.Bar"
+       [DBus.nameAllowReplacement, DBus.nameReplaceExisting]
   listenersVar <- MV.newMVar []
   state <- MV.newMVar M.empty
   x11Context <- getDefaultCtx >>= MV.newMVar
@@ -163,8 +165,7 @@ buildBarWindow context barConfig = do
   setupStrutWindow (strutConfig barConfig) giWindow
   Gtk.containerAdd window box
 
-  styleContext <- Gtk.widgetGetStyleContext window
-  Gtk.styleContextAddClass styleContext "Taffybar"
+  _ <- widgetSetClass window "Taffybar"
 
   let addWidgetWith widgetAdd buildWidget =
         do
