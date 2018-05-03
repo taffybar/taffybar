@@ -6,7 +6,6 @@ import           Control.Monad
 import           Control.Monad.Trans
 import qualified Data.Text as T
 import qualified Data.Vector as V
-import qualified GI.Gdk as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 import qualified GI.Gtk as Gtk
 import qualified GitHub.Auth as Auth
@@ -41,11 +40,12 @@ defaultGithubConfig auth = GitHubConfig
   }
 
 githubNotificationsNew :: MonadIO m => GitHubConfig -> m Gtk2hs.Widget
-githubNotificationsNew GitHubConfig { ghAuth = auth
-                                    , ghGetLabelText = getLabelTextFromNotifs
-                                    , ghRefreshSeconds = refreshSeconds
-                                    , ghGetPixbuf = getPixbuf
-                                    } = liftIO $ fromGIWidget =<< do
+githubNotificationsNew GitHubConfig
+                         { ghAuth = auth
+                         , ghGetLabelText = getLabelTextFromNotifs
+                         , ghRefreshSeconds = refreshSeconds
+                         , ghGetPixbuf = getPixbuf
+                         } = liftIO $ fromGIWidget =<< do
   let getAllNotifications = getNotifications auth
   notificationsVar <- getAllNotifications >>= MV.newMVar
   let getLabelText = getLabelTextFromNotifs <$> MV.readMVar notificationsVar
@@ -66,14 +66,23 @@ githubNotificationsNew GitHubConfig { ghAuth = auth
   Gtk.containerAdd grid image
   Gtk.containerAdd grid label
   Gtk.gridSetColumnSpacing grid 3
+  Gtk.setWidgetValign grid Gtk.AlignCenter
+  Gtk.setWidgetHalign grid Gtk.AlignCenter
   Gtk.widgetShowAll grid
   widget <- Gtk.toWidget grid
 
   let getNotificationsVector =
         (either (const V.empty) id <$> MV.readMVar notificationsVar)
       populateMenu menu = do
+        let addToMenu :: Gtk.IsMenuItem b => b -> IO ()
+            addToMenu = Gtk.menuShellAppend menu
         notifications <- getNotificationsVector
-        mapM_ ((>>= Gtk.menuShellAppend menu) . makeNotificationItem) notifications
+        mapM_ ((>>= addToMenu) . makeNotificationItem) notifications
+        Gtk.separatorMenuItemNew >>= addToMenu
+        viewAll <- Gtk.menuItemNewWithLabel (T.pack "View All")
+        _ <- Gtk.onWidgetButtonPressEvent viewAll $ const $
+             runCommandFromPath ["xdg-open", "https://github.com/notifications"] >> return True
+        addToMenu viewAll
         Gtk.widgetShowAll menu
       dynamicMenuConfig =
         DynamicMenuConfig
