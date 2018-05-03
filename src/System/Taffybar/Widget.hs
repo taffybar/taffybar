@@ -83,6 +83,9 @@ module System.Taffybar.Widget
   , WorkspacesIO
   , hideEmpty
   , workspacesNew
+
+  -- | * "System.Taffybar.Widget.XDGMenu.MenuWidget"
+  , module System.Taffybar.Widget.XDGMenu.MenuWidget
   ) where
 
 import System.Taffybar.Widget.Battery
@@ -103,3 +106,4 @@ import System.Taffybar.Widget.Volume
 import System.Taffybar.Widget.Weather
 import System.Taffybar.Widget.Windows
 import System.Taffybar.Widget.Workspaces
+import System.Taffybar.Widget.XDGMenu.MenuWidget

@@ -1,7 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Menu.XdgMenu
+-- Module      : System.Taffybar.Widget.XDGMenu.Protocol
 -- Copyright   : 2017 Ulf Jasper
 -- License     : BSD3-style (see LICENSE)
 --
@@ -16,7 +16,7 @@
 -- See also 'MenuWidget'.
 --
 -----------------------------------------------------------------------------
-module System.Taffybar.Menu.XdgMenu (
+module System.Taffybar.Widget.XDGMenu.Protocol (
   XdgMenu(..),
   DesktopEntryCondition(..),
   readXdgMenu,
@@ -42,7 +42,7 @@ import           System.Directory
 import           System.Environment
 import           System.FilePath.Posix
 import           System.Posix.Files
-import           System.Taffybar.Menu.DesktopEntry
+import           System.Taffybar.Widget.XDGMenu.DesktopEntry
 import           System.Taffybar.Util
 import           Text.XML.Light
 import           Text.XML.Light.Helpers

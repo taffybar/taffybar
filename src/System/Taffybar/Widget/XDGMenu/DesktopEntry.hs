@@ -1,7 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Menu.DesktopEntry
+-- Module      : System.Taffybar.Widget.XDGMenu.DesktopEntry
 -- Copyright   : 2017 Ulf Jasper
 -- License     : BSD3-style (see LICENSE)
 --
@@ -16,7 +16,7 @@
 -- See also 'MenuWidget'.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Menu.DesktopEntry (
+module System.Taffybar.Widget.XDGMenu.DesktopEntry (
   DesktopEntry(..),
   listDesktopEntries,
   getDirectoryEntry,

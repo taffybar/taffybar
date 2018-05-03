@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Menu.MenuWidget
+-- Module      : System.Taffybar.Widget.XDGMenu.MenuWidget
 -- Copyright   : 2017 Ulf Jasper
 -- License     : BSD3-style (see LICENSE)
 --
@@ -15,7 +15,7 @@
 -- https://specifications.freedesktop.org/menu-spec/menu-spec-1.1.html
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Menu.MenuWidget (
+module System.Taffybar.Widget.XDGMenu.MenuWidget (
   -- * Usage
   -- $usage
   menuWidgetNew)
@@ -26,14 +26,14 @@ import Graphics.UI.Gtk hiding (Menu)
 import System.Directory
 import System.FilePath.Posix
 import System.Process
-import System.Taffybar.Menu.Menu
+import System.Taffybar.Widget.XDGMenu.Menu
 
 -- $usage
 --
 -- In order to use this widget add the following line to your
 -- @taffybar.hs@ file:
 --
--- > import System.Taffybar.Menu.MenuWidget
+-- > import System.Taffybar.Widget.XDGMenu.MenuWidget
 -- > main = do
 -- >   let menu = menuWidgetNew $ Just "PREFIX-"
 --
