@@ -1,4 +1,4 @@
-module System.Taffybar.Text.MemoryMonitor(textMemoryMonitorNew) where
+module System.Taffybar.Widget.Text.MemoryMonitor (textMemoryMonitorNew) where
 
 import qualified Text.StringTemplate as ST
 import System.Taffybar.Information.Memory

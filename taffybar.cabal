@@ -110,13 +110,7 @@ library
                  , System.Taffybar.Information.StreamInfo
                  , System.Taffybar.Information.Volume
                  , System.Taffybar.Information.X11DesktopInfo
-                 , System.Taffybar.Menu.DesktopEntry
-                 , System.Taffybar.Menu.Menu
-                 , System.Taffybar.Menu.MenuWidget
-                 , System.Taffybar.Menu.XdgMenu
                  , System.Taffybar.SimpleConfig
-                 , System.Taffybar.Text.CPUMonitor
-                 , System.Taffybar.Text.MemoryMonitor
                  , System.Taffybar.TransparentWindow
                  , System.Taffybar.Widget
                  , System.Taffybar.Widget.Battery
@@ -140,11 +134,17 @@ library
                  , System.Taffybar.Widget.SNITray
                  , System.Taffybar.Widget.SimpleClock
                  , System.Taffybar.Widget.Systray
+                 , System.Taffybar.Widget.Text.CPUMonitor
+                 , System.Taffybar.Widget.Text.MemoryMonitor
                  , System.Taffybar.Widget.Util
                  , System.Taffybar.Widget.Volume
                  , System.Taffybar.Widget.Weather
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
+                 , System.Taffybar.Widget.XDGMenu.DesktopEntry
+                 , System.Taffybar.Widget.XDGMenu.Menu
+                 , System.Taffybar.Widget.XDGMenu.MenuWidget
+                 , System.Taffybar.Widget.XDGMenu.Protocol
                    
   other-modules: Paths_taffybar
                , System.Taffybar.Information.DBusClients

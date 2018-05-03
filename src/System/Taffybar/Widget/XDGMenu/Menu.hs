@@ -1,7 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Menu.Menu
+-- Module      : System.Taffybar.Widget.XDGMenu.Menu
 -- Copyright   : 2017 Ulf Jasper
 -- License     : BSD3-style (see LICENSE)
 --
@@ -16,7 +16,7 @@
 -- See also 'MenuWidget'.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Menu.Menu (
+module System.Taffybar.Widget.XDGMenu.Menu (
   Menu(..),
   MenuEntry(..),
   buildMenu,
@@ -26,8 +26,8 @@ where
 import Data.Char (toLower)
 import Data.List
 import Data.Maybe
-import System.Taffybar.Menu.DesktopEntry
-import System.Taffybar.Menu.XdgMenu
+import System.Taffybar.Widget.XDGMenu.DesktopEntry
+import System.Taffybar.Widget.XDGMenu.Protocol
 
 -- | Displayable menu
 data Menu = Menu {

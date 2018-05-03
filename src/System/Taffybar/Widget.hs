@@ -57,6 +57,12 @@ module System.Taffybar.Widget
   , defaultClockConfig
   , ClockConfig(..)
 
+  -- | * "System.Taffybar.Widget.Text.CPUMonitor"
+  , module System.Taffybar.Widget.Text.CPUMonitor
+
+  -- | * "System.Taffybar.Widget.Text.MemoryMonitor"
+  , module System.Taffybar.Widget.Text.MemoryMonitor
+
   -- | * "System.Taffybar.Widget.Volume"
   , volumeTextNew
   , volumeControlNew
@@ -83,6 +89,9 @@ module System.Taffybar.Widget
   , WorkspacesIO
   , hideEmpty
   , workspacesNew
+
+  -- | * "System.Taffybar.Widget.XDGMenu.MenuWidget"
+  , module System.Taffybar.Widget.XDGMenu.MenuWidget
   ) where
 
 import System.Taffybar.Widget.Battery
@@ -98,8 +107,11 @@ import System.Taffybar.Widget.MPRIS2
 import System.Taffybar.Widget.NetMonitor
 import System.Taffybar.Widget.SNITray
 import System.Taffybar.Widget.SimpleClock
+import System.Taffybar.Widget.Text.CPUMonitor
+import System.Taffybar.Widget.Text.MemoryMonitor
 import System.Taffybar.Widget.Util
 import System.Taffybar.Widget.Volume
 import System.Taffybar.Widget.Weather
 import System.Taffybar.Widget.Windows
 import System.Taffybar.Widget.Workspaces
+import System.Taffybar.Widget.XDGMenu.MenuWidget
