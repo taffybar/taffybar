@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Widget.XDGMenu.DesktopEntry
+-- Module      : System.Taffybar.Information.XDG.DesktopEntry
 -- Copyright   : 2017 Ulf Jasper
 -- License     : BSD3-style (see LICENSE)
 --
@@ -13,30 +13,57 @@
 -- https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-1.1.html.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widget.XDGMenu.DesktopEntry
+module System.Taffybar.Information.XDG.DesktopEntry
   ( DesktopEntry(..)
-  , listDesktopEntries
-  , getDirectoryEntry
-  , deHasCategory
-  , deName
-  , deOnlyShowIn
-  , deNotShowIn
-  , deComment
   , deCommand
+  , deComment
+  , deHasCategory
   , deIcon
+  , deName
   , deNoDisplay
+  , deNotShowIn
+  , deOnlyShowIn
+  , existingDirs
+  , getDefaultDataHome
+  , getDirectoryEntry
+  , getDirectoryEntryDefault
+  , getXDGDataDirs
+  , listDesktopEntries
   ) where
 
-import Control.Monad.Except
-import Data.Char
+import           Control.Monad.Except
+import           Data.Char
 import qualified Data.ConfigFile as CF
-import Data.List
-import Data.Maybe
-import System.Directory
-import System.FilePath.Posix
+import           Data.List
+import           Data.Maybe
+import           System.Directory
+import           System.Environment
+import           System.FilePath.Posix
+import qualified Data.Set as S
+import           System.Posix.Files
 
 data DesktopEntryType = Application | Link | Directory
   deriving (Read, Show, Eq)
+
+existingDirs :: [FilePath] -> IO [FilePath]
+existingDirs  dirs = do
+  exs <- mapM fileExist dirs
+  return $ S.toList $ S.fromList $ map fst $ filter snd $ zip dirs exs
+
+getDefaultDataHome :: IO FilePath
+getDefaultDataHome = do
+  h <- getHomeDirectory
+  return $ h </> ".local" </> "share"
+
+getXDGDataDirs :: IO [FilePath]
+getXDGDataDirs = do
+  dataHome <- lookupEnv "XDG_DATA_HOME" >>= maybe getDefaultDataHome return
+  dataDirs <- map normalise . splitSearchPath . fromMaybe "" <$>
+              lookupEnv "XDG_DATA_DIRS"
+  nubBy equalFilePath <$>
+        existingDirs (  dataHome:dataDirs
+                     ++ ["/usr/local/share", "/usr/share"]
+                     )
 
 -- | Desktop Entry. All attributes (key-value-pairs) are stored in an
 -- association list.
@@ -137,12 +164,15 @@ listDesktopEntries extension dir = do
   else return []
 
 -- | Retrieve a desktop entry with a specific name.
-getDirectoryEntry :: String -> [FilePath] -> IO (Maybe DesktopEntry)
-getDirectoryEntry name dirs = do
+getDirectoryEntry :: [FilePath] -> String -> IO (Maybe DesktopEntry)
+getDirectoryEntry dirs name = do
   exFiles <- filterM doesFileExist $ map ((</> name) . normalise) dirs
   if null exFiles
   then return Nothing
   else readDesktopEntry $ head exFiles
+
+getDirectoryEntryDefault :: String -> IO (Maybe DesktopEntry)
+getDirectoryEntryDefault entry = getXDGDataDirs >>= flip getDirectoryEntry entry
 
 -- | Main section of a desktop entry file.
 sectionMain :: String

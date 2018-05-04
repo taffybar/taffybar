@@ -1,4 +1,3 @@
-{-# OPTIONS_HADDOCK hide #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.XDGMenu.Menu
@@ -16,56 +15,61 @@
 -- See also 'MenuWidget'.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widget.XDGMenu.Menu (
-  Menu(..),
-  MenuEntry(..),
-  buildMenu,
-  getApplicationEntries)
-where
+module System.Taffybar.Widget.XDGMenu.Menu
+  ( Menu(..)
+  , MenuEntry(..)
+  , buildMenu
+  , getApplicationEntries
+  ) where
 
 import Data.Char (toLower)
 import Data.List
 import Data.Maybe
-import System.Taffybar.Widget.XDGMenu.DesktopEntry
-import System.Taffybar.Widget.XDGMenu.Protocol
+import System.Taffybar.Information.XDG.DesktopEntry
+import System.Taffybar.Information.XDG.Protocol
 
 -- | Displayable menu
-data Menu = Menu {
-  fmName            :: String,
-  fmComment         :: String,
-  fmIcon            :: Maybe String,
-  fmSubmenus        :: [Menu],
-  fmEntries         :: [MenuEntry],
-  fmOnlyUnallocated :: Bool}
-  deriving (Show)
+data Menu = Menu
+  { fmName :: String
+  , fmComment :: String
+  , fmIcon :: Maybe String
+  , fmSubmenus :: [Menu]
+  , fmEntries :: [MenuEntry]
+  , fmOnlyUnallocated :: Bool
+  } deriving (Show)
 
 -- | Displayable menu entry
-data MenuEntry = MenuEntry {
-  feName    :: String,
-  feComment :: String,
-  feCommand :: String,
-  feIcon    :: Maybe String}
-  deriving (Eq, Show)
-
+data MenuEntry = MenuEntry
+  { feName :: String
+  , feComment :: String
+  , feCommand :: String
+  , feIcon :: Maybe String
+  } deriving (Eq, Show)
 
 -- | Fetch menus and desktop entries and assemble the menu.
 buildMenu :: Maybe String -> IO Menu
 buildMenu mMenuPrefix = do
-  mMenuDes <- readXdgMenu mMenuPrefix
+  mMenuDes <- readXDGMenu mMenuPrefix
   case mMenuDes of
-    Nothing          -> return $ Menu "???" "Parsing failed" Nothing [] [] False
-    Just (menu, des) -> do dt <- getXdgDesktop
-                           dirDirs <- getDirectoryDirs
-                           langs <- getPreferredLanguages
-                           (fm, ae) <- xdgToMenu dt langs dirDirs des menu
-                           let fm' = fixOnlyUnallocated ae fm
-                           return fm'
+    Nothing -> return $ Menu "???" "Parsing failed" Nothing [] [] False
+    Just (menu, des) -> do
+      dt <- getXDGDesktop
+      dirDirs <- getDirectoryDirs
+      langs <- getPreferredLanguages
+      (fm, ae) <- xdgToMenu dt langs dirDirs des menu
+      let fm' = fixOnlyUnallocated ae fm
+      return fm'
 
 -- | Convert xdg menu to displayable menu
-xdgToMenu :: String -> [String] -> [FilePath] -> [DesktopEntry] -> XdgMenu
-          -> IO (Menu, [MenuEntry])
+xdgToMenu
+  :: String
+  -> [String]
+  -> [FilePath]
+  -> [DesktopEntry]
+  -> XDGMenu
+  -> IO (Menu, [MenuEntry])
 xdgToMenu desktop langs dirDirs des xm = do
-  dirEntry <- getDirectoryEntry (xmDirectory xm) dirDirs
+  dirEntry <- getDirectoryEntry dirDirs (xmDirectory xm)
   mas <- mapM (xdgToMenu desktop langs dirDirs des) (xmSubmenus xm)
   let (menus, subaes) = unzip mas
       menus' = sortBy (\fm1 fm2 -> compare (map toLower $ fmName fm1)
@@ -78,7 +82,7 @@ xdgToMenu desktop langs dirDirs des xm = do
                 -- excludes
                 filter (not . flip matchesCondition (fromMaybe None (xmExclude xm))) $
                 -- includes
-                filter (flip matchesCondition (fromMaybe None (xmInclude xm))) des
+                filter (`matchesCondition` fromMaybe None (xmInclude xm)) des
       onlyUnallocated = xmOnlyUnallocated xm
       aes = if onlyUnallocated then [] else entries ++ concat subaes
   let fm = Menu {fmName            = maybe (xmName xm) (deName langs) dirEntry,
@@ -97,28 +101,36 @@ matchesOnlyShowIn desktop de = matchesShowIn && notMatchesNotShowIn
                           desktops -> desktop `elem` desktops
         notMatchesNotShowIn = case deNotShowIn de of
                                 [] -> True
-                                desktops -> not $ desktop `elem` desktops
+                                desktops -> desktop `notElem` desktops
 
 -- | convert xdg desktop entry to displayble menu entry
 xdgToMenuEntry :: [String] -> DesktopEntry -> MenuEntry
-xdgToMenuEntry langs de = MenuEntry {feName     = name,
-                                      feComment = comment,
-                                      feCommand = cmd,
-                                      feIcon    = mIcon}
-  where mc = case deCommand de of
-               Nothing -> Nothing
-               Just c  -> Just $ "(" ++ c ++ ")"
-        comment = fromMaybe "??" $ case deComment langs de of
-                                     Nothing -> mc
-                                     Just tt -> Just $ tt ++ maybe "" ("\n" ++) mc
-        cmd = fromMaybe "FIXME" $ deCommand de
-        name = deName langs de
-        mIcon = deIcon de
+xdgToMenuEntry langs de =
+  MenuEntry
+  {feName = name, feComment = comment, feCommand = cmd, feIcon = mIcon}
+  where
+    mc =
+      case deCommand de of
+        Nothing -> Nothing
+        Just c -> Just $ "(" ++ c ++ ")"
+    comment =
+      fromMaybe "??" $
+      case deComment langs de of
+        Nothing -> mc
+        Just tt -> Just $ tt ++ maybe "" ("\n" ++) mc
+    cmd = fromMaybe "FIXME" $ deCommand de
+    name = deName langs de
+    mIcon = deIcon de
 
 -- | postprocess unallocated entries
 fixOnlyUnallocated :: [MenuEntry] -> Menu -> Menu
-fixOnlyUnallocated fes fm = fm {fmEntries = entries,
-                                fmSubmenus = map (fixOnlyUnallocated fes) (fmSubmenus fm)}
-  where entries = if (fmOnlyUnallocated fm)
-                  then filter (not . (`elem` fes)) (fmEntries fm)
-                  else fmEntries fm
+fixOnlyUnallocated fes fm =
+  fm
+  { fmEntries = entries
+  , fmSubmenus = map (fixOnlyUnallocated fes) (fmSubmenus fm)
+  }
+  where
+    entries =
+      if fmOnlyUnallocated fm
+        then filter (not . (`elem` fes)) (fmEntries fm)
+        else fmEntries fm

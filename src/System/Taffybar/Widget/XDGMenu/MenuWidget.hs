@@ -118,7 +118,7 @@ menuWidgetNew mMenuPrefix = do
   widgetShowAll mb
   return (toWidget mb)
 
--- -- | Show Xdg Menu Widget in a standalone frame.
+-- -- | Show XDG Menu Widget in a standalone frame.
 -- testMenuWidget :: IO ()
 -- testMenuWidget = do
 --    _ <- initGUI

@@ -1,7 +1,6 @@
-{-# OPTIONS_HADDOCK hide #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Widget.XDGMenu.Protocol
+-- Module      : System.Taffybar.Information.XDG.Protocol
 -- Copyright   : 2017 Ulf Jasper
 -- License     : BSD3-style (see LICENSE)
 --
@@ -16,16 +15,16 @@
 -- See also 'MenuWidget'.
 --
 -----------------------------------------------------------------------------
-module System.Taffybar.Widget.XDGMenu.Protocol (
-  XdgMenu(..),
-  DesktopEntryCondition(..),
-  readXdgMenu,
-  matchesCondition,
-  getXdgDesktop,
-  getDirectoryDirs,
-  getApplicationEntries,
-  getPreferredLanguages)
-where
+module System.Taffybar.Information.XDG.Protocol
+  ( XDGMenu(..)
+  , DesktopEntryCondition(..)
+  , readXDGMenu
+  , matchesCondition
+  , getXDGDesktop
+  , getDirectoryDirs
+  , getApplicationEntries
+  , getPreferredLanguages
+  ) where
 
 import           Control.Applicative
 import           Control.Monad.Trans
@@ -42,7 +41,7 @@ import           System.Directory
 import           System.Environment
 import           System.FilePath.Posix
 import           System.Posix.Files
-import           System.Taffybar.Widget.XDGMenu.DesktopEntry
+import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           Text.XML.Light
 import           Text.XML.Light.Helpers
@@ -51,8 +50,8 @@ import           Text.XML.Light.Helpers
 
 -- | Produce a list of config locations to search, starting with XDG_CONFIG_HOME
 -- and XDG_CONFIG_DIRS, with fallback to /etc/xdg
-getXdgConfigDirs :: IO [String]
-getXdgConfigDirs = do
+getXDGConfigDirs :: IO [String]
+getXDGConfigDirs = do
   ch <- lookupEnv "XDG_CONFIG_HOME"
   cd <- lookupEnv "XDG_CONFIG_DIRS"
   let dirs = catMaybes [ch]
@@ -62,66 +61,51 @@ getXdgConfigDirs = do
     then ["/etc/xdg/"]
     else map normalise exDirs
 
-existingDirs :: [FilePath] -> IO [FilePath]
-existingDirs  dirs = do
-  exs <- mapM fileExist dirs
-  return $ S.toList $ S.fromList $ map fst $ filter snd $ zip dirs exs
-
-getXdgMenuPrefix :: IO (Maybe String)
-getXdgMenuPrefix = lookupEnv "XDG_MENU_PREFIX"
-
-getXdgDataDirs :: IO [String]
-getXdgDataDirs = do
-  mDh <- lookupEnv "XDG_DATA_HOME"
-  dh <- case mDh of
-          Nothing -> do h <- getHomeDirectory
-                        return $ h </> ".local" </> "share"
-          Just d -> return d
-  mPf <- lookupEnv "XDG_DATA_DIRS"
-  let dirs = maybe [] (map normalise . splitSearchPath) mPf
-        ++ ["/usr/local/share", "/usr/share"]
-  nubBy equalFilePath <$> existingDirs (dh:dirs)
+getXDGMenuPrefix :: IO (Maybe String)
+getXDGMenuPrefix = lookupEnv "XDG_MENU_PREFIX"
 
 -- | Find filename(s) of the application menu(s).
-getXdgMenuFilenames :: Maybe String
-                   -- ^ Overrides the value of the environment variable XDG_MENU_PREFIX.
-                   -- Specifies the prefix for the menu (e.g. 'Just "mate-"').   FIXME
-                   -> IO [FilePath]
-getXdgMenuFilenames mMenuPrefix = do
-  configDirs <- getXdgConfigDirs
-  maybePrefix <- (mMenuPrefix <|>) <$> getXdgMenuPrefix
+getXDGMenuFilenames
+  :: Maybe String -- ^ Overrides the value of the environment variable
+                  -- XDG_MENU_PREFIX. Specifies the prefix for the menu (e.g.
+                  -- 'Just "mate-"').
+  -> IO [FilePath]
+getXDGMenuFilenames mMenuPrefix = do
+  configDirs <- getXDGConfigDirs
+  maybePrefix <- (mMenuPrefix <|>) <$> getXDGMenuPrefix
   let maybeAddDash t = if last t == '-' then t else t ++ "-"
       dashedPrefix = maybe "" maybeAddDash maybePrefix
   return $ map (</> "menus" </> dashedPrefix ++ "applications.menu") configDirs
 
 -- | XDG Menu, cf. "Desktop Menu Specification".
-data XdgMenu = XdgMenu {
-  xmAppDir               :: Maybe String,
-  xmDefaultAppDirs       :: Bool, -- Use $XDG_DATA_DIRS/applications
-  xmDirectoryDir         :: Maybe String,
-  xmDefaultDirectoryDirs :: Bool, -- Use $XDG_DATA_DIRS/desktop-directories
-  xmLegacyDirs           :: [String],
-  xmName                 :: String,
-  xmDirectory            :: String,
-  xmOnlyUnallocated      :: Bool,
-  xmDeleted              :: Bool,
-  xmInclude              :: Maybe DesktopEntryCondition,
-  xmExclude              :: Maybe DesktopEntryCondition,
-  xmSubmenus             :: [XdgMenu],
-  xmLayout               :: [XdgLayoutItem]}
-  deriving(Show)
+data XDGMenu = XDGMenu
+  { xmAppDir :: Maybe String
+  , xmDefaultAppDirs :: Bool -- Use $XDG_DATA_DIRS/applications
+  , xmDirectoryDir :: Maybe String
+  , xmDefaultDirectoryDirs :: Bool -- Use $XDG_DATA_DIRS/desktop-directories
+  , xmLegacyDirs :: [String]
+  , xmName :: String
+  , xmDirectory :: String
+  , xmOnlyUnallocated :: Bool
+  , xmDeleted :: Bool
+  , xmInclude :: Maybe DesktopEntryCondition
+  , xmExclude :: Maybe DesktopEntryCondition
+  , xmSubmenus :: [XDGMenu]
+  , xmLayout :: [XDGLayoutItem]
+  } deriving (Show)
 
-data XdgLayoutItem =
+data XDGLayoutItem =
   XliFile String | XliSeparator | XliMenu String | XliMerge String
   deriving(Show)
 
 -- | Return a list of all available desktop entries for a given xdg menu.
-getApplicationEntries :: [String] -- ^ Preferred languages
-                      -> XdgMenu
-                      -> IO [DesktopEntry]
+getApplicationEntries
+  :: [String] -- ^ Preferred languages
+  -> XDGMenu
+  -> IO [DesktopEntry]
 getApplicationEntries langs xm = do
   defEntries <- if xmDefaultAppDirs xm
-    then do dataDirs <- getXdgDataDirs
+    then do dataDirs <- getXDGDataDirs
             putStrLn $ "DataDirs=" ++ show dataDirs
             concat <$> mapM (listDesktopEntries ".desktop" .
                                                   (</> "applications")) dataDirs
@@ -130,42 +114,42 @@ getApplicationEntries langs xm = do
                                (map toLower (deName langs de2))) defEntries
 
 -- | Parse menu.
-parseMenu :: Element -> Maybe XdgMenu
+parseMenu :: Element -> Maybe XDGMenu
 parseMenu elt =
   let appDir = getChildData "AppDir" elt
-      defaultAppDirs = case getChildData "DefaultAppDirs" elt of
-                         Nothing -> False
-                         Just _  -> True
+      defaultAppDirs = isJust $ getChildData "DefaultAppDirs" elt
       directoryDir = getChildData "DirectoryDir" elt
-      defaultDirectoryDirs = case getChildData "DefaultDirectoryDirs" elt of
-                               Nothing -> False
-                               Just _  -> True
+      defaultDirectoryDirs = isJust $ getChildData "DefaultDirectoryDirs" elt
       name = fromMaybe "Name?" $ getChildData "Name" elt
       dir = fromMaybe "Dir?" $ getChildData "Directory" elt
-      onlyUnallocated = case (getChildData "OnlyUnallocated" elt,
-                              getChildData "NotOnlyUnallocated" elt) of
-                          (Nothing, Nothing) -> False -- ?!
-                          (Nothing, Just _)  -> False
-                          (Just _, Nothing)  -> True
-                          (Just _, Just _)   -> False -- ?!
-      deleted = False   -- FIXME
+      onlyUnallocated =
+        case ( getChildData "OnlyUnallocated" elt
+             , getChildData "NotOnlyUnallocated" elt) of
+          (Nothing, Nothing) -> False -- ?!
+          (Nothing, Just _) -> False
+          (Just _, Nothing) -> True
+          (Just _, Just _) -> False -- ?!
+      deleted = False -- FIXME
       include = parseConditions "Include" elt
       exclude = parseConditions "Exclude" elt
-      layout  = parseLayout elt
+      layout = parseLayout elt
       subMenus = fromMaybe [] $ mapChildren "Menu" elt parseMenu
-  in Just XdgMenu {xmAppDir               = appDir,
-                   xmDefaultAppDirs       = defaultAppDirs,
-                   xmDirectoryDir         = directoryDir,
-                   xmDefaultDirectoryDirs = defaultDirectoryDirs,
-                   xmLegacyDirs           = [],
-                   xmName                 = name,
-                   xmDirectory            = dir,
-                   xmOnlyUnallocated      = onlyUnallocated,
-                   xmDeleted              = deleted,
-                   xmInclude              = include,
-                   xmExclude              = exclude,
-                   xmSubmenus             = subMenus,
-                   xmLayout               = layout} -- FIXME
+  in Just
+       XDGMenu
+       { xmAppDir = appDir
+       , xmDefaultAppDirs = defaultAppDirs
+       , xmDirectoryDir = directoryDir
+       , xmDefaultDirectoryDirs = defaultDirectoryDirs
+       , xmLegacyDirs = []
+       , xmName = name
+       , xmDirectory = dir
+       , xmOnlyUnallocated = onlyUnallocated
+       , xmDeleted = deleted
+       , xmInclude = include
+       , xmExclude = exclude
+       , xmSubmenus = subMenus
+       , xmLayout = layout -- FIXME
+       }
 
 -- | Parse Desktop Entry conditions for Include/Exclude clauses.
 parseConditions :: String -> Element -> Maybe DesktopEntryCondition
@@ -199,11 +183,11 @@ data DesktopEntryCondition = Category String
                            | None
   deriving (Read, Show, Eq)
 
-parseLayout :: Element -> [XdgLayoutItem]
+parseLayout :: Element -> [XDGLayoutItem]
 parseLayout elt = case findChild (unqual "Layout") elt of
   Nothing -> []
   Just lt -> mapMaybe parseLayoutItem (elChildren lt)
-  where parseLayoutItem :: Element -> Maybe XdgLayoutItem
+  where parseLayoutItem :: Element -> Maybe XDGLayoutItem
         parseLayoutItem e = case qName (elName e) of
           "Separator" -> Just XliSeparator
           "Filename"  -> Just $ XliFile $ strContent e
@@ -242,26 +226,26 @@ getPreferredLanguages = do
                           l ++ "@" ++ m]
 
 -- | Determine current Desktop
-getXdgDesktop :: IO String
-getXdgDesktop = do
+getXDGDesktop :: IO String
+getXDGDesktop = do
   mCurDt <- lookupEnv "XDG_CURRENT_DESKTOP"
   return $ fromMaybe "???" mCurDt
 
 -- | Return desktop directories
 getDirectoryDirs :: IO [FilePath]
 getDirectoryDirs = do
-  dataDirs <- getXdgDataDirs
+  dataDirs <- getXDGDataDirs
   existingDirs $ map (</> "desktop-directories") dataDirs
 
 -- | Fetch menus and desktop entries and assemble the XDG menu.
-readXdgMenu :: Maybe String -> IO (Maybe (XdgMenu, [DesktopEntry]))
-readXdgMenu mMenuPrefix = do
+readXDGMenu :: Maybe String -> IO (Maybe (XDGMenu, [DesktopEntry]))
+readXDGMenu mMenuPrefix = do
   setLocaleEncoding utf8
-  filenames <- getXdgMenuFilenames mMenuPrefix
+  filenames <- getXDGMenuFilenames mMenuPrefix
   headMay . catMaybes <$> traverse maybeMenu filenames
 
 -- | Load and assemble the XDG menu from a specific file, if it exists.
-maybeMenu :: FilePath -> IO (Maybe (XdgMenu, [DesktopEntry]))
+maybeMenu :: FilePath -> IO (Maybe (XDGMenu, [DesktopEntry]))
 maybeMenu filename =
   ifM (doesFileExist filename)
       (do

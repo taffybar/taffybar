@@ -111,6 +111,8 @@ library
                  , System.Taffybar.Information.StreamInfo
                  , System.Taffybar.Information.Volume
                  , System.Taffybar.Information.X11DesktopInfo
+                 , System.Taffybar.Information.XDG.DesktopEntry
+                 , System.Taffybar.Information.XDG.Protocol
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Support.PagerHints
                  , System.Taffybar.TransparentWindow
@@ -146,10 +148,8 @@ library
                  , System.Taffybar.Widget.Weather
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
-                 , System.Taffybar.Widget.XDGMenu.DesktopEntry
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
-                 , System.Taffybar.Widget.XDGMenu.Protocol
                    
   other-modules: Paths_taffybar
                , System.Taffybar.Information.DBusClients
