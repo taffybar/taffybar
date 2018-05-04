@@ -10,9 +10,9 @@
    defaultTaffybar.
 
  * All widget constructors provided to both config systems must now be of type
-   TaffyIO `Gtk.Widget`. If you have an existing `IO Gtk.Widget` you can convert it
+   `TaffyIO Gtk.Widget`. If you have an existing `IO Gtk.Widget` you can convert it
    using liftIO. All widgets provided by taffybar are now of type
-   `MonadIO m => m Gtk.Widget`.
+   `MonadIO m => m Gtk.Widget`, or specialized to `TaffyIO Gtk.Widgets`.
 
  * The `graphBackgroundColor` and `graphBorderColor` fields are now RGBA
    quadruples instead of RGB triples.
@@ -57,13 +57,22 @@
 
  * Widgets can now be placed in the center of taffybar with the `centerWidgets`
    configuration parameter.
+
  * taffybar is now transparent by default, but you will need to use a compositor
    for transparency to work. https://github.com/chjj/compton is recommended. If
    you do not want a transparent taffybar set a background color on the class
    `TaffyBox` in taffybar.css.
+
  * StatusNotifierItem support has been added to taffybar in the SNITray module.
+
  * Monitor configuration changes are handled automatically. Unfortunately the
    bar must be completely recreated when this happens.
+
+ * New network monitor widgets `System.Taffybar.Widget.Text.NetworkMonitor`
+   and `System.Taffybar.Widget.NetworkGraph` were added.
+
+ * All widgets are now exported in `System.Taffybar.Widget`, which should
+   eliminate the need to import widgets explicitly.
 
 # 1.0.2
 
