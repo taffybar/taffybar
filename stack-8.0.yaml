@@ -6,6 +6,7 @@ extra-deps:
 - alsa-mixer-0.2.0.3
 - dbus-1.0.1
 - dbus-hslogger-0.1.0.1
+- directory-1.3.2.2
 - gi-dbusmenu-0.4.1
 - gi-dbusmenugtk3-0.4.1
 - gi-gdk-3.0.15
@@ -27,6 +28,7 @@ extra-deps:
 - status-notifier-item-0.2.1.0
 - time-1.8.0.4
 - time-units-1.0.0
+- unix-2.7.2.2
 - xml-helpers-1.0.0
 - xmonad-contrib-0.13
 resolver: lts-9.21
