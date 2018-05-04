@@ -27,4 +27,3 @@ netMonitorGraphNew config interfaces = do
       toSample (up, down) = map (toLogScale . fromRational) [up, down]
       sampleBuilder = return . toSample . getUpDown
   channelGraphNew config chan sampleBuilder
-
