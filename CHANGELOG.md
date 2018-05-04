@@ -14,8 +14,8 @@
    using liftIO. All widgets provided by taffybar are now of type
    `MonadIO m => m Gtk.Widget`.
 
- * The `graphBackgroundColor` and `graphBackgroundColor` are now RGBA quadruples
-   instead of RGB triples.
+ * The `graphBackgroundColor` and `graphBorderColor` fields are now RGBA
+   quadruples instead of RGB triples.
 
  * Module removals:
 
@@ -44,6 +44,12 @@
 	- WindowSwitcher -> Windows
 	- LayoutSwitcher -> Layout
 	- ToggleMonitors -> DBus.Toggle
+
+  * Module deprecations:
+
+    - System.Taffybar.Widget.Systray (Use SNITray instead)
+	- System.Taffybar.Widget.NetMonitor (Use
+      System.Taffybar.Widget.Text.NetworkMonitor instead)
 
  * Many widgets have subtle interface changes that may break existing configurations.
 
