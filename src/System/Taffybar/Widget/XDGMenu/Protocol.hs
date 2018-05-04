@@ -49,8 +49,8 @@ import           Text.XML.Light.Helpers
 
 -- Environment Variables
 
--- | Produce a list of config locations to search, starting with
--- XDG_CONFIG_HOME and XDG_CONFIG_DIRS, with fallback to /etc/xdg
+-- | Produce a list of config locations to search, starting with XDG_CONFIG_HOME
+-- and XDG_CONFIG_DIRS, with fallback to /etc/xdg
 getXdgConfigDirs :: IO [String]
 getXdgConfigDirs = do
   ch <- lookupEnv "XDG_CONFIG_HOME"
