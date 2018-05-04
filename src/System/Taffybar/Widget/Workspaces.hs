@@ -353,7 +353,7 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
   (workspaceSubscription, iconSubscription) <-
     flip runReaderT tContext $ sequenceT
          ( subscribeToEvents (updateEvents cfg) $ lift . updateHandler
-         , subscribeToEvents ["_NET_WM_ICON"] (lift . onIconChanged context iconHandler)
+         , subscribeToEvents ["_NET_WM_ICON"] (lift . onIconChanged iconHandler)
          )
   let doUnsubscribe = flip runReaderT tContext $
         mapM_ unsubscribe [iconSubscription, workspaceSubscription]
@@ -468,8 +468,8 @@ onWorkspaceUpdate context = do
     combineRequests _ b = Just (b, const ((), ()))
     doUpdate _ = Gtk.postGUIAsync $ runReaderT updateAllWorkspaceWidgets context
 
-onIconChanged :: WorkspacesContext -> (Set.Set X11Window -> IO ()) -> Event -> IO ()
-onIconChanged context handler event = do
+onIconChanged :: (Set.Set X11Window -> IO ()) -> Event -> IO ()
+onIconChanged handler event = do
   case event of
     PropertyEvent { ev_window = wid } -> do
       wLog DEBUG  $ printf "-Icon- -Event- %s" $ show wid

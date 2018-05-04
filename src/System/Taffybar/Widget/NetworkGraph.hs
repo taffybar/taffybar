@@ -1,17 +1,11 @@
 module System.Taffybar.Widget.NetworkGraph where
 
-import Control.Concurrent
-import Control.Monad
-import Control.Monad.Trans
-import Data.List
-import Data.Maybe
 import Graphics.UI.Gtk
 import System.Taffybar.Context
 import System.Taffybar.Hooks
 import System.Taffybar.Information.Network
 import System.Taffybar.Widget.Generic.ChannelGraph
 import System.Taffybar.Widget.Generic.Graph
-import System.Taffybar.Widget.NetMonitor
 
 logScale :: Double -> Double -> Double -> Double
 logScale base maxValue value =

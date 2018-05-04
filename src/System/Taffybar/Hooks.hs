@@ -13,6 +13,7 @@ import Text.Printf
 
 newtype NetworkInfoChan = NetworkInfoChan (Chan [(String, (Rational, Rational))])
 
+buildInfoChan :: RealFrac a1 => a1 -> IO NetworkInfoChan
 buildInfoChan interval = do
   chan <- newChan
   let logAndPass v =
@@ -21,4 +22,5 @@ buildInfoChan interval = do
   _ <- forkIO $ monitorNetworkInterfaces interval logAndPass
   return $ NetworkInfoChan chan
 
+getNetworkChan :: TaffyIO NetworkInfoChan
 getNetworkChan = getStateDefault $ lift $ buildInfoChan 2.0

@@ -1,5 +1,5 @@
 Taffybar
-==========
+========
 [![Hackage](https://img.shields.io/hackage/v/taffybar.svg)](https://hackage.haskell.org/package/taffybar)
 [![Build Status](https://travis-ci.org/taffybar/taffybar.svg?branch=master)](https://travis-ci.org/taffybar/taffybar)
 [![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/taffybar/Lobby)
@@ -13,7 +13,7 @@ compliant window managers. It is similar in spirit to xmobar, but it differs in
 that it gives up some simplicity for a reasonable helping of eye candy.
 
 Development Status
-----------------------
+------------------
 
 Taffybar is under active development and has many exciting but potentially
 breaking changes ahead. All of the planned changes that will be occuring in the
@@ -21,9 +21,14 @@ near future are tracked in [this github
 project](https://github.com/taffybar/taffybar/projects/1).
 
 Installation
----------------
+------------
 
-Taffybar can be installed in a number of different ways:
+Taffybar has a number of non-haskell dependencies. It is recommended that you
+follow the installation instructions for
+[haskell-gi](https://github.com/haskell-gi/haskell-gi) before attempting to
+install taffybar.
+
+Taffybar itself can be installed in a number of different ways:
 
 ### Stack
 
@@ -61,4 +66,7 @@ Like xmobar and XMonad, taffybar is configured in haskell. Taffybar depends on
 dyre to automatically detect changes to its configuration file
 ($XDG_CONFIG_HOME/taffybar/taffybar.hs) and recompile when appropriate.
 
-For more details about how to configure taffybar, see the [full documentation](https://hackage.haskell.org/package/taffybar).
+For more details about how to configure taffybar, see the [full
+documentation](https://hackage.haskell.org/package/taffybar). You can find a
+list of available widgets
+[here](http://hackage.haskell.org/package/taffybar-1.0.2/docs/System-Taffybar-Widget.html)

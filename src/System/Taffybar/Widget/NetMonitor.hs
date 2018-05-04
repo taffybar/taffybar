@@ -33,8 +33,6 @@ import           Graphics.UI.Gtk
 import           System.Taffybar.Information.Network (getNetInfo)
 import           System.Taffybar.Widget.Generic.PollingLabel
 import           System.Taffybar.Widget.Text.NetworkMonitor
-import           Text.Printf (printf)
-import           Text.StringTemplate
 
 -- | Creates a new network monitor widget. It consists of two 'PollingLabel's,
 -- one for incoming and one for outgoing traffic fed by regular calls to

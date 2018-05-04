@@ -1,72 +1,72 @@
 module System.Taffybar.Widget
   ( module System.Taffybar.Widget.Util
-  -- | * "System.Taffybar.Widget.Battery"
+  -- * "System.Taffybar.Widget.Battery"
   , batteryBarNew
   , batteryBarNewWithFormat
   , textBatteryNew
   , defaultBatteryConfig
 
-  -- | * "System.Taffybar.Widget.CPUMonitor"
+  -- * "System.Taffybar.Widget.CPUMonitor"
   , cpuMonitorNew
 
-  -- | * "System.Taffybar.Widget.CommandRunner"
+  -- * "System.Taffybar.Widget.CommandRunner"
   , commandRunnerNew
 
   -- * "System.Taffybar.Widget.Decorators"
   , module System.Taffybar.Widget.Decorators
 
-  -- | * "System.Taffybar.Widget.DiskIOMonitor"
+  -- * "System.Taffybar.Widget.DiskIOMonitor"
   , dioMonitorNew
 
-  -- | * "System.Taffybar.Widget.FSMonitor"
+  -- * "System.Taffybar.Widget.FSMonitor"
   , fsMonitorNew
 
-  -- | * "System.Taffybar.Widget.FreedesktopNotifications"
+  -- * "System.Taffybar.Widget.FreedesktopNotifications"
   , Notification(..)
   , NotificationConfig(..)
   , defaultNotificationConfig
   , notifyAreaNew
 
-  -- | * "System.Taffybar.Widget.Layout"
+  -- * "System.Taffybar.Widget.Layout"
   , LayoutConfig(..)
   , defaultLayoutConfig
   , layoutNew
 
-  -- | * "System.Taffybar.Widget.MPRIS"
+  -- * "System.Taffybar.Widget.MPRIS"
   , TrackInfo (..)
   , MPRISConfig (..)
   , defaultMPRISConfig
   , mprisNew
 
-  -- | * "System.Taffybar.Widget.MPRIS2"
+  -- * "System.Taffybar.Widget.MPRIS2"
   , mpris2New
 
-  -- | * "System.Taffybar.Widget.NetworkGraph"
+  -- * "System.Taffybar.Widget.NetworkGraph"
   , module System.Taffybar.Widget.NetworkGraph
 
-  -- | * "System.Taffybar.Widget.SNITray"
+  -- * "System.Taffybar.Widget.SNITray"
   , sniTrayNew
 
-  -- | * "System.Taffybar.Widget.SimpleClock"
+  -- * "System.Taffybar.Widget.SimpleClock"
   , textClockNew
   , textClockNewWith
   , defaultClockConfig
   , ClockConfig(..)
 
-  -- | * "System.Taffybar.Widget.Text.CPUMonitor"
+  -- * "System.Taffybar.Widget.Text.CPUMonitor"
   , module System.Taffybar.Widget.Text.CPUMonitor
 
-  -- | * "System.Taffybar.Widget.Text.MemoryMonitor"
+  -- * "System.Taffybar.Widget.Text.MemoryMonitor"
   , module System.Taffybar.Widget.Text.MemoryMonitor
 
-  -- | * "System.Taffybar.Widget.Text.NetworkMonitor"
+  -- * "System.Taffybar.Widget.Text.NetworkMonitor"
   , module System.Taffybar.Widget.Text.NetworkMonitor
 
-  -- | * "System.Taffybar.Widget.Volume"
+  -- * "System.Taffybar.Widget.Volume"
   , volumeTextNew
   , volumeControlNew
 
-  -- | * "System.Taffybar.Widget.Weather"
+  -- * "System.Taffybar.Widget.Weather"
   , WeatherConfig(..)
   , WeatherInfo(..)
   , WeatherFormatter(WeatherFormatter)
@@ -74,14 +74,14 @@ module System.Taffybar.Widget
   , weatherCustomNew
   , defaultWeatherConfig
 
-  -- | * "System.Taffybar.Widget.Windows"
+  -- * "System.Taffybar.Widget.Windows"
   , windowsNew
   , WindowsConfig(..)
   , defaultWindowsConfig
   , truncatedGetActiveLabel
   , truncatedGetMenuLabel
 
-  -- | * "System.Taffybar.Widget.Workspaces"
+  -- * "System.Taffybar.Widget.Workspaces"
   , IconInfo(..)
   , Workspace(..)
   , WorkspacesConfig(..)
@@ -89,7 +89,7 @@ module System.Taffybar.Widget
   , hideEmpty
   , workspacesNew
 
-  -- | * "System.Taffybar.Widget.XDGMenu.MenuWidget"
+  -- * "System.Taffybar.Widget.XDGMenu.MenuWidget"
   , module System.Taffybar.Widget.XDGMenu.MenuWidget
   ) where
 

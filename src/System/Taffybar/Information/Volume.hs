@@ -28,9 +28,11 @@ setVolume mix channel vol = withMixer mix $ \mixer -> do
 
 toPercent :: Integer -> Integer -> Integer -> Integer
 toPercent v lo hi = ceiling $ (v' - lo') / (hi' - lo') * 100
-  where v' = fromIntegral v
-        lo' = fromIntegral lo
-        hi' = fromIntegral hi
+  where
+    v' :: Double
+    v' = fromIntegral v
+    lo' = fromIntegral lo
+    hi' = fromIntegral hi
 
 fromPercent :: Double -> Integer -> Integer -> Integer
 fromPercent v lo hi = ceiling $ lo' + (hi' - lo') * v / 100
