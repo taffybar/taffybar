@@ -68,6 +68,7 @@ import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import           Graphics.UI.Gtk.General.StyleContext
 import qualified Graphics.UI.Gtk.Layout.Table as T
 import           Prelude
+import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.IconImages
 import           System.Taffybar.Information.EWMHDesktopInfo
@@ -120,7 +121,6 @@ data Workspace = Workspace
 data WorkspacesContext = WorkspacesContext
   { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
   , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
-  , loggingVar :: MV.MVar Bool
   , hudWidget :: Gtk.HBox
   , hudConfig :: WorkspacesConfig
   , taffyContext :: Context
@@ -234,14 +234,8 @@ hideEmpty :: Workspace -> Bool
 hideEmpty Workspace { workspaceState = Empty } = False
 hideEmpty _ = True
 
-hudLogger :: WorkspacesContext -> String -> IO ()
-hudLogger ctx txt =
-  do
-    shouldLog <- MV.readMVar $ loggingVar ctx
-    when shouldLog $ putStrLn txt
-
-hudLog :: String -> WorkspacesIO ()
-hudLog txt = ask >>= lift . flip hudLogger (printf "[Workspaces] %s" txt)
+wLog :: MonadIO m => Priority -> String -> m ()
+wLog l s = liftIO $ logM "System.Taffybar.Widget.Workspaces" l s
 
 updateVar :: MV.MVar a -> (a -> WorkspacesIO a) -> WorkspacesIO a
 updateVar var modify = do
@@ -344,12 +338,10 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
   cont <- Gtk.hBoxNew False (widgetGap cfg)
   controllersRef <- MV.newMVar M.empty
   workspacesRef <- MV.newMVar M.empty
-  loggingRef <- MV.newMVar False
   let context =
         WorkspacesContext
         { controllersVar = controllersRef
         , workspacesVar = workspacesRef
-        , loggingVar = loggingRef
         , hudWidget = cont
         , hudConfig = cfg
         , taffyContext = tContext
@@ -370,12 +362,12 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
 
 updateAllWorkspaceWidgets :: WorkspacesIO ()
 updateAllWorkspaceWidgets = do
-  hudLog "-Workspace- -Execute-..."
+  wLog DEBUG "-Workspace- -Execute-..."
 
   workspacesMap <- updateWorkspacesVar
-  hudLog $ printf "Workspaces: %s" $ show workspacesMap
+  wLog DEBUG $ printf "Workspaces: %s" $ show workspacesMap
 
-  hudLog "-Workspace- Adding and removing widgets..."
+  wLog DEBUG "-Workspace- Adding and removing widgets..."
   updateWorkspaceControllers
 
   let updateController' idx controller =
@@ -383,13 +375,13 @@ updateAllWorkspaceWidgets = do
               (updateWidget controller . WorkspaceUpdate) $
               M.lookup idx workspacesMap
       logUpdateController i =
-        hudLog $ printf "-Workspace- -each- Updating %s widget" $ show i
+        wLog DEBUG $ printf "-Workspace- -each- Updating %s widget" $ show i
       updateController i cont = logUpdateController i >>
                                 updateController' i cont
 
   doWidgetUpdate updateController
 
-  hudLog "-Workspace- Showing and hiding controllers..."
+  wLog DEBUG "-Workspace- Showing and hiding controllers..."
   setControllerWidgetVisibility
 
 setControllerWidgetVisibility :: WorkspacesIO ()
@@ -468,8 +460,8 @@ onWorkspaceUpdate context = do
   let withLog event = do
         case event of
           PropertyEvent _ _ _ _ _ atom _ _ ->
-            hudLogger context $ printf "-Event- -Workspace- %s" $ show atom
-          _ -> hudLogger context "-Event- -Workspace-"
+            wLog DEBUG $ printf "-Event- -Workspace- %s" $ show atom
+          _ -> wLog DEBUG "-Event- -Workspace-"
         void $ forkIO $ rateLimited event
   return withLog
   where
@@ -478,10 +470,9 @@ onWorkspaceUpdate context = do
 
 onIconChanged :: WorkspacesContext -> (Set.Set X11Window -> IO ()) -> Event -> IO ()
 onIconChanged context handler event = do
-  let logger = hudLogger context
   case event of
     PropertyEvent { ev_window = wid } -> do
-      logger $ printf "-Icon- -Event- %s" $ show wid
+      wLog DEBUG  $ printf "-Icon- -Event- %s" $ show wid
       handler $ Set.singleton wid
     _ -> return ()
 
@@ -492,11 +483,11 @@ onIconsChanged context =
     combineRequests windows1 windows2 =
       Just (Set.union windows1 windows2, const ((), ()))
     onIconsChanged' wids = do
-      hudLogger context $ printf "-Icon- -Execute- %s" $ show wids
+      wLog DEBUG $ printf "-Icon- -Execute- %s" $ show wids
       flip runReaderT context $
         doWidgetUpdate
           (\idx c ->
-             hudLog (printf "-Icon- -each- Updating %s icons." $ show idx) >>
+             wLog DEBUG (printf "-Icon- -each- Updating %s icons." $ show idx) >>
              updateWidget c (IconUpdate $ Set.toList wids))
 
 data WorkspaceContentsController = WorkspaceContentsController
