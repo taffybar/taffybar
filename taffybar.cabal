@@ -166,6 +166,8 @@ executable taffybar
                , optparse-applicative
                , taffybar
 
+  other-modules: Paths_taffybar
+
   hs-source-dirs: app
   main-is: Main.hs
   pkgconfig-depends: gtk+-3.0
