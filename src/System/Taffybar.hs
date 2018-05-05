@@ -38,10 +38,7 @@ module System.Taffybar
   --
   -- > import System.Taffybar
   -- > import System.Taffybar.SimpleConfig
-  -- > import System.Taffybar.Widget.Systray
-  -- > import System.Taffybar.Widget.Workspaces
-  -- > import System.Taffybar.Widget.SimpleClock
-  -- > import System.Taffybar.Widget.Generic.PollingGraph
+  -- > import System.Taffybar.Widget
   -- > import System.Taffybar.Information.CPU
   -- >
   -- > cpuCallback = do
@@ -53,12 +50,11 @@ module System.Taffybar
   -- >                                   , graphLabel = Just "cpu"
   -- >                                   }
   -- >       clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
-  -- >       tray = systrayNew
   -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
-  -- >       workspacs = workspacesNew defaultWorkspacesConfig
+  -- >       workspaces = workspacesNew defaultWorkspacesConfig
   -- >       simpleConfig = defaultSimpleTaffyConfig
   -- >                        { startWidgets = [ workspaces ]
-  -- >                        , endWidgets = [ tray, clock, cpu ]
+  -- >                        , endWidgets = [ sniTrayNew, clock, cpu ]
   -- >                        }
   -- >   simpleTaffybar simpleConfig
   --
@@ -74,7 +70,7 @@ module System.Taffybar
   -- green.
   --
   -- It is important to note that the widget lists are *not* [Widget]. They are
-  -- actually [IO Widget] since the bar needs to construct them after performing
+  -- actually [TaffyIO Widget] since the bar needs to construct them after performing
   -- some GTK initialization.
   --
   -- ** A note about taffybar's dependency on DBus:
