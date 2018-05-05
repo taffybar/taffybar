@@ -15,7 +15,7 @@ module System.Taffybar.Information.MPRIS2 where
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
-import qualified DBus as DBus
+import qualified DBus
 import qualified DBus.Client as DBus
 import qualified DBus.Internal.Types as DBus
 import qualified DBus.TH as DBus
@@ -31,6 +31,7 @@ data NowPlaying = NowPlaying
   { npTitle :: String
   , npArtists :: [String]
   , npStatus :: String
+  , npBusName :: DBus.BusName
   } deriving (Show, Eq)
 
 eitherToMaybeWithLog :: (MonadIO m, Show a1) => Either a1 a2 -> m (Maybe a2)
@@ -41,7 +42,7 @@ eitherToMaybeWithLog (Left e) = liftIO $ do
 
 getNowPlayingInfo :: MonadIO m => DBus.Client -> m [NowPlaying]
 getNowPlayingInfo client =
-  fmap (fromMaybe []) $ eitherToMaybeWithLog =<< (liftIO $ runExceptT $ do
+  fmap (fromMaybe []) $ eitherToMaybeWithLog =<< liftIO (runExceptT $ do
     allBusNames <- ExceptT $ DBus.listNames client
     let mediaPlayerBusNames = filter (isPrefixOf "org.mpris.MediaPlayer2.") allBusNames
         getSongData _busName = runMaybeT $
@@ -53,10 +54,11 @@ getNowPlayingInfo client =
             return NowPlaying { npTitle = title
                               , npArtists = artists
                               , npStatus = status
+                              , npBusName = busName
                               }
     lift $ catMaybes <$> mapM getSongData mediaPlayerBusNames)
 
-getSongInfo :: M.Map [Char] DBus.Variant -> Maybe (String, [String])
+getSongInfo :: M.Map String DBus.Variant -> Maybe (String, [String])
 getSongInfo songData = do
   let lookupVariant k = M.lookup k songData >>= DBus.fromVariant
   artists <- lookupVariant "xesam:artist"

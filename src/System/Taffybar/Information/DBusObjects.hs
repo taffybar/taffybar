@@ -16,6 +16,16 @@ playerInterface :: Interface
 playerInterface =
   head $ objectInterfaces playerObject
 
+{-# NOINLINE mprisObject #-}
+mprisObject :: Object
+mprisObject = unsafePerformIO $
+  head . maybeToList . parseXML "/" <$>
+  readFile "dbus-xml/org.mpris.MediaPlayer2.xml"
+
+mprisInterface :: Interface
+mprisInterface =
+  head $ objectInterfaces mprisObject
+
 playerGenerationParams :: GenerationParams
 playerGenerationParams =
   defaultGenerationParams

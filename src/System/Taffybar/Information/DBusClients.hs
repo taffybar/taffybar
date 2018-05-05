@@ -6,3 +6,6 @@ import System.Taffybar.Information.DBusObjects
 
 generateClient playerGenerationParams playerInterface
 generateSignalsFromInterface playerGenerationParams playerInterface
+
+generateClient playerGenerationParams mprisInterface
+generateSignalsFromInterface playerGenerationParams mprisInterface
