@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 -- | This is a simple text widget that updates its contents by calling
 -- a callback at a set interval.
 module System.Taffybar.Widget.Generic.PollingLabel
@@ -6,10 +7,16 @@ module System.Taffybar.Widget.Generic.PollingLabel
   , pollingLabelNewWithTooltip
   ) where
 
-import Control.Concurrent ( forkIO, threadDelay )
-import Control.Exception.Enclosed as E
-import Control.Monad ( forever )
-import Graphics.UI.Gtk
+import           Control.Monad.Trans
+import           Control.Exception.Enclosed as E
+import           Control.Monad
+import qualified Data.Text as T
+import           GI.Gtk
+import qualified Graphics.UI.Gtk as Gtk2hs
+import           System.Taffybar.Compat.GtkLibs
+import           System.Taffybar.Util
+import           System.Taffybar.Widget.Util
+import           System.Taffybar.Widget.Decorators
 
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
@@ -25,44 +32,30 @@ import Graphics.UI.Gtk
 -- If the IO action throws an exception, it will be swallowed and the label will
 -- not update until the update interval expires.
 pollingLabelNew
-  :: String -- ^ Initial value for the label
+  :: MonadIO m
+  => String -- ^ Initial value for the label
   -> Double -- ^ Update interval (in seconds)
   -> IO String -- ^ Command to run to get the input string
-  -> IO Widget
-pollingLabelNew initialString interval cmd = do
-  l <- labelNew (Nothing :: Maybe String)
-  labelSetMarkup l initialString
-
-  _ <- on l realize $ do
-    _ <- forkIO $ forever $ do
-      estr <- E.tryAny cmd
-      case estr of
-        Left _ -> return ()
-        Right str -> postGUIAsync $ labelSetMarkup l str
-      threadDelay $ floor (interval * 1000000)
-    return ()
-
-  return (toWidget l)
+  -> m Gtk2hs.Widget
+pollingLabelNew initialString interval cmd =
+  pollingLabelNewWithTooltip initialString interval $ (, Nothing) <$> cmd
 
 pollingLabelNewWithTooltip
-  :: String -- ^ Initial value for the label
+  :: MonadIO m
+  => String -- ^ Initial value for the label
   -> Double -- ^ Update interval (in seconds)
   -> IO (String, Maybe String) -- ^ Command to run to get the input string
-  -> IO Widget
-pollingLabelNewWithTooltip initialString interval cmd = do
-  l <- labelNew (Nothing :: Maybe String)
-  labelSetMarkup l initialString
+  -> m Gtk2hs.Widget
+pollingLabelNewWithTooltip initialString interval cmd =
+  liftIO $ buildPadBox =<< fromGIWidget =<< do
+    l <- labelNew $ Just $ T.pack initialString
 
-  _ <- on l realize $ do
-    _ <- forkIO $ forever $ do
-      estr <- E.tryAny cmd
-      case estr of
-        Left _ -> return ()
-        Right (labelStr, tooltipStr) -> postGUIAsync $ do
-          labelSetMarkup l labelStr
-          widgetSetTooltipMarkup l tooltipStr
-      threadDelay $ floor (interval * 1000000)
-    return ()
+    let updateLabel (labelStr, tooltipStr) =
+          runOnUIThread $ do
+            labelSetMarkup l $ T.strip $ T.pack labelStr
+            widgetSetTooltipMarkup l $ T.pack <$> tooltipStr
 
-  return (toWidget l)
+    _ <- onWidgetRealize l $ void $ foreverWithDelay interval $
+      E.tryAny cmd >>= either (const $ return ()) updateLabel
 
+    toWidget l

@@ -17,9 +17,11 @@ module System.Taffybar.Widget.CommandRunner ( commandRunnerNew ) where
 import           Control.Monad.Trans
 import qualified Graphics.UI.Gtk as Gtk
 import qualified System.IO as IO
+import           System.Log.Logger
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.PollingLabel
 import           System.Taffybar.Widget.Util
+import           Text.Printf
 
 -- | Creates a new command runner widget. This is a 'PollingLabel' fed by
 -- regular calls to command given by argument. The results of calling this
@@ -30,16 +32,14 @@ commandRunnerNew
   -> String -- ^ Command to execute. Should be in $PATH or an absolute path
   -> [String] -- ^ Command argument. May be @[]@
   -> String -- ^ If command fails this will be displayed.
-  -> String -- ^ Output color
   -> m Gtk.Widget
-commandRunnerNew interval cmd args defaultOutput color = liftIO $ do
-    label  <- pollingLabelNew "" interval $
-              runCommandWithDefault cmd args defaultOutput color
-    Gtk.widgetShowAll label
-    return $ Gtk.toWidget label
+commandRunnerNew interval cmd args defaultOutput =
+  pollingLabelNew "" interval $
+  runCommandWithDefault cmd args defaultOutput
 
-runCommandWithDefault :: FilePath -> [String] -> [Char] -> String -> IO String
-runCommandWithDefault cmd args def color =
-  colorize color "" <$>
-  (runCommand cmd args >>= either printError return)
-  where printError err = IO.hPutStrLn IO.stderr err >> return def
+runCommandWithDefault :: FilePath -> [String] -> String -> IO String
+runCommandWithDefault cmd args def =
+  runCommand cmd args >>= either logError return
+  where logError err =
+          logM "System.Taffybar.Widget.CommandRunner" ERROR
+               (printf "Got error in CommandRunner %s" err) >> return def

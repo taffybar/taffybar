@@ -183,7 +183,6 @@ getBatteryInfo (BC systemConn battPath)
           toEnum $ fromIntegral $ readDictIntegral dict "Technology" 0
       }
 
-
 -- | Construct a battery context for every battery in the system. This
 -- could fail if the UPower daemon is not running. The contexts can be
 -- used to get actual battery state with 'getBatteryInfo'.
