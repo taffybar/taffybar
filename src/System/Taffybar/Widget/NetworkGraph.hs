@@ -9,7 +9,7 @@ import System.Taffybar.Widget.Generic.Graph
 
 logScale :: Double -> Double -> Double -> Double
 logScale base maxValue value =
-  (logBase base (min value maxValue)) / actualMax
+  logBase base (min value maxValue) / actualMax
     where actualMax = logBase base maxValue
 
 netMonitorGraphNew :: GraphConfig -> Maybe [String] -> TaffyIO Widget

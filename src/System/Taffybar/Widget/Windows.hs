@@ -86,7 +86,7 @@ windowsNew config = (`widgetSetClass` "Windows") =<< fromGIWidget =<< do
   labelWidget <- Gtk.toWidget label
   dynamicMenuNew
     DynamicMenuConfig { dmClickWidget = labelWidget
-                      , dmPopulateMenu = flip runReaderT context . (fillMenu config)
+                      , dmPopulateMenu = flip runReaderT context . fillMenu config
                       }
 
 -- | Populate the given menu widget with the list of all currently open windows.

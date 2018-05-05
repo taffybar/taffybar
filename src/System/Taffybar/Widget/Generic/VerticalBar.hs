@@ -13,6 +13,7 @@ module System.Taffybar.Widget.Generic.VerticalBar (
   ) where
 
 import           Control.Concurrent
+import           Control.Monad
 import           Control.Monad.Trans
 import qualified Graphics.Rendering.Cairo as C
 import           Graphics.UI.Gtk
@@ -75,11 +76,9 @@ verticalBarSetPercent :: VerticalBarHandle -> Double -> IO ()
 verticalBarSetPercent (VBH mv) pct = do
   s <- readMVar mv
   let drawArea = barCanvas s
-  case barIsBootstrapped s of
-    False -> return ()
-    True -> do
-      modifyMVar_ mv (\s' -> return s' { barPercent = clamp 0 1 pct })
-      postGUIAsync $ widgetQueueDraw drawArea
+  when (barIsBootstrapped s) $ do
+    modifyMVar_ mv (\s' -> return s' { barPercent = clamp 0 1 pct })
+    postGUIAsync $ widgetQueueDraw drawArea
 
 clamp :: Double -> Double -> Double -> Double
 clamp lo hi d = max lo $ min hi d
@@ -126,11 +125,11 @@ renderBar :: Double -> BarConfig -> Int -> Int -> C.Render ()
 renderBar pct cfg width height = do
   let direction = barDirection cfg
       activeHeight = case direction of
-                       VERTICAL   -> pct * (fromIntegral height)
+                       VERTICAL   -> pct * fromIntegral height
                        HORIZONTAL -> fromIntegral height
       activeWidth  = case direction of
                        VERTICAL   -> fromIntegral width
-                       HORIZONTAL -> pct * (fromIntegral width)
+                       HORIZONTAL -> pct * fromIntegral width
       newOrigin    = case direction of
                        VERTICAL -> fromIntegral height - activeHeight
                        HORIZONTAL -> 0

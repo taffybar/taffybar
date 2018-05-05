@@ -469,7 +469,7 @@ onWorkspaceUpdate context = do
     doUpdate _ = Gtk.postGUIAsync $ runReaderT updateAllWorkspaceWidgets context
 
 onIconChanged :: (Set.Set X11Window -> IO ()) -> Event -> IO ()
-onIconChanged handler event = do
+onIconChanged handler event =
   case event of
     PropertyEvent { ev_window = wid } -> do
       wLog DEBUG  $ printf "-Icon- -Event- %s" $ show wid
@@ -531,7 +531,7 @@ instance WorkspaceWidgetController WorkspaceContentsController where
     newControllers <- mapM (`updateWidgetX11` update) $ contentsControllers cc
     return cc {contentsControllers = newControllers}
 
-data LabelController = LabelController { label :: Gtk.Label }
+newtype LabelController = LabelController { label :: Gtk.Label }
 
 buildLabelController :: ControllerConstructor
 buildLabelController ws = do

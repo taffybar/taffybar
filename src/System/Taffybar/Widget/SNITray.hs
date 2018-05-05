@@ -23,16 +23,14 @@ import           System.Taffybar.Context
 import           Text.Printf
 
 getHost :: TaffyIO H.Host
-getHost = do
-  getStateDefault build
-  where build = do
-            pid <- lift getProcessID
-            client <- asks dbusClient
-            Just host <- lift $ H.build H.defaultParams
-               { H.dbusClient = Just client
-               , H.uniqueIdentifier = printf "taffybar-%s" $ show pid
-               }
-            return host
+getHost = getStateDefault $ do
+  pid <- lift getProcessID
+  client <- asks dbusClient
+  Just host <- lift $ H.build H.defaultParams
+     { H.dbusClient = Just client
+     , H.uniqueIdentifier = printf "taffybar-%s" $ show pid
+     }
+  return host
 
 -- | Build a new StatusNotifierItem tray that will share a host with any other
 -- trays that are constructed automatically

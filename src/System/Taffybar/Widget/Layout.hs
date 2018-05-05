@@ -49,7 +49,7 @@ import System.Taffybar.Context
 --
 -- now you can use @los@ as any other Taffybar widget.
 
-data LayoutConfig = LayoutConfig
+newtype LayoutConfig = LayoutConfig
   { formatLayout :: String -> TaffyIO String
   }
 

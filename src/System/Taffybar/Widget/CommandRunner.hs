@@ -16,11 +16,9 @@ module System.Taffybar.Widget.CommandRunner ( commandRunnerNew ) where
 
 import           Control.Monad.Trans
 import qualified Graphics.UI.Gtk as Gtk
-import qualified System.IO as IO
 import           System.Log.Logger
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.PollingLabel
-import           System.Taffybar.Widget.Util
 import           Text.Printf
 
 -- | Creates a new command runner widget. This is a 'PollingLabel' fed by

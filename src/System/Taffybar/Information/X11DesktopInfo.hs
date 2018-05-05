@@ -53,9 +53,7 @@ import Data.Bits (testBit, (.|.))
 import Data.List.Split (endBy)
 import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
-       hiding (rawGetWindowProperty, getWindowProperty8,
-               getWindowProperty16, getWindowProperty32,
-               getWMHints)
+  hiding (getWindowProperty8, getWindowProperty32, getWMHints)
 import Graphics.X11.Xrandr
 import Prelude
 import System.Taffybar.Information.SafeX11

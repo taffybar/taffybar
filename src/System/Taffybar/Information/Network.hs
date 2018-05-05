@@ -136,6 +136,6 @@ getSpeed TxSample { sampleUp = thisUp
            )
 
 sumSpeeds :: [(Rational, Rational)] -> (Rational, Rational)
-sumSpeeds speeds = foldr1 sumOne speeds
+sumSpeeds = foldr1 sumOne
   where
     sumOne (d1, u1) (d2, u2) = (d1 + d2, u1 + u2)

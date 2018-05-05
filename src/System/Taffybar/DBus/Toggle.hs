@@ -59,7 +59,7 @@ logT p m = lift $ logIO p m
 
 getActiveMonitorNumber :: MaybeT IO Int
 getActiveMonitorNumber = do
-  display <- MaybeT $ Gdk.displayGetDefault
+  display <- MaybeT Gdk.displayGetDefault
   seat <- lift $ Gdk.displayGetDefaultSeat display
   device <- MaybeT $ Gdk.seatGetPointer seat
   lift $ do
@@ -80,7 +80,7 @@ getMonitorNumber monitor = do
                (Just g1, Just g2) -> Gdk.rectangleEqual g1 g2
                _ -> return False
       equalsMonitor _ = return False
-  snd . fromMaybe (Nothing, 0) . listToMaybe <$> (filterM equalsMonitor $ zip monitors [0..])
+  snd . fromMaybe (Nothing, 0) . listToMaybe <$> filterM equalsMonitor (zip monitors [0..])
 
 taffybarTogglePath :: ObjectPath
 taffybarTogglePath = "/taffybar/toggle"

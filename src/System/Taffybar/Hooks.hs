@@ -8,18 +8,13 @@ import Control.Monad.Trans
 import System.Taffybar.Context
 import System.Taffybar.DBus
 import System.Taffybar.Information.Network
-import System.Log.Logger
-import Text.Printf
 
 newtype NetworkInfoChan = NetworkInfoChan (Chan [(String, (Rational, Rational))])
 
 buildInfoChan :: Double -> IO NetworkInfoChan
 buildInfoChan interval = do
   chan <- newChan
-  let logAndPass v =
-        logM "System.Taffybar.Hooks" DEBUG (printf "Got %s" (show v)) >>
-             (writeChan chan v)
-  _ <- forkIO $ monitorNetworkInterfaces interval logAndPass
+  _ <- forkIO $ monitorNetworkInterfaces interval $ writeChan chan
   return $ NetworkInfoChan chan
 
 getNetworkChan :: TaffyIO NetworkInfoChan

@@ -58,7 +58,7 @@ mpris2New = asks dbusClient >>= \client -> lift $ fromGIWidget =<< do
           maybe (loadIcon 20 "play.svg") return =<< runMaybeT
           (   MaybeT (rightToMaybe <$> getDesktopEntry client busName)
           >>= MaybeT . getDirectoryEntryDefault
-          >>= MaybeT . (getImageForDesktopEntry 20)
+          >>= MaybeT . getImageForDesktopEntry 20
           )
 
         image <- Gtk.imageNewFromPixbuf $ Just pixbuf
@@ -113,7 +113,7 @@ mpris2New = asks dbusClient >>= \client -> lift $ fromGIWidget =<< do
 
     handleNameOwnerChanged _ name _ _ = do
       busNames <- map (coerce . fst) <$> MV.readMVar playerWidgetsVar
-      when (elem name busNames) doUpdate
+      when (name `elem` busNames) doUpdate
 
   _ <- Gtk.onWidgetRealize grid $ do
     updateHandler <-
