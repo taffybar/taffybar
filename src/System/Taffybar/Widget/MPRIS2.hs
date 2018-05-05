@@ -111,7 +111,7 @@ mpris2New = asks dbusClient >>= \client -> lift $ fromGIWidget =<< do
         matchAny
         { matchPath = Just "/org/mpris/MediaPlayer2" }
 
-    handleNameOwnerChanged _ name oldOwner newOwner = do
+    handleNameOwnerChanged _ name _ _ = do
       busNames <- map (coerce . fst) <$> MV.readMVar playerWidgetsVar
       when (elem name busNames) doUpdate
 

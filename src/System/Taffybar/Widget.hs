@@ -32,12 +32,6 @@ module System.Taffybar.Widget
   , defaultLayoutConfig
   , layoutNew
 
-  -- * "System.Taffybar.Widget.MPRIS"
-  , TrackInfo (..)
-  , MPRISConfig (..)
-  , defaultMPRISConfig
-  , mprisNew
-
   -- * "System.Taffybar.Widget.MPRIS2"
   , mpris2New
 
@@ -101,7 +95,6 @@ import System.Taffybar.Widget.DiskIOMonitor
 import System.Taffybar.Widget.FSMonitor
 import System.Taffybar.Widget.FreedesktopNotifications
 import System.Taffybar.Widget.Layout
-import System.Taffybar.Widget.MPRIS
 import System.Taffybar.Widget.MPRIS2
 import System.Taffybar.Widget.NetworkGraph
 import System.Taffybar.Widget.SNITray

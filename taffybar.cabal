@@ -135,7 +135,6 @@ library
                  , System.Taffybar.Widget.Generic.PollingLabel
                  , System.Taffybar.Widget.Generic.VerticalBar
                  , System.Taffybar.Widget.Layout
-                 , System.Taffybar.Widget.MPRIS
                  , System.Taffybar.Widget.MPRIS2
                  , System.Taffybar.Widget.NetMonitor
                  , System.Taffybar.Widget.NetworkGraph
