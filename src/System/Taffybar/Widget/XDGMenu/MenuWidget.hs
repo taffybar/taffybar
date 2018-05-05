@@ -86,7 +86,7 @@ addMenu ms fm = do
     subMenu <- menuNew
     menuItemSetSubmenu item subMenu
     mapM_ (addMenu subMenu) subMenus
-    mapM_ (addItem subMenu) $ items
+    mapM_ (addItem subMenu) items
 
 setIcon :: ImageMenuItem -> Maybe String -> IO ()
 setIcon _ Nothing = return ()
@@ -103,7 +103,7 @@ setIcon item (Just iconName) = do
                    then do let defaultSize = 24 -- FIXME should auto-adjust to font size
                            pb <- pixbufNewFromFileAtScale iconName
                                defaultSize defaultSize True
-                             Just <$> imageNewFromPixbuf pb
+                           Just <$> imageNewFromPixbuf pb
                      else return Nothing
                else return Nothing
   case mImg of
