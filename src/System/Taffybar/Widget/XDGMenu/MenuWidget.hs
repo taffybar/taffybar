@@ -15,10 +15,12 @@
 -- https://specifications.freedesktop.org/menu-spec/menu-spec-1.1.html
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widget.XDGMenu.MenuWidget (
+module System.Taffybar.Widget.XDGMenu.MenuWidget
+  (
   -- * Usage
   -- $usage
-  menuWidgetNew)
+  menuWidgetNew
+  )
 where
 
 import Control.Monad
@@ -92,15 +94,17 @@ setIcon item (Just iconName) = do
   iconTheme <- iconThemeGetDefault
   hasIcon <- iconThemeHasIcon iconTheme iconName
   mImg <- if hasIcon
-          then return . Just =<< imageNewFromIconName iconName IconSizeMenu
+          then Just <$> imageNewFromIconName iconName IconSizeMenu
           else if isAbsolute iconName
-               then do ex <- doesFileExist iconName
-                       if ex
-                         then do let defaultSize = 24 -- FIXME should auto-adjust to font size
-                                 pb <- pixbufNewFromFileAtScale iconName
-                                   defaultSize defaultSize True
-                                 return . Just =<< imageNewFromPixbuf pb
-                         else return Nothing
+               then
+                 do
+                   ex <- doesFileExist iconName
+                   if ex
+                   then do let defaultSize = 24 -- FIXME should auto-adjust to font size
+                           pb <- pixbufNewFromFileAtScale iconName
+                               defaultSize defaultSize True
+                             Just <$> imageNewFromPixbuf pb
+                     else return Nothing
                else return Nothing
   case mImg of
     Just img -> imageMenuItemSetImage item img

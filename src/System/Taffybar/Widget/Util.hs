@@ -17,12 +17,19 @@ module System.Taffybar.Widget.Util where
 import           Control.Concurrent ( forkIO )
 import           Control.Monad ( when, forever, void )
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Maybe
 import           Data.Functor ( ($>) )
+import           Data.Int
+import qualified Data.Text as T
 import           Data.Tuple.Sequence
+import qualified GI.GdkPixbuf.Objects.Pixbuf as GI
 import qualified GI.Gtk
 import           Graphics.UI.Gtk as Gtk
 import           Graphics.UI.Gtk.General.StyleContext
+import           System.Directory
+import           System.FilePath.Posix
 import           System.Taffybar.Compat.GtkLibs
+import           System.Taffybar.Information.XDG.DesktopEntry
 import           Text.Printf
 
 -- | Execute the given action as a response to any of the given types
@@ -108,3 +115,21 @@ widgetSetClassGI widget klass =
   GI.Gtk.toWidget widget >>= fromGIWidget >>= flip widgetSetClass klass >>
     return widget
 
+themeLoadFlags :: [GI.Gtk.IconLookupFlags]
+themeLoadFlags = [GI.Gtk.IconLookupFlagsGenericFallback, GI.Gtk.IconLookupFlagsUseBuiltin]
+
+getImageForDesktopEntry :: DesktopEntry -> Int32 -> IO (Maybe GI.Pixbuf)
+getImageForDesktopEntry entry size = runMaybeT $ do
+  iconName <- MaybeT $ return $ deIcon entry
+  let iconNameText = T.pack iconName
+  MaybeT $ do
+    iconTheme <- GI.Gtk.iconThemeGetDefault
+    hasIcon <- GI.Gtk.iconThemeHasIcon iconTheme iconNameText
+    if hasIcon
+    then
+      GI.Gtk.iconThemeLoadIcon iconTheme iconNameText size themeLoadFlags
+    else do
+      exists <- doesFileExist iconName
+      if isAbsolute iconName && exists
+      then Just <$> GI.pixbufNewFromFile iconName
+      else return Nothing
