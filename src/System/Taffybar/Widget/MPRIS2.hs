@@ -15,51 +15,89 @@
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.MPRIS2 ( mpris2New ) where
 
+import qualified Control.Concurrent.MVar as MV
+import           Control.Monad
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Reader
-import           DBus.Client hiding ( getProperty )
+import           DBus
+import           DBus.Client
 import qualified DBus.TH as DBus
 import           Data.List
-import           Graphics.UI.Gtk hiding ( Signal, Variant )
-import           System.Taffybar.Information.MPRIS2
+import qualified Data.Text as T
+import qualified GI.Gtk as Gtk
+import qualified Graphics.UI.Gtk as Gtk2hs
+import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
+import           System.Taffybar.Information.DBusClients
+import           System.Taffybar.Information.MPRIS2
+import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
+import           System.Taffybar.Widget.Util
 import           Text.Printf
 
-mpris2New :: TaffyIO Widget
-mpris2New = ask >>= \context -> lift $ do
-  ebox <- eventBoxNew
-  label <- labelNew (Nothing :: Maybe String)
-  containerAdd ebox label
-  _ <- on label realize $ runReaderT (initLabel label) context
-  widgetShowAll ebox
-  return (toWidget ebox)
+data MPRIS2PlayerWidget = MPRIS2PlayerWidget
+  { playerLabel :: Gtk.Label
+  , playerGrid :: Gtk.Grid
+  }
 
-initLabel :: Label -> TaffyIO ()
-initLabel label = do
-  client <- asks dbusClient
-  let doUpdate =
-        getNowPlayingInfo client >>= setLabelText label
-      signalCallback _ _ _ _ = doUpdate
-      propMatcher =
+mpris2New :: TaffyIO Gtk2hs.Widget
+mpris2New = asks dbusClient >>= \client -> lift $ fromGIWidget =<< do
+  grid <- Gtk.gridNew
+  alignCenter grid
+  playerWidgetsVar <- MV.newMVar []
+  let
+    newPlayerWidget :: BusName -> IO MPRIS2PlayerWidget
+    newPlayerWidget busName =
+      do
+        playerBox <- Gtk.gridNew
+        alignCenter playerBox
+        label <- Gtk.labelNew Nothing
+        Gtk.containerAdd playerBox label
+        Gtk.widgetShowAll playerBox
+        Gtk.containerAdd grid playerBox
+        return MPRIS2PlayerWidget {playerLabel = label, playerGrid = playerBox}
+
+    updatePlayerWidget
+      children
+      nowPlaying@NowPlaying
+                  { npBusName = busName
+                  , npStatus = status
+                  } =
+      case lookup busName children of
+        Nothing -> do
+          playerWidget <- newPlayerWidget busName
+          setNowPlaying playerWidget
+          return $ (busName, playerWidget):children
+        Just playerWidget -> setNowPlaying playerWidget >> return children
+      where setNowPlaying MPRIS2PlayerWidget {playerLabel = label , playerGrid = playerBox} =
+              do
+                Gtk.labelSetMarkup label $ playingText 20 30 nowPlaying
+                if status == "Playing"
+                then
+                  Gtk.widgetShowAll playerBox
+                else
+                  Gtk.widgetHide playerBox
+
+    updatePlayerWidgets nowPlayings playerWidgets =
+      foldM updatePlayerWidget playerWidgets nowPlayings
+
+    updatePlayerWidgetsVar nowPlayings =
+      MV.modifyMVar_ playerWidgetsVar (updatePlayerWidgets nowPlayings)
+
+    doUpdate = getNowPlayingInfo client >>= updatePlayerWidgetsVar
+    signalCallback _ _ _ _ = doUpdate
+    propMatcher =
         matchAny
-        { matchPath = Just "/org/mpris/MediaPlayer2"
-        }
-  lift $ do
-    handler <- DBus.registerForPropertiesChanged client propMatcher signalCallback
-    _ <- on label unrealize (removeMatch client handler)
-    doUpdate
+        { matchPath = Just "/org/mpris/MediaPlayer2" }
+  _ <- Gtk.onWidgetRealize grid $ do
+    handler <- DBus.registerForPropertiesChanged
+               client propMatcher signalCallback
+    void $ Gtk.onWidgetUnrealize grid (removeMatch client handler)
+  Gtk.widgetShowAll grid
+  Gtk.toWidget grid
 
-setLabelText :: Label -> [NowPlaying] -> IO ()
-setLabelText label playingInfos =
-  let mfirstPlaying = find ((== "Playing") . npStatus) playingInfos
-      playingText :: NowPlaying -> String
-      playingText NowPlaying { npArtists = artists, npTitle = title } =
-        let textPortion :: String
-            textPortion = escapeMarkup $ printf "%s - %s"
-                          (truncateString 15 $ intercalate "," artists)
-                          (truncateString 30 title)
-        in printf "<span fgcolor='yellow'>▶</span> %s" textPortion
-      setText np =
-        postGUIAsync $ labelSetMarkup label (playingText np) >> widgetShow label
-  in maybe (widgetHide label) setText mfirstPlaying
+playingText :: Int -> Int -> NowPlaying -> T.Text
+playingText artistMax songMax NowPlaying { npArtists = artists, npTitle = title } = T.pack $
+  Gtk2hs.escapeMarkup $ printf "%s - %s"
+       (truncateString artistMax $ intercalate "," artists)
+       (truncateString songMax title)

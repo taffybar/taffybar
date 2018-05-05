@@ -37,20 +37,24 @@ data NowPlaying = NowPlaying
 eitherToMaybeWithLog :: (MonadIO m, Show a1) => Either a1 a2 -> m (Maybe a2)
 eitherToMaybeWithLog (Right v) = return $ Just v
 eitherToMaybeWithLog (Left e) = liftIO $ do
-  logM "System.Taffybar.Information.MPRIS2" WARNING $ printf "Got error: %s" $ show e
+  logM "System.Taffybar.Information.MPRIS2" WARNING $
+       printf "Got error: %s" $ show e
   return Nothing
 
 getNowPlayingInfo :: MonadIO m => DBus.Client -> m [NowPlaying]
 getNowPlayingInfo client =
   fmap (fromMaybe []) $ eitherToMaybeWithLog =<< liftIO (runExceptT $ do
     allBusNames <- ExceptT $ DBus.listNames client
-    let mediaPlayerBusNames = filter (isPrefixOf "org.mpris.MediaPlayer2.") allBusNames
+    let mediaPlayerBusNames =
+          filter (isPrefixOf "org.mpris.MediaPlayer2.") allBusNames
         getSongData _busName = runMaybeT $
           do
             let busName = coerce _busName
-            metadataMap <- MaybeT $ getMetadata client busName >>= eitherToMaybeWithLog
+            metadataMap <-
+              MaybeT $ getMetadata client busName >>= eitherToMaybeWithLog
             (title, artists) <- MaybeT $ return $ getSongInfo metadataMap
-            status <- MaybeT $ getPlaybackStatus client busName >>= eitherToMaybeWithLog
+            status <- MaybeT $ getPlaybackStatus client busName >>=
+                               eitherToMaybeWithLog
             return NowPlaying { npTitle = title
                               , npArtists = artists
                               , npStatus = status

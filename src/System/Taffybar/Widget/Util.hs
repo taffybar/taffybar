@@ -133,3 +133,8 @@ getImageForDesktopEntry entry size = runMaybeT $ do
       if isAbsolute iconName && exists
       then Just <$> GI.pixbufNewFromFile iconName
       else return Nothing
+
+alignCenter :: (GI.Gtk.IsWidget o, MonadIO m) => o -> m ()
+alignCenter widget =
+  GI.Gtk.setWidgetValign widget GI.Gtk.AlignCenter >>
+  GI.Gtk.setWidgetHalign widget GI.Gtk.AlignCenter

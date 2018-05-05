@@ -15,6 +15,7 @@ import           Control.Arrow ((&&&))
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans
+import           Control.Monad.Trans.Reader
 import           Data.Tuple.Sequence
 import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
@@ -65,3 +66,10 @@ runCommand cmd args = liftIO $ do
 foreverWithDelay :: RealFrac a1 => a1 -> IO a -> IO ThreadId
 foreverWithDelay delay action =
   forkIO $ forever $ action >> threadDelay (floor $ delay * 1000000)
+
+liftActionTaker
+  :: (Monad m)
+  => ((a -> m a) -> m b) -> (a -> ReaderT c m a) -> ReaderT c m b
+liftActionTaker actionTaker action = do
+  ctx <- ask
+  lift $ actionTaker $ flip runReaderT ctx . action
