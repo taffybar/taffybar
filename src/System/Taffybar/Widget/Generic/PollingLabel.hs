@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 -- | This is a simple text widget that updates its contents by calling
 -- a callback at a set interval.
@@ -15,7 +14,6 @@ import           GI.Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Util
 import           System.Taffybar.Widget.Decorators
 
 -- | Create a new widget that updates itself at regular intervals.  The
