@@ -69,4 +69,4 @@ dyre to automatically detect changes to its configuration file
 For more details about how to configure taffybar, see the [full
 documentation](https://hackage.haskell.org/package/taffybar). You can find a
 list of available widgets
-[here](http://hackage.haskell.org/package/taffybar-1.0.2/docs/System-Taffybar-Widget.html)
+[here](http://hackage.haskell.org/package/taffybar-2.0.0/docs/System-Taffybar-Widget.html)
