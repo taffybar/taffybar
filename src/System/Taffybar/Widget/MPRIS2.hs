@@ -18,10 +18,14 @@ module System.Taffybar.Widget.MPRIS2 ( mpris2New ) where
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.Trans
+import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           DBus
 import           DBus.Client
+import           DBus.Internal.Types
 import qualified DBus.TH as DBus
+import           Data.Coerce
+import           Data.Either.Combinators
 import           Data.List
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
@@ -49,12 +53,25 @@ mpris2New = asks dbusClient >>= \client -> lift $ fromGIWidget =<< do
     newPlayerWidget :: BusName -> IO MPRIS2PlayerWidget
     newPlayerWidget busName =
       do
+        -- TODO: Size the image dynamically
+        pixbuf <-
+          maybe (loadIcon 20 "play.svg") return =<< runMaybeT
+          (   MaybeT (rightToMaybe <$> getDesktopEntry client busName)
+          >>= MaybeT . getDirectoryEntryDefault
+          >>= MaybeT . (getImageForDesktopEntry 20)
+          )
+
+        image <- Gtk.imageNewFromPixbuf $ Just pixbuf
         playerBox <- Gtk.gridNew
-        alignCenter playerBox
         label <- Gtk.labelNew Nothing
+
+        Gtk.containerAdd playerBox image
         Gtk.containerAdd playerBox label
+        alignCenter playerBox
+
         Gtk.widgetShowAll playerBox
         Gtk.containerAdd grid playerBox
+        Gtk.widgetHide playerBox
         return MPRIS2PlayerWidget {playerLabel = label, playerGrid = playerBox}
 
     updatePlayerWidget
@@ -74,12 +91,16 @@ mpris2New = asks dbusClient >>= \client -> lift $ fromGIWidget =<< do
                 Gtk.labelSetMarkup label $ playingText 20 30 nowPlaying
                 if status == "Playing"
                 then
-                  Gtk.widgetShowAll playerBox
+                  Gtk.widgetShow playerBox
                 else
                   Gtk.widgetHide playerBox
 
-    updatePlayerWidgets nowPlayings playerWidgets =
-      foldM updatePlayerWidget playerWidgets nowPlayings
+    updatePlayerWidgets nowPlayings playerWidgets = do
+      newWidgets <- foldM updatePlayerWidget playerWidgets nowPlayings
+      let existingBusNames = map npBusName nowPlayings
+          noInfoPlayerWidgets = filter ((`notElem` existingBusNames) . fst) newWidgets
+      mapM_ (Gtk.widgetHide . playerGrid . snd) noInfoPlayerWidgets
+      return newWidgets
 
     updatePlayerWidgetsVar nowPlayings =
       MV.modifyMVar_ playerWidgetsVar (updatePlayerWidgets nowPlayings)
@@ -89,11 +110,20 @@ mpris2New = asks dbusClient >>= \client -> lift $ fromGIWidget =<< do
     propMatcher =
         matchAny
         { matchPath = Just "/org/mpris/MediaPlayer2" }
+
+    handleNameOwnerChanged _ name oldOwner newOwner = do
+      busNames <- map (coerce . fst) <$> MV.readMVar playerWidgetsVar
+      when (elem name busNames) doUpdate
+
   _ <- Gtk.onWidgetRealize grid $ do
-    handler <- DBus.registerForPropertiesChanged
-               client propMatcher signalCallback
-    void $ Gtk.onWidgetUnrealize grid (removeMatch client handler)
-  Gtk.widgetShowAll grid
+    updateHandler <-
+      DBus.registerForPropertiesChanged client propMatcher signalCallback
+    nameHandler <-
+      DBus.registerForNameOwnerChanged client matchAny handleNameOwnerChanged
+    void $ Gtk.onWidgetUnrealize grid $
+         removeMatch client updateHandler >> removeMatch client nameHandler
+  Gtk.widgetShow grid
+  doUpdate
   Gtk.toWidget grid
 
 playingText :: Int -> Int -> NowPlaying -> T.Text

@@ -110,7 +110,6 @@ setIcon item (Just iconName) = do
     Just img -> imageMenuItemSetImage item img
     Nothing -> putStrLn $ "Icon not found: " ++ iconName
 
-
 -- | Create a new XDG Menu Widget.
 menuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
                               -- e.g. "mate-" or "gnome-"

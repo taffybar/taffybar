@@ -36,11 +36,13 @@ import           Data.Char
 import qualified Data.ConfigFile as CF
 import           Data.List
 import           Data.Maybe
+import qualified Data.Set as S
 import           System.Directory
 import           System.Environment
 import           System.FilePath.Posix
-import qualified Data.Set as S
+import           System.Log.Logger
 import           System.Posix.Files
+import           Text.Printf
 
 data DesktopEntryType = Application | Link | Directory
   deriving (Read, Show, Eq)
@@ -55,6 +57,8 @@ getDefaultDataHome = do
   h <- getHomeDirectory
   return $ h </> ".local" </> "share"
 
+-- XXX: We really ought to use
+-- https://hackage.haskell.org/package/directory-1.3.2.2/docs/System-Directory.html#v:getXdgDirectory
 getXDGDataDirs :: IO [FilePath]
 getXDGDataDirs = do
   dataHome <- lookupEnv "XDG_DATA_HOME" >>= maybe getDefaultDataHome return
@@ -138,9 +142,8 @@ deComment langs de = deLocalisedAtt langs de "Comment"
 -- TODO: are there "field codes", i.e. %<char> things, that
 deCommand :: DesktopEntry -> Maybe String
 deCommand de =
-  case lookup "Exec" (deAttributes de) of
-    Nothing -> Nothing
-    Just cmd -> Just $ reverse $ dropWhile (== ' ') $ reverse $ takeWhile (/= '%') cmd
+  reverse . dropWhile (== ' ') . reverse . takeWhile (/= '%') <$>
+  lookup "Exec" (deAttributes de)
 
 -- | Return a list of all desktop entries in the given directory.
 listDesktopEntries
@@ -163,16 +166,22 @@ listDesktopEntries extension dir = do
     return $ entries ++ subEntries
   else return []
 
+-- XXX: This function doesn't recurse, but `listDesktopEntries` does. Why?
+-- Shouldn't they really share logic...
 -- | Retrieve a desktop entry with a specific name.
 getDirectoryEntry :: [FilePath] -> String -> IO (Maybe DesktopEntry)
 getDirectoryEntry dirs name = do
+  liftIO $ logM "System.Taffybar.Information.XDG.DesktopEntry" DEBUG $
+           printf "Searching %s for %s" (show dirs) name
   exFiles <- filterM doesFileExist $ map ((</> name) . normalise) dirs
   if null exFiles
   then return Nothing
   else readDesktopEntry $ head exFiles
 
 getDirectoryEntryDefault :: String -> IO (Maybe DesktopEntry)
-getDirectoryEntryDefault entry = getXDGDataDirs >>= flip getDirectoryEntry entry
+getDirectoryEntryDefault entry =
+  fmap (</> "applications") <$> getXDGDataDirs >>=
+  flip getDirectoryEntry (printf "%s.desktop" entry)
 
 -- | Main section of a desktop entry file.
 sectionMain :: String

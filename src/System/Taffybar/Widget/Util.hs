@@ -31,6 +31,9 @@ import           System.FilePath.Posix
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           Text.Printf
+import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
+
+import Paths_taffybar ( getDataDir )
 
 -- | Execute the given action as a response to any of the given types
 -- of mouse button clicks.
@@ -116,10 +119,13 @@ widgetSetClassGI widget klass =
     return widget
 
 themeLoadFlags :: [GI.Gtk.IconLookupFlags]
-themeLoadFlags = [GI.Gtk.IconLookupFlagsGenericFallback, GI.Gtk.IconLookupFlagsUseBuiltin]
+themeLoadFlags =
+  [ GI.Gtk.IconLookupFlagsGenericFallback
+  , GI.Gtk.IconLookupFlagsUseBuiltin
+  ]
 
-getImageForDesktopEntry :: DesktopEntry -> Int32 -> IO (Maybe GI.Pixbuf)
-getImageForDesktopEntry entry size = runMaybeT $ do
+getImageForDesktopEntry :: Int32 -> DesktopEntry -> IO (Maybe GI.Pixbuf)
+getImageForDesktopEntry size entry = runMaybeT $ do
   iconName <- MaybeT $ return $ deIcon entry
   let iconNameText = T.pack iconName
   MaybeT $ do
@@ -138,3 +144,12 @@ alignCenter :: (GI.Gtk.IsWidget o, MonadIO m) => o -> m ()
 alignCenter widget =
   GI.Gtk.setWidgetValign widget GI.Gtk.AlignCenter >>
   GI.Gtk.setWidgetHalign widget GI.Gtk.AlignCenter
+
+pixbufNewFromFileAtScaleByHeight :: Int32 -> String -> IO PB.Pixbuf
+pixbufNewFromFileAtScaleByHeight height name =
+  PB.pixbufNewFromFileAtScale name (-1) height True
+
+loadIcon :: Int32 -> String -> IO PB.Pixbuf
+loadIcon height name =
+  ((</> "icons" </> name) <$> getDataDir) >>=
+  pixbufNewFromFileAtScaleByHeight height
