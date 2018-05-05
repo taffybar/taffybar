@@ -32,7 +32,6 @@ import           Control.Monad.Trans.Maybe
 import           Data.Char (toLower)
 import           Data.List
 import           Data.Maybe
-import qualified Data.Set as S
 import qualified Debug.Trace as D
 import           GHC.IO.Encoding
 import           Prelude
@@ -40,7 +39,6 @@ import           Safe (headMay)
 import           System.Directory
 import           System.Environment
 import           System.FilePath.Posix
-import           System.Posix.Files
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           Text.XML.Light

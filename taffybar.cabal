@@ -157,7 +157,7 @@ library
                , System.Taffybar.Util
 
   cc-options: -fPIC
-  ghc-options: -Wall -funbox-strict-fields
+  ghc-options: -Wall -funbox-strict-fields -fno-warn-orphans
 
 executable taffybar
   default-language: Haskell2010
@@ -176,4 +176,3 @@ executable taffybar
 source-repository head
   type: git
   location: git://github.com/taffybar/taffybar.git
-
