@@ -21,7 +21,7 @@ import Data.Word
 import Data.Int
 import DBus
 import DBus.Client
-import Data.List ( isInfixOf )
+import Data.List ( isPrefixOf )
 import Data.Text ( Text )
 import qualified Data.Text as T
 import Safe ( atMay )
@@ -95,10 +95,14 @@ data BatteryInfo = BatteryInfo
   , batteryRecallUr :: Text
 -}
 
--- | determine if a power source is a battery. The simple heuristic is a
--- substring search on 'BAT'.
+-- | The prefix of name of battery devices path. UPower generates the object
+-- path as "battery" + "_" + basename of the sysfs object.
+batteryPrefix :: String
+batteryPrefix = formatObjectPath powerBaseObjectPath ++ "/devices/battery_"
+
+-- | Determine if a power source is a battery.
 isBattery :: ObjectPath -> Bool
-isBattery = isInfixOf "BAT" . formatObjectPath
+isBattery = isPrefixOf batteryPrefix . formatObjectPath
 
 -- | Find the power sources that are batteries (according to
 -- 'isBattery')
