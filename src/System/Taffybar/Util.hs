@@ -88,3 +88,9 @@ liftActionTaker
 liftActionTaker actionTaker action = do
   ctx <- ask
   lift $ actionTaker $ flip runReaderT ctx . action
+
+xdgOpen :: MonadIO m => [String] -> m (Either String String)
+xdgOpen args = runCommandFromPath ("xdg-open":args)
+
+openURL :: MonadIO m => String -> m (Either String String)
+openURL = xdgOpen . return

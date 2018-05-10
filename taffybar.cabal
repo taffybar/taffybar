@@ -35,11 +35,13 @@ library
 
   default-language: Haskell2010
   build-depends: base > 3 && < 5
-               , alsa-mixer >= 0.2.0
                , ConfigFile
                , HStringTemplate >= 0.8 && < 0.9
                , HTTP
                , X11 >= 1.5.0.1
+               , aeson
+               , alsa-mixer >= 0.2.0
+               , bytestring
                , cairo
                , containers
                , dbus >= 1.0.0 && < 2.0.0
@@ -64,6 +66,7 @@ library
                , haskell-gi >= 0.21.2
                , haskell-gi-base >= 0.21.1
                , hslogger
+               , http-conduit
                , multimap >= 1.2.1
                , old-locale
                , parsec >= 3.1

@@ -154,11 +154,11 @@ vFillCenter widget =
   GI.Gtk.setWidgetValign widget GI.Gtk.AlignFill >>
   GI.Gtk.setWidgetHalign widget GI.Gtk.AlignCenter
 
-pixbufNewFromFileAtScaleByHeight :: Int32 -> String -> IO PB.Pixbuf
+pixbufNewFromFileAtScaleByHeight :: MonadIO m => Int32 -> String -> m PB.Pixbuf
 pixbufNewFromFileAtScaleByHeight height name =
   PB.pixbufNewFromFileAtScale name (-1) height True
 
-loadIcon :: Int32 -> String -> IO PB.Pixbuf
+loadIcon :: MonadIO m => Int32 -> String -> m PB.Pixbuf
 loadIcon height name =
-  ((</> "icons" </> name) <$> getDataDir) >>=
+  ((</> "icons" </> name) <$> liftIO getDataDir) >>=
   pixbufNewFromFileAtScaleByHeight height
