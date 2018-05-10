@@ -47,7 +47,7 @@
 	opacity: .3;
 }
 
-.IconImage {
+.IconContainer.Normal .IconImage {
 	transition: opacity .5s;
 	padding: 2px;
 	opacity: 1;
