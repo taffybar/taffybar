@@ -24,6 +24,8 @@ dynamicMenuNew DynamicMenuConfig { dmClickWidget = clickWidget
   _ <- Gtk.onMenuItemActivate menuItem $ populateMenu menu
   _ <- Gtk.onMenuItemDeselect menuItem $ emptyMenu menu
 
+  Gtk.widgetShowAll bar
+
   Gtk.toWidget bar
 
 emptyMenu :: (Gtk.IsContainer a, MonadIO m) => a -> m ()
