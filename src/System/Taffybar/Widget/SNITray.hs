@@ -49,4 +49,5 @@ sniTrayNew = do
         , trayIconExpand = False
         , trayAlignment = End
         }
+    GI.Gtk.widgetShowAll tray
     GI.Gtk.toWidget tray >>= fromGIWidget
