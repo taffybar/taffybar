@@ -15,10 +15,9 @@ function alongside other EWMH compliant window managers. It is similar in spirit
 to xmobar, but it differs in that it gives up some simplicity for a reasonable
 helping of eye candy.
 
-Installation
-------------
+Prerequisites
+-------------
 
-### Prerequisites
 Taffybar has a number of non-haskell dependencies. It is recommended that you
 follow the installation instructions for
 [haskell-gi](https://github.com/haskell-gi/haskell-gi) before attempting to
@@ -26,6 +25,9 @@ install taffybar.
 
 In addition the the dependencies needed by haskell-gi, taffybar also needs the
 equivalent of libdbusmenu-gtk3-dev and libgirepository1.0-dev on Debian.
+
+Installation
+------------
 
 Taffybar itself can be installed in a number of different ways:
 
