@@ -1,5 +1,5 @@
 name: taffybar
-version: 0.4.5
+version: 2.0.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
@@ -8,119 +8,172 @@ maintainer: tristan@nochair.net
 category: System
 build-type: Simple
 cabal-version: >=1.10
-homepage: http://github.com/travitch/taffybar
-data-files: taffybar.rc
-extra-source-files: README.md,
-                    CHANGELOG.md,
-                    taffybar.hs.example
+tested-with: GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2
+homepage: http://github.com/taffybar/taffybar
+data-files:
+  taffybar.css
+  icons/*.svg
+extra-source-files:
+  README.md
+  CHANGELOG.md
+  taffybar.hs.example
+  dbus-xml/org.mpris.MediaPlayer2.Player.xml
+
 
 description:
-  A somewhat fancier desktop bar than xmobar.  This bar is based on
-  gtk2hs and provides several widgets (including a few graphical ones).
-  It also sports an optional snazzy system tray.
+  Taffybar is a gtk+3 (through gtk2hs) based desktop information bar, intended
+  primarily for use with XMonad, though it can also function alongside other EWMH
+  compliant window managers. It is similar in spirit to xmobar, but it differs in
+  that it gives up some simplicity for a reasonable helping of eye candy.
 
 flag network-uri
   description: network hack
-  default: True
+  default: True           
 
 library
   default-language: Haskell2010
-  build-depends: base > 3 && < 5,
-                 time >= 1.4 && < 1.6,
-                 time-locale-compat >= 0.1 && < 0.2,
-                 old-locale,
-                 containers,
-                 text,
-                 HTTP,
-                 parsec >= 3.1,
-                 mtl >= 2,
-                 cairo,
-                 dbus >= 0.10.1 && < 1.0,
-                 gtk >= 0.12.1 && < 0.14,
-                 dyre >= 0.8.6,
-                 HStringTemplate,
-                 gtk-traymanager >= 0.1.2 && < 0.2,
-                 xmonad-contrib,
-                 xmonad,
-                 xdg-basedir,
-                 filepath,
-                 utf8-string,
-                 process,
-                 stm,
-                 transformers >= 0.3.0.0,
-                 X11 >= 1.5.0.1,
-                 safe >= 0.3 && < 1,
-                 split >= 0.1.4.2,
-                 process >= 1.0.1.1,
-                 enclosed-exceptions >= 1.0.0.1,
-                 directory
+  build-depends: base > 3 && < 5
+               , alsa-mixer >= 0.2.0
+               , ConfigFile
+               , HStringTemplate >= 0.8 && < 0.9
+               , HTTP
+               , X11 >= 1.5.0.1
+               , cairo
+               , containers
+               , dbus >= 1.0.0 && < 2.0.0
+               , dbus-hslogger >= 0.1.0.1 && < 0.2.0.0
+               , directory
+               , dyre >= 0.8.6 && < 0.9
+               , either >= 4.0.0.0
+               , enclosed-exceptions >= 1.0.0.1
+               , filepath
+               , gi-cairo
+               , gi-gdk
+               , gi-gdkpixbuf >= 2.0.16
+               , gi-gdkx11
+               , gi-glib
+               , gi-gtk
+               , glib
+               , gtk-sni-tray >= 0.1.2.1
+               , gtk-strut >= 0.1.2.0
+               , gtk-traymanager >= 1.0.1 && < 2.0.0
+               , gtk3 >= 0.14.9
+               , haskell-gi >= 0.21.2
+               , haskell-gi-base >= 0.21.1
+               , hslogger
+               , mtl >= 2
+               , multimap >= 1.2.1
+               , old-locale
+               , parsec >= 3.1
+               , process >= 1.0.1.1
+               , rate-limit >= 1.1.1
+               , regex-compat
+               , safe >= 0.3 && < 1
+               , split >= 0.1.4.2
+               , status-notifier-item >= 0.2.2.0
+               , stm
+               , text
+               , time >= 1.4 && < 2.0
+               , time-locale-compat >= 0.1 && < 0.2
+               , time-units >= 1.0.0
+               , transformers >= 0.3.0.0
+               , transformers-base >= 0.4
+               , tuple >= 0.3.0.2
+               , unix
+               , utf8-string
+               , xdg-basedir >= 0.2 && < 0.3
+               , xml
+               , xml-helpers
+               , xmonad
+               , xmonad-contrib
+
   if flag(network-uri)
     build-depends: network-uri >= 2.6 && < 3, network >= 2.6 && < 3
   else
     build-depends: network-uri < 2.6, network < 2.6
   hs-source-dirs: src
-  pkgconfig-depends: gtk+-2.0
-  exposed-modules: System.Taffybar,
-                   System.Taffybar.XMonadLog,
-                   System.Taffybar.Systray,
-                   System.Taffybar.SimpleClock,
-                   System.Taffybar.FreedesktopNotifications,
-                   System.Taffybar.Weather,
-                   System.Taffybar.MPRIS,
-                   System.Taffybar.MPRIS2,
-                   System.Taffybar.Battery,
-                   System.Taffybar.CPUMonitor,
-                   System.Taffybar.CommandRunner,
-                   System.Taffybar.DiskIOMonitor,
-                   System.Taffybar.FSMonitor,
-                   System.Taffybar.LayoutSwitcher,
-                   System.Taffybar.NetMonitor,
-                   System.Taffybar.Pager,
-                   System.Taffybar.TaffyPager,
-                   System.Taffybar.Text.CPUMonitor,
-                   System.Taffybar.Text.MemoryMonitor,
-                   System.Taffybar.WindowSwitcher,
-                   System.Taffybar.WorkspaceSwitcher,
-                   System.Taffybar.Hooks.PagerHints,
-                   System.Taffybar.Widgets.Graph,
-                   System.Taffybar.Widgets.PollingBar,
-                   System.Taffybar.Widgets.PollingGraph,
-                   System.Taffybar.Widgets.PollingLabel,
-                   System.Taffybar.Widgets.Util,
-                   System.Taffybar.Widgets.VerticalBar,
-                   System.Information.StreamInfo,
-                   System.Information.Battery,
-                   System.Information.EWMHDesktopInfo,
-                   System.Information.X11DesktopInfo,
-                   System.Information.Memory,
-                   System.Information.Network,
-                   System.Information.CPU,
-                   System.Information.CPU2,
-                   System.Information.DiskIO
-  other-modules: System.Taffybar.StrutProperties,
-                 Paths_taffybar
+  pkgconfig-depends: gtk+-3.0
+  exposed-modules: System.Taffybar
+                 , System.Taffybar.Auth
+                 , System.Taffybar.Compat.GtkLibs
+                 , System.Taffybar.Context
+                 , System.Taffybar.DBus
+                 , System.Taffybar.DBus.Toggle
+                 , System.Taffybar.Hooks
+                 , System.Taffybar.IconImages
+                 , System.Taffybar.Information.Battery
+                 , System.Taffybar.Information.CPU
+                 , System.Taffybar.Information.CPU2
+                 , System.Taffybar.Information.DiskIO
+                 , System.Taffybar.Information.EWMHDesktopInfo
+                 , System.Taffybar.Information.MPRIS2
+                 , System.Taffybar.Information.Memory
+                 , System.Taffybar.Information.Network
+                 , System.Taffybar.Information.SafeX11
+                 , System.Taffybar.Information.StreamInfo
+                 , System.Taffybar.Information.Volume
+                 , System.Taffybar.Information.X11DesktopInfo
+                 , System.Taffybar.Information.XDG.DesktopEntry
+                 , System.Taffybar.Information.XDG.Protocol
+                 , System.Taffybar.SimpleConfig
+                 , System.Taffybar.Support.PagerHints
+                 , System.Taffybar.TransparentWindow
+                 , System.Taffybar.Widget
+                 , System.Taffybar.Widget.Battery
+                 , System.Taffybar.Widget.CPUMonitor
+                 , System.Taffybar.Widget.CommandRunner
+                 , System.Taffybar.Widget.Decorators
+                 , System.Taffybar.Widget.DiskIOMonitor
+                 , System.Taffybar.Widget.FSMonitor
+                 , System.Taffybar.Widget.FreedesktopNotifications
+                 , System.Taffybar.Widget.Generic.ChannelGraph
+                 , System.Taffybar.Widget.Generic.DynamicMenu
+                 , System.Taffybar.Widget.Generic.Graph
+                 , System.Taffybar.Widget.Generic.Icon
+                 , System.Taffybar.Widget.Generic.PollingBar
+                 , System.Taffybar.Widget.Generic.PollingGraph
+                 , System.Taffybar.Widget.Generic.PollingLabel
+                 , System.Taffybar.Widget.Generic.VerticalBar
+                 , System.Taffybar.Widget.Layout
+                 , System.Taffybar.Widget.MPRIS2
+                 , System.Taffybar.Widget.NetMonitor
+                 , System.Taffybar.Widget.NetworkGraph
+                 , System.Taffybar.Widget.SNITray
+                 , System.Taffybar.Widget.SimpleClock
+                 , System.Taffybar.Widget.Systray
+                 , System.Taffybar.Widget.Text.CPUMonitor
+                 , System.Taffybar.Widget.Text.MemoryMonitor
+                 , System.Taffybar.Widget.Text.NetworkMonitor
+                 , System.Taffybar.Widget.Util
+                 , System.Taffybar.Widget.Volume
+                 , System.Taffybar.Widget.Weather
+                 , System.Taffybar.Widget.Windows
+                 , System.Taffybar.Widget.Workspaces
+                 , System.Taffybar.Widget.XDGMenu.Menu
+                 , System.Taffybar.Widget.XDGMenu.MenuWidget
+                   
+  other-modules: Paths_taffybar
+               , System.Taffybar.Information.DBusClients
+               , System.Taffybar.Information.DBusObjects
+               , System.Taffybar.Util
 
-  c-sources: src/gdk_property_change_wrapper.c
-
-  ghc-options: -Wall -funbox-strict-fields
-  ghc-prof-options: -auto-all
-
+  cc-options: -fPIC
+  ghc-options: -Wall -funbox-strict-fields -fno-warn-orphans
 
 executable taffybar
   default-language: Haskell2010
-  build-depends: base > 3 && < 5,
-                 dyre >= 0.8.6,
-                 gtk >= 0.12 && < 0.14,
-                 safe >= 0.3 && < 1,
-                 xdg-basedir,
-                 filepath
-  hs-source-dirs: src
+  build-depends: base > 3 && < 5
+               , hslogger
+               , optparse-applicative
+               , taffybar
+
+  other-modules: Paths_taffybar
+
+  hs-source-dirs: app
   main-is: Main.hs
-  pkgconfig-depends: gtk+-2.0
-  c-sources: src/gdk_property_change_wrapper.c
+  pkgconfig-depends: gtk+-3.0
   ghc-options: -Wall -rtsopts -threaded
-  ghc-prof-options: -auto-all
 
 source-repository head
   type: git
-  location: git://github.com/travitch/taffybar.git
+  location: git://github.com/taffybar/taffybar.git

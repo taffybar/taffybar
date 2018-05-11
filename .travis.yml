@@ -1,0 +1,16 @@
+language: generic
+
+sudo: required
+
+services:
+  - docker
+
+matrix:
+  include:
+  # TODO renabled 7.10 and quickstart build
+  # - env: STACK_YAML=stack-7.10.yaml
+  - env: STACK_YAML=stack-8.0.yaml
+  - env: STACK_YAML=stack-8.2.yaml
+
+script:
+- docker build --build-arg STACK_YAML="$STACK_YAML" .

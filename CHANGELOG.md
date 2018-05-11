@@ -1,3 +1,138 @@
+# 2.0.0
+
+## Breaking Changes
+
+ * An entirely new config system has been put in place. TaffybarConfig now lives
+   in System.Taffybar.Context, but for most users, System.Taffybar.SimpleConfig
+   is the configuration interface that should be used.
+
+ * The main entry point to taffybar is now dyreTaffybar instead of
+   defaultTaffybar.
+
+ * All widget constructors provided to both config systems must now be of type
+   `TaffyIO Gtk.Widget`. If you have an existing `IO Gtk.Widget` you can convert it
+   using liftIO. All widgets provided by taffybar are now of type
+   `MonadIO m => m Gtk.Widget`, or specialized to `TaffyIO Gtk.Widgets`.
+
+ * The `graphBackgroundColor` and `graphBorderColor` fields are now RGBA
+   quadruples instead of RGB triples.
+
+ * Module removals:
+
+   - WorkspaceSwitcher: Workspaces is much more abstract and makes this widget
+     redundant.
+   - Pager: The Context module solves the problem that Pager solved in a much
+     more general way. It also makes it so that the user doesn't even need to
+     know about the Pager component at all.
+   - TaffyPager: Since you no longer need to explicitly initialize a Pager, it's
+     not really very hard to simply add the (Workspaces, Layout, Windows) triple
+     to your config any more.
+   - XMonadLog: This module has long been deprecated
+
+ * Module moves:
+
+   - Everything in System.Information has been moved to
+     System.Information.Taffybar
+   - All Widgets that were found in System.Taffybar have been moved to
+     System.Taffybar.Widget
+   - The helper widgets that were previously located in System.Taffybar.Widgets
+     have been moved to System.Taffybar.Widget.Generic
+
+ * Module renames:
+
+	- WorkspaceHUD -> Workspaces
+	- WindowSwitcher -> Windows
+	- LayoutSwitcher -> Layout
+	- ToggleMonitors -> DBus.Toggle
+
+  * Module deprecations:
+
+    - System.Taffybar.Widget.Systray (Use SNITray instead)
+	- System.Taffybar.Widget.NetMonitor (Use
+      System.Taffybar.Widget.Text.NetworkMonitor instead)
+
+ * Many widgets have subtle interface changes that may break existing configurations.
+
+## New Features
+
+ * Widgets can now be placed in the center of taffybar with the `centerWidgets`
+   configuration parameter.
+
+ * taffybar is now transparent by default, but you will need to use a compositor
+   for transparency to work. https://github.com/chjj/compton is recommended. If
+   you do not want a transparent taffybar set a background color on the class
+   `TaffyBox` in taffybar.css.
+
+ * StatusNotifierItem support has been added to taffybar in the SNITray module.
+
+ * Monitor configuration changes are handled automatically. Unfortunately the
+   bar must be completely recreated when this happens.
+
+ * New network monitor widgets `System.Taffybar.Widget.Text.NetworkMonitor`
+   and `System.Taffybar.Widget.NetworkGraph` were added.
+
+ * All widgets are now exported in `System.Taffybar.Widget`, which should
+   eliminate the need to import widgets explicitly.
+
+# 1.0.2
+
+## Bug Fixes
+
+ * Fix long standing memory leak that was caused by a failure to free memory
+   allocated for gtk pixbufs.
+ * Widgets unregister from X11 event listening.
+
+# 1.0.0
+
+## Breaking Changes
+
+ * Migrate from Gtk2 to Gtk3, which replaces rc theming with css theming (Ivan Malison)
+
+## New Features
+
+ * Support for taffybar on multiple monitors (Ivan Malison)
+ * D-Bus toggling of taffybar per monitor (Ivan Malison)
+ * A new workspace switcher widget called WorkspaceHUD (Ivan Malison)
+ * Support for multiple batteries via ``batteryContextsNew`` (Edd Steel)
+ * Add support for IO actions to configure vertical bar widgets
+ * Images in WorkspaceSwitcher - images are taken from EWMH via \_NET\_WM_ICON (Elliot Wolk)
+ * Preliminary support for i3wm (Saksham Sharma)
+ * Support for multiple network interfaces in NetMonitor (Robert Klotzner)
+ * Add a pager config field that configures the construction of window switcher titles (Ivan Malison)
+ * Quick start script for installing from git with stack (Ivan Malison)
+ * Add a volume widget (Nick Hu and Abdul Sattar)
+ * Add available memory field to MemoryInfo (Will Price)
+ * The freedesktop.org notifications widget now allows for notifications to
+   never expire and can handle multiple notifications at once. In particular the
+   default formatter now shows the number of pending notifications (Daniel
+   Oliveira)
+ * Battery bar is more informative (Samshak Sharma)
+ * Network monitor speeds are auto formatted to use the most appropriate units (TeXitoi)
+ * A new freedesktop.org menu widget (u11gh)
+
+...and many smaller tweaks.
+
+## Bug Fixes
+
+ * Fixes for outdated weather information sources
+ * Various styling fixes in the gtkrc code
+ * Share a single X11Connection between all components to fix the `user error
+   (openDisplay)` error (Ivan Malison)
+ * Call initThreads at startup. This fixes ```taffybar-linux-x86_64:
+   xcb_io.c:259: poll_for_event: Assertion `!xcb_xlib_threads_sequence_lost'
+   failed.``` (Ivan Malison)
+ * Add an eventBox to window switcher to allow setting its background (Ivan Malison)
+ * #105 Prevent taffybar from crashing when two windows are closed
+   simultaneously, or when taffybar otherwise requests data about a window that
+   no longer exists.
+
+# 0.4.6
+
+ * Fix a longstanding bug in loading .rc files (Peder Stray)
+ * Add support for scrolling in the workspace switcher (Saksham Sharma)
+ * Improve default formatting of empty workspaces in the pager (Saksham Sharma)
+ * Relax gtk version bounds
+
 # 0.4.5
 
  * GHC 7.10 compat
