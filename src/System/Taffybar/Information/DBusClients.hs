@@ -1,11 +1,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 module System.Taffybar.Information.DBusClients where
 
-import DBus.Generation
+import StatusNotifier.Util
+import System.FilePath
 import System.Taffybar.Information.DBusObjects
 
-generateClient playerGenerationParams playerInterface
-generateSignalsFromInterface playerGenerationParams playerInterface
+generateClientFromFile playerGenerationParams False $
+                       "dbus-xml" </> "org.mpris.MediaPlayer2.xml"
 
-generateClient playerGenerationParams mprisInterface
-generateSignalsFromInterface playerGenerationParams mprisInterface
+generateClientFromFile playerGenerationParams False $
+                       "dbus-xml" </> "org.mpris.MediaPlayer2.Player.xml"
