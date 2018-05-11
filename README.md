@@ -7,7 +7,7 @@ Taffybar
 [![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/taffybar/Lobby)
 [![License BSD3](https://img.shields.io/badge/license-BSD3-green.svg?dummy)](https://github.com/taffybar/taffybar/blob/master/LICENSE)
 
-![](https://github.com/taffybar/taffybar/blob/master/doc/screenshot.png)
+![https://github.com/taffybar/taffybar/blob/master/doc/screenshot.png](https://raw.githubusercontent.com/taffybar/taffybar/master/doc/screenshot.png)
 
 Taffybar is a gtk+3 [(through gtk2hs and
 gi-gtk)](https://github.com/taffybar/taffybar/issues/256) based desktop
