@@ -54,7 +54,7 @@ library
                , gi-glib
                , gi-gtk
                , glib
-               , gtk-sni-tray >= 0.1.2.0
+               , gtk-sni-tray >= 0.1.2.1
                , gtk-strut >= 0.1.2.0
                , gtk-traymanager >= 1.0.1 && < 2.0.0
                , gtk3 >= 0.14.9
@@ -70,7 +70,7 @@ library
                , regex-compat
                , safe >= 0.3 && < 1
                , split >= 0.1.4.2
-               , status-notifier-item >= 0.2.1.0
+               , status-notifier-item >= 0.2.2.0
                , stm
                , text
                , time >= 1.4 && < 2.0
