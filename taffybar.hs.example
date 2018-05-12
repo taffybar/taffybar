@@ -5,6 +5,7 @@ import           System.Taffybar.Information.CPU
 import           System.Taffybar.Information.Memory
 import           System.Taffybar.SimpleConfig
 import           System.Taffybar.Widget
+import           System.Taffybar.Widget.Workspaces
 import           System.Taffybar.Widget.Generic.PollingGraph
 
 memCallback = do
@@ -30,14 +31,13 @@ main = do
   let clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
       workspaces = workspacesNew defaultWorkspacesConfig
       windows = windowsNew defaultWindowsConfig
-      layout = layoutNew defaultLayoutconfig
+      layout = layoutNew defaultLayoutConfig
       note = notifyAreaNew defaultNotificationConfig
-      wea = weatherNew (defaultWeatherConfig "KMSN") 10
       mpris = mpris2New
       mem = pollingGraphNew memCfg 1 memCallback
       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
-      tray = systrayNew
+      tray = sniTrayNew
   simpleTaffybar defaultSimpleTaffyConfig
                    { startWidgets = [ workspaces, layout, windows, note ]
-                   , endWidgets = [ tray, wea, clock, mem, cpu, mpris ]
+                   , endWidgets = [ tray, clock, mem, cpu, mpris ]
                    }
