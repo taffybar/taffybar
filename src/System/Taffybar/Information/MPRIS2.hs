@@ -23,7 +23,7 @@ import           Data.Coerce
 import           Data.List
 import qualified Data.Map as M
 import           Data.Maybe
-import           System.Taffybar.Information.DBusClients
+import           System.Taffybar.DBus.Client.MPRIS2
 import           System.Log.Logger
 import           Text.Printf
 

@@ -153,8 +153,10 @@ library
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
                    
   other-modules: Paths_taffybar
-               , System.Taffybar.Information.DBusClients
-               , System.Taffybar.Information.DBusObjects
+               , System.Taffybar.DBus.Client.MPRIS2
+               , System.Taffybar.DBus.Client.Params
+               , System.Taffybar.DBus.Client.UPower
+               , System.Taffybar.DBus.Client.UPowerDevice
                , System.Taffybar.Util
 
   cc-options: -fPIC

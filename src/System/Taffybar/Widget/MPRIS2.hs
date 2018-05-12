@@ -32,7 +32,7 @@ import qualified GI.Gtk as Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
-import           System.Taffybar.Information.DBusClients
+import           System.Taffybar.DBus.Client.MPRIS2
 import           System.Taffybar.Information.MPRIS2
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
