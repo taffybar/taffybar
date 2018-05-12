@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Information.CPU2
@@ -16,36 +17,16 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Information.CPU2 ( getCPULoad, getCPUInfo, getCPUTemp ) where
+module System.Taffybar.Information.CPU2 where
 
-import Data.Maybe ( mapMaybe )
-import Safe ( atMay, readDef, tailSafe )
-
-import System.Taffybar.Information.StreamInfo ( getLoad, getParsedInfo )
-import Control.Monad (liftM)
-import System.Directory (doesDirectoryExist)
-
--- | Returns a two-element list containing relative system and user times
--- calculated using two almost simultaneous samples of the @\/proc\/stat@ file
--- for the given core (or all of them aggregated, if \"cpu\" is passed).
-getCPULoad :: String -> IO [Double]
-getCPULoad cpu = do
-  load <- getLoad 0.05 $ getCPUInfo cpu
-  case load of
-    l0:l1:l2:_ -> return [ l0 + l1, l2 ]
-    _ -> return []
-
--- | Returns a list containing temperatures of user given cpu cores.
--- Use ["cpu1", "cpu2".."cpuN"] to get temperature of exact cores.
--- Use ["cpu0"] to get common temperature.
-getCPUTemp :: [String] -> IO [Int]
-getCPUTemp cpus = do
-    let cpus' = map (\s -> drop 3 s) cpus
-        baseDir = "/sys/bus/platform/devices/coretemp.0"
-        getTemps dir = liftM concat $ mapM (\cpu -> getParsedInfo (baseDir ++ dir ++ "/temp" ++ show (read cpu + 1) ++ "_input") (\s -> [("temp", [read s `div` 1000])]) "temp") cpus'
-    newDirectory <- doesDirectoryExist $ baseDir ++ "/hwmon/hwmon0"
-    getTemps $ if newDirectory then "/hwmon/hwmon0" else ""
-    --TODO and suppoprt for more than 1 physical cpu.
+import Control.Monad
+import Control.Monad.Reader()
+import Data.List
+import Data.Maybe
+import Safe
+import System.Directory
+import System.FilePath
+import System.Taffybar.Information.StreamInfo
 
 -- | Returns a list of 5 to 7 elements containing all the values available for
 -- the given core (or all of them aggregated, if "cpu" is passed).
@@ -60,3 +41,36 @@ tuplize s = do
   cpu <- s `atMay` 0
   return (cpu, map (readDef (-1)) (tailSafe s))
 
+-- | Returns a two-element list containing relative system and user times
+-- calculated using two almost simultaneous samples of the @\/proc\/stat@ file
+-- for the given core (or all of them aggregated, if \"cpu\" is passed).
+getCPULoad :: String -> IO [Double]
+getCPULoad cpu = do
+  load <- getLoad 0.05 $ getCPUInfo cpu
+  case load of
+    l0:l1:l2:_ -> return [ l0 + l1, l2 ]
+    _ -> return []
+
+-- | Get the directory in which core temperature files are kept.
+getCPUTemperatureDirectory :: IO FilePath
+getCPUTemperatureDirectory =
+  (baseDir </>) . fromMaybe "hwmon0" .
+  find (isPrefixOf "hwmon")
+  <$> listDirectory baseDir
+  where baseDir =
+          "/"  </> "sys" </> "bus" </> "platform" </>
+          "devices" </> "coretemp.0" </> "hwmon"
+
+readCPUTempFile :: FilePath -> IO Double
+readCPUTempFile cpuTempFilePath = (/ 1000) . read <$> readFile cpuTempFilePath
+
+getAllTemperatureFiles :: FilePath -> IO [FilePath]
+getAllTemperatureFiles temperaturesDirectory =
+  filter (liftM2 (&&) (isPrefixOf "temp") (isSuffixOf "input")) <$>
+         listDirectory temperaturesDirectory
+
+getCPUTemperatures :: IO [(String, Double)]
+getCPUTemperatures = do
+  dir <- getCPUTemperatureDirectory
+  let mkPair filename = (filename,) <$> readCPUTempFile (dir </> filename)
+  getAllTemperatureFiles dir >>= mapM mkPair

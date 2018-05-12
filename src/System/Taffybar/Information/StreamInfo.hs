@@ -76,14 +76,10 @@ getTransfer interval action = do
 -- obtained values against the whole, where the whole is calculated as the sum
 -- of all the values in the probe.
 getLoad :: (Integral a, RealFloat b) => b -> IO [a] -> IO [b]
-getLoad interval action = do
-    deltas <- probe action interval
-    return $ toRatioList deltas
+getLoad interval action = toRatioList <$> probe action interval
 
 -- | Similar to getLoad, but execute the given action only once and use the
 -- given IORef to calculate the result and to save the current value, so it
 -- can be reused in the next call.
 getAccLoad :: (Integral a, RealFloat b) => IORef [a] -> IO [a] -> IO [b]
-getAccLoad sample action = do
-     deltas <- accProbe action sample
-     return $ toRatioList deltas
+getAccLoad sample action = toRatioList <$> accProbe action sample
