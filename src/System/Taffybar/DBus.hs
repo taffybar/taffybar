@@ -18,7 +18,7 @@ appendHook hook config = config
 
 startTaffyLogServer :: TaffyIO ()
 startTaffyLogServer =
-  asks dbusClient >>= lift . startLogServer
+  asks sessionDBusClient >>= lift . startLogServer
 
 withLogServer :: TaffybarConfig -> TaffybarConfig
 withLogServer = appendHook startTaffyLogServer

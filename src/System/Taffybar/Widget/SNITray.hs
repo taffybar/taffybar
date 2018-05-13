@@ -25,7 +25,7 @@ import           Text.Printf
 getHost :: TaffyIO H.Host
 getHost = getStateDefault $ do
   pid <- lift getProcessID
-  client <- asks dbusClient
+  client <- asks sessionDBusClient
   Just host <- lift $ H.build H.defaultParams
      { H.dbusClient = Just client
      , H.uniqueIdentifier = printf "taffybar-%s" $ show pid
@@ -37,7 +37,7 @@ getHost = getStateDefault $ do
 sniTrayNew :: TaffyIO Gtk.Widget
 sniTrayNew = do
   host <- getHost
-  client <- asks dbusClient
+  client <- asks sessionDBusClient
   lift $ do
     tray <-
       buildTray

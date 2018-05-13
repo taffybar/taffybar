@@ -123,7 +123,7 @@ exportTogglesInterface = do
         toggleTaffyOnMon not $ fromMaybe 0 num
       takeInt :: (Int -> a) -> (Int32 -> a)
       takeInt = (. fromIntegral)
-  client <- asks dbusClient
+  client <- asks sessionDBusClient
   let interface =
         defaultInterface
         { interfaceName = taffybarToggleInterface

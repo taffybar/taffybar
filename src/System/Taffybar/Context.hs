@@ -100,7 +100,7 @@ data Context = Context
   , listeners :: MV.MVar SubscriptionList
   , contextState :: MV.MVar (M.Map TypeRep Value)
   , existingWindows :: MV.MVar [(BarConfig, Gtk.Window)]
-  , dbusClient :: DBus.Client
+  , sessionDBusClient :: DBus.Client
   , getBarConfigs :: BarConfigGetter
   }
 
@@ -122,7 +122,7 @@ buildContext TaffybarConfig
                 { x11ContextVar = x11Context
                 , listeners = listenersVar
                 , contextState = state
-                , dbusClient = dbusC
+                , sessionDBusClient = dbusC
                 , getBarConfigs = barConfigGetter
                 , existingWindows = windowsVar
                 }

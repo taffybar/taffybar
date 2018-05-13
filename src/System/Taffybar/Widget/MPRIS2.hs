@@ -45,7 +45,7 @@ data MPRIS2PlayerWidget = MPRIS2PlayerWidget
   }
 
 mpris2New :: TaffyIO Gtk2hs.Widget
-mpris2New = asks dbusClient >>= \client -> lift $ fromGIWidget =<< do
+mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
   grid <- Gtk.gridNew
   alignCenter grid
   playerWidgetsVar <- MV.newMVar []
