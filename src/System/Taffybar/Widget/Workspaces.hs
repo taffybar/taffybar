@@ -684,7 +684,7 @@ getWindowStatusString WindowData { windowUrgent = True } = show Urgent
 getWindowStatusString _ = "Normal"
 
 possibleStatusStrings :: [String]
-possibleStatusStrings = [show Active, show Urgent, "Minimized", "Normal", "Nodata"]
+possibleStatusStrings = [show Active, show Urgent, "Minimized", "Normal", "Inactive"]
 
 updateIconWidget
   :: IconController
@@ -702,7 +702,7 @@ updateIconWidget _ IconWidget
   let setIconWidgetProperties = do
         info <- maybe (return IINone) (getIconInfo cfg) windowData
         let imgSize = windowIconSize cfg
-            statusString = maybe "Nodata" getWindowStatusString windowData
+            statusString = maybe "Inactive" getWindowStatusString windowData
             iconInfo =
               case info of
                 IINone ->
