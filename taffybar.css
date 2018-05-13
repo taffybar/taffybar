@@ -42,15 +42,19 @@
 	background-color: @urgent-window-color;
 }
 
+.IconImage {
+	transition: opacity .5s;
+	padding: 2px;
+	opacity: 1;
+}
+
 .IconContainer.Minimized .IconImage {
 	transition: opacity .5s;
 	opacity: .3;
 }
 
-.IconContainer.Normal .IconImage {
-	transition: opacity .5s;
-	padding: 2px;
-	opacity: 1;
+.IconContainer.Nodata .IconImage {
+  padding: 0px;
 }
 
 #Windows {
