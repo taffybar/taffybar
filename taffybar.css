@@ -53,7 +53,7 @@
 	opacity: .3;
 }
 
-.IconContainer.Nodata .IconImage {
+.IconContainer.Inactive .IconImage {
   padding: 0px;
 }
 
