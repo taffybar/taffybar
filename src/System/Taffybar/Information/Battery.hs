@@ -174,7 +174,10 @@ monitorDisplayBattery = do
           return "/org/freedesktop/UPower/devices/DisplayDevice"
     displayPath <- lift $ getDisplayDevice client >>= either warnOfFailedGetDevice return
     let doUpdate = updateBatteryInfo chan infoVar displayPath
-        signalCallback _ _ _ _ = runReaderT doUpdate ctx
+        signalCallback _ _ changedProps _ =
+          do
+            batteryLog DEBUG (printf "Battery changed properties: %s" (show changedProps))
+            runReaderT doUpdate ctx
     let propMatcher =
           matchAny
           { matchPath = Just displayPath
