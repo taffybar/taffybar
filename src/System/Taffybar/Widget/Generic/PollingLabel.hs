@@ -50,7 +50,7 @@ pollingLabelNewWithTooltip initialString interval cmd =
 
     let updateLabel (labelStr, tooltipStr) =
           runOnUIThread $ do
-            labelSetMarkup l $ T.strip $ T.pack labelStr
+            labelSetMarkup l $ T.pack labelStr
             widgetSetTooltipMarkup l $ T.pack <$> tooltipStr
 
     _ <- onWidgetRealize l $ void $ foreverWithDelay interval $
