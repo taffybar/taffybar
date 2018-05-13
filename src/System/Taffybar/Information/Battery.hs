@@ -34,6 +34,7 @@ import           System.Taffybar.DBus.Client.Params
 import           System.Taffybar.DBus.Client.UPower
 import           System.Taffybar.DBus.Client.UPowerDevice
 import           System.Taffybar.Util
+import           Text.Printf
 
 batteryLog = logM "System.Taffybar.Information.Battery"
 
@@ -80,7 +81,8 @@ dummyMethodError = methodError (Serial 1) $ errorName_ "org.ClientTypeMismatch"
 getBatteryInfo :: ObjectPath -> TaffyIO (Either MethodError BatteryInfo)
 getBatteryInfo battPath = asks systemDBusClient >>= \client -> lift $ runExceptT $ do
   reply <- ExceptT $ getAllProperties client $
-           methodCall battPath "org.freedesktop.UPower.Device" "Fake"
+           (methodCall battPath "org.freedesktop.UPower.Device" "Fakte")
+           { methodCallDestination = Just "org.freedesktop.UPower" }
   dict <- ExceptT $ return $ maybeToEither dummyMethodError $
          listToMaybe (methodReturnBody reply) >>= fromVariant
   return $ infoMapToBatteryInfo dict
@@ -127,22 +129,22 @@ getBatteryPaths = do
     paths <- ExceptT $ enumerateDevices client
     return $ filter isBattery paths
 
-newtype DisplayBatteryChannel = DisplayBatteryChannel (Chan BatteryInfo)
-newtype DisplayBatteryInfo = DisplayBatteryInfo (MVar BatteryInfo)
-
-getDisplayBatteryInfoVar :: TaffyIO DisplayBatteryInfo
-getDisplayBatteryInfoVar =
-  getStateDefault $ lift $ DisplayBatteryInfo <$>
-                  newMVar (infoMapToBatteryInfo M.empty)
+newtype DisplayBatteryChanVar =
+  DisplayBatteryChanVar (Chan BatteryInfo, MVar BatteryInfo)
 
 getDisplayBatteryInfo :: TaffyIO BatteryInfo
 getDisplayBatteryInfo = do
-  DisplayBatteryInfo theVar <- getDisplayBatteryInfoVar
+  DisplayBatteryChanVar (_, theVar) <- getDisplayBatteryChanVar
   lift $ readMVar theVar
 
-getDisplayBatteryChannel :: TaffyIO DisplayBatteryChannel
-getDisplayBatteryChannel =
-  getStateDefault $ DisplayBatteryChannel <$> monitorDisplayBattery
+getDisplayBatteryChanVar :: TaffyIO DisplayBatteryChanVar
+getDisplayBatteryChanVar =
+  getStateDefault $ DisplayBatteryChanVar <$> monitorDisplayBattery
+
+getDisplayBatteryChan :: TaffyIO (Chan BatteryInfo)
+getDisplayBatteryChan = do
+  DisplayBatteryChanVar (chan, _) <- getDisplayBatteryChanVar
+  return chan
 
 updateBatteryInfo
   :: Chan BatteryInfo
@@ -153,29 +155,31 @@ updateBatteryInfo chan var path =
   getBatteryInfo path >>= lift . either warnOfFailure doWrites
   where
     doWrites info =
-      swapMVar var info >> writeChan chan info
+        batteryLog DEBUG (printf "Writing info %s" $ show info) >>
+        swapMVar var info >> writeChan chan info
     warnOfFailure e =
       batteryLog WARNING $ "Failed to update battery info " ++ show e
 
-monitorDisplayBattery :: TaffyIO (Chan BatteryInfo)
+monitorDisplayBattery :: TaffyIO (Chan BatteryInfo, MVar BatteryInfo)
 monitorDisplayBattery = do
+  lift $ batteryLog DEBUG "Starting Battery Monitor"
   client <- asks systemDBusClient
-  DisplayBatteryInfo infoVar <- getDisplayBatteryInfoVar
-  chan <- lift $ newChan
+  infoVar <- lift $ newMVar $ infoMapToBatteryInfo M.empty
+  chan <- lift newChan
   taffyFork $ do
+    lift $ batteryLog DEBUG "Started battery monitor thread"
     ctx <- ask
     let warnOfFailedGetDevice err =
           batteryLog WARNING "Failed to get composite battery device" >>
           return "/org/freedesktop/UPower/devices/DisplayDevice"
     displayPath <- lift $ getDisplayDevice client >>= either warnOfFailedGetDevice return
     let doUpdate = updateBatteryInfo chan infoVar displayPath
-        signalCallback _ _ _ _ = flip runReaderT ctx $ doUpdate
+        signalCallback _ _ _ _ = runReaderT doUpdate ctx
     let propMatcher =
           matchAny
           { matchPath = Just displayPath
-          , matchSender = Just uPowerBusName
           }
     _ <- lift $ DBus.registerForPropertiesChanged client propMatcher signalCallback
     doUpdate
     return ()
-  return chan
+  return (chan, infoVar)

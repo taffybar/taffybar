@@ -42,8 +42,8 @@ data BatteryType
 
 data BatteryState
   = BatteryStateUnknown
-  | BatteryStateCharging
   | BatteryStateDischarging
+  | BatteryStateCharging
   | BatteryStateEmpty
   | BatteryStateFullyCharged
   | BatteryStatePendingCharge

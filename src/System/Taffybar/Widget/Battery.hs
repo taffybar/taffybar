@@ -86,19 +86,20 @@ textBatteryNew
   :: String -- ^ Display format
   -> TaffyIO Widget
 textBatteryNew format = do
-  DisplayBatteryChannel chan <- getDisplayBatteryChannel
+  chan <- getDisplayBatteryChan
   ctx <- ask
   let getLabelText info =
         T.pack $ formatBattInfo (getBatteryWidgetInfo info) format
       getBatteryInfoIO = runReaderT getDisplayBatteryInfo ctx
   liftIO $ do
     label <- getLabelText <$> getBatteryInfoIO >>= labelNew . Just
+    let setMarkup text = postGUIAsync $ labelSetMarkup label text
     _ <- on label realize $ do
-         ourChan <- dupChan chan
-         getLabelText <$> getBatteryInfoIO >>= labelSetMarkup label
-         updateThread <-
-           forkIO $ forever $
-                  getLabelText <$> readChan ourChan >>= labelSetMarkup label
-         void $ on label unrealize $ killThread updateThread
+         getLabelText <$> getBatteryInfoIO >>= setMarkup
+         void $ forkIO $ do
+             ourChan <- dupChan chan
+             updateThread <-
+               forever $ getLabelText <$> readChan ourChan >>= setMarkup
+             void $ on label unrealize $ killThread updateThread
     widgetShowAll label
     return $ toWidget label
