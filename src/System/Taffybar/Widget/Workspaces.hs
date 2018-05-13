@@ -702,7 +702,7 @@ updateIconWidget _ IconWidget
   let setIconWidgetProperties = do
         info <- maybe (return IINone) (getIconInfo cfg) windowData
         let imgSize = windowIconSize cfg
-            statusString = maybe "nodata" getWindowStatusString windowData
+            statusString = maybe "Nodata" getWindowStatusString windowData
             iconInfo =
               case info of
                 IINone ->
