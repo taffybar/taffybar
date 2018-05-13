@@ -31,6 +31,7 @@ flag network-uri
   default: True           
 
 library
+  extensions: TupleSections
   default-language: Haskell2010
   build-depends: base > 3 && < 5
                , alsa-mixer >= 0.2.0
@@ -72,6 +73,7 @@ library
                , split >= 0.1.4.2
                , status-notifier-item >= 0.2.2.0
                , stm
+               , template-haskell
                , text
                , time >= 1.4 && < 2.0
                , time-locale-compat >= 0.1 && < 0.2
@@ -157,6 +159,7 @@ library
                , System.Taffybar.DBus.Client.Params
                , System.Taffybar.DBus.Client.UPower
                , System.Taffybar.DBus.Client.UPowerDevice
+               , System.Taffybar.DBus.Client.Util
                , System.Taffybar.Util
 
   cc-options: -fPIC

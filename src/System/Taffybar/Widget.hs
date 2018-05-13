@@ -1,10 +1,7 @@
 module System.Taffybar.Widget
   ( module System.Taffybar.Widget.Util
   -- * "System.Taffybar.Widget.Battery"
-  , batteryBarNew
-  , batteryBarNewWithFormat
-  , textBatteryNew
-  , defaultBatteryConfig
+  , module System.Taffybar.Widget.Battery
 
   -- * "System.Taffybar.Widget.CPUMonitor"
   , cpuMonitorNew

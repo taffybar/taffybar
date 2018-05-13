@@ -101,6 +101,7 @@ data Context = Context
   , contextState :: MV.MVar (M.Map TypeRep Value)
   , existingWindows :: MV.MVar [(BarConfig, Gtk.Window)]
   , sessionDBusClient :: DBus.Client
+  , systemDBusClient :: DBus.Client
   , getBarConfigs :: BarConfigGetter
   }
 
@@ -112,6 +113,7 @@ buildContext TaffybarConfig
                } = do
   logIO DEBUG "Building context"
   dbusC <- maybe DBus.connectSession return maybeDBus
+  sDBusC <- DBus.connectSystem
   _ <- DBus.requestName dbusC "org.taffybar.Bar"
        [DBus.nameAllowReplacement, DBus.nameReplaceExisting]
   listenersVar <- MV.newMVar []
@@ -123,6 +125,7 @@ buildContext TaffybarConfig
                 , listeners = listenersVar
                 , contextState = state
                 , sessionDBusClient = dbusC
+                , systemDBusClient = sDBusC
                 , getBarConfigs = barConfigGetter
                 , existingWindows = windowsVar
                 }
@@ -277,15 +280,27 @@ getState = do
   let maybeValue = M.lookup (typeOf (undefined :: t)) stateMap
   return $ maybeValue >>= fromValue
 
+-- | Like "putState", but avoids aquiring a lock if the value is already in the
+-- map.
 getStateDefault :: Typeable t => Taffy IO t -> Taffy IO t
 getStateDefault defaultGetter =
-  getState >>= maybe (defaultGetter >>= putState) return
+  getState >>= maybe (putState defaultGetter) return
 
-putState :: Typeable t => t -> Taffy IO t
-putState v = do
+-- | Get a value of the type returned by the provided action from the the
+-- current taffybar state, unless the state does not exist, in which case the
+-- action will be called to populate the state map.
+putState :: forall t. Typeable t => Taffy IO t -> Taffy IO t
+putState getValue = do
   contextVar <- asks contextState
-  lift $ MV.modifyMVar_ contextVar $ return . M.insert (typeOf v) (Value v)
-  return v
+  ctx <- ask
+  lift $ (MV.modifyMVar contextVar) $ \contextStateMap ->
+    let theType = typeOf (undefined :: t)
+        currentValue = M.lookup theType contextStateMap
+        insertAndReturn value = (M.insert theType (Value value) contextStateMap, value)
+    in flip runReaderT ctx $  maybe
+         (insertAndReturn  <$> getValue)
+         (return . (contextStateMap,))
+         (currentValue >>= fromValue)
 
 liftReader ::
   Monad m => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b

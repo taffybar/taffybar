@@ -1,121 +1,50 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | This is a simple library to query the Linux UPower daemon (via DBus) for
--- battery information. Currently, it only retrieves information for the first
--- battery it finds.
+-- battery information.
 module System.Taffybar.Information.Battery (
   -- * Types
-  BatteryContext,
-  BatteryInfo(..),
-  BatteryState(..),
-  BatteryTechnology(..),
-  BatteryType(..),
-  -- * Accessors
-  batteryContextsNew,
-  getBatteryInfo
+    BatteryInfo(..)
+  , BatteryState(..)
+  , BatteryTechnology(..)
+  , BatteryType(..)
+  , module System.Taffybar.Information.Battery
   ) where
 
-import Data.Map ( Map )
+import           Control.Concurrent
+import           Control.Monad
+import           Control.Monad.Trans
+import           Control.Monad.Trans.Except
+import           Control.Monad.Trans.Reader
+import           DBus
+import           DBus.Client
+import           DBus.Internal.Types (Serial(..))
+import qualified DBus.TH as DBus
+import           Data.Either.Combinators
+import           Data.Int
+import           Data.List
+import           Data.Map ( Map )
 import qualified Data.Map as M
-import Data.Maybe ( fromMaybe, maybeToList )
-import Data.Word
-import Data.Int
-import DBus
-import DBus.Client
-import Data.List ( isPrefixOf )
-import Data.Text ( Text )
+import           Data.Maybe
+import           Data.Text ( Text )
 import qualified Data.Text as T
-import Safe ( atMay )
+import           Data.Word
+import           System.Log.Logger
+import           System.Taffybar.Context
+import           System.Taffybar.DBus.Client.Params
+import           System.Taffybar.DBus.Client.UPower
+import           System.Taffybar.DBus.Client.UPowerDevice
+import           System.Taffybar.Util
 
--- | An opaque wrapper around some internal library state
-data BatteryContext = BC Client ObjectPath
-
-data BatteryType
-  = BatteryTypeUnknown
-  | BatteryTypeLinePower
-  | BatteryTypeBatteryType
-  | BatteryTypeUps
-  | BatteryTypeMonitor
-  | BatteryTypeMouse
-  | BatteryTypeKeyboard
-  | BatteryTypePda
-  | BatteryTypePhone
-  deriving (Show, Ord, Eq, Enum)
-
-data BatteryState
-  = BatteryStateUnknown
-  | BatteryStateCharging
-  | BatteryStateDischarging
-  | BatteryStateEmpty
-  | BatteryStateFullyCharged
-  | BatteryStatePendingCharge
-  | BatteryStatePendingDischarge
-  deriving (Show, Ord, Eq, Enum)
-
-data BatteryTechnology
-  = BatteryTechnologyUnknown
-  | BatteryTechnologyLithiumIon
-  | BatteryTechnologyLithiumPolymer
-  | BatteryTechnologyLithiumIronPhosphate
-  | BatteryTechnologyLeadAcid
-  | BatteryTechnologyNickelCadmium
-  | BatteryTechnologyNickelMetalHydride
-  deriving (Show, Ord, Eq, Enum)
-
--- | There are a few fields supported by UPower that aren't exposed
--- here.. could be easily.
-data BatteryInfo = BatteryInfo
-  { batteryNativePath :: Text
-  , batteryVendor :: Text
-  , batteryModel :: Text
-  , batterySerial :: Text
-  , batteryType :: BatteryType
-  , batteryPowerSupply :: Bool
-  , batteryHasHistory :: Bool
-  , batteryHasStatistics :: Bool
-  , batteryOnline :: Bool
-  , batteryEnergy :: Double
-  , batteryEnergyEmpty :: Double
-  , batteryEnergyFull :: Double
-  , batteryEnergyFullDesign :: Double
-  , batteryEnergyRate :: Double
-  , batteryVoltage :: Double
-  , batteryTimeToEmpty :: Int64
-  , batteryTimeToFull :: Int64
-  , batteryPercentage :: Double
-  , batteryIsPresent :: Bool
-  , batteryState :: BatteryState
-  , batteryIsRechargable :: Bool
-  , batteryCapacity :: Double
-  , batteryTechnology :: BatteryTechnology
-  }
-{-
-  , batteryUpdateTime :: Time
-  , batteryRecallNotice :: Bool
-  , batteryRecallVendor :: Text
-  , batteryRecallUr :: Text
--}
+batteryLog = logM "System.Taffybar.Information.Battery"
 
 -- | The prefix of name of battery devices path. UPower generates the object
 -- path as "battery" + "_" + basename of the sysfs object.
 batteryPrefix :: String
-batteryPrefix = formatObjectPath powerBaseObjectPath ++ "/devices/battery_"
+batteryPrefix = formatObjectPath uPowerBaseObjectPath ++ "/devices/battery_"
 
 -- | Determine if a power source is a battery.
 isBattery :: ObjectPath -> Bool
 isBattery = isPrefixOf batteryPrefix . formatObjectPath
-
--- | Find the power sources that are batteries (according to
--- 'isBattery')
-batteries :: [ObjectPath] -> [ObjectPath]
-batteries = filter isBattery
-
--- | The name of the power daemon bus
-powerBusName :: BusName
-powerBusName = "org.freedesktop.UPower"
-
--- | The base object path
-powerBaseObjectPath :: ObjectPath
-powerBaseObjectPath = "/org/freedesktop/UPower"
 
 -- | A helper to read the variant contents of a dict with a default
 -- value.
@@ -141,26 +70,24 @@ readDictIntegral dict key dflt = fromMaybe (fromIntegral dflt) $ do
     f :: (Num a, IsVariant a) => Variant -> a
     f = fromMaybe (fromIntegral dflt) . fromVariant
 
+-- XXX: Remove this once it is exposed in haskell-dbus
+dummyMethodError :: MethodError
+dummyMethodError = methodError (Serial 1) $ errorName_ "org.ClientTypeMismatch"
+
 -- | Query the UPower daemon about information on a specific battery.
 -- If some fields are not actually present, they may have bogus values
 -- here.  Don't bet anything critical on it.
-getBatteryInfo :: BatteryContext -> IO (Maybe BatteryInfo)
-getBatteryInfo (BC systemConn battPath)
-  -- Grab all of the properties of the battery each call with one
-  -- message.
- = do
-  reply <-
-    call_
-      systemConn
-      (methodCall battPath "org.freedesktop.DBus.Properties" "GetAll")
-      { methodCallDestination = Just "org.freedesktop.UPower"
-      , methodCallBody = [toVariant $ T.pack "org.freedesktop.UPower.Device"]
-      }
-  return $ do
-    body <- methodReturnBody reply `atMay` 0
-    dict <- fromVariant body
-    return
-      BatteryInfo
+getBatteryInfo :: ObjectPath -> TaffyIO (Either MethodError BatteryInfo)
+getBatteryInfo battPath = asks systemDBusClient >>= \client -> lift $ runExceptT $ do
+  reply <- ExceptT $ getAllProperties client $
+           methodCall battPath "org.freedesktop.UPower.Device" "Fake"
+  dict <- ExceptT $ return $ maybeToEither dummyMethodError $
+         listToMaybe (methodReturnBody reply) >>= fromVariant
+  return $ infoMapToBatteryInfo dict
+
+infoMapToBatteryInfo :: Map Text Variant -> BatteryInfo
+infoMapToBatteryInfo dict =
+    BatteryInfo
       { batteryNativePath = readDict dict "NativePath" ""
       , batteryVendor = readDict dict "Vendor" ""
       , batteryModel = readDict dict "Model" ""
@@ -181,22 +108,74 @@ getBatteryInfo (BC systemConn battPath)
       , batteryPercentage = readDict dict "Percentage" 0.0
       , batteryIsPresent = readDict dict "IsPresent" False
       , batteryState = toEnum $ readDictIntegral dict "State" 0
-      , batteryIsRechargable = readDict dict "IsRechargable" True
+      , batteryIsRechargeable = readDict dict "IsRechargable" True
       , batteryCapacity = readDict dict "Capacity" 0.0
       , batteryTechnology =
           toEnum $ fromIntegral $ readDictIntegral dict "Technology" 0
+      , batteryUpdateTime = readDict dict "UpdateTime" 0
+      , batteryLuminosity = readDict dict "Luminosity" 0.0
+      , batteryTemperature = readDict dict "Temperature" 0.0
+      , batteryWarningLevel = readDict dict "WarningLevel" 0
+      , batteryBatteryLevel = readDict dict "BatteryLevel" 0
+      , batteryIconName = readDict dict "IconName" ""
       }
 
--- | Construct a battery context for every battery in the system. This
--- could fail if the UPower daemon is not running. The contexts can be
--- used to get actual battery state with 'getBatteryInfo'.
-batteryContextsNew :: IO [BatteryContext]
-batteryContextsNew = do
-  systemConn <- connectSystem
-  let mc = methodCall powerBaseObjectPath "org.freedesktop.UPower" "EnumerateDevices"
-  reply <- call_ systemConn mc { methodCallDestination = Just powerBusName }
-  return $ do
-    body <- take 1 $ methodReturnBody reply
-    powerDevices <- maybeToList $ fromVariant body
-    battPath <- batteries powerDevices
-    return $ BC systemConn battPath
+getBatteryPaths :: TaffyIO (Either MethodError [ObjectPath])
+getBatteryPaths = do
+  client <- asks systemDBusClient
+  liftIO $ runExceptT $ do
+    paths <- ExceptT $ enumerateDevices client
+    return $ filter isBattery paths
+
+newtype DisplayBatteryChannel = DisplayBatteryChannel (Chan BatteryInfo)
+newtype DisplayBatteryInfo = DisplayBatteryInfo (MVar BatteryInfo)
+
+getDisplayBatteryInfoVar :: TaffyIO DisplayBatteryInfo
+getDisplayBatteryInfoVar =
+  getStateDefault $ lift $ DisplayBatteryInfo <$>
+                  newMVar (infoMapToBatteryInfo M.empty)
+
+getDisplayBatteryInfo :: TaffyIO BatteryInfo
+getDisplayBatteryInfo = do
+  DisplayBatteryInfo theVar <- getDisplayBatteryInfoVar
+  lift $ readMVar theVar
+
+getDisplayBatteryChannel :: TaffyIO DisplayBatteryChannel
+getDisplayBatteryChannel =
+  getStateDefault $ DisplayBatteryChannel <$> monitorDisplayBattery
+
+updateBatteryInfo
+  :: Chan BatteryInfo
+  -> MVar BatteryInfo
+  -> ObjectPath
+  -> TaffyIO ()
+updateBatteryInfo chan var path =
+  getBatteryInfo path >>= lift . either warnOfFailure doWrites
+  where
+    doWrites info =
+      swapMVar var info >> writeChan chan info
+    warnOfFailure e =
+      batteryLog WARNING $ "Failed to update battery info " ++ show e
+
+monitorDisplayBattery :: TaffyIO (Chan BatteryInfo)
+monitorDisplayBattery = do
+  client <- asks systemDBusClient
+  DisplayBatteryInfo infoVar <- getDisplayBatteryInfoVar
+  chan <- lift $ newChan
+  taffyFork $ do
+    ctx <- ask
+    let warnOfFailedGetDevice err =
+          batteryLog WARNING "Failed to get composite battery device" >>
+          return "/org/freedesktop/UPower/devices/DisplayDevice"
+    displayPath <- lift $ getDisplayDevice client >>= either warnOfFailedGetDevice return
+    let doUpdate = updateBatteryInfo chan infoVar displayPath
+        signalCallback _ _ _ _ = flip runReaderT ctx $ doUpdate
+    let propMatcher =
+          matchAny
+          { matchPath = Just displayPath
+          , matchSender = Just uPowerBusName
+          }
+    _ <- lift $ DBus.registerForPropertiesChanged client propMatcher signalCallback
+    doUpdate
+    return ()
+  return chan
