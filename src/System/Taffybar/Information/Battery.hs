@@ -209,7 +209,7 @@ refreshBatteriesOnPropChange :: TaffyIO ()
 refreshBatteriesOnPropChange = ask >>= \ctx ->
   let updateIfRealChange _ _ changedProps _ =
         flip runReaderT ctx $
-             when (any ((/= "UpdateTime") . fst) $ M.toList changedProps) $
+             when (any ((`notElem` ["UpdateTime", "Voltage"]) . fst) $ M.toList changedProps) $
                   lift (threadDelay 1000000) >> refreshAllBatteries
   in void $ registerForAnyUPowerPropertiesChanged updateIfRealChange
 
