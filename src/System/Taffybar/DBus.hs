@@ -12,10 +12,6 @@ import System.Log.DBus.Server
 import System.Taffybar.Context
 import System.Taffybar.DBus.Toggle
 
-appendHook :: TaffyIO () -> TaffybarConfig -> TaffybarConfig
-appendHook hook config = config
-  { startupHook = startupHook config >> hook }
-
 startTaffyLogServer :: TaffyIO ()
 startTaffyLogServer =
   asks sessionDBusClient >>= lift . startLogServer

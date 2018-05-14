@@ -13,9 +13,7 @@
 -- of taffybar on each monitor while it is running.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.DBus.Toggle
-  ( handleDBusToggles
-  ) where
+module System.Taffybar.DBus.Toggle ( handleDBusToggles ) where
 
 import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
@@ -80,7 +78,8 @@ getMonitorNumber monitor = do
                (Just g1, Just g2) -> Gdk.rectangleEqual g1 g2
                _ -> return False
       equalsMonitor _ = return False
-  snd . fromMaybe (Nothing, 0) . listToMaybe <$> filterM equalsMonitor (zip monitors [0..])
+  snd . fromMaybe (Nothing, 0) . listToMaybe <$>
+      filterM equalsMonitor (zip monitors [0..])
 
 taffybarTogglePath :: ObjectPath
 taffybarTogglePath = "/taffybar/toggle"
@@ -102,7 +101,8 @@ toggleBarConfigGetter getConfigs = do
   TogglesMVar enabledVar <- getTogglesVar
   numToEnabled <- lift $ MV.readMVar enabledVar
   let isEnabled monNumber = fromMaybe True $ M.lookup monNumber numToEnabled
-      isConfigEnabled = isEnabled . fromIntegral . fromMaybe 0 . strutMonitor . strutConfig
+      isConfigEnabled =
+        isEnabled . fromIntegral . fromMaybe 0 . strutMonitor . strutConfig
   return $ filter isConfigEnabled barConfigs
 
 exportTogglesInterface :: TaffyIO ()

@@ -24,6 +24,11 @@ import           System.Log.Logger
 import qualified System.Process as P
 import           Text.Printf
 
+liftReader ::
+  Monad m => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b
+liftReader modifier action =
+  ask >>= lift . modifier . runReaderT action
+
 logPrintF
   :: (MonadIO m, Show t)
   => String -> Priority -> String -> t -> m ()

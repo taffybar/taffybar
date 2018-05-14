@@ -18,7 +18,7 @@
 -- hotplugging is not supported. These more advanced features could be supported
 -- if there is interest.
 -----------------------------------------------------------------------------
-module System.Taffybar.Widget.Battery ( textBatteryNew ) where
+module System.Taffybar.Widget.Battery ( textBatteryNew, batteryIconNew ) where
 
 import           Control.Applicative
 import           Control.Concurrent
@@ -103,3 +103,25 @@ textBatteryNew format = do
              void $ on label unrealize $ killThread updateThread
     widgetShowAll label
     return $ toWidget label
+
+batteryIconNew :: TaffyIO Widget
+batteryIconNew = do
+  chan <- getDisplayBatteryChan
+  ctx <- ask
+
+  liftIO $ do
+    image <- imageNew
+    defaultTheme <- iconThemeGetDefault
+    let setIconByName name =
+          iconThemeLoadIcon defaultTheme name 20 IconLookupUseBuiltin >>=
+          sequenceA . fmap (imageSetFromPixbuf image)
+        getBatteryInfoIO = runReaderT getDisplayBatteryInfo ctx
+    _ <- on image realize $ do
+         batteryIconName <$> getBatteryInfoIO >>= setIconByName
+         void $ forkIO $ do
+             ourChan <- dupChan chan
+             updateThread <-
+               forever $ batteryIconName <$> readChan ourChan >>= setIconByName
+             void $ on image unrealize $ killThread updateThread
+    widgetShowAll image
+    return $ toWidget image
