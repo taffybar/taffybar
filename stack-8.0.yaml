@@ -26,9 +26,11 @@ extra-deps:
 - libxml-sax-0.7.5
 - rate-limit-1.1.1
 - status-notifier-item-0.2.2.0
+- template-haskell-2.13.0.0
 - time-1.8.0.4
 - time-units-1.0.0
 - unix-2.7.2.2
 - xml-helpers-1.0.0
 - xmonad-contrib-0.13
 resolver: lts-9.21
+allow-newer: true
