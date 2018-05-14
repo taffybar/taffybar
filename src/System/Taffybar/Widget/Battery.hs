@@ -108,13 +108,12 @@ batteryIconNew :: TaffyIO Widget
 batteryIconNew = do
   chan <- getDisplayBatteryChan
   ctx <- ask
-
   liftIO $ do
     image <- imageNew
     defaultTheme <- iconThemeGetDefault
-    let setIconByName name =
+    let setIconByName name = postGUIAsync $ void $
           iconThemeLoadIcon defaultTheme name 20 IconLookupUseBuiltin >>=
-          sequenceA . fmap (imageSetFromPixbuf image)
+          traverse (imageSetFromPixbuf image)
         getBatteryInfoIO = runReaderT getDisplayBatteryInfo ctx
     _ <- on image realize $ do
          batteryIconName <$> getBatteryInfoIO >>= setIconByName
