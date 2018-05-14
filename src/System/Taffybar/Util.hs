@@ -24,6 +24,12 @@ import           System.Log.Logger
 import qualified System.Process as P
 import           Text.Printf
 
+logPrintF
+  :: (MonadIO m, Show t)
+  => String -> Priority -> String -> t -> m ()
+logPrintF logPath priority format toPrint =
+  liftIO $ logM logPath priority $ printf format $ show toPrint
+
 infixl 4 ??
 (??) :: Functor f => f (a -> b) -> a -> f b
 fab ?? a = fmap ($ a) fab

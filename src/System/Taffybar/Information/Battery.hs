@@ -19,14 +19,12 @@ import           DBus
 import           DBus.Client
 import           DBus.Internal.Types (Serial(..))
 import qualified DBus.TH as DBus
-import           Data.Either.Combinators
 import           Data.Int
 import           Data.List
 import           Data.Map ( Map )
 import qualified Data.Map as M
 import           Data.Maybe
 import           Data.Text ( Text )
-import qualified Data.Text as T
 import           Data.Word
 import           System.Log.Logger
 import           System.Taffybar.Context
@@ -34,9 +32,19 @@ import           System.Taffybar.DBus.Client.Params
 import           System.Taffybar.DBus.Client.UPower
 import           System.Taffybar.DBus.Client.UPowerDevice
 import           System.Taffybar.Util
-import           Text.Printf
 
-batteryLog = logM "System.Taffybar.Information.Battery"
+batteryLogPath :: String
+batteryLogPath = "System.Taffybar.Information.Battery"
+
+batteryLog
+  :: MonadIO m
+  => Priority -> String -> m ()
+batteryLog priority = liftIO . logM batteryLogPath priority
+
+batteryLogF
+  :: (MonadIO m, Show t)
+  => Priority -> String -> t -> m ()
+batteryLogF = logPrintF batteryLogPath
 
 -- | The prefix of name of battery devices path. UPower generates the object
 -- path as "battery" + "_" + basename of the sysfs object.
@@ -155,11 +163,12 @@ updateBatteryInfo chan var path =
   getBatteryInfo path >>= lift . either warnOfFailure doWrites
   where
     doWrites info =
-        batteryLog DEBUG (printf "Writing info %s" $ show info) >>
+        batteryLogF DEBUG "Writing info %s" info >>
         swapMVar var info >> writeChan chan info
-    warnOfFailure e =
-      batteryLog WARNING $ "Failed to update battery info " ++ show e
+    warnOfFailure = batteryLogF WARNING "Failed to update battery info %s"
 
+-- | Monitor the DisplayDevice for changes, writing a new "BatteryInfo" object
+-- to returned "MVar" and "Chan" objects
 monitorDisplayBattery :: TaffyIO (Chan BatteryInfo, MVar BatteryInfo)
 monitorDisplayBattery = do
   lift $ batteryLog DEBUG "Starting Battery Monitor"
@@ -170,19 +179,28 @@ monitorDisplayBattery = do
     lift $ batteryLog DEBUG "Started battery monitor thread"
     ctx <- ask
     let warnOfFailedGetDevice err =
-          batteryLog WARNING "Failed to get composite battery device" >>
+          batteryLogF WARNING "Failure getting DisplayBattery: %s" err >>
           return "/org/freedesktop/UPower/devices/DisplayDevice"
-    displayPath <- lift $ getDisplayDevice client >>= either warnOfFailedGetDevice return
+    displayPath <- lift $ getDisplayDevice client >>=
+                   either warnOfFailedGetDevice return
     let doUpdate = updateBatteryInfo chan infoVar displayPath
         signalCallback _ _ changedProps _ =
           do
-            batteryLog DEBUG (printf "Battery changed properties: %s" (show changedProps))
+            batteryLogF DEBUG "Battery changed properties: %s" changedProps
             runReaderT doUpdate ctx
-    let propMatcher =
-          matchAny
-          { matchPath = Just displayPath
-          }
+    let propMatcher = matchAny { matchPath = Just displayPath }
     _ <- lift $ DBus.registerForPropertiesChanged client propMatcher signalCallback
     doUpdate
     return ()
   return (chan, infoVar)
+
+-- | Request a refresh of all upower batteries. This is only needed if UPower's
+-- refresh mechanism is not working properly.
+refreshAllBatteries :: TaffyIO ()
+refreshAllBatteries = do
+  client <- asks systemDBusClient
+  eerror <- runExceptT $ (ExceptT getBatteryPaths) >>= liftIO . mapM (refresh client)
+  let logRefreshError = batteryLogF ERROR "Failed to refresh battery: %s"
+      logGetPathsError = batteryLogF ERROR "Failed to get battery paths %s"
+
+  void $ either logGetPathsError (mapM_ $ either logRefreshError return) eerror
