@@ -60,7 +60,8 @@ truncatedGetMenuLabel maxLength =
 
 truncatedGetActiveLabel :: Int -> TaffyIO String
 truncatedGetActiveLabel maxLength =
-  truncateString maxLength <$> runX11Def "(nameless window)" getActiveWindowTitle
+  Gtk2hs.escapeMarkup . truncateString maxLength <$>
+        runX11Def "(nameless window)" getActiveWindowTitle
 
 defaultWindowsConfig :: WindowsConfig
 defaultWindowsConfig =
