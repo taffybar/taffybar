@@ -14,21 +14,22 @@
 -- to switch to the first one (as configured in @xmonad.hs@)
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widget.Layout (
+module System.Taffybar.Widget.Layout
+  (
   -- * Usage
   -- $usage
     LayoutConfig(..)
   , defaultLayoutConfig
   , layoutNew
-) where
+  ) where
 
-import Control.Monad.Trans
-import Control.Monad.Reader
+import           Control.Monad.Reader
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
-import System.Taffybar.Information.X11DesktopInfo
-import System.Taffybar.Widget.Util
-import System.Taffybar.Context
+import           System.Taffybar.Context
+import           System.Taffybar.Information.X11DesktopInfo
+import           System.Taffybar.Util
+import           System.Taffybar.Widget.Util
 
 -- $usage
 --

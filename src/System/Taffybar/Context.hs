@@ -43,6 +43,7 @@ import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.TransparentWindow
+import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
 import           Unsafe.Coerce
@@ -86,6 +87,10 @@ data TaffybarConfig = TaffybarConfig
   , getBarConfigsParam :: BarConfigGetter
   , errorMsg :: Maybe String
   }
+
+appendHook :: TaffyIO () -> TaffybarConfig -> TaffybarConfig
+appendHook hook config = config
+  { startupHook = startupHook config >> hook }
 
 defaultTaffybarConfig :: TaffybarConfig
 defaultTaffybarConfig = TaffybarConfig
@@ -301,11 +306,6 @@ putState getValue = do
          (insertAndReturn  <$> getValue)
          (return . (contextStateMap,))
          (currentValue >>= fromValue)
-
-liftReader ::
-  Monad m => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b
-liftReader modifier action =
-  ask >>= lift . modifier . runReaderT action
 
 taffyFork :: ReaderT r IO () -> ReaderT r IO ()
 taffyFork = void . liftReader forkIO

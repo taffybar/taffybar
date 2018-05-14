@@ -1,6 +1,7 @@
 module System.Taffybar.Hooks
   ( module System.Taffybar.DBus
   , module System.Taffybar.Hooks
+  , refreshBatteriesOnPropChange
   ) where
 
 import Control.Concurrent
@@ -8,6 +9,7 @@ import Control.Monad.Trans
 import System.Taffybar.Context
 import System.Taffybar.DBus
 import System.Taffybar.Information.Network
+import System.Taffybar.Information.Battery
 
 newtype NetworkInfoChan = NetworkInfoChan (Chan [(String, (Rational, Rational))])
 
@@ -19,3 +21,6 @@ buildInfoChan interval = do
 
 getNetworkChan :: TaffyIO NetworkInfoChan
 getNetworkChan = getStateDefault $ lift $ buildInfoChan 2.0
+
+withBatteryRefresh :: TaffybarConfig -> TaffybarConfig
+withBatteryRefresh = appendHook refreshBatteriesOnPropChange

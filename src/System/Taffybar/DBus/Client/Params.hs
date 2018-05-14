@@ -22,6 +22,9 @@ uPowerBaseObjectPath = "/org/freedesktop/UPower"
 uPowerBusName :: BusName
 uPowerBusName = "org.freedesktop.UPower"
 
+uPowerDeviceInterfaceName :: InterfaceName
+uPowerDeviceInterfaceName = "org.freedesktop.UPower.Device"
+
 uPowerGenerationParams :: GenerationParams
 uPowerGenerationParams = defaultGenerationParams
   { genTakeSignalErrorHandler = True

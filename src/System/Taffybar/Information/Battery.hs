@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | This is a simple library to query the Linux UPower daemon (via DBus) for
 -- battery information.
-module System.Taffybar.Information.Battery (
+module System.Taffybar.Information.Battery
+  (
   -- * Types
     BatteryInfo(..)
   , BatteryState(..)
@@ -89,8 +90,8 @@ dummyMethodError = methodError (Serial 1) $ errorName_ "org.ClientTypeMismatch"
 getBatteryInfo :: ObjectPath -> TaffyIO (Either MethodError BatteryInfo)
 getBatteryInfo battPath = asks systemDBusClient >>= \client -> lift $ runExceptT $ do
   reply <- ExceptT $ getAllProperties client $
-           (methodCall battPath "org.freedesktop.UPower.Device" "Fakte")
-           { methodCallDestination = Just "org.freedesktop.UPower" }
+           (methodCall battPath uPowerDeviceInterfaceName "FakeMethod")
+           { methodCallDestination = Just uPowerBusName }
   dict <- ExceptT $ return $ maybeToEither dummyMethodError $
          listToMaybe (methodReturnBody reply) >>= fromVariant
   return $ infoMapToBatteryInfo dict
@@ -167,6 +168,13 @@ updateBatteryInfo chan var path =
         swapMVar var info >> writeChan chan info
     warnOfFailure = batteryLogF WARNING "Failed to update battery info %s"
 
+registerForAnyUPowerPropertiesChanged signalHandler = do
+  client <- asks systemDBusClient
+  lift $ DBus.registerForPropertiesChanged
+      client
+      matchAny { matchInterface = Just uPowerDeviceInterfaceName }
+      signalHandler
+
 -- | Monitor the DisplayDevice for changes, writing a new "BatteryInfo" object
 -- to returned "MVar" and "Chan" objects
 monitorDisplayBattery :: TaffyIO (Chan BatteryInfo, MVar BatteryInfo)
@@ -176,7 +184,6 @@ monitorDisplayBattery = do
   infoVar <- lift $ newMVar $ infoMapToBatteryInfo M.empty
   chan <- lift newChan
   taffyFork $ do
-    lift $ batteryLog DEBUG "Started battery monitor thread"
     ctx <- ask
     let warnOfFailedGetDevice err =
           batteryLogF WARNING "Failure getting DisplayBattery: %s" err >>
@@ -188,18 +195,31 @@ monitorDisplayBattery = do
           do
             batteryLogF DEBUG "Battery changed properties: %s" changedProps
             runReaderT doUpdate ctx
-    let propMatcher = matchAny { matchPath = Just displayPath }
-    _ <- lift $ DBus.registerForPropertiesChanged client propMatcher signalCallback
+    let propMatcher = matchAny { matchInterface = Just uPowerDeviceInterfaceName }
+    _ <- registerForAnyUPowerPropertiesChanged signalCallback
     doUpdate
     return ()
   return (chan, infoVar)
 
--- | Request a refresh of all upower batteries. This is only needed if UPower's
+-- | Call "refreshAllBatteries" whenever the BatteryInfo for the DisplayDevice
+-- is updated. This handles cases where there is a race between the signal that
+-- something is updated and the update actually being visible. See
+-- https://github.com/taffybar/taffybar/issues/330 for more details.
+refreshBatteriesOnPropChange :: TaffyIO ()
+refreshBatteriesOnPropChange = ask >>= \ctx ->
+  let updateIfRealChange _ _ changedProps _ =
+        flip runReaderT ctx $
+             when (any ((/= "UpdateTime") . fst) $ M.toList changedProps) $
+                  lift (threadDelay 1000000) >> refreshAllBatteries
+  in void $ registerForAnyUPowerPropertiesChanged updateIfRealChange
+
+-- | Request a refresh of all UPower batteries. This is only needed if UPower's
 -- refresh mechanism is not working properly.
 refreshAllBatteries :: TaffyIO ()
 refreshAllBatteries = do
   client <- asks systemDBusClient
-  eerror <- runExceptT $ (ExceptT getBatteryPaths) >>= liftIO . mapM (refresh client)
+  let doRefresh path = batteryLogF DEBUG "Refreshing battery: %s" path >> refresh client path
+  eerror <- runExceptT $ (ExceptT getBatteryPaths) >>= liftIO . mapM doRefresh
   let logRefreshError = batteryLogF ERROR "Failed to refresh battery: %s"
       logGetPathsError = batteryLogF ERROR "Failed to get battery paths %s"
 
