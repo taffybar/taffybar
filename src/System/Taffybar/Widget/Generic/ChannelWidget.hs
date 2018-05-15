@@ -9,7 +9,7 @@ channelWidgetNew :: (MonadIO m, IsWidget w) => w -> Chan a -> (a -> IO ()) -> m 
 channelWidgetNew widget channel updateWidget = do
   void $ onWidgetRealize widget $ do
     ourChan <- dupChan channel
-    processingThreadId <- forkIO $ forever $ do
+    processingThreadId <- forkIO $ forever $
       readChan ourChan >>= updateWidget
     void $ onWidgetUnrealize widget $ killThread processingThreadId
   widgetShowAll widget

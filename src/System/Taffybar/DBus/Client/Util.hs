@@ -9,7 +9,8 @@ import qualified DBus.Introspection as I
 import qualified Data.Char as Char
 import           Data.Coerce
 import           Data.Maybe
-import           Language.Haskell.TH
+import           Language.Haskell.TH hiding (DerivClause)
+import           Language.Haskell.TH.Syntax (DerivClause(..))
 import           StatusNotifier.Util (getIntrospectionObjectFromFile)
 
 deriveShowAndEQ :: [DerivClause]
