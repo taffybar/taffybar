@@ -6,6 +6,7 @@ import System.Taffybar.Hooks
 import System.Taffybar.Information.Network
 import System.Taffybar.Widget.Generic.ChannelGraph
 import System.Taffybar.Widget.Generic.Graph
+import System.Taffybar.Compat.GtkLibs
 
 logScale :: Double -> Double -> Double -> Double
 logScale base maxValue value =
@@ -13,7 +14,7 @@ logScale base maxValue value =
     where actualMax = logBase base maxValue
 
 netMonitorGraphNew :: GraphConfig -> Maybe [String] -> TaffyIO Widget
-netMonitorGraphNew config interfaces = do
+netMonitorGraphNew config interfaces = fromGIWidget =<< do
   NetworkInfoChan chan <- getNetworkChan
   let filterFn = maybe (const True) (flip elem) interfaces
       getUpDown = sumSpeeds . map snd . filter (filterFn . fst)

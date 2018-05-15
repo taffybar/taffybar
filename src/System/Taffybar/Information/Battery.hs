@@ -168,6 +168,9 @@ updateBatteryInfo chan var path =
         swapMVar var info >> writeChan chan info
     warnOfFailure = batteryLogF WARNING "Failed to update battery info %s"
 
+registerForAnyUPowerPropertiesChanged
+  :: (Signal -> String -> Map String Variant -> [String] -> IO ())
+  -> ReaderT Context IO SignalHandler
 registerForAnyUPowerPropertiesChanged signalHandler = do
   client <- asks systemDBusClient
   lift $ DBus.registerForPropertiesChanged
@@ -195,7 +198,6 @@ monitorDisplayBattery = do
           do
             batteryLogF DEBUG "Battery changed properties: %s" changedProps
             runReaderT doUpdate ctx
-    let propMatcher = matchAny { matchInterface = Just uPowerDeviceInterfaceName }
     _ <- registerForAnyUPowerPropertiesChanged signalCallback
     doUpdate
     return ()

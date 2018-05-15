@@ -21,16 +21,19 @@
 module System.Taffybar.Widget.Battery ( textBatteryNew, batteryIconNew ) where
 
 import           Control.Applicative
-import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Reader
 import           Data.Int (Int64)
 import qualified Data.Text as T
-import           Graphics.UI.Gtk
+import           GI.Gtk
+import qualified Graphics.UI.Gtk as Gtk2hs
 import           Prelude
+import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.Battery
+import           System.Taffybar.Util
+import           System.Taffybar.Widget.Generic.ChannelWidget
 import           Text.Printf
 import           Text.StringTemplate
 
@@ -84,8 +87,8 @@ formatBattInfo info fmt =
 -- charged/discharged.
 textBatteryNew
   :: String -- ^ Display format
-  -> TaffyIO Widget
-textBatteryNew format = do
+  -> TaffyIO Gtk2hs.Widget
+textBatteryNew format = fromGIWidget =<< do
   chan <- getDisplayBatteryChan
   ctx <- ask
   let getLabelText info =
@@ -93,34 +96,27 @@ textBatteryNew format = do
       getBatteryInfoIO = runReaderT getDisplayBatteryInfo ctx
   liftIO $ do
     label <- getLabelText <$> getBatteryInfoIO >>= labelNew . Just
-    let setMarkup text = postGUIAsync $ labelSetMarkup label text
-    _ <- on label realize $ do
-         getLabelText <$> getBatteryInfoIO >>= setMarkup
-         void $ forkIO $ do
-             ourChan <- dupChan chan
-             updateThread <-
-               forever $ getLabelText <$> readChan ourChan >>= setMarkup
-             void $ on label unrealize $ killThread updateThread
-    widgetShowAll label
-    return $ toWidget label
+    let setMarkup text = runOnUIThread $ labelSetMarkup label text
+        updateWidget = setMarkup . getLabelText
+    void $ onWidgetRealize label $ getLabelText <$> getBatteryInfoIO >>= setMarkup
+    toWidget =<< channelWidgetNew label chan updateWidget
 
-batteryIconNew :: TaffyIO Widget
-batteryIconNew = do
+themeLoadFlags :: [IconLookupFlags]
+themeLoadFlags = [IconLookupFlagsGenericFallback, IconLookupFlagsUseBuiltin]
+
+batteryIconNew :: TaffyIO Gtk2hs.Widget
+batteryIconNew = fromGIWidget =<< do
   chan <- getDisplayBatteryChan
   ctx <- ask
   liftIO $ do
     image <- imageNew
     defaultTheme <- iconThemeGetDefault
-    let setIconByName name = postGUIAsync $ void $
-          iconThemeLoadIcon defaultTheme name 20 IconLookupUseBuiltin >>=
-          traverse (imageSetFromPixbuf image)
+    let setIconByName name = runOnUIThread $ void $
+          iconThemeLoadIcon defaultTheme name 20 themeLoadFlags >>=
+          imageSetFromPixbuf image
         getBatteryInfoIO = runReaderT getDisplayBatteryInfo ctx
-    _ <- on image realize $ do
-         batteryIconName <$> getBatteryInfoIO >>= setIconByName
-         void $ forkIO $ do
-             ourChan <- dupChan chan
-             updateThread <-
-               forever $ batteryIconName <$> readChan ourChan >>= setIconByName
-             void $ on image unrealize $ killThread updateThread
-    widgetShowAll image
-    return $ toWidget image
+        updateImage = setIconByName . T.pack . batteryIconName
+    void $ onWidgetRealize image $
+         T.pack . batteryIconName <$> getBatteryInfoIO >>=
+         setIconByName
+    toWidget =<< channelWidgetNew image chan updateImage

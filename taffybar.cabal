@@ -129,6 +129,7 @@ library
                  , System.Taffybar.Widget.FSMonitor
                  , System.Taffybar.Widget.FreedesktopNotifications
                  , System.Taffybar.Widget.Generic.ChannelGraph
+                 , System.Taffybar.Widget.Generic.ChannelWidget
                  , System.Taffybar.Widget.Generic.DynamicMenu
                  , System.Taffybar.Widget.Generic.Graph
                  , System.Taffybar.Widget.Generic.Icon
