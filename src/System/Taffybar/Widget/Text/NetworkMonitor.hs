@@ -1,14 +1,18 @@
 module System.Taffybar.Widget.Text.NetworkMonitor where
 
-import Control.Monad
-import Control.Concurrent
-import Control.Monad.Trans
-import Graphics.UI.Gtk
-import System.Taffybar.Context
-import System.Taffybar.Hooks
-import System.Taffybar.Information.Network
-import Text.Printf
-import Text.StringTemplate
+import           Control.Monad
+import           Control.Monad.Trans
+import qualified Data.Text as T
+import           GI.Gtk
+import qualified Graphics.UI.Gtk as Gtk2hs
+import           System.Taffybar.Compat.GtkLibs
+import           System.Taffybar.Context
+import           System.Taffybar.Hooks
+import           System.Taffybar.Information.Network
+import           System.Taffybar.Util
+import           System.Taffybar.Widget.Generic.ChannelWidget
+import           Text.Printf
+import           Text.StringTemplate
 
 defaultNetFormat :: String
 defaultNetFormat = "▼ $inAuto$ ▲ $outAuto$"
@@ -54,17 +58,14 @@ toAuto prec value = printf "%.*f%s" p v unit
         p :: Int
         p = max 0 $ floor $ fromIntegral prec - logBase 10 v
 
-networkMonitorNew :: String -> Maybe [String] -> TaffyIO Widget
-networkMonitorNew template interfaces = do
+networkMonitorNew :: String -> Maybe [String] -> TaffyIO Gtk2hs.Widget
+networkMonitorNew template interfaces = fromGIWidget =<< do
   NetworkInfoChan chan <- getNetworkChan
   let filterFn = maybe (const True) (flip elem) interfaces
-  liftIO $ do
-    ourChan <- dupChan chan
-    label <- labelNew (Nothing :: Maybe String)
-    widgetShowAll label
-    _ <- on label realize $ void $ forkIO $ forever $ do
-        (up, down) <- sumSpeeds . map snd . filter (filterFn . fst) <$> readChan ourChan
-        let labelString =
-              showInfo template 3 (fromRational down, fromRational up)
-        postGUIAsync $ labelSetMarkup label labelString
-    return $ toWidget label
+  label <- lift $ labelNew Nothing
+  void $ channelWidgetNew label chan $ \speedInfo ->
+    let (up, down) = sumSpeeds $ map snd $ filter (filterFn . fst) speedInfo
+        labelString =
+          T.pack $ showInfo template 3 (fromRational down, fromRational up)
+    in runOnUIThread $ labelSetMarkup label labelString
+  toWidget label
