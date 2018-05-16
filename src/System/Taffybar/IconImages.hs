@@ -9,53 +9,43 @@
 -- Portability : unportable
 -----------------------------------------------------------------------------
 
-module System.Taffybar.IconImages (
-  ColorRGBA,
-  scalePixbuf,
-  pixBufFromEWMHIcon,
-  pixelsARGBToBytesABGR,
-  pixBufFromColor,
-  pixBufFromFile
-) where
+module System.Taffybar.IconImages
+  ( ColorRGBA
+  , pixBufFromEWMHIcon
+  , pixelsARGBToBytesABGR
+  , pixBufFromColor
+  , pixBufFromFile
+  ) where
 
 -- TODO: rename module to IconPixbuf
 
 import           Data.Bits
+import           Data.Int
 import           Data.Word
 import           Foreign.Marshal.Array
 import           Foreign.Ptr
 import           Foreign.Storable
-import qualified Graphics.UI.Gtk as Gtk
-import           System.Taffybar.Information.EWMHDesktopInfo
+import qualified GI.GdkPixbuf.Enums as Gdk
+import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import           System.Taffybar.Compat.GtkLibs
+import           System.Taffybar.Information.EWMHDesktopInfo
 
-type ColorRGBA = (Word8, Word8, Word8, Word8)
+type ColorRGBA = Word32
 
--- | Take the passed in pixbuf and scale it to the provided imageSize.
-scalePixbuf :: Int -> Gtk.Pixbuf -> IO Gtk.Pixbuf
-scalePixbuf imgSize pixbuf =
-  Gtk.pixbufScaleSimple pixbuf imgSize imgSize Gtk.InterpBilinear
-
-sampleBits :: Int
-sampleBits = 8
-
-hasAlpha :: Bool
-hasAlpha = True
-
-colorspace :: Gtk.Colorspace
-colorspace = Gtk.ColorspaceRgb
+colorspace :: Gdk.Colorspace
+colorspace = Gdk.ColorspaceRgb
 
 -- | Create a pixbuf from the pixel data in an EWMHIcon.
-pixBufFromEWMHIcon :: EWMHIcon -> IO Gtk.Pixbuf
+pixBufFromEWMHIcon :: EWMHIcon -> IO Gdk.Pixbuf
 pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
   wPtr <- pixelsARGBToBytesABGR px (w * h)
   pixbufNewFromData wPtr w h
 
 -- | Create a pixbuf with the indicated RGBA color.
-pixBufFromColor :: Int -> ColorRGBA -> IO Gtk.Pixbuf
-pixBufFromColor imgSize (r, g, b, a) = do
-  pixbuf <- Gtk.pixbufNew colorspace hasAlpha sampleBits imgSize imgSize
-  Gtk.pixbufFill pixbuf r g b a
+pixBufFromColor :: Int32 -> ColorRGBA -> IO Gdk.Pixbuf
+pixBufFromColor imgSize c = do
+  Just pixbuf <- Gdk.pixbufNew colorspace True 8 imgSize imgSize
+  Gdk.pixbufFill pixbuf c
   return pixbuf
 
 -- | Convert a C array of integer pixels in the ARGB format to the ABGR format.
@@ -86,6 +76,5 @@ pixelsARGBToBytesABGR ptr size = do
   return target
 
 -- | Create a pixbuf from a file and scale it to be square.
-pixBufFromFile :: Int -> FilePath -> IO Gtk.Pixbuf
-pixBufFromFile imgSize file =
-  Gtk.pixbufNewFromFileAtScale file imgSize imgSize False
+pixBufFromFile :: FilePath -> IO Gdk.Pixbuf
+pixBufFromFile = Gdk.pixbufNewFromFile

@@ -60,11 +60,10 @@ toGIImage = toGIWidget' GI.Gtk.Image Gtk.unImage
 
 -- | Call the GI version of 'pixbufNewFromData' with sensible parameters. The
 -- provided ptr will be freed when the pixbuf is destroyed.
-pixbufNewFromData :: (Integral p2, Integral p1) => Ptr Word8 -> p2 -> p1 -> IO Gtk.Pixbuf
+pixbufNewFromData :: (Integral p2, Integral p1) => Ptr Word8 -> p2 -> p1 -> IO PB.Pixbuf
 pixbufNewFromData ptr w h = do
   let width = fromIntegral w
       height = fromIntegral h
       rowStride = width * 4
-  giPb <- PB.pixbufNewFromData ptr ColorspaceRgb True 8
+  PB.pixbufNewFromData ptr ColorspaceRgb True 8
     width height rowStride (Just free)
-  fromGIPixBuf giPb

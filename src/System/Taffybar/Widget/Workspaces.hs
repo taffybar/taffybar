@@ -41,7 +41,6 @@ module System.Taffybar.Widget.Workspaces
   , hideEmpty
   , liftX11Def
   , workspacesNew
-  , setImage
   , windowTitleClassIconGetter
 ) where
 
@@ -55,6 +54,7 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import           Control.RateLimit
 import qualified Data.Foldable as F
+import           Data.Int
 import           Data.List (intersect, sortBy)
 import qualified Data.Map as M
 import           Data.Maybe
@@ -64,12 +64,16 @@ import qualified Data.Set as Set
 import           Data.Time.Units
 import           Data.Tuple.Select
 import           Data.Tuple.Sequence
+import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
+import qualified GI.Gtk
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import           Graphics.UI.Gtk.General.StyleContext
 import qualified Graphics.UI.Gtk.Layout.Table as T
 import           Prelude
+import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
+import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.IconImages
 import           System.Taffybar.Information.EWMHDesktopInfo
@@ -77,6 +81,7 @@ import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Decorators
+import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
 import           System.Taffybar.Widget.Util
 import           Text.Printf
 
@@ -99,7 +104,7 @@ data IconInfo
   deriving (Eq, Show)
 
 transparentInfo :: IconInfo
-transparentInfo = IIColor (0, 0, 0, 0)
+transparentInfo = IIColor 0
 
 data WindowData = WindowData
   { windowId :: X11Window
@@ -123,7 +128,7 @@ data WorkspacesContext = WorkspacesContext
   { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
   , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
   , hudWidget :: Gtk.HBox
-  , hudConfig :: WorkspacesConfig
+  , workspacesConfig :: WorkspacesConfig
   , taffyContext :: Context
   }
 
@@ -175,7 +180,7 @@ data WorkspacesConfig =
   WorkspacesConfig
   { widgetBuilder :: ControllerConstructor
   , widgetGap :: Int
-  , windowIconSize :: Int
+  , windowIconSize :: Maybe Int
   , underlineHeight :: Int
   , minWSWidgetSize :: Maybe Int
   , underlinePadding :: Int
@@ -208,7 +213,7 @@ defaultWorkspacesConfig =
   WorkspacesConfig
   { widgetBuilder = buildButtonController defaultBuildContentsController
   , widgetGap = 0
-  , windowIconSize = 16
+  , windowIconSize = Nothing
   , underlineHeight = 4
   , minWSWidgetSize = Just 30
   , underlinePadding = 1
@@ -285,7 +290,7 @@ buildWorkspaceData _ = ask >>= \context -> liftX11Def M.empty $ do
   let getWorkspaceState idx ws
         | idx == active = Active
         | idx `elem` visible = Visible
-        | urgentWorkspaceState (hudConfig context) &&
+        | urgentWorkspaceState (workspacesConfig context) &&
           not (null (ws `intersect` urgentWindows)) =
           Urgent
         | null ws = Empty
@@ -344,7 +349,7 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
         { controllersVar = controllersRef
         , workspacesVar = workspacesRef
         , hudWidget = cont
-        , hudConfig = cfg
+        , workspacesConfig = cfg
         , taffyContext = tContext
         }
   -- This will actually create all the widgets
@@ -359,6 +364,7 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
   let doUnsubscribe = flip runReaderT tContext $
         mapM_ unsubscribe [iconSubscription, workspaceSubscription]
   _ <- Gtk.on cont W.unrealize doUnsubscribe
+  widgetSetClass cont "Workspaces"
   return $ Gtk.toWidget cont
 
 updateAllWorkspaceWidgets :: WorkspacesIO ()
@@ -391,7 +397,7 @@ setControllerWidgetVisibility :: WorkspacesIO ()
 setControllerWidgetVisibility = do
   WorkspacesContext { workspacesVar = workspacesRef
           , controllersVar = controllersRef
-          , hudConfig = cfg
+          , workspacesConfig = cfg
           } <- ask
   lift $ do
     workspacesMap <- MV.readMVar workspacesRef
@@ -423,7 +429,7 @@ updateWorkspaceControllers = do
   WorkspacesContext { controllersVar = controllersRef
           , workspacesVar = workspacesRef
           , hudWidget = cont
-          , hudConfig = cfg
+          , workspacesConfig = cfg
           } <- ask
   workspacesMap <- lift $ MV.readMVar workspacesRef
   controllersMap <- lift $ MV.readMVar controllersRef
@@ -454,7 +460,7 @@ rateLimitFn
   -> ResultsCombiner req resp
   -> IO (req -> IO resp)
 rateLimitFn context =
-  let limit = (updateRateLimitMicroseconds $ hudConfig context)
+  let limit = (updateRateLimitMicroseconds $ workspacesConfig context)
       rate = fromMicroseconds limit :: Microsecond in
   generateRateLimitedFunction $ PerInvocation rate
 
@@ -521,7 +527,7 @@ defaultBuildContentsController =
 instance WorkspaceWidgetController WorkspaceContentsController where
   getWidget = containerWidget
   updateWidget cc update = do
-    WorkspacesContext {hudConfig = cfg} <- ask
+    WorkspacesContext {workspacesConfig = cfg} <- ask
     lift $
       maybe (return ()) (updateMinSize $ Gtk.toWidget $ containerWidget cc) $
       minWSWidgetSize cfg
@@ -548,7 +554,7 @@ buildLabelController ws = do
 instance WorkspaceWidgetController LabelController where
   getWidget = Gtk.toWidget . label
   updateWidget lc (WorkspaceUpdate newWorkspace) = do
-    WorkspacesContext { hudConfig = cfg } <- ask
+    WorkspacesContext { workspacesConfig = cfg } <- ask
     labelText <- labelSetter cfg newWorkspace
     lift $ do
       Gtk.labelSetMarkup (label lc) labelText
@@ -560,7 +566,65 @@ data IconWidget = IconWidget
   { iconContainer :: Gtk.EventBox
   , iconImage :: Gtk.Image
   , iconWindow :: MV.MVar (Maybe WindowData)
+  , iconForceUpdate :: IO ()
   }
+
+getPixbufFromInfo :: Bool -> Int32 -> IconInfo -> IO (Maybe Gdk.Pixbuf)
+getPixbufFromInfo transparentOnNone imgSize = gpb
+  where
+    gpb (IIEWMH iconData) =
+      withEWMHIcons iconData (traverse pixBufFromEWMHIcon . selectEWMHIcon imgSize)
+    gpb (IIFilePath file) = Just <$> pixBufFromFile file
+    gpb (IIColor color) = Just <$> pixBufFromColor imgSize color
+    gpb IINone =
+      if transparentOnNone
+      then getPixbufFromInfo transparentOnNone imgSize transparentInfo
+      else return Nothing
+
+getPixbufForIconWidget :: Bool
+                       -> MV.MVar (Maybe WindowData)
+                       -> Int32
+                       -> WorkspacesIO (Maybe Gdk.Pixbuf)
+getPixbufForIconWidget transparentOnNone dataVar size =
+  ask >>= \ctx ->
+    let getII = getIconInfo $ workspacesConfig ctx
+    in lift $ MV.readMVar dataVar >>=
+       flip runReaderT ctx . maybe (return IINone) getII >>=
+       getPixbufFromInfo transparentOnNone size >>=
+       traverse (scalePixbufToSize size GI.Gtk.OrientationHorizontal)
+
+buildIconWidget :: Bool -> Workspace -> WorkspacesIO IconWidget
+buildIconWidget transparentOnNone ws = do
+  ctx <- ask
+  lift $ do
+    windowVar <- MV.newMVar Nothing
+    img <- Gtk.imageNew
+    giImg <- toGIImage img
+    refreshImage <-
+      autoSizeImage giImg
+        (flip runReaderT ctx . getPixbufForIconWidget transparentOnNone windowVar)
+        GI.Gtk.OrientationHorizontal
+    ebox <- Gtk.eventBoxNew
+    _ <- widgetSetClass img "IconImage"
+    _ <- widgetSetClass ebox "IconContainer"
+    Gtk.containerAdd ebox img
+    _ <-
+      Gtk.on ebox Gtk.buttonPressEvent $
+      liftIO $ do
+        info <- MV.readMVar windowVar
+        case info of
+          Just updatedInfo ->
+            flip runReaderT ctx $
+            liftX11Def () $ focusWindow $ windowId updatedInfo
+          _ -> liftIO $ void $ switch ctx (workspaceIdx ws)
+        return True
+    return
+      IconWidget
+      { iconContainer = ebox
+      , iconImage = img
+      , iconWindow = windowVar
+      , iconForceUpdate = refreshImage
+      }
 
 data IconController = IconController
   { iconsContainer :: Gtk.HBox
@@ -596,7 +660,7 @@ updateWindowIconsById ic windowIds =
       do
         info <- lift $ MV.readMVar $ iconWindow widget
         when (maybe False (flip elem windowIds . windowId) info) $
-         updateIconWidget ic widget info False
+         updateIconWidget ic widget info
 
 updateMinSize :: Gtk.Widget -> Int  -> IO ()
 updateMinSize widget minWidth = do
@@ -625,19 +689,23 @@ sortWindowsByPosition wins = do
 
 updateImages :: IconController -> Workspace -> WorkspacesIO [IconWidget]
 updateImages ic ws = do
-  WorkspacesContext {hudConfig = cfg} <- ask
+  WorkspacesContext {workspacesConfig = cfg} <- ask
   sortedWindows <- iconSort cfg $ windows ws
   wLog DEBUG $ printf "Updating images for %s" (show ws)
-  let updateIconWidget' getImageAction wdata ton = do
+  let updateIconWidget' getImageAction wdata = do
         iconWidget <- getImageAction
-        _ <- updateIconWidget ic iconWidget wdata ton
+        _ <- updateIconWidget ic iconWidget wdata
         return iconWidget
       existingImages = map return $ iconImages ic
-      buildAndAddIconWidget = do
-        iw <- buildIconWidget ws
+      buildAndAddIconWidget transparentOnNone = do
+        iw <- buildIconWidget transparentOnNone ws
         lift $ Gtk.containerAdd (iconsContainer ic) $ iconContainer iw
         return iw
-      infiniteImages = existingImages ++ repeat buildAndAddIconWidget
+      infiniteImages =
+        existingImages ++
+        replicate (minIcons cfg - length existingImages)
+                  (buildAndAddIconWidget True) ++
+        repeat (buildAndAddIconWidget False)
       windowCount = length $ windows ws
       maxNeeded = maybe windowCount (min windowCount) $ maxIcons cfg
       newImagesNeeded = length existingImages < max (minIcons cfg) maxNeeded
@@ -654,33 +722,10 @@ updateImages ic ws = do
           then justWindows ++
                replicate (minIcons cfg - length justWindows) Nothing
           else justWindows ++ repeat Nothing
-      transparentOnNones = replicate (minIcons cfg) True ++ repeat False
   newImgs <-
-    sequence $ zipWith3 updateIconWidget' getImgs windowDatas transparentOnNones
+    sequence $ zipWith updateIconWidget' getImgs windowDatas
   when newImagesNeeded $ lift $ Gtk.widgetShowAll $ iconsContainer ic
   return newImgs
-
-buildIconWidget :: Workspace -> WorkspacesIO IconWidget
-buildIconWidget ws = do
-  ctx <- ask
-  lift $ do
-    img <- Gtk.imageNew
-    ebox <- Gtk.eventBoxNew
-    windowVar <- MV.newMVar Nothing
-    _ <- widgetSetClass img "IconImage"
-    _ <- widgetSetClass ebox "IconContainer"
-    Gtk.containerAdd ebox img
-    _ <-
-      Gtk.on ebox Gtk.buttonPressEvent $
-      liftIO $ do
-        info <- MV.readMVar windowVar
-        case info of
-          Just updatedInfo ->
-            flip runReaderT ctx $ liftX11Def () $ focusWindow $ windowId updatedInfo
-          _ -> liftIO $ void $ switch ctx (workspaceIdx ws)
-        return True
-    return
-      IconWidget {iconContainer = ebox, iconImage = img, iconWindow = windowVar}
 
 getWindowStatusString :: WindowData -> String
 getWindowStatusString WindowData { windowMinimized = True } = "Minimized"
@@ -695,70 +740,25 @@ updateIconWidget
   :: IconController
   -> IconWidget
   -> Maybe WindowData
-  -> Bool
   -> WorkspacesIO ()
 updateIconWidget _ IconWidget
                    { iconContainer = iconButton
                    , iconImage = image
                    , iconWindow = windowRef
-                   } windowData transparentOnNone = do
-  cfg <- asks hudConfig
-
-  let setIconWidgetProperties = do
-        info <- maybe (return IINone) (getIconInfo cfg) windowData
-        let imgSize = windowIconSize cfg
-            statusString = maybe "Inactive" getWindowStatusString windowData
-            iconInfo =
-              case info of
-                IINone ->
-                  if transparentOnNone
-                  then transparentInfo
-                  else IINone
-                _ -> info
-        lift $ do
-          mpixBuf <- getPixBuf imgSize iconInfo
-          wLog DEBUG $ printf "Updating image for %s. pixbuf isJust: %s"
-                 (show windowData) (show $ isJust mpixBuf)
-          setImage imgSize image mpixBuf
-          updateWidgetClasses iconButton [statusString] possibleStatusStrings
-
+                   , iconForceUpdate = updateIcon
+                   } windowData = do
+  let statusString = maybe "Inactive" getWindowStatusString windowData
+      setIconWidgetProperties =
+        updateWidgetClasses iconButton [statusString] possibleStatusStrings
   void $ updateVar windowRef $ const $ return windowData
-  setIconWidgetProperties
+  lift $ updateIcon >> setIconWidgetProperties
 
-setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
-setImage imgSize img pixBuf =
-  case pixBuf of
-    Just pixbuf -> do
-      currentWidth <- Gtk.pixbufGetWidth pixbuf
-      currentHeight <- Gtk.pixbufGetHeight pixbuf
-      wLog DEBUG $ printf "Scaling pixbuf t: %s w: %s h: %s"
-                 (show imgSize) (show currentWidth) (show currentHeight)
-      -- XXX: For some reason, it seems to be important that the pixbuf is an
-      -- actual copy of the provided pixbuf. If it isn't, we get a hang on
-      -- Gtk.imageSetFromPixbuf. This could have to do with the fact that we are
-      -- using GI function calls to fetch the pixbuf. Maybe the memory is
-      -- getting freed somewhere?
-      scaledPixbuf <- scalePixbuf imgSize pixbuf
-      wLog DEBUG "Scaled pixbuf"
-      Gtk.imageSetFromPixbuf img scaledPixbuf
-      wLog DEBUG "Finished setting icon"
-    Nothing -> Gtk.imageClear img
-
-selectEWMHIcon :: Int -> [EWMHIcon] -> Maybe EWMHIcon
+selectEWMHIcon :: Int32 -> [EWMHIcon] -> Maybe EWMHIcon
 selectEWMHIcon imgSize icons = listToMaybe prefIcon
   where sortedIcons = sortBy (comparing height) icons
-        smallestLargerIcon = take 1 $ dropWhile ((<= imgSize) . height) sortedIcons
+        smallestLargerIcon = take 1 $ dropWhile ((<= fromIntegral imgSize) . height) sortedIcons
         largestIcon = take 1 $ reverse sortedIcons
         prefIcon = smallestLargerIcon ++ largestIcon
-
-getPixBuf :: Int -> IconInfo -> IO (Maybe Gtk.Pixbuf)
-getPixBuf imgSize = gpb
-  where
-    gpb (IIEWMH iconData) =
-      withEWMHIcons iconData (traverse pixBufFromEWMHIcon . selectEWMHIcon imgSize)
-    gpb (IIFilePath file) = Just <$> pixBufFromFile imgSize file
-    gpb (IIColor color) = Just <$> pixBufFromColor imgSize color
-    gpb _ = return Nothing
 
 data WorkspaceButtonController = WorkspaceButtonController
   { button :: Gtk.EventBox
@@ -819,7 +819,7 @@ data WorkspaceUnderlineController = WorkspaceUnderlineController
 
 buildUnderlineController :: ParentControllerConstructor
 buildUnderlineController contentsBuilder workspace = do
-  cfg <- asks hudConfig
+  cfg <- asks workspacesConfig
   cc <- contentsBuilder workspace
 
   lift $ do
@@ -850,16 +850,16 @@ updateUnderline uc u = do
   newContents <- updateWidget (overlineController uc) u
   return uc { overlineController = newContents }
 
-data WorkspaceBorderController =
-  WorkspaceBorderController { border :: Gtk.EventBox
-                            , borderContents :: Gtk.EventBox
-                            , insideController :: WWC
-                            }
+data WorkspaceBorderController = WorkspaceBorderController
+  { border :: Gtk.EventBox
+  , borderContents :: Gtk.EventBox
+  , insideController :: WWC
+  }
 
 buildBorderController :: ParentControllerConstructor
 buildBorderController contentsBuilder workspace = do
   cc <- contentsBuilder workspace
-  cfg <- asks hudConfig
+  cfg <- asks workspacesConfig
   lift $ do
     brd <- Gtk.eventBoxNew
     cnt <- Gtk.eventBoxNew
