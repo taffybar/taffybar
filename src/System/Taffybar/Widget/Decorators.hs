@@ -16,5 +16,6 @@ buildPadBox contents = liftIO $ do
   Gtk.containerAdd outerBox innerBox
   _ <- widgetSetClass innerBox "InnerPad"
   _ <- widgetSetClass outerBox "OuterPad"
-  Gtk.widgetShowAll outerBox
+  Gtk.widgetShow outerBox
+  Gtk.widgetShow innerBox
   return $ Gtk.toWidget outerBox

@@ -37,6 +37,7 @@ import           System.Taffybar.Information.MPRIS2
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
+import           System.Log.Logger
 import           Text.Printf
 
 data MPRIS2PlayerWidget = MPRIS2PlayerWidget
@@ -58,7 +59,7 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
           maybe (loadIcon 20 "play.svg") return =<< runMaybeT
           (   MaybeT (rightToMaybe <$> getDesktopEntry client busName)
           >>= MaybeT . getDirectoryEntryDefault
-          >>= MaybeT . getImageForDesktopEntry 20
+          >>= MaybeT . getImageForDesktopEntry 30
           )
 
         image <- Gtk.imageNewFromPixbuf $ Just pixbuf
@@ -69,7 +70,6 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
         Gtk.containerAdd playerBox label
         alignCenter playerBox
 
-        Gtk.widgetShowAll playerBox
         Gtk.containerAdd grid playerBox
         Gtk.widgetHide playerBox
         return MPRIS2PlayerWidget {playerLabel = label, playerGrid = playerBox}
@@ -88,12 +88,11 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
         Just playerWidget -> setNowPlaying playerWidget >> return children
       where setNowPlaying MPRIS2PlayerWidget {playerLabel = label , playerGrid = playerBox} =
               do
+                logPrintF "System.Taffybar.Widget.MPRIS2" DEBUG "Setting state %s" nowPlaying
                 Gtk.labelSetMarkup label $ playingText 20 30 nowPlaying
                 if status == "Playing"
-                then
-                  Gtk.widgetShow playerBox
-                else
-                  Gtk.widgetHide playerBox
+                then Gtk.widgetShowAll playerBox
+                else Gtk.widgetHide playerBox
 
     updatePlayerWidgets nowPlayings playerWidgets = do
       newWidgets <- foldM updatePlayerWidget playerWidgets nowPlayings
@@ -107,9 +106,7 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
 
     doUpdate = getNowPlayingInfo client >>= updatePlayerWidgetsVar
     signalCallback _ _ _ _ = doUpdate
-    propMatcher =
-        matchAny
-        { matchPath = Just "/org/mpris/MediaPlayer2" }
+    propMatcher = matchAny { matchPath = Just "/org/mpris/MediaPlayer2" }
 
     handleNameOwnerChanged _ name _ _ = do
       busNames <- map (coerce . fst) <$> MV.readMVar playerWidgetsVar
@@ -120,10 +117,10 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
       DBus.registerForPropertiesChanged client propMatcher signalCallback
     nameHandler <-
       DBus.registerForNameOwnerChanged client matchAny handleNameOwnerChanged
+    doUpdate
     void $ Gtk.onWidgetUnrealize grid $
          removeMatch client updateHandler >> removeMatch client nameHandler
   Gtk.widgetShow grid
-  doUpdate
   Gtk.toWidget grid
 
 playingText :: Int -> Int -> NowPlaying -> T.Text
