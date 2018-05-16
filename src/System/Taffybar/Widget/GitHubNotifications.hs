@@ -4,7 +4,8 @@ module System.Taffybar.Widget.GitHubNotifications where
 import           Control.Concurrent
 import           Control.Concurrent.MVar as MV
 import           Control.Monad
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.ByteString.Lazy as LBS
