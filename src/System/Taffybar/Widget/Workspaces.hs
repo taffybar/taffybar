@@ -363,12 +363,12 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
 
 updateAllWorkspaceWidgets :: WorkspacesIO ()
 updateAllWorkspaceWidgets = do
-  wLog DEBUG "-Execute-..."
+  wLog DEBUG "Updating workspace widgets"
 
   workspacesMap <- updateWorkspacesVar
   wLog DEBUG $ printf "Workspaces: %s" $ show workspacesMap
 
-  wLog DEBUG "Adding and removing widgets..."
+  wLog DEBUG "Adding and removing widgets"
   updateWorkspaceControllers
 
   let updateController' idx controller =
@@ -380,11 +380,11 @@ updateAllWorkspaceWidgets = do
       updateController i cont = logUpdateController i >>
                                 updateController' i cont
 
-  wLog DEBUG "Done updating individual widget..."
+  wLog DEBUG "Done updating individual widget"
 
   doWidgetUpdate updateController
 
-  wLog DEBUG "Showing and hiding controllers..."
+  wLog DEBUG "Showing and hiding controllers"
   setControllerWidgetVisibility
 
 setControllerWidgetVisibility :: WorkspacesIO ()

@@ -5,36 +5,15 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Int
 import qualified GI.Gdk as Gdk
-import qualified GI.GdkPixbuf.Enums as Gdk
 import           GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
+import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
 import           System.Taffybar.Util
 import           Text.Printf
 
 imageLog :: Priority -> String -> IO ()
 imageLog = logM "System.Taffybar.Widget.Generic.AutoSizeImage"
-
-scalePixbufToSize :: Int32 -> Gtk.Orientation -> Gdk.Pixbuf -> IO Gdk.Pixbuf
-scalePixbufToSize size orientation pixbuf = do
-  width <- Gdk.pixbufGetWidth pixbuf
-  height <- Gdk.pixbufGetHeight pixbuf
-  imageLog DEBUG $ printf "Scaling pixbuf to %s, actualW: %s, actualH: %s"
-           (show size) (show width) (show height)
-  let getRatio :: Int32 -> Rational
-      getRatio toScale =
-        fromIntegral size / fromIntegral toScale
-      getOther :: Int32 -> Int32 -> Int32
-      getOther toScale other = floor $ getRatio toScale * fromIntegral other
-      warnAndReturnOrig =
-        imageLog WARNING "Unable to scale pixbuf" >> return pixbuf
-      doScale w h = do
-        imageLog DEBUG $ printf "targetW: %s, targetH: %s"
-           (show width) (show height)
-        Gdk.pixbufScaleSimple pixbuf w h Gdk.InterpTypeBilinear
-  maybe warnAndReturnOrig return =<< case orientation of
-    Gtk.OrientationHorizontal -> doScale (getOther height width) size
-    _ -> doScale size $ getOther width height
 
 -- | Call "autoSizeImageNew'", but automatically scale the pixbuf returned from
 -- the provided getter to the appropriate size. Ignores the refresh argument
