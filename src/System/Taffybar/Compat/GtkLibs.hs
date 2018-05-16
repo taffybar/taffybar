@@ -27,21 +27,36 @@ fromGIPixBuf :: MonadIO m => PB.Pixbuf -> m Gtk.Pixbuf
 fromGIPixBuf (PB.Pixbuf pbManagedPtr) = liftIO $
   wrapNewGObject Gtk.mkPixbuf (castPtr <$> disownManagedPtr pbManagedPtr)
 
+fromGIWidget'
+  :: (MonadIO m, GObjectClass a)
+  => (ForeignPtr a -> a, FinalizerPtr a)
+  -> GI.Gtk.ManagedPtr b
+  -> m a
+fromGIWidget' mk2hs giWidget = liftIO $
+  wrapNewGObject mk2hs (castPtr <$> disownManagedPtr giWidget)
+
+toGIWidget'
+  :: MonadIO m
+  => (GI.Gtk.ManagedPtr a1 -> b) -> (t -> ForeignPtr a2) -> t -> m b
+toGIWidget' mkGI un2hs gtk2hsWidget = liftIO $ do
+  fPtr <- withForeignPtr (un2hs gtk2hsWidget) $
+          flip GI.Gtk.newManagedPtr (return ()) . castPtr
+  return $! mkGI fPtr
+
 fromGIWidget :: MonadIO m => GI.Gtk.Widget -> m Gtk.Widget
-fromGIWidget (GI.Gtk.Widget wManagedPtr) = liftIO $
-  wrapNewGObject Gtk.mkWidget (castPtr <$> disownManagedPtr wManagedPtr)
+fromGIWidget (GI.Gtk.Widget wManagedPtr) = fromGIWidget' Gtk.mkWidget wManagedPtr
 
 toGIWidget :: MonadIO m => Gtk.Widget -> m GI.Gtk.Widget
-toGIWidget widget = liftIO $ do
-  fPtr <- withForeignPtr (Gtk.unWidget widget) $
-          flip GI.Gtk.newManagedPtr (return ()) . castPtr
-  return $! GI.Gtk.Widget fPtr
+toGIWidget = toGIWidget' GI.Gtk.Widget Gtk.unWidget
 
 toGIWindow :: MonadIO m => Gtk.Window -> m GI.Gtk.Window
-toGIWindow window = liftIO $ do
-  let wid = Gtk.toWidget window
-  fPtr <- withForeignPtr (Gtk.unWidget wid) $ flip GI.Gtk.newManagedPtr (return ()) . castPtr
-  return $! GI.Gtk.Window fPtr
+toGIWindow = toGIWidget' GI.Gtk.Window Gtk.unWindow
+
+fromGIImage :: MonadIO m => GI.Gtk.Image -> m Gtk.Image
+fromGIImage (GI.Gtk.Image wManagedPtr) = fromGIWidget' Gtk.mkImage wManagedPtr
+
+toGIImage :: MonadIO m => Gtk.Image -> m GI.Gtk.Image
+toGIImage = toGIWidget' GI.Gtk.Image Gtk.unImage
 
 -- | Call the GI version of 'pixbufNewFromData' with sensible parameters. The
 -- provided ptr will be freed when the pixbuf is destroyed.
