@@ -362,12 +362,12 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
 
 updateAllWorkspaceWidgets :: WorkspacesIO ()
 updateAllWorkspaceWidgets = do
-  wLog DEBUG "-Workspace- -Execute-..."
+  wLog DEBUG "-Execute-..."
 
   workspacesMap <- updateWorkspacesVar
   wLog DEBUG $ printf "Workspaces: %s" $ show workspacesMap
 
-  wLog DEBUG "-Workspace- Adding and removing widgets..."
+  wLog DEBUG "Adding and removing widgets..."
   updateWorkspaceControllers
 
   let updateController' idx controller =
@@ -375,13 +375,15 @@ updateAllWorkspaceWidgets = do
               (updateWidget controller . WorkspaceUpdate) $
               M.lookup idx workspacesMap
       logUpdateController i =
-        wLog DEBUG $ printf "-Workspace- -each- Updating %s widget" $ show i
+        wLog DEBUG $ printf "Updating %s workspace widget" $ show i
       updateController i cont = logUpdateController i >>
                                 updateController' i cont
 
+  wLog DEBUG "Done updating individual widget..."
+
   doWidgetUpdate updateController
 
-  wLog DEBUG "-Workspace- Showing and hiding controllers..."
+  wLog DEBUG "Showing and hiding controllers..."
   setControllerWidgetVisibility
 
 setControllerWidgetVisibility :: WorkspacesIO ()
@@ -406,6 +408,7 @@ doWidgetUpdate :: (WorkspaceIdx -> WWC -> WorkspacesIO WWC) -> WorkspacesIO ()
 doWidgetUpdate updateController = do
   c@WorkspacesContext { controllersVar = controllersRef } <- ask
   lift $ MV.modifyMVar_ controllersRef $ \controllers -> do
+    wLog DEBUG "Updating controllers ref"
     controllersList <-
       mapM
       (\(idx, controller) -> do
@@ -460,8 +463,7 @@ onWorkspaceUpdate context = do
   let withLog event = do
         case event of
           PropertyEvent _ _ _ _ _ atom _ _ ->
-            wLog DEBUG $ printf "-Event- -Workspace- %s" $ show atom
-          _ -> wLog DEBUG "-Event- -Workspace-"
+            wLog DEBUG $ printf "Event %s" $ show atom
         void $ forkIO $ rateLimited event
   return withLog
   where
@@ -472,7 +474,7 @@ onIconChanged :: (Set.Set X11Window -> IO ()) -> Event -> IO ()
 onIconChanged handler event =
   case event of
     PropertyEvent { ev_window = wid } -> do
-      wLog DEBUG  $ printf "-Icon- -Event- %s" $ show wid
+      wLog DEBUG  $ printf "Icon changed event %s" $ show wid
       handler $ Set.singleton wid
     _ -> return ()
 
@@ -483,11 +485,11 @@ onIconsChanged context =
     combineRequests windows1 windows2 =
       Just (Set.union windows1 windows2, const ((), ()))
     onIconsChanged' wids = do
-      wLog DEBUG $ printf "-Icon- -Execute- %s" $ show wids
+      wLog DEBUG $ printf "Icon update execute %s" $ show wids
       flip runReaderT context $
         doWidgetUpdate
           (\idx c ->
-             wLog DEBUG (printf "-Icon- -each- Updating %s icons." $ show idx) >>
+             wLog DEBUG (printf "Updating %s icons." $ show idx) >>
              updateWidget c (IconUpdate $ Set.toList wids))
 
 data WorkspaceContentsController = WorkspaceContentsController
