@@ -20,14 +20,12 @@ import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Except
-import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           DBus
 import           DBus.Client
 import           DBus.Internal.Types
 import qualified DBus.TH as DBus
 import           Data.Coerce
-import           Data.Either.Combinators
 import           Data.List
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
@@ -42,7 +40,7 @@ import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
 
-mprisLog :: (MonadIO m, Show t) => String -> t -> m ()
+mprisLog :: (MonadIO m, Show t) => Priority -> String -> t -> m ()
 mprisLog = logPrintF "System.Taffybar.Widget.MPRIS2"
 
 data MPRIS2PlayerWidget = MPRIS2PlayerWidget
