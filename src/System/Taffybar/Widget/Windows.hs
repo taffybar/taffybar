@@ -2,7 +2,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.Windows
--- Copyright   : (c) José A. Romero L.
+-- Copyright   : (c) Ivan Malison
 -- License     : BSD3-style (see LICENSE)
 --
 -- Maintainer  : Ivan Malison <IvanMalison@gmail.com>
@@ -10,8 +10,8 @@
 -- Portability : unportable
 --
 -- Menu widget that shows the title of the currently focused window and that,
--- when clicked, displays the list of all currently open windows allowing to
--- switch to any of them.
+-- when clicked, displays a menu from which the user may select a window to
+-- which to switch the focus.
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Widget.Windows (

@@ -5,19 +5,17 @@
 --
 -- For example, Madison, WI is KMSN.
 --
--- NOAA provides several pieces of information in each request; you
--- can control which pieces end up in your weather widget by providing
--- a _template_ that is filled in with the current information.  The
--- template is just a 'String' with variables between dollar signs.
--- The variables will be substituted with real data by the widget.
--- Example:
+-- NOAA provides several pieces of information in each request; you can control
+-- which pieces end up in your weather widget by providing a _template_ that is
+-- filled in with the current information. The template is just a 'String' with
+-- variables between dollar signs. The variables will be substituted with real
+-- data by the widget. Example:
 --
 -- > let wcfg = (defaultWeatherConfig "KMSN") { weatherTemplate = "$tempC$ C @ $humidity$" }
 -- >     weatherWidget = weatherNew wcfg 10
 --
--- This example makes a new weather widget that checks the weather at
--- KMSN (Madison, WI) every 10 minutes, and displays the results in
--- Celcius.
+-- This example makes a new weather widget that checks the weather at KMSN
+-- (Madison, WI) every 10 minutes, and displays the results in Celcius.
 --
 -- Available variables:
 --
@@ -39,7 +37,7 @@
 --
 -- [@skyCondition@] ?
 --
--- [@tempC@] The temperature in Celcius
+-- [@tempC@] The temperature in Celsius
 --
 -- [@tempF@] The temperature in Farenheit
 --
@@ -54,12 +52,12 @@
 --
 -- > "$tempF$ °F"
 --
--- would yield a widget displaying the temperature in Farenheit with a
--- small label after it.
+-- would yield a widget displaying the temperature in Farenheit with a small
+-- label after it.
 --
--- Implementation Note: the weather data parsing code is taken from
--- xmobar.  This version of the code makes direct HTTP requests
--- instead of invoking a separate cURL process.
+-- Implementation Note: the weather data parsing code is taken from xmobar. This
+-- version of the code makes direct HTTP requests instead of invoking a separate
+-- cURL process.
 module System.Taffybar.Widget.Weather
   ( WeatherConfig(..)
   , WeatherInfo(..)
@@ -80,22 +78,22 @@ import Text.StringTemplate
 
 import System.Taffybar.Widget.Generic.PollingLabel
 
-data WeatherInfo =
-    WI { stationPlace :: String
-       , stationState :: String
-       , year         :: String
-       , month        :: String
-       , day          :: String
-       , hour         :: String
-       , wind         :: String
-       , visibility   :: String
-       , skyCondition :: String
-       , tempC        :: Int
-       , tempF        :: Int
-       , dewPoint     :: String
-       , humidity     :: Int
-       , pressure     :: Int
-       } deriving (Show)
+data WeatherInfo = WI
+  { stationPlace :: String
+  , stationState :: String
+  , year :: String
+  , month :: String
+  , day :: String
+  , hour :: String
+  , wind :: String
+  , visibility :: String
+  , skyCondition :: String
+  , tempC :: Int
+  , tempF :: Int
+  , dewPoint :: String
+  , humidity :: Int
+  , pressure :: Int
+  } deriving (Show)
 
 
 -- Parsers stolen from xmobar

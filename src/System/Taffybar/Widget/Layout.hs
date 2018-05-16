@@ -1,17 +1,17 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.Layout
--- Copyright   : (c) José A. Romero L.
+-- Copyright   : (c) Ivan Malison
 -- License     : BSD3-style (see LICENSE)
 --
--- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Maintainer  : Ivan Malison <IvanMalison@gmail.com>
 -- Stability   : unstable
 -- Portability : unportable
 --
--- Simple text widget that shows the XMonad layout used in the currently
--- active workspace, and that allows to change it by clicking with the
--- mouse: left-click to switch to the next layout in the list, right-click
--- to switch to the first one (as configured in @xmonad.hs@)
+-- Simple text widget that shows the XMonad layout used in the currently active
+-- workspace, and that allows to change it by clicking with the mouse:
+-- left-click to switch to the next layout in the list, right-click to switch to
+-- the first one (as configured in @xmonad.hs@)
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Widget.Layout
