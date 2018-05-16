@@ -20,7 +20,7 @@ import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import           Control.Exception (catch, SomeException)
 import           Control.Monad
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Maybe (MaybeT(..))
 import           Data.Maybe ( mapMaybe )
 import           Data.Time.Clock

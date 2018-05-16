@@ -24,7 +24,9 @@ module System.Taffybar.Widget.Windows (
   , truncatedGetMenuLabel
 ) where
 
-import           Control.Monad.Reader
+import           Control.Monad
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Reader
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs

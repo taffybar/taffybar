@@ -13,7 +13,8 @@ module System.Taffybar.Information.Battery
 
 import           Control.Concurrent
 import           Control.Monad
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Reader
 import           DBus

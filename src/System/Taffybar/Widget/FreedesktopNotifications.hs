@@ -31,7 +31,7 @@ module System.Taffybar.Widget.FreedesktopNotifications
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Monad ( forever, void )
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import           DBus
 import           DBus.Client
 import           Data.Foldable

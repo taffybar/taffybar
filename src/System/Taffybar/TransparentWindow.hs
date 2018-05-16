@@ -16,7 +16,7 @@
 -----------------------------------------------------------------------------
 module System.Taffybar.TransparentWindow where
 
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
 import           Data.GI.Base
 import           Foreign.Ptr (castPtr)

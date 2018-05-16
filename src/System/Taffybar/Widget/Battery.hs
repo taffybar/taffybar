@@ -22,7 +22,7 @@ module System.Taffybar.Widget.Battery ( textBatteryNew, batteryIconNew ) where
 
 import           Control.Applicative
 import           Control.Monad
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
 import           Data.Int (Int64)
 import qualified Data.Text as T

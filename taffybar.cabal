@@ -65,7 +65,6 @@ library
                , haskell-gi >= 0.21.2
                , haskell-gi-base >= 0.21.1
                , hslogger
-               , mtl >= 2
                , multimap >= 1.2.1
                , old-locale
                , parsec >= 3.1

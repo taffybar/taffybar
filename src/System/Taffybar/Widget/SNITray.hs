@@ -10,7 +10,7 @@
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.SNITray where
 
-import           Control.Monad.Trans
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import qualified GI.Gtk
 import           Graphics.UI.GIGtkStrut

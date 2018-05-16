@@ -2,7 +2,7 @@ module System.Taffybar.Widget.Generic.AutoSizeImage where
 
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import           Data.Int
 import qualified GI.Gdk as Gdk
 import qualified GI.GdkPixbuf.Enums as Gdk

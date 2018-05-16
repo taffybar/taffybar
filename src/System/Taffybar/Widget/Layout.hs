@@ -23,7 +23,8 @@ module System.Taffybar.Widget.Layout
   , layoutNew
   ) where
 
-import           Control.Monad.Reader
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Reader
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
 import           System.Taffybar.Context

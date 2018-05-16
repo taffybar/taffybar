@@ -2,7 +2,7 @@
 -- very well since it is based on eggtraymanager.
 module System.Taffybar.Widget.Systray {-# DEPRECATED "Use SNITray instead" #-} ( systrayNew ) where
 
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Misc.TrayManager
 

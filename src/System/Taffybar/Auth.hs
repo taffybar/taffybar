@@ -2,7 +2,7 @@
 module System.Taffybar.Auth where
 
 import           Control.Arrow
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import           Data.Maybe
 import           System.Taffybar.Util
 import           Text.Regex

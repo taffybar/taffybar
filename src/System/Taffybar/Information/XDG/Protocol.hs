@@ -27,7 +27,7 @@ module System.Taffybar.Information.XDG.Protocol
   ) where
 
 import           Control.Applicative
-import           Control.Monad.Trans
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Data.Char (toLower)
 import           Data.List

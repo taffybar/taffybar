@@ -6,7 +6,7 @@ module System.Taffybar.Widget.Generic.PollingLabel
   , pollingLabelNewWithTooltip
   ) where
 
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import           Control.Exception.Enclosed as E
 import           Control.Monad
 import qualified Data.Text as T

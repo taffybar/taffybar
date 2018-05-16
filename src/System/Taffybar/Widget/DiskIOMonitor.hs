@@ -15,7 +15,7 @@
 
 module System.Taffybar.Widget.DiskIOMonitor ( dioMonitorNew ) where
 
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import qualified Graphics.UI.Gtk as Gtk
 import           System.Taffybar.Information.DiskIO ( getDiskTransfer )
 import           System.Taffybar.Widget.Generic.PollingGraph ( GraphConfig, pollingGraphNew )

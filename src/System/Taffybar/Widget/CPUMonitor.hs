@@ -14,7 +14,7 @@
 --------------------------------------------------------------------------------
 module System.Taffybar.Widget.CPUMonitor where
 
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import Data.IORef
 import Graphics.UI.Gtk
 import System.Taffybar.Information.CPU2 (getCPUInfo)

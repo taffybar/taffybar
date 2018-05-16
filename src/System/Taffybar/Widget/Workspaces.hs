@@ -51,7 +51,8 @@ import           Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Reader
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Reader
 import           Control.RateLimit
 import qualified Data.Foldable as F
 import           Data.List (intersect, sortBy)
@@ -464,6 +465,7 @@ onWorkspaceUpdate context = do
         case event of
           PropertyEvent _ _ _ _ _ atom _ _ ->
             wLog DEBUG $ printf "Event %s" $ show atom
+          _ -> return ()
         void $ forkIO $ rateLimited event
   return withLog
   where

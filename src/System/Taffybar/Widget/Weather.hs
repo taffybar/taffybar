@@ -67,7 +67,7 @@ module System.Taffybar.Widget.Weather
   , defaultWeatherConfig
   ) where
 
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import Graphics.UI.Gtk
 import qualified Network.Browser as Browser
 import Network.HTTP

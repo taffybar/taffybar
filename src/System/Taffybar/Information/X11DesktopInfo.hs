@@ -48,7 +48,10 @@ import Data.Maybe
 
 import Codec.Binary.UTF8.String as UTF8
 import qualified Control.Concurrent.MVar as MV
-import Control.Monad.Reader
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Reader
 import Data.Bits (testBit, (.|.))
 import Data.List.Split (endBy)
 import Graphics.X11.Xlib

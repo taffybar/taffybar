@@ -44,7 +44,8 @@ module System.Taffybar.Information.EWMHDesktopInfo
   ) where
 
 import Control.Applicative
-import Control.Monad.Trans
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import Data.Maybe
 import Data.Tuple
 import Data.Word

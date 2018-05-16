@@ -5,11 +5,11 @@ module System.Taffybar.Hooks
   ) where
 
 import Control.Concurrent
-import Control.Monad.Trans
+import Control.Monad.Trans.Class
 import System.Taffybar.Context
 import System.Taffybar.DBus
-import System.Taffybar.Information.Network
 import System.Taffybar.Information.Battery
+import System.Taffybar.Information.Network
 
 newtype NetworkInfoChan = NetworkInfoChan (Chan [(String, (Rational, Rational))])
 

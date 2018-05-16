@@ -17,25 +17,25 @@ module System.Taffybar.Information.SafeX11
   )
   where
 
-import           Control.Concurrent
-import           Control.Exception
-import           Control.Monad
-import           Control.Monad.Trans
-import           Control.Monad.Trans.Maybe (MaybeT(..))
-import           Data.Either.Combinators
-import           Data.Typeable
-import           Foreign hiding (void)
-import           Foreign.C.Types
-import           GHC.ForeignPtr
-import           Graphics.X11.Xlib
-import           Graphics.X11.Xlib.Extras
+import Control.Concurrent
+import Control.Exception
+import Control.Monad
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Maybe (MaybeT(..))
+import Data.Either.Combinators
+import Data.Typeable
+import Foreign hiding (void)
+import Foreign.C.Types
+import GHC.ForeignPtr
+import Graphics.X11.Xlib
+import Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,
                getWindowProperty16, getWindowProperty32,
                xGetWMHints, getWMHints, refreshKeyboardMapping)
-import           Prelude
-import           System.IO
-import           System.IO.Unsafe
-import           System.Timeout
+import Prelude
+import System.IO
+import System.IO.Unsafe
+import System.Timeout
 
 foreign import ccall safe "XlibExtras.h XGetWMHints"
     safeXGetWMHints :: Display -> Window -> IO (Ptr WMHints)

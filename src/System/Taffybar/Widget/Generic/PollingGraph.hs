@@ -14,7 +14,7 @@ module System.Taffybar.Widget.Generic.PollingGraph (
 import           Control.Concurrent
 import qualified Control.Exception.Enclosed as E
 import           Control.Monad
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import           Graphics.UI.Gtk
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.Graph

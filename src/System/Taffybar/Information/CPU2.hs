@@ -20,7 +20,7 @@
 module System.Taffybar.Information.CPU2 where
 
 import Control.Monad
-import Control.Monad.Reader()
+import Control.Monad.Trans.Reader
 import Data.List
 import Data.Maybe
 import Safe

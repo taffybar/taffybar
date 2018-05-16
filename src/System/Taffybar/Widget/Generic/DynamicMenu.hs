@@ -1,6 +1,6 @@
 module System.Taffybar.Widget.Generic.DynamicMenu where
 
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import qualified GI.Gtk as Gtk
 import           System.Taffybar.Widget.Util
 

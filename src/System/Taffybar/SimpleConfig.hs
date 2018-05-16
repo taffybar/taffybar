@@ -19,7 +19,7 @@ module System.Taffybar.SimpleConfig
   ) where
 
 import qualified Control.Concurrent.MVar as MV
-import           Control.Monad.Trans
+import           Control.Monad.Trans.Class
 import           Data.List
 import           Data.Maybe
 import           Data.Unique

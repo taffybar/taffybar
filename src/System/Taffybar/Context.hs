@@ -22,7 +22,8 @@ import           Control.Concurrent (forkIO)
 import qualified Control.Concurrent.MVar as MV
 import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import qualified DBus.Client as DBus

@@ -3,7 +3,7 @@ module System.Taffybar.Widget.Volume
   , volumeControlNew
   ) where
 
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import Graphics.UI.Gtk
 import System.Taffybar.Information.Volume
 import System.Taffybar.Widget.Generic.PollingLabel

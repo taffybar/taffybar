@@ -12,7 +12,8 @@
 
 module System.Taffybar.Information.MPRIS2 where
 
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import qualified DBus
@@ -23,8 +24,8 @@ import           Data.Coerce
 import           Data.List
 import qualified Data.Map as M
 import           Data.Maybe
-import           System.Taffybar.DBus.Client.MPRIS2
 import           System.Log.Logger
+import           System.Taffybar.DBus.Client.MPRIS2
 import           Text.Printf
 
 data NowPlaying = NowPlaying

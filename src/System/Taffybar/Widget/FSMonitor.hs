@@ -16,7 +16,7 @@
 
 module System.Taffybar.Widget.FSMonitor ( fsMonitorNew ) where
 
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import qualified Graphics.UI.Gtk as Gtk
 import           System.Process ( readProcess )
 import           System.Taffybar.Widget.Generic.PollingLabel ( pollingLabelNew )

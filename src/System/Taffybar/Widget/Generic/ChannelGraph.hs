@@ -2,7 +2,7 @@ module System.Taffybar.Widget.Generic.ChannelGraph where
 
 import Control.Concurrent
 import Control.Monad
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import Graphics.UI.Gtk
 import System.Taffybar.Widget.Generic.Graph
 

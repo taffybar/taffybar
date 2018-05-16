@@ -31,7 +31,10 @@ module System.Taffybar.Information.XDG.DesktopEntry
   , listDesktopEntries
   ) where
 
-import           Control.Monad.Except
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Except
 import           Data.Char
 import qualified Data.ConfigFile as CF
 import           Data.List

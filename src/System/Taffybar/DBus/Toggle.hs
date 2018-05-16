@@ -18,15 +18,15 @@ module System.Taffybar.DBus.Toggle ( handleDBusToggles ) where
 import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
-import           Control.Monad.Trans
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           DBus
 import           DBus.Client
 import           Data.Int
 import qualified Data.Map as M
-import qualified GI.Gdk as Gdk
 import           Data.Maybe
+import qualified GI.Gdk as Gdk
 import           Graphics.UI.GIGtkStrut
 import           Paths_taffybar ( getDataDir )
 import           Prelude

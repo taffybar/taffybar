@@ -14,7 +14,8 @@ module System.Taffybar.Util where
 import           Control.Arrow ((&&&))
 import           Control.Concurrent
 import           Control.Monad
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import           Data.Tuple.Sequence
 import qualified GI.GLib as GLib

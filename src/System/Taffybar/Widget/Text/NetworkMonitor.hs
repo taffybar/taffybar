@@ -1,7 +1,7 @@
 module System.Taffybar.Widget.Text.NetworkMonitor where
 
 import           Control.Monad
-import           Control.Monad.Trans
+import           Control.Monad.Trans.Class
 import qualified Data.Text as T
 import           GI.Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs

@@ -14,7 +14,7 @@
 
 module System.Taffybar.Widget.CommandRunner ( commandRunnerNew ) where
 
-import           Control.Monad.Trans
+import           Control.Monad.IO.Class
 import qualified Graphics.UI.Gtk as Gtk
 import           System.Log.Logger
 import           System.Taffybar.Util

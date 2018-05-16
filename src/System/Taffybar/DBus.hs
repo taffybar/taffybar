@@ -6,7 +6,7 @@ module System.Taffybar.DBus
   , withToggleServer
   ) where
 
-import Control.Monad.Trans
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import System.Log.DBus.Server
 import System.Taffybar.Context
