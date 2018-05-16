@@ -8,6 +8,7 @@ import           Control.Monad.Trans
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Int
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
@@ -20,6 +21,7 @@ import           Network.HTTP.Simple
 import           System.Log.Logger
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Util
+import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.DynamicMenu
 import           System.Taffybar.Widget.Util
 import           Text.Printf
@@ -30,7 +32,7 @@ ghLog = logM "System.Taffybar.Widget.GitHubNotifications"
 data GitHubConfig = GitHubConfig
   { ghAuth :: Auth.Auth
   , ghGetLabelText :: Either Error (V.Vector Notification) -> T.Text
-  , ghGetPixbuf :: Either Error (V.Vector Notification) -> IO PB.Pixbuf
+  , ghGetPixbuf :: MV.MVar (Either Error (V.Vector Notification)) -> Int32 -> IO PB.Pixbuf
   , ghRefreshSeconds :: Rational
   }
 
@@ -42,7 +44,7 @@ defaultGithubConfig :: Auth -> GitHubConfig
 defaultGithubConfig auth = GitHubConfig
   { ghAuth = auth
   , ghGetLabelText = T.pack . errorOrNotifsLength
-  , ghGetPixbuf = const $ loadIcon 20 "github.svg"
+  , ghGetPixbuf = const $ flip loadIcon "github.svg"
   , ghRefreshSeconds = 15
   }
 
@@ -61,6 +63,7 @@ githubNotificationsNew config@GitHubConfig
   let getLabelText = getLabelTextFromNotifs <$> MV.readMVar notificationsVar
 
   grid <- Gtk.gridNew
+  vFillCenter grid
   label <- (Just <$> getLabelText) >>= Gtk.labelNew
   _ <- Gtk.onWidgetRealize label $ do
     refreshThreadID <- foreverWithDelay refreshSeconds $ do
@@ -72,16 +75,15 @@ githubNotificationsNew config@GitHubConfig
       runOnUIThread $ getLabelText >>= Gtk.labelSetMarkup label
     void $ Gtk.onWidgetDestroy label $ killThread refreshThreadID
     return ()
-  image <- MV.readMVar notificationsVar >>=
-           getPixbuf >>=
-           Gtk.imageNewFromPixbuf . Just
+
+  image <- autoSizeImageNew (getPixbuf notificationsVar) Gtk.OrientationHorizontal
+  vFillCenter image
 
   Gtk.containerAdd grid image
   Gtk.containerAdd grid label
+
   -- TODO: make spacing configurable
   Gtk.gridSetColumnSpacing grid 3
-  Gtk.setWidgetValign grid Gtk.AlignCenter
-  Gtk.setWidgetHalign grid Gtk.AlignCenter
   Gtk.widgetShowAll grid
   widget <- Gtk.toWidget grid
 
