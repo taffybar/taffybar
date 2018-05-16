@@ -148,6 +148,12 @@ alignCenter widget =
   GI.Gtk.setWidgetValign widget GI.Gtk.AlignCenter >>
   GI.Gtk.setWidgetHalign widget GI.Gtk.AlignCenter
 
+vFillCenter :: (GI.Gtk.IsWidget o, MonadIO m) => o -> m ()
+vFillCenter widget =
+  GI.Gtk.widgetSetVexpand widget True >>
+  GI.Gtk.setWidgetValign widget GI.Gtk.AlignFill >>
+  GI.Gtk.setWidgetHalign widget GI.Gtk.AlignCenter
+
 pixbufNewFromFileAtScaleByHeight :: Int32 -> String -> IO PB.Pixbuf
 pixbufNewFromFileAtScaleByHeight height name =
   PB.pixbufNewFromFileAtScale name (-1) height True

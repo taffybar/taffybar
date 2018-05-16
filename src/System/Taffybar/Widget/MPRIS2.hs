@@ -37,6 +37,7 @@ import           System.Taffybar.DBus.Client.MPRIS2
 import           System.Taffybar.Information.MPRIS2
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
+import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Util
 import           Text.Printf
 
@@ -51,36 +52,36 @@ data MPRIS2PlayerWidget = MPRIS2PlayerWidget
 mpris2New :: TaffyIO Gtk2hs.Widget
 mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
   grid <- Gtk.gridNew
-  alignCenter grid
+  vFillCenter grid
   playerWidgetsVar <- MV.newMVar []
   let
     newPlayerWidget :: BusName -> IO MPRIS2PlayerWidget
     newPlayerWidget busName =
       do
-        -- TODO: Size the image dynamically
-        let logErrorAndLoadDefault err =
+        let logErrorAndLoadDefault size err =
               mprisLog WARNING "Failed to get MPRIS icon: %s" err >>
               mprisLog WARNING "MPRIS failure for: %s" busName >>
-                       loadIcon 20 "play.svg"
+                       loadIcon size "play.svg"
             makeExcept :: String -> (a -> IO (Maybe b)) -> a -> ExceptT String IO b
             makeExcept errorString actionBuilder =
               ExceptT . fmap (maybeToEither errorString) . actionBuilder
-        pixbuf <-
-          either logErrorAndLoadDefault return =<< runExceptT
-          (   ExceptT (left show <$> getDesktopEntry client busName)
-          >>= makeExcept "Failed to get desktop entry" getDirectoryEntryDefault
-          >>= makeExcept "Failed to get image" (getImageForDesktopEntry 30)
-          )
+            loadIconAtSize size =
+              either (logErrorAndLoadDefault size) return =<< runExceptT
+              (   ExceptT (left show <$> getDesktopEntry client busName)
+              >>= makeExcept "Failed to get desktop entry" getDirectoryEntryDefault
+              >>= makeExcept "Failed to get image" (getImageForDesktopEntry size)
+              )
 
-        image <- Gtk.imageNewFromPixbuf $ Just pixbuf
+        image <- autoSizeImageNew loadIconAtSize Gtk.OrientationHorizontal
         playerBox <- Gtk.gridNew
         label <- Gtk.labelNew Nothing
 
         Gtk.containerAdd playerBox image
         Gtk.containerAdd playerBox label
-        alignCenter playerBox
+        vFillCenter playerBox
 
         Gtk.containerAdd grid playerBox
+        Gtk.widgetSetVexpand playerBox True
         Gtk.widgetHide playerBox
         return MPRIS2PlayerWidget {playerLabel = label, playerGrid = playerBox}
 
