@@ -36,14 +36,28 @@ scalePixbufToSize size orientation pixbuf = do
     Gtk.OrientationHorizontal -> doScale (getOther height width) size
     _ -> doScale size $ getOther width height
 
+-- | Call "autoSizeImageNew'", but automatically scale the pixbuf returned from
+-- the provided getter to the appropriate size. Ignores the refresh argument
+-- provided by "autoSizeImageNew'"
 autoSizeImageNew
   :: MonadIO m
   => (Int32 -> IO Gdk.Pixbuf) -> Gtk.Orientation -> m Gtk.Image
-autoSizeImageNew getPixBuf orientation = liftIO $ do
+autoSizeImageNew getPixBuf orientation =
+  fst <$> autoSizeImageNew'
+  (\size -> Just <$> (getPixBuf size >>= scalePixbufToSize size orientation))
+  orientation
+
+-- | Make a Gtk.Image that automatically updates the pixbuf it contains with the
+-- provided function whenever it is allocated. Returns the image along with an
+-- IO action which will force a refresh.
+autoSizeImageNew'
+  :: MonadIO m
+  => (Int32 -> IO (Maybe Gdk.Pixbuf)) -> Gtk.Orientation -> m (Gtk.Image, IO ())
+autoSizeImageNew' getPixBuf orientation = liftIO $ do
   image <- Gtk.imageNew
   Gtk.widgetSetVexpand image True
   lastAllocation <- MV.newMVar 0
-  let setPixbuf allocation = do
+  let setPixbuf force allocation = do
         currentWidth <- Gdk.getRectangleWidth allocation
         currentHeight <- Gdk.getRectangleHeight allocation
 
@@ -61,11 +75,11 @@ autoSizeImageNew getPixBuf orientation = liftIO $ do
                  (show currentWidth)
                  (show currentHeight)
                  (show requestResize)
-        when requestResize $ do
+        when (requestResize || force) $ do
           imageLog DEBUG "Requesting resize"
           -- Gtk.widgetSetSizeRequest image size size
-          getPixBuf size >>= scalePixbufToSize size orientation >>= Gtk.imageSetFromPixbuf image . Just
+          getPixBuf size >>= Gtk.imageSetFromPixbuf image
           runOnUIThread $ Gtk.widgetQueueResize image
 
-  _ <- Gtk.onWidgetSizeAllocate image setPixbuf
-  return image
+  _ <- Gtk.onWidgetSizeAllocate image $ setPixbuf False
+  return (image, Gtk.widgetGetAllocation image >>= setPixbuf True)
