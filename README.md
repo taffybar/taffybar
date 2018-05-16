@@ -25,7 +25,7 @@ follow the installation instructions for
 install taffybar.
 
 In addition the the dependencies needed by haskell-gi, taffybar also needs the
-equivalent of libdbusmenu-gtk3-dev and libgirepository1.0-dev on Debian.
+equivalent of `libdbusmenu-gtk3-dev` and `libgirepository1.0-dev` on Debian.
 
 Installation
 ------------
@@ -66,7 +66,7 @@ Configuration
 
 Like xmobar and XMonad, taffybar is configured in haskell. Taffybar depends on
 dyre to automatically detect changes to its configuration file
-($XDG_CONFIG_HOME/taffybar/taffybar.hs) and recompile when appropriate.
+(`$XDG_CONFIG_HOME/taffybar/taffybar.hs`) and recompile when appropriate.
 
 For more details about how to configure taffybar, see the [full
 documentation](https://hackage.haskell.org/package/taffybar). You can find a
