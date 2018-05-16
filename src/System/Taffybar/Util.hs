@@ -35,6 +35,9 @@ logPrintF
 logPrintF logPath priority format toPrint =
   liftIO $ logM logPath priority $ printf format $ show toPrint
 
+logPrintFDebug :: (MonadIO m, Show t) => String -> String -> t -> m ()
+logPrintFDebug path = logPrintF path DEBUG
+
 infixl 4 ??
 (??) :: Functor f => f (a -> b) -> a -> f b
 fab ?? a = fmap ($ a) fab

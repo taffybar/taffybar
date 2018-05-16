@@ -23,6 +23,7 @@ import           Data.Int
 import qualified Data.Text as T
 import           Data.Tuple.Sequence
 import qualified GI.GdkPixbuf.Objects.Pixbuf as GI
+import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 import qualified GI.Gtk
 import           Graphics.UI.Gtk as Gtk
 import           Graphics.UI.Gtk.General.StyleContext
@@ -30,10 +31,10 @@ import           System.Directory
 import           System.FilePath.Posix
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.XDG.DesktopEntry
+import           System.Taffybar.Util
 import           Text.Printf
-import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 
-import Paths_taffybar ( getDataDir )
+import           Paths_taffybar ( getDataDir )
 
 -- | Execute the given action as a response to any of the given types
 -- of mouse button clicks.
@@ -131,6 +132,8 @@ getImageForDesktopEntry size entry = runMaybeT $ do
   MaybeT $ do
     iconTheme <- GI.Gtk.iconThemeGetDefault
     hasIcon <- GI.Gtk.iconThemeHasIcon iconTheme iconNameText
+    logPrintFDebug "System.Taffybar.Widget.Util" "Entry: %s" entry
+    logPrintFDebug "System.Taffybar.Widget.Util" "Icon present: %s" hasIcon
     if hasIcon
     then
       GI.Gtk.iconThemeLoadIcon iconTheme iconNameText size themeLoadFlags

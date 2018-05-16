@@ -15,9 +15,11 @@
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.MPRIS2 ( mpris2New ) where
 
+import           Control.Arrow
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.Trans
+import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           DBus
@@ -30,6 +32,7 @@ import           Data.List
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
+import           System.Log.Logger
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.DBus.Client.MPRIS2
@@ -37,8 +40,10 @@ import           System.Taffybar.Information.MPRIS2
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
-import           System.Log.Logger
 import           Text.Printf
+
+mprisLog :: (MonadIO m, Show t) => String -> t -> m ()
+mprisLog = logPrintF "System.Taffybar.Widget.MPRIS2"
 
 data MPRIS2PlayerWidget = MPRIS2PlayerWidget
   { playerLabel :: Gtk.Label
@@ -55,11 +60,18 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
     newPlayerWidget busName =
       do
         -- TODO: Size the image dynamically
+        let logErrorAndLoadDefault err =
+              mprisLog WARNING "Failed to get MPRIS icon: %s" err >>
+              mprisLog WARNING "MPRIS failure for: %s" busName >>
+                       loadIcon 20 "play.svg"
+            makeExcept :: String -> (a -> IO (Maybe b)) -> a -> ExceptT String IO b
+            makeExcept errorString actionBuilder =
+              ExceptT . fmap (maybeToEither errorString) . actionBuilder
         pixbuf <-
-          maybe (loadIcon 20 "play.svg") return =<< runMaybeT
-          (   MaybeT (rightToMaybe <$> getDesktopEntry client busName)
-          >>= MaybeT . getDirectoryEntryDefault
-          >>= MaybeT . getImageForDesktopEntry 30
+          either logErrorAndLoadDefault return =<< runExceptT
+          (   ExceptT (left show <$> getDesktopEntry client busName)
+          >>= makeExcept "Failed to get desktop entry" getDirectoryEntryDefault
+          >>= makeExcept "Failed to get image" (getImageForDesktopEntry 30)
           )
 
         image <- Gtk.imageNewFromPixbuf $ Just pixbuf
