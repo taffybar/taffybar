@@ -627,6 +627,7 @@ updateImages :: IconController -> Workspace -> WorkspacesIO [IconWidget]
 updateImages ic ws = do
   WorkspacesContext {hudConfig = cfg} <- ask
   sortedWindows <- iconSort cfg $ windows ws
+  wLog DEBUG $ printf "Updating images for %s" (show ws)
   let updateIconWidget' getImageAction wdata ton = do
         iconWidget <- getImageAction
         _ <- updateIconWidget ic iconWidget wdata ton
@@ -716,17 +717,31 @@ updateIconWidget _ IconWidget
                 _ -> info
         lift $ do
           mpixBuf <- getPixBuf imgSize iconInfo
+          wLog DEBUG $ printf "Updating image for %s. pixbuf isJust: %s"
+                 (show windowData) (show $ isJust mpixBuf)
           setImage imgSize image mpixBuf
           updateWidgetClasses iconButton [statusString] possibleStatusStrings
 
-  void $ updateVar windowRef $ const $ setIconWidgetProperties >> return windowData
+  void $ updateVar windowRef $ const $ return windowData
+  setIconWidgetProperties
 
 setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
 setImage imgSize img pixBuf =
   case pixBuf of
     Just pixbuf -> do
+      width <- Gtk.pixbufGetWidth pixbuf
+      height <- Gtk.pixbufGetHeight pixbuf
+      wLog DEBUG $ printf "Scaling pixbuf t: %s w: %s h: %s"
+                 (show imgSize) (show width) (show height)
+      -- XXX: For some reason, it seems to be important that the pixbuf is an
+      -- actual copy of the provided pixbuf. If it isn't, we get a hang on
+      -- Gtk.imageSetFromPixbuf. This could have to do with the fact that we are
+      -- using GI function calls to fetch the pixbuf. Maybe the memory is
+      -- getting freed somewhere?
       scaledPixbuf <- scalePixbuf imgSize pixbuf
+      wLog DEBUG "Scaled pixbuf"
       Gtk.imageSetFromPixbuf img scaledPixbuf
+      wLog DEBUG "Finished setting icon"
     Nothing -> Gtk.imageClear img
 
 selectEWMHIcon :: Int -> [EWMHIcon] -> EWMHIcon

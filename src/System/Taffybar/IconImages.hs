@@ -33,14 +33,8 @@ type ColorRGBA = (Word8, Word8, Word8, Word8)
 
 -- | Take the passed in pixbuf and scale it to the provided imageSize.
 scalePixbuf :: Int -> Gtk.Pixbuf -> IO Gtk.Pixbuf
-scalePixbuf imgSize pixbuf = do
-  h <- Gtk.pixbufGetHeight pixbuf
-  w <- Gtk.pixbufGetWidth pixbuf
-  if h /= imgSize || w /= imgSize
-  then
-    Gtk.pixbufScaleSimple pixbuf imgSize imgSize Gtk.InterpBilinear
-  else
-    return pixbuf
+scalePixbuf imgSize pixbuf =
+  Gtk.pixbufScaleSimple pixbuf imgSize imgSize Gtk.InterpBilinear
 
 sampleBits :: Int
 sampleBits = 8
