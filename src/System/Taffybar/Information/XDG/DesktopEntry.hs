@@ -33,7 +33,6 @@ module System.Taffybar.Information.XDG.DesktopEntry
 
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Data.Char
 import qualified Data.ConfigFile as CF

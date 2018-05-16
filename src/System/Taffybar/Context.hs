@@ -43,7 +43,7 @@ import           System.Log.Logger
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
-import           System.Taffybar.TransparentWindow
+import           StatusNotifier.TransparentWindow
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
