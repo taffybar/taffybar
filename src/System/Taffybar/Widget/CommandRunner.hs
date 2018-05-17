@@ -37,7 +37,7 @@ commandRunnerNew interval cmd args defaultOutput =
 
 runCommandWithDefault :: FilePath -> [String] -> String -> IO String
 runCommandWithDefault cmd args def =
-  runCommand cmd args >>= either logError return
+  filter (/= '\n') <$> (runCommand cmd args >>= either logError return)
   where logError err =
           logM "System.Taffybar.Widget.CommandRunner" ERROR
                (printf "Got error in CommandRunner %s" err) >> return def

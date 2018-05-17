@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 -- | This is a simple text widget that updates its contents by calling
 -- a callback at a set interval.
 module System.Taffybar.Widget.Generic.PollingLabel
@@ -6,15 +5,16 @@ module System.Taffybar.Widget.Generic.PollingLabel
   , pollingLabelNewWithTooltip
   ) where
 
-import           Control.Monad.IO.Class
 import           Control.Exception.Enclosed as E
 import           Control.Monad
+import           Control.Monad.IO.Class
 import qualified Data.Text as T
 import           GI.Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Decorators
+import           System.Taffybar.Widget.Util
 
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
@@ -45,15 +45,20 @@ pollingLabelNewWithTooltip
   -> IO (String, Maybe String) -- ^ Command to run to get the input string
   -> m Gtk2hs.Widget
 pollingLabelNewWithTooltip initialString interval cmd =
-  liftIO $ buildPadBox =<< fromGIWidget =<< do
-    l <- labelNew $ Just $ T.pack initialString
+  liftIO $ fromGIWidget =<< do
+    grid <- gridNew
+    label <- labelNew $ Just $ T.pack initialString
 
     let updateLabel (labelStr, tooltipStr) =
           runOnUIThread $ do
-            labelSetMarkup l $ T.pack labelStr
-            widgetSetTooltipMarkup l $ T.pack <$> tooltipStr
+            labelSetMarkup label $ T.pack labelStr
+            widgetSetTooltipMarkup label $ T.pack <$> tooltipStr
 
-    _ <- onWidgetRealize l $ void $ foreverWithDelay interval $
+    _ <- onWidgetRealize label $ void $ foreverWithDelay interval $
       E.tryAny cmd >>= either (const $ return ()) updateLabel
 
-    toWidget l
+    vFillCenter label
+    vFillCenter grid
+    containerAdd grid label
+    widgetShowAll grid
+    toWidget grid
