@@ -15,25 +15,29 @@ import           Text.Printf
 imageLog :: Priority -> String -> IO ()
 imageLog = logM "System.Taffybar.Widget.Generic.AutoSizeImage"
 
--- | Call "autoSizeImageNew'", but automatically scale the pixbuf returned from
--- the provided getter to the appropriate size. Ignores the refresh argument
--- provided by "autoSizeImageNew'"
+-- | Make a new image and call "autoSizeImage" on it. Automatically scale the
+-- pixbuf returned from the provided getter to the appropriate size. Ignores the
+-- refresh argument provided by "autoSizeImage".
 autoSizeImageNew
   :: MonadIO m
   => (Int32 -> IO Gdk.Pixbuf) -> Gtk.Orientation -> m Gtk.Image
-autoSizeImageNew getPixBuf orientation =
-  fst <$> autoSizeImageNew'
-  (\size -> Just <$> (getPixBuf size >>= scalePixbufToSize size orientation))
-  orientation
-
--- | Make a Gtk.Image that automatically updates the pixbuf it contains with the
--- provided function whenever it is allocated. Returns the image along with an
--- IO action which will force a refresh.
-autoSizeImageNew'
-  :: MonadIO m
-  => (Int32 -> IO (Maybe Gdk.Pixbuf)) -> Gtk.Orientation -> m (Gtk.Image, IO ())
-autoSizeImageNew' getPixBuf orientation = liftIO $ do
+autoSizeImageNew getPixBuf orientation = do
   image <- Gtk.imageNew
+  void $ autoSizeImage image
+         (\size -> Just <$> (getPixBuf size >>= scalePixbufToSize size orientation))
+         orientation
+  return image
+
+-- | Automatically update an images pixbuf using the provided action whenever
+-- the image is allocated. Returns an action that forces a refresh of the image
+-- through the provided action.
+autoSizeImage
+  :: MonadIO m
+  => Gtk.Image
+  -> (Int32 -> IO (Maybe Gdk.Pixbuf))
+  -> Gtk.Orientation
+  -> m (IO ())
+autoSizeImage image getPixBuf orientation = liftIO $ do
   Gtk.widgetSetVexpand image True
   lastAllocation <- MV.newMVar 0
   let setPixbuf force allocation = do
@@ -56,9 +60,8 @@ autoSizeImageNew' getPixBuf orientation = liftIO $ do
                  (show requestResize)
         when (requestResize || force) $ do
           imageLog DEBUG "Requesting resize"
-          -- Gtk.widgetSetSizeRequest image size size
           getPixBuf size >>= Gtk.imageSetFromPixbuf image
           runOnUIThread $ Gtk.widgetQueueResize image
 
   _ <- Gtk.onWidgetSizeAllocate image $ setPixbuf False
-  return (image, Gtk.widgetGetAllocation image >>= setPixbuf True)
+  return $ Gtk.widgetGetAllocation image >>= setPixbuf True

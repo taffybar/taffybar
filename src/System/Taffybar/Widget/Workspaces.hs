@@ -729,10 +729,10 @@ setImage :: Int -> Gtk.Image -> Maybe Gtk.Pixbuf -> IO ()
 setImage imgSize img pixBuf =
   case pixBuf of
     Just pixbuf -> do
-      width <- Gtk.pixbufGetWidth pixbuf
-      height <- Gtk.pixbufGetHeight pixbuf
+      currentWidth <- Gtk.pixbufGetWidth pixbuf
+      currentHeight <- Gtk.pixbufGetHeight pixbuf
       wLog DEBUG $ printf "Scaling pixbuf t: %s w: %s h: %s"
-                 (show imgSize) (show width) (show height)
+                 (show imgSize) (show currentWidth) (show currentHeight)
       -- XXX: For some reason, it seems to be important that the pixbuf is an
       -- actual copy of the provided pixbuf. If it isn't, we get a hang on
       -- Gtk.imageSetFromPixbuf. This could have to do with the fact that we are

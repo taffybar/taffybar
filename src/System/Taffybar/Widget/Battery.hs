@@ -29,10 +29,12 @@ import qualified Data.Text as T
 import           GI.Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
 import           Prelude
+import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.Battery
 import           System.Taffybar.Util
+import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.ChannelWidget
 import           Text.Printf
 import           Text.StringTemplate
@@ -111,12 +113,11 @@ batteryIconNew = fromGIWidget =<< do
   liftIO $ do
     image <- imageNew
     defaultTheme <- iconThemeGetDefault
-    let setIconByName name = runOnUIThread $ void $
-          iconThemeLoadIcon defaultTheme name 20 themeLoadFlags >>=
-          imageSetFromPixbuf image
-        getBatteryInfoIO = runReaderT getDisplayBatteryInfo ctx
-        updateImage = setIconByName . T.pack . batteryIconName
-    void $ onWidgetRealize image $
-         T.pack . batteryIconName <$> getBatteryInfoIO >>=
-         setIconByName
-    toWidget =<< channelWidgetNew image chan updateImage
+    let getCurrentBatteryIconNameString =
+          T.pack . batteryIconName <$> runReaderT getDisplayBatteryInfo ctx
+        setIconForSize size = do
+          name <- getCurrentBatteryIconNameString
+          iconThemeLoadIcon defaultTheme name size themeLoadFlags >>=
+                            traverse (scalePixbufToSize size OrientationHorizontal)
+    updateImage <- autoSizeImage image setIconForSize OrientationHorizontal
+    toWidget =<< channelWidgetNew image chan (const $ runOnUIThread $ updateImage)
