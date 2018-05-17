@@ -744,8 +744,8 @@ setImage imgSize img pixBuf =
       wLog DEBUG "Finished setting icon"
     Nothing -> Gtk.imageClear img
 
-selectEWMHIcon :: Int -> [EWMHIcon] -> EWMHIcon
-selectEWMHIcon imgSize icons = head prefIcon
+selectEWMHIcon :: Int -> [EWMHIcon] -> Maybe EWMHIcon
+selectEWMHIcon imgSize icons = listToMaybe prefIcon
   where sortedIcons = sortBy (comparing height) icons
         smallestLargerIcon = take 1 $ dropWhile ((<= imgSize) . height) sortedIcons
         largestIcon = take 1 $ reverse sortedIcons
@@ -754,8 +754,8 @@ selectEWMHIcon imgSize icons = head prefIcon
 getPixBuf :: Int -> IconInfo -> IO (Maybe Gtk.Pixbuf)
 getPixBuf imgSize = gpb
   where
-    gpb (IIEWMH iconData) = Just <$>
-      withEWMHIcons iconData (pixBufFromEWMHIcon . selectEWMHIcon imgSize)
+    gpb (IIEWMH iconData) =
+      withEWMHIcons iconData (traverse pixBufFromEWMHIcon . selectEWMHIcon imgSize)
     gpb (IIFilePath file) = Just <$> pixBufFromFile imgSize file
     gpb (IIColor color) = Just <$> pixBufFromColor imgSize color
     gpb _ = return Nothing
