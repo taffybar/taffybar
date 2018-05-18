@@ -27,6 +27,7 @@ module System.Taffybar.Widget.Windows (
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
+import           Data.GI.Gtk.Threading
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
@@ -78,7 +79,7 @@ windowsNew :: WindowsConfig -> TaffyIO Gtk2hs.Widget
 windowsNew config = (`widgetSetClass` "Windows") =<< fromGIWidget =<< do
   label <- lift $ Gtk.labelNew Nothing
 
-  let setLabelTitle title = lift $ runOnUIThread $ Gtk.labelSetMarkup label (T.pack title)
+  let setLabelTitle title = lift $ postGUIASync $ Gtk.labelSetMarkup label (T.pack title)
       activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
 
   subscription <- subscribeToEvents ["_NET_ACTIVE_WINDOW"] activeWindowUpdatedCallback

@@ -24,6 +24,7 @@ import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
+import           Data.GI.Gtk.Threading
 import           Data.Int (Int64)
 import qualified Data.Text as T
 import           GI.Gtk
@@ -33,7 +34,6 @@ import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.Battery
-import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.ChannelWidget
 import           Text.Printf
@@ -98,7 +98,7 @@ textBatteryNew format = fromGIWidget =<< do
       getBatteryInfoIO = runReaderT getDisplayBatteryInfo ctx
   liftIO $ do
     label <- getLabelText <$> getBatteryInfoIO >>= labelNew . Just
-    let setMarkup text = runOnUIThread $ labelSetMarkup label text
+    let setMarkup text = postGUIASync $ labelSetMarkup label text
         updateWidget = setMarkup . getLabelText
     void $ onWidgetRealize label $ getLabelText <$> getBatteryInfoIO >>= setMarkup
     toWidget =<< channelWidgetNew label chan updateWidget
@@ -120,4 +120,4 @@ batteryIconNew = fromGIWidget =<< do
           iconThemeLoadIcon defaultTheme name size themeLoadFlags >>=
                             traverse (scalePixbufToSize size OrientationHorizontal)
     updateImage <- autoSizeImage image setIconForSize OrientationHorizontal
-    toWidget =<< channelWidgetNew image chan (const $ runOnUIThread $ updateImage)
+    toWidget =<< channelWidgetNew image chan (const $ postGUIASync $ updateImage)

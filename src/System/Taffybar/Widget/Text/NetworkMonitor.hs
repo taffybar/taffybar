@@ -2,6 +2,7 @@ module System.Taffybar.Widget.Text.NetworkMonitor where
 
 import           Control.Monad
 import           Control.Monad.Trans.Class
+import           Data.GI.Gtk.Threading
 import qualified Data.Text as T
 import           GI.Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
@@ -9,7 +10,6 @@ import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
 import           System.Taffybar.Information.Network
-import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.ChannelWidget
 import           Text.Printf
 import           Text.StringTemplate
@@ -67,5 +67,5 @@ networkMonitorNew template interfaces = fromGIWidget =<< do
     let (up, down) = sumSpeeds $ map snd $ filter (filterFn . fst) speedInfo
         labelString =
           T.pack $ showInfo template 3 (fromRational down, fromRational up)
-    in runOnUIThread $ labelSetMarkup label labelString
+    in postGUIASync $ labelSetMarkup label labelString
   toWidget label

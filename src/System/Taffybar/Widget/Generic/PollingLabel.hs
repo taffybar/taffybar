@@ -8,6 +8,7 @@ module System.Taffybar.Widget.Generic.PollingLabel
 import           Control.Exception.Enclosed as E
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Data.GI.Gtk.Threading
 import qualified Data.Text as T
 import           GI.Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
@@ -49,7 +50,7 @@ pollingLabelNewWithTooltip initialString interval cmd =
     label <- labelNew $ Just $ T.pack initialString
 
     let updateLabel (labelStr, tooltipStr) =
-          runOnUIThread $ do
+          postGUIASync $ do
             labelSetMarkup label $ T.pack labelStr
             widgetSetTooltipMarkup label $ T.pack <$> tooltipStr
 

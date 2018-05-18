@@ -18,8 +18,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import           Data.Tuple.Sequence
-import qualified GI.GLib as GLib
-import qualified GI.Gdk as Gdk
 import           System.Exit (ExitCode (..))
 import           System.Log.Logger
 import qualified System.Process as P
@@ -58,11 +56,6 @@ truncateString :: Int -> String -> String
 truncateString n xs
   | length xs <= n = xs
   | otherwise      = take n xs ++ "…"
-
-runOnUIThread :: MonadIO m => IO a -> m ()
-runOnUIThread action =
-  void $ Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT $
-       action >> return False
 
 runCommandFromPath :: MonadIO m => [String] -> m (Either String String)
 runCommandFromPath = runCommand "/usr/bin/env"

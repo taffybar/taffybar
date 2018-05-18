@@ -17,6 +17,7 @@ extra-deps:
 - gi-gdkx11-3.0.2
 - gi-gio-2.0.16
 - gi-gtk-3.0.21
+- gi-gtk-hs-0.3.6.1
 - gi-pango-1.0.16
 - gi-xlib-2.0.2
 - gio-0.13.4.1
