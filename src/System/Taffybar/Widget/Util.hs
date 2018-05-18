@@ -100,9 +100,6 @@ colorize fg bg = printf "<span%s%s>%s</span>" (attr "fg" fg) (attr "bg" bg)
           | null value = ""
           | otherwise  = printf " %scolor=\"%s\"" name value
 
-backgroundLoop :: IO a -> IO ()
-backgroundLoop = void . forkIO . forever
-
 drawOn :: WidgetClass object => object -> IO () -> IO object
 drawOn drawArea action = on drawArea realize action $> drawArea
 

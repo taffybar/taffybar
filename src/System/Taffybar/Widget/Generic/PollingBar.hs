@@ -14,9 +14,13 @@ module System.Taffybar.Widget.Generic.PollingBar (
 import Control.Concurrent
 import Control.Exception.Enclosed ( tryAny )
 import Graphics.UI.Gtk
-import System.Taffybar.Widget.Util ( backgroundLoop, drawOn )
+import System.Taffybar.Util ( backgroundLoop )
+import System.Taffybar.Widget.Util ( drawOn )
 
 import System.Taffybar.Widget.Generic.VerticalBar
+
+verticalBarFromChannel :: BarConfig -> Chan Double -> IO Widget
+verticalBarFromChannel cfg chan = verticalBarFromCallback cfg $ readChan chan
 
 verticalBarFromCallback :: BarConfig -> IO Double -> IO Widget
 verticalBarFromCallback cfg action = do

@@ -82,6 +82,15 @@ foreverWithDelay :: RealFrac a1 => a1 -> IO a -> IO ThreadId
 foreverWithDelay delay action =
   forkIO $ forever $ action >> threadDelay (floor $ delay * 1000000)
 
+backgroundLoop :: IO a -> IO ()
+backgroundLoop = void . forkIO . forever
+
+loopActionToChan :: IO a -> IO (Chan a)
+loopActionToChan action = do
+  chan <- newChan
+  backgroundLoop $ action >>= writeChan chan
+  return chan
+
 liftActionTaker
   :: (Monad m)
   => ((a -> m a) -> m b) -> (a -> ReaderT c m a) -> ReaderT c m b
