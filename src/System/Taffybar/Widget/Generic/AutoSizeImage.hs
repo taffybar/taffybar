@@ -49,7 +49,6 @@ borderWidth, borderHeight :: BorderInfo -> Int16
 borderWidth borderInfo = borderLeft borderInfo + borderRight borderInfo
 borderHeight borderInfo = borderTop borderInfo + borderBottom borderInfo
 
-
 toBorderInfo :: (MonadIO m) => Gtk.Border -> m BorderInfo
 toBorderInfo border =
   BorderInfo
