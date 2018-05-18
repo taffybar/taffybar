@@ -114,10 +114,10 @@ widgetSetClass widget klass = liftIO $ do
   styleContextAddClass context klass
   return widget
 
-widgetSetClassGI :: (GI.Gtk.IsWidget b, MonadIO m) => b -> String -> m b
+widgetSetClassGI :: (GI.Gtk.IsWidget b, MonadIO m) => b -> T.Text -> m b
 widgetSetClassGI widget klass =
-  GI.Gtk.toWidget widget >>= fromGIWidget >>= flip widgetSetClass klass >>
-    return widget
+  GI.Gtk.widgetGetStyleContext widget >>=
+    flip GI.Gtk.styleContextAddClass klass >> return widget
 
 themeLoadFlags :: [GI.Gtk.IconLookupFlags]
 themeLoadFlags =

@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module System.Taffybar.Widget.Generic.AutoSizeImage where
 
 import qualified Control.Concurrent.MVar as MV
@@ -10,6 +11,7 @@ import           GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
 import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
+import           System.Taffybar.Widget.Util
 import           Text.Printf
 
 imageLog :: Priority -> String -> IO ()
@@ -103,6 +105,7 @@ autoSizeImage
   -> m (IO ())
 autoSizeImage image getPixBuf orientation = liftIO $ do
   Gtk.widgetSetVexpand image True
+  widgetSetClassGI image "AutoSizeImage"
   lastAllocation <- MV.newMVar 0
   let setPixbuf force actualAllocation = do
         allocation <- getContentAllocation image

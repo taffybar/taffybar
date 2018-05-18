@@ -1,21 +1,44 @@
-@define-color bg-color #000000;
-@define-color bg-tone #1E1E20;
-@define-color active-window-color #374140;
-@define-color urgent-window-color #D9CB9E;
-@define-color font-color #D9CB9E;
+@define-color transparent rgba(0.0, 0.0, 0.0, 0.0);
+@define-color white #FFFFFF;
+@define-color black #000000;
+@define-color taffy-blue #0c7cd5;
 
-.Contents {
-	border-radius: 5px;
-	padding: 3px;
+@define-color active-window-color @white;
+@define-color urgent-window-color @taffy-blue;
+@define-color font-color @white;
+@define-color menu-background-color @white;
+@define-color menu-font-color @black;
+
+/* Top level styling */
+
+.Taffybar * {
+	font-family: "Noto Sans", sans-serif;
+	font-size: 10pt;
+	color: @font-color;
 }
 
-.Active .Contents, .Visible .Contents {
-	background-color: @bg-tone;
+.TaffyBox {
+	border-radius: 10px;
+	background-color: rgba(0.0, 0.0, 0.0, 0.3);
 }
 
 .InnerPad {
-	padding: 4px;
+	padding-bottom: 5px;
+	padding-top: 5px;
+	padding-left: 2px;
+	padding-right: 2px;
 }
+
+.Contents {
+	padding-bottom: 4px;
+	padding-top: 4px;
+	padding-right: 2px;
+	padding-left: 2px;
+	transition: background-color .5s;
+	border-radius: 5px;
+}
+
+/* Workspaces styling */
 
 .WorkspaceLabel {
 	padding-right: 3px;
@@ -23,51 +46,76 @@
 	font-size: 12pt;
 }
 
-.Menu {
-	background-color: @bg-color;
+.Active .Contents {
+	background-color: rgba(0.0, 0.0, 0.0, 0.5);
+}
+
+.Visible .Contents {
+	background-color: rgba(0.0, 0.0, 0.0, 0.2);
 }
 
 .IconContainer {
-	transition: background-color .5s;
-	border-radius: 5px;
-}
-
-.IconContainer.Active {
-	transition: background-color .5s;
-	background-color: @active-window-color;
-}
-
-.IconContainer.Urgent {
-	transition: background-color .5s;
-	background-color: @urgent-window-color;
-}
-
-.IconImage {
-	transition: opacity .5s;
-	padding: 2px;
+	transition: opacity .5s, box-shadow .5s;
 	opacity: 1;
 }
 
-.IconContainer.Minimized .IconImage {
-	transition: opacity .5s;
-	opacity: .3;
+/* This gives space for the box-shadow (they look like underlines) that follow.
+   This will actually affect all widgets, (not just the workspace icons), but
+   that is what we want since we want the icons to look the same. */
+.AutoSizeImage {
+	padding-top: 3px;
+	padding-bottom: 3px;
+}
+
+.IconContainer.Active {
+	box-shadow: inset 0 -3px @white;
+}
+
+.IconContainer.Urgent {
+	box-shadow: inset 0 -3px @urgent-window-color;
 }
 
 .IconContainer.Inactive .IconImage {
   padding: 0px;
 }
 
-#Windows {
-	background-color: @bg-color;
+.IconContainer.Minimized .IconImage {
+	opacity: .3;
 }
 
-.Taffybar {
-	background-color: @bg-color;
-	border-radius: 5px;
+.IconImage {
+	opacity: 1;
+	transition: opacity .5s;
 }
 
-.Taffybar * {
-	font-family: "Fira Sans", sans-serif;
-	font-size: 10pt;
-	color: @font-color;
+/* Button styling */
+
+button {
+	background-color: @transparent;
+	border-width: 0px;
+	border-radius: 0px;
+}
+
+button:checked, button:hover .Contents:hover {
+	box-shadow: inset 0 -3px @taffy-blue;
+}
+
+/* Menu styling */
+
+/* The ".Taffybar" prefixed selectors are needed because if they aren't present,
+   the top level .Taffybar selector takes precedence */
+.Taffybar menuitem *,  menuitem * {
+	color: @menu-font-color;
+}
+
+.Taffybar menuitem, menuitem {
+	background-color: @menu-background-color;
+}
+
+.Taffybar menuitem:hover, menuitem:hover {
+	background-color: @taffy-blue;
+}
+
+.Taffybar menuitem:hover *, menuitem:hover * {
+	color: @white;
 }
