@@ -103,19 +103,20 @@ module System.Taffybar
 
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
-import Control.Monad
-import Graphics.UI.Gtk as Gtk
-import Graphics.UI.Gtk.General.CssProvider
+import           Control.Monad
+import qualified Data.GI.Gtk.Threading as GIThreading
+import qualified Graphics.UI.Gtk as Gtk
+import           Graphics.UI.Gtk.General.CssProvider
 import qualified Graphics.UI.Gtk.General.StyleContext as Gtk
-import Graphics.X11.Xlib.Misc
-import System.Directory
-import System.Environment.XDG.BaseDir ( getUserConfigFile )
-import System.Exit ( exitFailure )
-import System.FilePath ( (</>) )
+import           Graphics.X11.Xlib.Misc
+import           System.Directory
+import           System.Environment.XDG.BaseDir ( getUserConfigFile )
+import           System.Exit ( exitFailure )
+import           System.FilePath ( (</>) )
 import qualified System.IO as IO
-import System.Taffybar.Context
+import           System.Taffybar.Context
 
-import Paths_taffybar ( getDataDir )
+import           Paths_taffybar ( getDataDir )
 
 -- | The parameters that are passed to Dyre when taffybar is invoked with
 -- 'dyreTaffybar'.
@@ -162,7 +163,7 @@ startCSS = do
         flip when (cssProviderLoadFromPath taffybarProvider filePath)
   loadIfExists =<< getDefaultConfigFile "taffybar.css"
   loadIfExists =<< getUserConfigFile "taffybar" "taffybar.css"
-  Just scr <- screenGetDefault
+  Just scr <- Gtk.screenGetDefault
   Gtk.styleContextAddProviderForScreen scr taffybarProvider 800
   return taffybarProvider
 
@@ -174,9 +175,10 @@ startCSS = do
 startTaffybar :: TaffybarConfig -> IO ()
 startTaffybar config = do
   _ <- initThreads
-  _ <- initGUI
+  _ <- Gtk.initGUI
+  Gtk.postGUIAsync GIThreading.setCurrentThreadAsGUIThread
   _ <- startCSS
   _ <- buildContext config
 
-  mainGUI
+  Gtk.mainGUI
   return ()
