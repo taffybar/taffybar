@@ -83,9 +83,9 @@ getContentAllocation widget = liftIO $ do
 
   borderInfo <- foldM combineBorderInfo borderInfoZero borderFunctions
 
-  Gdk.setRectangleWidth allocation $
+  Gdk.setRectangleWidth allocation $ max 1 $
      currentWidth - fromIntegral (borderWidth borderInfo)
-  Gdk.setRectangleHeight allocation $
+  Gdk.setRectangleHeight allocation $ max 1 $
      currentHeight - fromIntegral (borderHeight borderInfo)
   Gdk.setRectangleX allocation $
      currentX + fromIntegral (borderLeft borderInfo)

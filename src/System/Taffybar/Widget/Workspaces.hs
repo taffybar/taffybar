@@ -180,7 +180,6 @@ data WorkspacesConfig =
   WorkspacesConfig
   { widgetBuilder :: ControllerConstructor
   , widgetGap :: Int
-  , windowIconSize :: Maybe Int
   , underlineHeight :: Int
   , minWSWidgetSize :: Maybe Int
   , underlinePadding :: Int
@@ -213,7 +212,6 @@ defaultWorkspacesConfig =
   WorkspacesConfig
   { widgetBuilder = buildButtonController defaultBuildContentsController
   , widgetGap = 0
-  , windowIconSize = Nothing
   , underlineHeight = 4
   , minWSWidgetSize = Just 30
   , underlinePadding = 1
