@@ -7,6 +7,7 @@ module System.Taffybar.Widget.Generic.PollingBar (
   BarDirection(..),
   -- * Constructors and accessors
   pollingBarNew,
+  verticalBarFromChannel,
   verticalBarFromCallback,
   defaultBarConfig
   ) where

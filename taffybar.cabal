@@ -42,6 +42,7 @@ library
                , HStringTemplate >= 0.8 && < 0.9
                , HTTP
                , X11 >= 1.5.0.1
+               , bytestring
                , cairo
                , containers
                , dbus >= 1.0.0 && < 2.0.0
@@ -83,6 +84,7 @@ library
                , transformers >= 0.3.0.0
                , transformers-base >= 0.4
                , tuple >= 0.3.0.2
+               , udev == 0.1.0.0
                , unix
                , utf8-string
                , xdg-basedir >= 0.2 && < 0.3
@@ -106,6 +108,7 @@ library
                  , System.Taffybar.Hooks
                  , System.Taffybar.IconImages
                  , System.Taffybar.Information.Battery
+                 , System.Taffybar.Information.Brightness
                  , System.Taffybar.Information.CPU
                  , System.Taffybar.Information.CPU2
                  , System.Taffybar.Information.DiskIO
@@ -123,6 +126,7 @@ library
                  , System.Taffybar.Support.PagerHints
                  , System.Taffybar.Widget
                  , System.Taffybar.Widget.Battery
+                 , System.Taffybar.Widget.Brightness
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
                  , System.Taffybar.Widget.Decorators
@@ -163,6 +167,7 @@ library
                , System.Taffybar.DBus.Client.UPowerDevice
                , System.Taffybar.DBus.Client.Util
                , System.Taffybar.Util
+               , System.Taffybar.Util.ReadByteString
 
   cc-options: -fPIC
   ghc-options: -Wall -funbox-strict-fields -fno-warn-orphans

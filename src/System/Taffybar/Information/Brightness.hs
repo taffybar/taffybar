@@ -23,7 +23,7 @@ scanForDeviceBySubsystem udev subSysName = do
   e <- newEnumerate udev
   addMatchSubsystem e subSysName
   scanDevices e 
-  Just ls <- getListEntry e
+  ls <- getListEntry e -- This becomes a Maybe in the next udev release
   path <- getName ls
   newFromSysPath udev path
   
