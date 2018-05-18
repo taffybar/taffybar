@@ -362,7 +362,7 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
   let doUnsubscribe = flip runReaderT tContext $
         mapM_ unsubscribe [iconSubscription, workspaceSubscription]
   _ <- Gtk.on cont W.unrealize doUnsubscribe
-  widgetSetClass cont "Workspaces"
+  _ <- widgetSetClass cont "Workspaces"
   return $ Gtk.toWidget cont
 
 updateAllWorkspaceWidgets :: WorkspacesIO ()
@@ -741,7 +741,6 @@ updateIconWidget
   -> WorkspacesIO ()
 updateIconWidget _ IconWidget
                    { iconContainer = iconButton
-                   , iconImage = image
                    , iconWindow = windowRef
                    , iconForceUpdate = updateIcon
                    } windowData = do

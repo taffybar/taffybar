@@ -13,7 +13,6 @@ import           GI.Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Decorators
 import           System.Taffybar.Widget.Util
 
 -- | Create a new widget that updates itself at regular intervals.  The
