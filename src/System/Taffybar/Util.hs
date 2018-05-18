@@ -85,6 +85,7 @@ foreverWithDelay delay action =
 backgroundLoop :: IO a -> IO ()
 backgroundLoop = void . forkIO . forever
 
+-- This could take an IO (Maybe a) instead of the action doesn't return a new value on every exexecution?
 loopActionToChan :: IO a -> IO (Chan a)
 loopActionToChan action = do
   chan <- newChan
