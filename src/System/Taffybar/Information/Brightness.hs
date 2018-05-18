@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module System.Taffybar.Information.Brightness where
+module System.Taffybar.Information.Brightness (readBrightnessValues) where
 
 import System.UDev.Context
 import System.UDev.Device
