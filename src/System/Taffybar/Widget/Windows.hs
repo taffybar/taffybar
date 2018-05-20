@@ -76,7 +76,7 @@ defaultWindowsConfig =
 -- | Create a new Windows widget that will use the given Pager as
 -- its source of events.
 windowsNew :: WindowsConfig -> TaffyIO Gtk2hs.Widget
-windowsNew config = (`widgetSetClass` "Windows") =<< fromGIWidget =<< do
+windowsNew config = (`widgetSetClass` "windows") =<< fromGIWidget =<< do
   label <- lift $ Gtk.labelNew Nothing
 
   let setLabelTitle title = lift $ postGUIASync $ Gtk.labelSetMarkup label (T.pack title)

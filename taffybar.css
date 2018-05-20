@@ -11,25 +11,25 @@
 
 /* Top level styling */
 
-.Taffybar * {
+.taffy-window * {
 	font-family: "Noto Sans", sans-serif;
 	font-size: 10pt;
 	color: @font-color;
 }
 
-.TaffyBox {
+.taffy-box {
 	border-radius: 10px;
 	background-color: rgba(0.0, 0.0, 0.0, 0.3);
 }
 
-.InnerPad {
+.inner-pad {
 	padding-bottom: 5px;
 	padding-top: 5px;
 	padding-left: 2px;
 	padding-right: 2px;
 }
 
-.Contents {
+.contents {
 	padding-bottom: 4px;
 	padding-top: 4px;
 	padding-right: 2px;
@@ -40,21 +40,21 @@
 
 /* Workspaces styling */
 
-.WorkspaceLabel {
+.workspace-label {
 	padding-right: 3px;
 	padding-left: 2px;
 	font-size: 12pt;
 }
 
-.Active .Contents {
+.active .contents {
 	background-color: rgba(0.0, 0.0, 0.0, 0.5);
 }
 
-.Visible .Contents {
+.visible .contents {
 	background-color: rgba(0.0, 0.0, 0.0, 0.2);
 }
 
-.IconContainer {
+.icon-container {
 	transition: opacity .5s, box-shadow .5s;
 	opacity: 1;
 }
@@ -62,28 +62,28 @@
 /* This gives space for the box-shadow (they look like underlines) that follow.
    This will actually affect all widgets, (not just the workspace icons), but
    that is what we want since we want the icons to look the same. */
-.AutoSizeImage {
+.auto-size-image {
 	padding-top: 3px;
 	padding-bottom: 3px;
 }
 
-.IconContainer.Active {
+.window-icon-container.active {
 	box-shadow: inset 0 -3px @white;
 }
 
-.IconContainer.Urgent {
+.window-icon-container.urgent {
 	box-shadow: inset 0 -3px @urgent-window-color;
 }
 
-.IconContainer.Inactive .IconImage {
+.icon-container.inactive .window-icon {
   padding: 0px;
 }
 
-.IconContainer.Minimized .IconImage {
+.icon-container.minimized .window-icon {
 	opacity: .3;
 }
 
-.IconImage {
+.icon-image {
 	opacity: 1;
 	transition: opacity .5s;
 }
@@ -102,20 +102,20 @@ button:checked, button:hover .Contents:hover {
 
 /* Menu styling */
 
-/* The ".Taffybar" prefixed selectors are needed because if they aren't present,
+/* The ".taffy-window" prefixed selectors are needed because if they aren't present,
    the top level .Taffybar selector takes precedence */
-.Taffybar menuitem *,  menuitem * {
+.taffy-window menuitem *,  menuitem * {
 	color: @menu-font-color;
 }
 
-.Taffybar menuitem, menuitem {
+.taffy-window menuitem, menuitem {
 	background-color: @menu-background-color;
 }
 
-.Taffybar menuitem:hover, menuitem:hover {
+.taffy-window menuitem:hover, menuitem:hover {
 	background-color: @taffy-blue;
 }
 
-.Taffybar menuitem:hover *, menuitem:hover * {
+.taffy-window menuitem:hover *, menuitem:hover * {
 	color: @white;
 }

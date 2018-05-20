@@ -165,7 +165,7 @@ buildBarWindow context barConfig = do
 
   window <- Gtk.windowNew
   box <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
-  _ <- widgetSetClass box "TaffyBox"
+  _ <- widgetSetClass box "taffy-box"
   centerBox <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
   Gtk.boxSetCenterWidget box centerBox
 
@@ -174,7 +174,7 @@ buildBarWindow context barConfig = do
   setupStrutWindow (strutConfig barConfig) giWindow
   Gtk.containerAdd window box
 
-  _ <- widgetSetClass window "Taffybar"
+  _ <- widgetSetClass window "taffy-window"
 
   let addWidgetWith widgetAdd buildWidget =
         do

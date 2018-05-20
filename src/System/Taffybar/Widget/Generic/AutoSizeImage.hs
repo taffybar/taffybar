@@ -104,7 +104,7 @@ autoSizeImage image getPixbuf orientation = liftIO $ do
   case orientation of
     Gtk.OrientationHorizontal -> Gtk.widgetSetVexpand image True
     _ -> Gtk.widgetSetHexpand image True
-  widgetSetClassGI image "AutoSizeImage"
+  widgetSetClassGI image "auto-size-image"
 
   lastAllocation <- MV.newMVar 0
   -- XXX: Gtk seems to report information about padding etc inconsistently,

@@ -53,6 +53,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import           Control.RateLimit
+import qualified Data.Char as Char
 import qualified Data.Foldable as F
 import           Data.Int
 import           Data.List (intersect, sortBy)
@@ -144,7 +145,10 @@ setWorkspaceWidgetStatusClass
   :: W.WidgetClass widget
   => Workspace -> widget -> IO ()
 setWorkspaceWidgetStatusClass workspace widget =
-  updateWidgetClasses widget [show $ workspaceState workspace] workspaceStates
+  updateWidgetClasses
+    widget
+    [map Char.toLower $ show $ workspaceState workspace]
+    workspaceStates
 
 updateWidgetClasses
   :: W.WidgetClass widget
@@ -362,7 +366,7 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
   let doUnsubscribe = flip runReaderT tContext $
         mapM_ unsubscribe [iconSubscription, workspaceSubscription]
   _ <- Gtk.on cont W.unrealize doUnsubscribe
-  _ <- widgetSetClass cont "Workspaces"
+  _ <- widgetSetClass cont "workspaces"
   return $ Gtk.toWidget cont
 
 updateAllWorkspaceWidgets :: WorkspacesIO ()
@@ -510,7 +514,7 @@ buildContentsController constructors ws = do
     cons <- Gtk.hBoxNew False 0
     mapM_ (Gtk.containerAdd cons . getWidget) controllers
     outerBox <- buildPadBox cons
-    _ <- widgetSetClass cons "Contents"
+    _ <- widgetSetClass cons "contents"
     return
       WorkspaceContentsController
       { containerWidget = Gtk.toWidget outerBox
@@ -545,7 +549,7 @@ buildLabelController :: ControllerConstructor
 buildLabelController ws = do
   tempController <- lift $ do
     lbl <- Gtk.labelNew (Nothing :: Maybe String)
-    _ <- widgetSetClass lbl "WorkspaceLabel"
+    _ <- widgetSetClass lbl "workspace-label"
     return LabelController { label = lbl }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
@@ -603,8 +607,8 @@ buildIconWidget transparentOnNone ws = do
         (flip runReaderT ctx . getPixbufForIconWidget transparentOnNone windowVar)
         GI.Gtk.OrientationHorizontal
     ebox <- Gtk.eventBoxNew
-    _ <- widgetSetClass img "IconImage"
-    _ <- widgetSetClass ebox "IconContainer"
+    _ <- widgetSetClass img "window-icon"
+    _ <- widgetSetClass ebox "window-icon-container"
     Gtk.containerAdd ebox img
     _ <-
       Gtk.on ebox Gtk.buttonPressEvent $
@@ -726,13 +730,18 @@ updateImages ic ws = do
   return newImgs
 
 getWindowStatusString :: WindowData -> String
-getWindowStatusString WindowData { windowMinimized = True } = "Minimized"
-getWindowStatusString WindowData { windowActive = True } = show Active
-getWindowStatusString WindowData { windowUrgent = True } = show Urgent
-getWindowStatusString _ = "Normal"
+getWindowStatusString windowData = map Char.toLower $
+  case windowData of
+    WindowData { windowMinimized = True } -> "minimized"
+    WindowData { windowActive = True } -> show Active
+    WindowData { windowUrgent = True } -> show Urgent
+    _ -> "normal"
 
 possibleStatusStrings :: [String]
-possibleStatusStrings = [show Active, show Urgent, "Minimized", "Normal", "Inactive"]
+possibleStatusStrings =
+  map
+    (map Char.toLower)
+    [show Active, show Urgent, "minimized", "normal", "inactive"]
 
 updateIconWidget
   :: IconController
@@ -744,7 +753,7 @@ updateIconWidget _ IconWidget
                    , iconWindow = windowRef
                    , iconForceUpdate = updateIcon
                    } windowData = do
-  let statusString = maybe "Inactive" getWindowStatusString windowData
+  let statusString = maybe "inactive" getWindowStatusString windowData
       setIconWidgetProperties =
         updateWidgetClasses iconButton [statusString] possibleStatusStrings
   void $ updateVar windowRef $ const $ return windowData
@@ -829,7 +838,7 @@ buildUnderlineController contentsBuilder workspace = do
     T.tableAttach t u 0 1 1 2
        [T.Fill] [T.Shrink] (underlinePadding cfg) 0
 
-    _ <- widgetSetClass u "Underline"
+    _ <- widgetSetClass u "underline"
     return $ WWC WorkspaceUnderlineController
       {table = t, underline = u, overlineController = cc}
 
@@ -864,8 +873,8 @@ buildBorderController contentsBuilder workspace = do
     Gtk.containerSetBorderWidth cnt $ borderWidth cfg
     Gtk.containerAdd brd cnt
     Gtk.containerAdd cnt $ getWidget cc
-    _ <- widgetSetClass brd "Border"
-    _ <- widgetSetClass cnt "Container"
+    _ <- widgetSetClass brd "border"
+    _ <- widgetSetClass cnt "container"
     return $
       WWC
         WorkspaceBorderController
