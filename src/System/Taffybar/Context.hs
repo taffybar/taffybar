@@ -249,7 +249,8 @@ refreshTaffyWindows = liftReader Gtk.postGUIAsync $ do
             mapM_ setPropertiesFromPair remainingWindows
 
             logIO DEBUG "Constructing new windows"
-            mapM (sequenceT . ((return :: a -> IO a) &&& buildBarWindow ctx)) newConfs
+            mapM (sequenceT . ((return :: a -> IO a) &&& buildBarWindow ctx))
+                 newConfs
 
           return $ newWindowPairs ++ remainingWindows
 
@@ -302,7 +303,8 @@ putState getValue = do
   lift $ (MV.modifyMVar contextVar) $ \contextStateMap ->
     let theType = typeOf (undefined :: t)
         currentValue = M.lookup theType contextStateMap
-        insertAndReturn value = (M.insert theType (Value value) contextStateMap, value)
+        insertAndReturn value =
+          (M.insert theType (Value value) contextStateMap, value)
     in flip runReaderT ctx $  maybe
          (insertAndReturn  <$> getValue)
          (return . (contextStateMap,))
@@ -340,7 +342,8 @@ subscribeToEvents :: [String] -> Listener -> Taffy IO Unique
 subscribeToEvents eventNames listener = do
   eventAtoms <- mapM (runX11 . getAtom) eventNames
   let filteredListener event@PropertyEvent { ev_atom = atom } =
-        when (atom `elem` eventAtoms) $ catchAny (listener event) (const $ return ())
+        when (atom `elem` eventAtoms) $
+             catchAny (listener event) (const $ return ())
       filteredListener _ = return ()
   subscribeToAll filteredListener
 

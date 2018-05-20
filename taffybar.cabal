@@ -104,8 +104,8 @@ library
                  , System.Taffybar.Context
                  , System.Taffybar.DBus
                  , System.Taffybar.DBus.Toggle
+                 , System.Taffybar.EWMHPixbuf
                  , System.Taffybar.Hooks
-                 , System.Taffybar.IconImages
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.CPU
                  , System.Taffybar.Information.CPU2
@@ -130,12 +130,12 @@ library
                  , System.Taffybar.Widget.DiskIOMonitor
                  , System.Taffybar.Widget.FSMonitor
                  , System.Taffybar.Widget.FreedesktopNotifications
+                 , System.Taffybar.Widget.Generic.AutoSizeImage
                  , System.Taffybar.Widget.Generic.ChannelGraph
                  , System.Taffybar.Widget.Generic.ChannelWidget
                  , System.Taffybar.Widget.Generic.DynamicMenu
                  , System.Taffybar.Widget.Generic.Graph
                  , System.Taffybar.Widget.Generic.Icon
-                 , System.Taffybar.Widget.Generic.AutoSizeImage
                  , System.Taffybar.Widget.Generic.PollingBar
                  , System.Taffybar.Widget.Generic.PollingGraph
                  , System.Taffybar.Widget.Generic.PollingLabel

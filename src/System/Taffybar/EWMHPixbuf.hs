@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.IconImages
+-- Module      : System.Taffybar.EWMHPixbuf
 -- Copyright   : (c) Ivan A. Malison
 -- License     : BSD3-style (see LICENSE)
 --
@@ -9,15 +9,13 @@
 -- Portability : unportable
 -----------------------------------------------------------------------------
 
-module System.Taffybar.IconImages
+module System.Taffybar.EWMHPixbuf
   ( ColorRGBA
   , pixBufFromEWMHIcon
   , pixelsARGBToBytesABGR
   , pixBufFromColor
   , pixBufFromFile
   ) where
-
--- TODO: rename module to IconPixbuf
 
 import           Data.Bits
 import           Data.Int

@@ -76,7 +76,7 @@ import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
-import           System.Taffybar.IconImages
+import           System.Taffybar.EWMHPixbuf
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
