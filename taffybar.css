@@ -54,7 +54,7 @@
 	background-color: rgba(0.0, 0.0, 0.0, 0.2);
 }
 
-.icon-container {
+.window-icon-container {
 	transition: opacity .5s, box-shadow .5s;
 	opacity: 1;
 }
@@ -75,15 +75,15 @@
 	box-shadow: inset 0 -3px @urgent-window-color;
 }
 
-.icon-container.inactive .window-icon {
+.window-icon-container.inactive .window-icon {
   padding: 0px;
 }
 
-.icon-container.minimized .window-icon {
+.window-icon-container.minimized .window-icon {
 	opacity: .3;
 }
 
-.icon-image {
+.window-icon {
 	opacity: 1;
 	transition: opacity .5s;
 }
