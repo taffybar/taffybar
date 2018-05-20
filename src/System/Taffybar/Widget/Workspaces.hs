@@ -94,8 +94,11 @@ data WorkspaceState
   | Urgent
   deriving (Show, Eq)
 
-workspaceStates :: [String]
-workspaceStates = map show [Active, Visible, Hidden, Empty, Urgent]
+getCSSClass :: (Show s) => s -> String
+getCSSClass = map Char.toLower . show
+
+cssWorkspaceStates :: [String]
+cssWorkspaceStates = map getCSSClass [Active, Visible, Hidden, Empty, Urgent]
 
 data IconInfo
   = IIEWMH EWMHIconData
@@ -148,7 +151,7 @@ setWorkspaceWidgetStatusClass workspace widget =
   updateWidgetClasses
     widget
     [map Char.toLower $ show $ workspaceState workspace]
-    workspaceStates
+    cssWorkspaceStates
 
 updateWidgetClasses
   :: W.WidgetClass widget
