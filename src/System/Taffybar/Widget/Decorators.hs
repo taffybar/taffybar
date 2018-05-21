@@ -19,3 +19,11 @@ buildPadBox contents = liftIO $ do
   Gtk.widgetShow outerBox
   Gtk.widgetShow innerBox
   return $ Gtk.toWidget outerBox
+
+buildContentsBox :: (Gtk.WidgetClass widget, MonadIO m) => widget -> m Gtk.Widget
+buildContentsBox widget = liftIO $ do
+  contents <- Gtk.hBoxNew False 0
+  Gtk.containerAdd contents widget
+  _ <- widgetSetClass contents "contents"
+  Gtk.widgetShowAll contents
+  buildPadBox contents

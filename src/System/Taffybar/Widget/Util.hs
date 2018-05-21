@@ -161,3 +161,8 @@ loadIcon :: Int32 -> String -> IO PB.Pixbuf
 loadIcon height name =
   ((</> "icons" </> name) <$> getDataDir) >>=
   pixbufNewFromFileAtScaleByHeight height
+
+setMinWidth :: (Gtk.WidgetClass w, MonadIO m) => Int -> w -> m w
+setMinWidth width widget = liftIO $ do
+  Gtk.widgetSetSizeRequest widget width (-1)
+  return widget
