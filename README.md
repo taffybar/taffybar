@@ -53,6 +53,13 @@ run the binary that is produced by the stack build in your local directory. The
 name of the binary can be changed in the cabal file in the taffybar
 configuration directory.
 
+#### Running with stack
+
+When you build with stack, it is recommended that you start taffybar with
+`startTaffybar` rather than `dyreTaffybar`, and use
+https://github.com/yamadapc/stack-run to execute the custom executable specified
+by your cabal and stack files. The maintainers have plans for a better solution
+(that does not require the user to use stack-run themselves) in [#158](https://github.com/taffybar/taffybar/issues/158).
 
 ### Cabal
 

@@ -170,8 +170,9 @@ startCSS = do
 -- | Start taffybar with the provided 'TaffybarConfig'. Because this function
 -- will not handle recompiling taffybar automatically when taffybar.hs is
 -- updated, it is generally recommended that end users use 'dyreTaffybar'
--- instead. If automatic recompilation is handled by another mechanism, or not
--- desired for some reason, it is perfectly fine to use this function.
+-- instead. If automatic recompilation is handled by another mechanism such as
+-- stack or a custom user script or not desired for some reason, it is
+-- perfectly fine to use this function.
 startTaffybar :: TaffybarConfig -> IO ()
 startTaffybar config = do
   _ <- initThreads
