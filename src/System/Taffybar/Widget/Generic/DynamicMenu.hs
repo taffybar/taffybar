@@ -19,11 +19,7 @@ dynamicMenuNew DynamicMenuConfig
   Gtk.containerAdd button clickWidget
   Gtk.menuButtonSetPopup button $ Just menu
 
-  let repopulateMenu =
-        logM "System.Taffybar.Widget.Generic.DynamicMenu" WARNING "Repopulating menu" >>
-        emptyMenu menu >> populateMenu menu
-
-  _ <- Gtk.onButtonPressed button repopulateMenu
+  _ <- Gtk.onButtonPressed button $ emptyMenu menu >> populateMenu menu
 
   Gtk.widgetShowAll button
 

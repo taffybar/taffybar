@@ -116,6 +116,6 @@ button:checked, button:hover .Contents:hover {
 	background-color: @taffy-blue;
 }
 
-.taffy-window menuitem:hover *, menuitem:hover * {
+.taffy-window menuitem:hover > label, menuitem:hover > label {
 	color: @white;
 }
