@@ -72,8 +72,6 @@ getContentAllocation
   :: (MonadIO m, Gtk.IsWidget a)
   => a -> BorderInfo -> m Gdk.Rectangle
 getContentAllocation widget borderInfo = do
-  borderInfo <- getBorderInfo widget
-
   allocation <- Gtk.widgetGetAllocation widget
   currentWidth <- Gdk.getRectangleWidth allocation
   currentHeight <- Gdk.getRectangleHeight allocation
@@ -104,7 +102,8 @@ autoSizeImage image getPixbuf orientation = liftIO $ do
   case orientation of
     Gtk.OrientationHorizontal -> Gtk.widgetSetVexpand image True
     _ -> Gtk.widgetSetHexpand image True
-  widgetSetClassGI image "auto-size-image"
+
+  _ <- widgetSetClassGI image "auto-size-image"
 
   lastAllocation <- MV.newMVar 0
   -- XXX: Gtk seems to report information about padding etc inconsistently,

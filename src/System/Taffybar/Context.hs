@@ -300,7 +300,7 @@ putState :: forall t. Typeable t => Taffy IO t -> Taffy IO t
 putState getValue = do
   contextVar <- asks contextState
   ctx <- ask
-  lift $ (MV.modifyMVar contextVar) $ \contextStateMap ->
+  lift $ MV.modifyMVar contextVar $ \contextStateMap ->
     let theType = typeOf (undefined :: t)
         currentValue = M.lookup theType contextStateMap
         insertAndReturn value =

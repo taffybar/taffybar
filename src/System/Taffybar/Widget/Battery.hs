@@ -120,4 +120,4 @@ batteryIconNew = fromGIWidget =<< do
           iconThemeLoadIcon defaultTheme name size themeLoadFlags >>=
                             traverse (scalePixbufToSize size OrientationHorizontal)
     updateImage <- autoSizeImage image setIconForSize OrientationHorizontal
-    toWidget =<< channelWidgetNew image chan (const $ postGUIASync $ updateImage)
+    toWidget =<< channelWidgetNew image chan (const $ postGUIASync updateImage)

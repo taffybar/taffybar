@@ -29,7 +29,6 @@ import           Graphics.UI.Gtk as Gtk
 import           Graphics.UI.Gtk.General.StyleContext
 import           System.Directory
 import           System.FilePath.Posix
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           Text.Printf

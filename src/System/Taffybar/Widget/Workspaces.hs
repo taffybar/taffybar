@@ -728,7 +728,7 @@ updateImages ic ws = do
                replicate (minIcons cfg - length justWindows) Nothing
           else justWindows ++ repeat Nothing
   newImgs <-
-    sequence $ zipWith updateIconWidget' getImgs windowDatas
+    zipWithM updateIconWidget' getImgs windowDatas
   when newImagesNeeded $ lift $ Gtk.widgetShowAll $ iconsContainer ic
   return newImgs
 

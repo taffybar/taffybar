@@ -224,7 +224,7 @@ refreshAllBatteries = do
   client <- asks systemDBusClient
   let doRefresh path =
         batteryLogF DEBUG "Refreshing battery: %s" path >> refresh client path
-  eerror <- runExceptT $ (ExceptT getBatteryPaths) >>= liftIO . mapM doRefresh
+  eerror <- runExceptT $ ExceptT getBatteryPaths >>= liftIO . mapM doRefresh
   let logRefreshError = batteryLogF ERROR "Failed to refresh battery: %s"
       logGetPathsError = batteryLogF ERROR "Failed to get battery paths %s"
 
