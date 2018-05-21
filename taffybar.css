@@ -62,7 +62,7 @@
 /* This gives space for the box-shadow (they look like underlines) that follow.
    This will actually affect all widgets, (not just the workspace icons), but
    that is what we want since we want the icons to look the same. */
-.auto-size-image {
+.auto-size-image, .sni-tray {
 	padding-top: 3px;
 	padding-bottom: 3px;
 }

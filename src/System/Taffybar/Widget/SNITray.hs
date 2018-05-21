@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.SNITray
@@ -20,6 +21,7 @@ import           StatusNotifier.Tray
 import           System.Posix.Process
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
+import           System.Taffybar.Widget.Util
 import           Text.Printf
 
 getHost :: TaffyIO H.Host
@@ -49,5 +51,6 @@ sniTrayNew = do
         , trayIconExpand = False
         , trayAlignment = End
         }
+    _ <- widgetSetClassGI tray "sni-tray"
     GI.Gtk.widgetShowAll tray
     GI.Gtk.toWidget tray >>= fromGIWidget
