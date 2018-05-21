@@ -6,6 +6,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.GI.Gtk.Threading as Gtk
 import           Data.Int
+import           Data.Maybe
 import qualified GI.Gdk as Gdk
 import           GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
@@ -127,15 +128,27 @@ autoSizeImage image getPixbuf orientation = liftIO $ do
 
         when (size /= previousSize || force) $ do
           MV.modifyMVar_ lastAllocation $ const $ return size
-          imageLog DEBUG $
+
+          pixbuf <- getPixbuf size
+          pbWidth <- fromMaybe 0 <$> traverse Gdk.getPixbufWidth pixbuf
+          pbHeight <- fromMaybe 0 <$> traverse Gdk.getPixbufWidth pixbuf
+          let pbSize = case orientation of
+                         Gtk.OrientationHorizontal -> pbHeight
+                         _ -> pbWidth
+              logLevel = if pbSize <= size then DEBUG else WARNING
+
+          imageLog logLevel $
                  printf "Allocating image: size %s, width %s, \
-                         \ height %s, aw: %s, ah: %s"
+                         \ height %s, aw: %s, ah: %s, pbw: %s pbh: %s"
                  (show size)
                  (show width)
                  (show height)
                  (show _width)
                  (show _height)
-          getPixbuf size >>= Gtk.imageSetFromPixbuf image
+                 (show pbWidth)
+                 (show pbHeight)
+
+          Gtk.imageSetFromPixbuf image pixbuf
           Gtk.postGUIASync $ Gtk.widgetQueueResize image
 
   _ <- Gtk.onWidgetSizeAllocate image $ setPixbuf False

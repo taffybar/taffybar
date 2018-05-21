@@ -39,12 +39,13 @@ import qualified GI.GdkX11 as GdkX11
 import qualified GI.Gtk
 import           Graphics.UI.GIGtkStrut
 import           Graphics.UI.Gtk as Gtk
+import           StatusNotifier.TransparentWindow
 import           System.Log.Logger
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
-import           StatusNotifier.TransparentWindow
 import           System.Taffybar.Util
+import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Util
 import           Text.Printf
 import           Unsafe.Coerce
@@ -109,6 +110,7 @@ data Context = Context
   , sessionDBusClient :: DBus.Client
   , systemDBusClient :: DBus.Client
   , getBarConfigs :: BarConfigGetter
+  , contextBarConfig :: Maybe BarConfig
   }
 
 buildContext :: TaffybarConfig -> IO Context
@@ -134,6 +136,7 @@ buildContext TaffybarConfig
                 , systemDBusClient = sDBusC
                 , getBarConfigs = barConfigGetter
                 , existingWindows = windowsVar
+                , contextBarConfig = Nothing
                 }
   _ <- runMaybeT $ MaybeT GI.Gdk.displayGetDefault >>=
               (lift . GI.Gdk.displayGetDefaultScreen) >>=
@@ -159,6 +162,7 @@ instance GdkX11.IsX11Window GI.Gdk.Window
 
 buildBarWindow :: Context -> BarConfig -> IO Gtk.Window
 buildBarWindow context barConfig = do
+  let thisContext = context { contextBarConfig = Just barConfig }
   logIO DEBUG $
       printf "Building bar window with StrutConfig: %s" $
       show $ strutConfig barConfig
