@@ -45,7 +45,6 @@ import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Util
 import           Text.Printf
 import           Unsafe.Coerce
@@ -181,15 +180,7 @@ buildBarWindow context barConfig = do
   _ <- widgetSetClass window "taffy-window"
 
   let addWidgetWith widgetAdd buildWidget =
-        do
-          widget <- runReaderT buildWidget context
-          -- XXX: This is a pretty bad way to do this
-          let height =
-                case strutHeight $ strutConfig barConfig of
-                  ExactSize size -> fromIntegral size
-                  _ -> 40
-          Gtk.widgetSetSizeRequest widget (-1) height
-          widgetAdd widget
+        runReaderT buildWidget thisContext >>= widgetAdd
       addToStart widget = Gtk.boxPackStart box widget Gtk.PackNatural 0
       addToEnd widget = Gtk.boxPackEnd box widget Gtk.PackNatural 0
       addToCenter widget = Gtk.boxPackStart centerBox widget Gtk.PackNatural 0

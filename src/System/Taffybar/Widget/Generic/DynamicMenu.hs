@@ -2,7 +2,6 @@ module System.Taffybar.Widget.Generic.DynamicMenu where
 
 import           Control.Monad.IO.Class
 import qualified GI.Gtk as Gtk
-import           System.Log.Logger
 
 data DynamicMenuConfig = DynamicMenuConfig
   { dmClickWidget :: Gtk.Widget
