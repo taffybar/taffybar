@@ -12,11 +12,8 @@ module System.Taffybar.Compat.GtkLibs where
 
 import           Control.Monad.IO.Class
 import           Data.GI.Base.ManagedPtr
-import           Data.Word
 import           Foreign.ForeignPtr
-import           Foreign.Marshal.Alloc
 import           Foreign.Ptr
-import           GI.GdkPixbuf.Enums
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 import qualified GI.Gtk
 import qualified Graphics.UI.Gtk as Gtk
@@ -57,13 +54,3 @@ fromGIImage (GI.Gtk.Image wManagedPtr) = fromGIWidget' Gtk.mkImage wManagedPtr
 
 toGIImage :: MonadIO m => Gtk.Image -> m GI.Gtk.Image
 toGIImage = toGIWidget' GI.Gtk.Image Gtk.unImage
-
--- | Call the GI version of 'pixbufNewFromData' with sensible parameters. The
--- provided ptr will be freed when the pixbuf is destroyed.
-pixbufNewFromData :: (Integral p2, Integral p1) => Ptr Word8 -> p2 -> p1 -> IO PB.Pixbuf
-pixbufNewFromData ptr w h = do
-  let width = fromIntegral w
-      height = fromIntegral h
-      rowStride = width * 4
-  PB.pixbufNewFromData ptr ColorspaceRgb True 8
-    width height rowStride (Just free)

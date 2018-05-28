@@ -14,7 +14,6 @@
 module System.Taffybar.Widget.Workspaces
   ( ControllerConstructor
   , IconController(..)
-  , IconInfo(..)
   , WWC(..)
   , WindowData(..)
   , Workspace(..)
@@ -26,6 +25,7 @@ module System.Taffybar.Widget.Workspaces
   , WorkspacesConfig(..)
   , WorkspacesContext(..)
   , WorkspacesIO
+  , addCustomIconsAndFallback
   , buildBorderButtonController
   , buildButtonController
   , buildContentsController
@@ -35,13 +35,15 @@ module System.Taffybar.Widget.Workspaces
   , buildUnderlineController
   , buildWorkspaceData
   , defaultBuildContentsController
-  , defaultGetIconInfo
+  , defaultGetWindowIconPixbuf
   , defaultWorkspacesConfig
+  , getWindowIconPixbufFromClass
+  , getWindowIconPixbufFromEWMH
   , getWorkspaceToWindows
   , hideEmpty
   , liftX11Def
+  , scaledWindowIconPixbufGetter
   , workspacesNew
-  , windowTitleClassIconGetter
 ) where
 
 import           Control.Applicative
@@ -51,6 +53,7 @@ import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.RateLimit
 import qualified Data.Char as Char
@@ -76,7 +79,6 @@ import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
 import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
-import           System.Taffybar.EWMHPixbuf
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
@@ -84,6 +86,7 @@ import           System.Taffybar.Util
 import           System.Taffybar.Widget.Decorators
 import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
 import           System.Taffybar.Widget.Util
+import           System.Taffybar.WindowIcon
 import           Text.Printf
 
 data WorkspaceState
@@ -99,16 +102,6 @@ getCSSClass = map Char.toLower . show
 
 cssWorkspaceStates :: [String]
 cssWorkspaceStates = map getCSSClass [Active, Visible, Hidden, Empty, Urgent]
-
-data IconInfo
-  = IIEWMH EWMHIconData
-  | IIFilePath FilePath
-  | IIColor ColorRGBA
-  | IINone
-  deriving (Eq, Show)
-
-transparentInfo :: IconInfo
-transparentInfo = IIColor 0
 
 data WindowData = WindowData
   { windowId :: X11Window
@@ -131,7 +124,7 @@ data Workspace = Workspace
 data WorkspacesContext = WorkspacesContext
   { controllersVar :: MV.MVar (M.Map WorkspaceIdx WWC)
   , workspacesVar :: MV.MVar (M.Map WorkspaceIdx Workspace)
-  , hudWidget :: Gtk.HBox
+  , workspacesWidget :: Gtk.HBox
   , workspacesConfig :: WorkspacesConfig
   , taffyContext :: Context
   }
@@ -183,6 +176,9 @@ type ControllerConstructor = Workspace -> WorkspacesIO WWC
 type ParentControllerConstructor =
   ControllerConstructor -> ControllerConstructor
 
+type WindowIconPixbufGetter =
+  Int32 -> WindowData -> TaffyIO (Maybe Gdk.Pixbuf)
+
 data WorkspacesConfig =
   WorkspacesConfig
   { widgetBuilder :: ControllerConstructor
@@ -192,7 +188,7 @@ data WorkspacesConfig =
   , underlinePadding :: Int
   , maxIcons :: Maybe Int
   , minIcons :: Int
-  , getIconInfo :: WindowData -> WorkspacesIO IconInfo
+  , getWindowIconPixbuf :: WindowIconPixbufGetter
   , labelSetter :: Workspace -> WorkspacesIO String
   , showWorkspaceFn :: Workspace -> Bool
   , borderWidth :: Int
@@ -201,18 +197,6 @@ data WorkspacesConfig =
   , iconSort :: [WindowData] -> WorkspacesIO [WindowData]
   , urgentWorkspaceState :: Bool
   }
-
-windowTitleClassIconGetter
-  :: (Bool -> String -> String -> IconInfo)
-  -> (WindowData -> WorkspacesIO IconInfo)
-windowTitleClassIconGetter customIconF = fn
-  where
-    fn w@WindowData {windowTitle = wTitle, windowClass = wClass} = do
-      ewmhIcon <- defaultGetIconInfo w
-      let hasEwmhIcon = ewmhIcon /= IINone
-          custIcon = customIconF hasEwmhIcon wTitle wClass
-          hasCustomIcon = custIcon /= IINone
-      return $ if hasCustomIcon then custIcon else ewmhIcon
 
 defaultWorkspacesConfig :: WorkspacesConfig
 defaultWorkspacesConfig =
@@ -224,7 +208,7 @@ defaultWorkspacesConfig =
   , underlinePadding = 1
   , maxIcons = Nothing
   , minIcons = 0
-  , getIconInfo = defaultGetIconInfo
+  , getWindowIconPixbuf = defaultGetWindowIconPixbuf
   , labelSetter = return . workspaceName
   , showWorkspaceFn = const True
   , borderWidth = 2
@@ -321,7 +305,7 @@ addWidgetsToTopLevel :: WorkspacesIO ()
 addWidgetsToTopLevel = do
   WorkspacesContext
     { controllersVar = controllersRef
-    , hudWidget = cont
+    , workspacesWidget = cont
     } <- ask
   controllersMap <- lift $ MV.readMVar controllersRef
   -- Elems returns elements in ascending order of their keys so this will always
@@ -331,7 +315,7 @@ addWidgetsToTopLevel = do
 
 addWidget :: WWC -> WorkspacesIO ()
 addWidget controller = do
-  cont <- asks hudWidget
+  cont <- asks workspacesWidget
   let workspaceWidget = getWidget controller
   lift $ do
      -- XXX: This hbox exists to (hopefully) prevent the issue where workspace
@@ -353,7 +337,7 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
         WorkspacesContext
         { controllersVar = controllersRef
         , workspacesVar = workspacesRef
-        , hudWidget = cont
+        , workspacesWidget = cont
         , workspacesConfig = cfg
         , taffyContext = tContext
         }
@@ -431,11 +415,12 @@ doWidgetUpdate updateController = do
 
 updateWorkspaceControllers :: WorkspacesIO ()
 updateWorkspaceControllers = do
-  WorkspacesContext { controllersVar = controllersRef
-          , workspacesVar = workspacesRef
-          , hudWidget = cont
-          , workspacesConfig = cfg
-          } <- ask
+  WorkspacesContext
+    { controllersVar = controllersRef
+    , workspacesVar = workspacesRef
+    , workspacesWidget = cont
+    , workspacesConfig = cfg
+    } <- ask
   workspacesMap <- lift $ MV.readMVar workspacesRef
   controllersMap <- lift $ MV.readMVar controllersRef
 
@@ -574,29 +559,20 @@ data IconWidget = IconWidget
   , iconForceUpdate :: IO ()
   }
 
-getPixbufFromInfo :: Bool -> Int32 -> IconInfo -> IO (Maybe Gdk.Pixbuf)
-getPixbufFromInfo transparentOnNone imgSize = gpb
-  where
-    gpb (IIEWMH iconData) =
-      withEWMHIcons iconData (traverse pixBufFromEWMHIcon . selectEWMHIcon imgSize)
-    gpb (IIFilePath file) = Just <$> pixBufFromFile file
-    gpb (IIColor color) = Just <$> pixBufFromColor imgSize color
-    gpb IINone =
-      if transparentOnNone
-      then getPixbufFromInfo transparentOnNone imgSize transparentInfo
-      else return Nothing
-
 getPixbufForIconWidget :: Bool
                        -> MV.MVar (Maybe WindowData)
                        -> Int32
                        -> WorkspacesIO (Maybe Gdk.Pixbuf)
-getPixbufForIconWidget transparentOnNone dataVar size =
-  ask >>= \ctx ->
-    let getII = getIconInfo $ workspacesConfig ctx
-    in lift $ MV.readMVar dataVar >>=
-       flip runReaderT ctx . maybe (return IINone) getII >>=
-       getPixbufFromInfo transparentOnNone size >>=
-       traverse (scalePixbufToSize size GI.Gtk.OrientationHorizontal)
+getPixbufForIconWidget transparentOnNone dataVar size = do
+  ctx <- ask
+  let tContext = taffyContext ctx
+      getPBFromData = getWindowIconPixbuf $ workspacesConfig ctx
+      getPB' = runMaybeT $
+               MaybeT (lift $ MV.readMVar dataVar) >>= MaybeT . getPBFromData size
+      getPB = if transparentOnNone
+              then maybeTCombine getPB' (Just <$> pixBufFromColor size 0)
+              else getPB'
+  lift $ runReaderT getPB tContext
 
 buildIconWidget :: Bool -> Workspace -> WorkspacesIO IconWidget
 buildIconWidget transparentOnNone ws = do
@@ -673,9 +649,37 @@ updateMinSize widget minWidth = do
   W.Requisition w _ <- W.widgetSizeRequest widget
   when (w < minWidth) $ W.widgetSetSizeRequest widget minWidth  $ -1
 
-defaultGetIconInfo :: WindowData -> WorkspacesIO IconInfo
-defaultGetIconInfo w =
-  maybe IINone IIEWMH <$> liftX11Def Nothing (getWindowIconsData $ windowId w)
+scaledWindowIconPixbufGetter :: WindowIconPixbufGetter -> WindowIconPixbufGetter
+scaledWindowIconPixbufGetter getter size =
+  getter size >=>
+  lift . traverse (scalePixbufToSize size GI.Gtk.OrientationHorizontal)
+
+getWindowIconPixbufFromEWMH :: WindowIconPixbufGetter
+getWindowIconPixbufFromEWMH size windowData =
+  runX11Def Nothing (getIconPixBufFromEWMH size $ windowId windowData)
+
+getWindowIconPixbufFromClass :: WindowIconPixbufGetter
+getWindowIconPixbufFromClass size windowData =
+  lift $ getWindowIconFromClass size (windowClass windowData)
+
+defaultGetWindowIconPixbuf :: WindowIconPixbufGetter
+defaultGetWindowIconPixbuf =
+  scaledWindowIconPixbufGetter getWindowIconPixbufFromEWMH
+
+addCustomIconsAndFallback
+  :: (WindowData -> Maybe FilePath)
+  -> FilePath
+  -> WindowIconPixbufGetter
+  -> WindowIconPixbufGetter
+addCustomIconsAndFallback getCustomIconPath fallbackPath defaultGetter =
+  scaledWindowIconPixbufGetter $
+  getCustomIcon <|||> defaultGetter <|||> getFallbackIcon
+  where
+    getCustomIcon :: Int32 -> WindowData -> TaffyIO (Maybe Gdk.Pixbuf)
+    getCustomIcon _ wdata =
+      lift $
+      maybe (return Nothing) getPixbufFromFilePath $ getCustomIconPath wdata
+    getFallbackIcon _ _ = lift $ getPixbufFromFilePath fallbackPath
 
 sortWindowsByPosition :: [WindowData] -> WorkspacesIO [WindowData]
 sortWindowsByPosition wins = do
@@ -761,13 +765,6 @@ updateIconWidget _ IconWidget
         updateWidgetClasses iconButton [statusString] possibleStatusStrings
   void $ updateVar windowRef $ const $ return windowData
   lift $ updateIcon >> setIconWidgetProperties
-
-selectEWMHIcon :: Int32 -> [EWMHIcon] -> Maybe EWMHIcon
-selectEWMHIcon imgSize icons = listToMaybe prefIcon
-  where sortedIcons = sortBy (comparing height) icons
-        smallestLargerIcon = take 1 $ dropWhile ((<= fromIntegral imgSize) . height) sortedIcons
-        largestIcon = take 1 $ reverse sortedIcons
-        prefIcon = smallestLargerIcon ++ largestIcon
 
 data WorkspaceButtonController = WorkspaceButtonController
   { button :: Gtk.EventBox

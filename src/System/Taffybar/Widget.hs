@@ -73,12 +73,7 @@ module System.Taffybar.Widget
   , truncatedGetMenuLabel
 
   -- * "System.Taffybar.Widget.Workspaces"
-  , IconInfo(..)
-  , Workspace(..)
-  , WorkspacesConfig(..)
-  , WorkspacesIO
-  , hideEmpty
-  , workspacesNew
+  , module System.Taffybar.Widget.Workspaces
 
   -- * "System.Taffybar.Widget.XDGMenu.MenuWidget"
   , module System.Taffybar.Widget.XDGMenu.MenuWidget

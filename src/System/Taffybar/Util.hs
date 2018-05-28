@@ -11,13 +11,19 @@
 
 module System.Taffybar.Util where
 
+import           Control.Applicative
 import           Control.Arrow ((&&&))
 import           Control.Concurrent
+import           Control.Exception.Base
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
+import           Data.Either.Combinators
+import           Data.GI.Base.GError
 import           Data.Tuple.Sequence
+import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import           System.Exit (ExitCode (..))
 import           System.Log.Logger
 import qualified System.Process as P
@@ -81,3 +87,41 @@ liftActionTaker
 liftActionTaker actionTaker action = do
   ctx <- ask
   lift $ actionTaker $ flip runReaderT ctx . action
+
+maybeTCombine
+  :: Monad m
+  => m (Maybe a) -> m (Maybe a) -> m (Maybe a)
+maybeTCombine a b = runMaybeT $ MaybeT a <|> MaybeT b
+
+infixl 3 <||>
+(<||>) :: Monad m =>
+             (t -> m (Maybe a)) -> (t -> m (Maybe a)) -> t -> m (Maybe a)
+a <||> b = combineOptions
+  where combineOptions v = maybeTCombine (a v) (b v)
+
+infixl 3 <|||>
+(<|||>)
+  :: Monad m
+  => (t -> t1 -> m (Maybe a))
+  -> (t -> t1 -> m (Maybe a))
+  -> t
+  -> t1
+  -> m (Maybe a)
+a <|||> b = combineOptions
+  where combineOptions v v1 = maybeTCombine (a v v1) (b v v1)
+
+catchGErrorsAsLeft :: IO a -> IO (Either GError a)
+catchGErrorsAsLeft action = catch (Right <$> action) mkLeft
+  where mkLeft err = return $ Left err
+
+safePixbufNewFromFile :: FilePath -> IO (Either GError Gdk.Pixbuf)
+safePixbufNewFromFile filepath =
+  catchGErrorsAsLeft (Gdk.pixbufNewFromFile filepath)
+
+getPixbufFromFilePath :: FilePath -> IO (Maybe Gdk.Pixbuf)
+getPixbufFromFilePath filepath = do
+  result <- safePixbufNewFromFile filepath
+  when (isLeft result) $
+       logM "System.Taffybar.WindowIcon" WARNING $
+            printf "Failed to load icon from filepath %s" filepath
+  return $ rightToMaybe result

@@ -104,7 +104,6 @@ library
                  , System.Taffybar.Context
                  , System.Taffybar.DBus
                  , System.Taffybar.DBus.Toggle
-                 , System.Taffybar.EWMHPixbuf
                  , System.Taffybar.Hooks
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.CPU
@@ -122,6 +121,7 @@ library
                  , System.Taffybar.Information.XDG.Protocol
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Support.PagerHints
+                 , System.Taffybar.Util
                  , System.Taffybar.Widget
                  , System.Taffybar.Widget.Battery
                  , System.Taffybar.Widget.CPUMonitor
@@ -156,6 +156,7 @@ library
                  , System.Taffybar.Widget.Workspaces
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
+                 , System.Taffybar.WindowIcon
                    
   other-modules: Paths_taffybar
                , System.Taffybar.DBus.Client.MPRIS2
@@ -163,7 +164,6 @@ library
                , System.Taffybar.DBus.Client.UPower
                , System.Taffybar.DBus.Client.UPowerDevice
                , System.Taffybar.DBus.Client.Util
-               , System.Taffybar.Util
 
   cc-options: -fPIC
   ghc-options: -Wall -funbox-strict-fields -fno-warn-orphans

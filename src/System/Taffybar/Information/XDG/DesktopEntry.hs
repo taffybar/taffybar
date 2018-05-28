@@ -10,7 +10,7 @@
 --
 -- Implementation of version 1.1 of the freedesktop "Desktop Entry
 -- specification", see
--- https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-1.1.html.
+-- https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-1.2.html.
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Information.XDG.DesktopEntry
