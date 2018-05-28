@@ -24,21 +24,21 @@ import           System.Taffybar.Context
 import           System.Taffybar.Widget.Util
 import           Text.Printf
 
-getHost :: TaffyIO H.Host
-getHost = getStateDefault $ do
+getHost :: Bool -> TaffyIO H.Host
+getHost startWatcher = getStateDefault $ do
   pid <- lift getProcessID
   client <- asks sessionDBusClient
   Just host <- lift $ H.build H.defaultParams
      { H.dbusClient = Just client
      , H.uniqueIdentifier = printf "taffybar-%s" $ show pid
+     , H.startWatcher = startWatcher
      }
   return host
 
 -- | Build a new StatusNotifierItem tray that will share a host with any other
 -- trays that are constructed automatically
-sniTrayNew :: TaffyIO Gtk.Widget
-sniTrayNew = do
-  host <- getHost
+sniTrayNewFromHost :: H.Host -> TaffyIO Gtk.Widget
+sniTrayNewFromHost host = do
   client <- asks sessionDBusClient
   lift $ do
     tray <-
@@ -54,3 +54,10 @@ sniTrayNew = do
     _ <- widgetSetClassGI tray "sni-tray"
     GI.Gtk.widgetShowAll tray
     GI.Gtk.toWidget tray >>= fromGIWidget
+
+sniTrayNew :: TaffyIO Gtk.Widget
+sniTrayNew = getHost False >>= sniTrayNewFromHost
+
+sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt :: TaffyIO Gtk.Widget
+sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt = getHost True >>= sniTrayNewFromHost
+

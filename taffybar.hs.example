@@ -64,13 +64,16 @@ main = do
       clock = textClockNew Nothing "%a %b %_d %r" 1
       layout = layoutNew defaultLayoutConfig
       windows = windowsNew defaultWindowsConfig
+	  -- See https://github.com/taffybar/gtk-sni-tray#statusnotifierwatcher
+	  -- for a better way to set up the sni tray
+	  tray = sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt
       myConfig = defaultSimpleTaffyConfig
         { startWidgets =
             workspaces : map (>>= buildContentsBox) [ layout, windows ]
         , endWidgets = map (>>= buildContentsBox)
           [ batteryIconNew
           , clock
-          , sniTrayNew
+          , tray
           , cpu
           , mem
           , net
