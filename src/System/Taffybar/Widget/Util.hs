@@ -142,6 +142,14 @@ getImageForDesktopEntry size entry = runMaybeT $ do
       then Just <$> GI.pixbufNewFromFile iconName
       else return Nothing
 
+loadPixbufByName :: Int32 -> T.Text -> IO (Maybe GI.Pixbuf)
+loadPixbufByName size name = do
+  iconTheme <- GI.Gtk.iconThemeGetDefault
+  hasIcon <- GI.Gtk.iconThemeHasIcon iconTheme name
+  if hasIcon
+  then GI.Gtk.iconThemeLoadIcon iconTheme name size themeLoadFlags
+  else return Nothing
+
 alignCenter :: (GI.Gtk.IsWidget o, MonadIO m) => o -> m ()
 alignCenter widget =
   GI.Gtk.setWidgetValign widget GI.Gtk.AlignCenter >>

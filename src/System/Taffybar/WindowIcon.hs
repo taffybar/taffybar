@@ -1,15 +1,16 @@
 module System.Taffybar.WindowIcon where
 
+import           Control.Monad
+import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Data.Bits
-import qualified Data.Char as Char
-import           Data.Either.Combinators
 import           Data.Int
 import           Data.List
-import           Data.List.Split
 import           Data.Maybe
+import qualified Data.MultiMap as MM
 import           Data.Ord
+import qualified Data.Text as T
 import           Data.Word
 import           Foreign.Marshal.Alloc
 import           Foreign.Marshal.Array
@@ -18,13 +19,13 @@ import           Foreign.Storable
 import qualified GI.GdkPixbuf.Enums as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import           System.Log.Logger
-import           System.Taffybar.Compat.GtkLibs
+import           System.Taffybar.Context
+import           System.Taffybar.Hooks
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
-import           Text.Printf
 
 type ColorRGBA = Word32
 
@@ -57,8 +58,8 @@ pixelsARGBToBytesABGR ptr size = do
 
 selectEWMHIcon :: Int32 -> [EWMHIcon] -> Maybe EWMHIcon
 selectEWMHIcon imgSize icons = listToMaybe prefIcon
-  where sortedIcons = sortBy (comparing height) icons
-        smallestLargerIcon = take 1 $ dropWhile ((<= fromIntegral imgSize) . height) sortedIcons
+  where sortedIcons = sortBy (comparing ewmhHeight) icons
+        smallestLargerIcon = take 1 $ dropWhile ((<= fromIntegral imgSize) . ewmhHeight) sortedIcons
         largestIcon = take 1 $ reverse sortedIcons
         prefIcon = smallestLargerIcon ++ largestIcon
 
@@ -67,7 +68,7 @@ getPixbufFromEWMHIcons size = traverse pixBufFromEWMHIcon . selectEWMHIcon size
 
 -- | Create a pixbuf from the pixel data in an EWMHIcon.
 pixBufFromEWMHIcon :: EWMHIcon -> IO Gdk.Pixbuf
-pixBufFromEWMHIcon EWMHIcon {width = w, height = h, pixelsARGB = px} = do
+pixBufFromEWMHIcon EWMHIcon {ewmhWidth = w, ewmhHeight = h, ewmhPixelsARGB = px} = do
   let width = fromIntegral w
       height = fromIntegral h
       rowStride = width * 4
@@ -81,20 +82,41 @@ getIconPixBufFromEWMH size x11WindowId = runMaybeT $ do
   MaybeT $ lift $ withEWMHIcons ewmhData (getPixbufFromEWMHIcons size)
 
 -- | Create a pixbuf with the indicated RGBA color.
+pixBufFromColor
+  :: MonadIO m
+  => Int32 -> Word32 -> m Gdk.Pixbuf
 pixBufFromColor imgSize c = do
   Just pixbuf <- Gdk.pixbufNew Gdk.ColorspaceRgb True 8 imgSize imgSize
   Gdk.pixbufFill pixbuf c
   return pixbuf
 
+getDirectoryEntryByClass
+  :: String
+  -> TaffyIO (Maybe DesktopEntry)
+getDirectoryEntryByClass klass = do
+  entries <- MM.lookup klass <$> getDirectoryEntriesByClassName
+  when (length entries > 1) $
+       logPrintF "System.Taffybar.WindowIcon" INFO "Multiple entries for: %s" (klass, entries)
+  return $ listToMaybe entries
 
-
-getWindowIconFromExactClass size klass = runMaybeT $ do
-  logPrintF "System.Taffybar.WindowIcon" DEBUG "Using class: %s" klass
-  entry <- MaybeT $ getDirectoryEntryDefault klass
-  logPrintF "System.Taffybar.WindowIcon" DEBUG "Got entry: %s" entry
-  MaybeT $ getImageForDesktopEntry size entry
-
-getWindowIconFromClass size klass =
-  foldl combine (return Nothing) $ splitOn "\NUL" klass
+getWindowIconForAllClasses
+  :: Monad m
+  => (p -> String -> m (Maybe a)) -> p -> String -> m (Maybe a)
+getWindowIconForAllClasses doOnClass size klass =
+  foldl combine (return Nothing) $ parseWindowClasses klass
   where
-    combine soFar theClass = maybeTCombine soFar (getWindowIconFromExactClass size theClass)
+    combine soFar theClass =
+      maybeTCombine soFar (doOnClass size theClass)
+
+getWindowIconFromDesktopEntryByClasses :: Int32 -> String -> TaffyIO (Maybe Gdk.Pixbuf)
+getWindowIconFromDesktopEntryByClasses =
+  getWindowIconForAllClasses getWindowIconFromDesktopEntryByClass
+  where getWindowIconFromDesktopEntryByClass size klass =
+          runMaybeT $ do
+            entry <- MaybeT $ getDirectoryEntryByClass klass
+            MaybeT $ lift $ getImageForDesktopEntry size entry
+
+getWindowIconFromClasses :: Int32 -> String -> IO (Maybe Gdk.Pixbuf)
+getWindowIconFromClasses =
+  getWindowIconForAllClasses getWindowIconFromClass
+  where getWindowIconFromClass size klass = loadPixbufByName size (T.pack klass)

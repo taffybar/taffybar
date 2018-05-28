@@ -25,6 +25,7 @@ module System.Taffybar.Information.XDG.DesktopEntry
   , deOnlyShowIn
   , existingDirs
   , getDefaultDataHome
+  , getDirectoryEntriesDefault
   , getDirectoryEntry
   , getDirectoryEntryDefault
   , getXDGDataDirs
@@ -184,6 +185,12 @@ getDirectoryEntryDefault :: String -> IO (Maybe DesktopEntry)
 getDirectoryEntryDefault entry =
   fmap (</> "applications") <$> getXDGDataDirs >>=
   flip getDirectoryEntry (printf "%s.desktop" entry)
+
+getDirectoryEntriesDefault :: IO [DesktopEntry]
+getDirectoryEntriesDefault =
+  fmap (</> "applications") <$> getXDGDataDirs >>= foldM addDirectories []
+  where addDirectories soFar directory =
+          (soFar ++) <$> listDesktopEntries "desktop" directory
 
 -- | Main section of a desktop entry file.
 sectionMain :: String

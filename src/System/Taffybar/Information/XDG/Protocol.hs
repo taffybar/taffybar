@@ -104,7 +104,6 @@ getApplicationEntries
 getApplicationEntries langs xm = do
   defEntries <- if xmDefaultAppDirs xm
     then do dataDirs <- getXDGDataDirs
-            putStrLn $ "DataDirs=" ++ show dataDirs
             concat <$> mapM (listDesktopEntries ".desktop" .
                                                   (</> "applications")) dataDirs
     else return []

@@ -34,10 +34,12 @@ module System.Taffybar.Widget.Workspaces
   , buildUnderlineButtonController
   , buildUnderlineController
   , buildWorkspaceData
+  , constantScaleWindowIconPixbufGetter
   , defaultBuildContentsController
   , defaultGetWindowIconPixbuf
   , defaultWorkspacesConfig
   , getWindowIconPixbufFromClass
+  , getWindowIconPixbufFromDesktopEntry
   , getWindowIconPixbufFromEWMH
   , getWorkspaceToWindows
   , hideEmpty
@@ -666,11 +668,18 @@ getWindowIconPixbufFromEWMH size windowData =
 
 getWindowIconPixbufFromClass :: WindowIconPixbufGetter
 getWindowIconPixbufFromClass size windowData =
-  lift $ getWindowIconFromClass size (windowClass windowData)
+  lift $ getWindowIconFromClasses size (windowClass windowData)
+
+getWindowIconPixbufFromDesktopEntry :: WindowIconPixbufGetter
+getWindowIconPixbufFromDesktopEntry size windowData =
+  getWindowIconFromDesktopEntryByClasses size (windowClass windowData)
 
 defaultGetWindowIconPixbuf :: WindowIconPixbufGetter
 defaultGetWindowIconPixbuf =
-  scaledWindowIconPixbufGetter getWindowIconPixbufFromEWMH
+  scaledWindowIconPixbufGetter $
+  getWindowIconPixbufFromDesktopEntry <|||>
+  getWindowIconPixbufFromClass <|||>
+  getWindowIconPixbufFromEWMH
 
 addCustomIconsAndFallback
   :: (WindowData -> Maybe FilePath)

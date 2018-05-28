@@ -20,31 +20,33 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Information.EWMHDesktopInfo
-  ( X11Window      -- re-exported from X11DesktopInfo
-  , X11WindowHandle
-  , WorkspaceIdx(..)
-  , EWMHIcon(..)
+  ( EWMHIcon(..)
   , EWMHIconData
-  , withDefaultCtx -- re-exported from X11DesktopInfo
-  , isWindowUrgent -- re-exported from X11DesktopInfo
+  , WorkspaceIdx(..)
+  , X11Window      -- re-exported from X11DesktopInfo
+  , X11WindowHandle
+  , focusWindow
+  , getActiveWindowTitle
   , getCurrentWorkspace
   , getVisibleWorkspaces
-  , getWorkspaceNames
-  , switchToWorkspace
-  , switchOneWorkspace
-  , withEWMHIcons
-  , getWindowTitle
   , getWindowClass
-  , getWindowIconsData
-  , getActiveWindowTitle
-  , getWindows
   , getWindowHandles
+  , getWindowIconsData
+  , getWindowTitle
+  , getWindows
   , getWorkspace
-  , focusWindow
+  , getWorkspaceNames
+  , isWindowUrgent -- re-exported from X11DesktopInfo
+  , parseWindowClasses
+  , switchOneWorkspace
+  , switchToWorkspace
+  , withDefaultCtx -- re-exported from X11DesktopInfo
+  , withEWMHIcons
   ) where
 
 import Control.Applicative
 import Control.Monad.Trans.Class
+import Data.List.Split
 import Data.Maybe
 import Data.Tuple
 import Data.Word
@@ -79,9 +81,9 @@ type PixelsWordType = Word64
 type EWMHIconData = (ForeignPtr PixelsWordType, Int)
 
 data EWMHIcon = EWMHIcon
-  { width :: Int
-  , height :: Int
-  , pixelsARGB :: Ptr PixelsWordType
+  { ewmhWidth :: Int
+  , ewmhHeight :: Int
+  , ewmhPixelsARGB :: Ptr PixelsWordType
   } deriving (Show, Eq)
 
 noFocus :: String
@@ -145,6 +147,9 @@ getWindowTitle window = do
 getWindowClass :: X11Window -> X11Property String
 getWindowClass window = readAsString (Just window) "WM_CLASS"
 
+parseWindowClasses :: String -> [String]
+parseWindowClasses = filter (not . null) . splitOn "\NUL"
+
 -- | Get EWMHIconData for the given X11Window
 getWindowIconsData :: X11Window -> X11Property (Maybe EWMHIconData)
 getWindowIconsData window = do
@@ -179,9 +184,9 @@ parseIcons totalSize arr = do
       newArr = advancePtr pixelsPtr thisSize
       thisIcon =
         EWMHIcon
-        { width = iwidth
-        , height = iheight
-        , pixelsARGB = pixelsPtr
+        { ewmhWidth = iwidth
+        , ewmhHeight = iheight
+        , ewmhPixelsARGB = pixelsPtr
         }
       getRes newSize
         | newSize < 0 = trace "This should not happen parseIcons" return []
