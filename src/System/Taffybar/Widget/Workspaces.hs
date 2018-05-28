@@ -654,6 +654,12 @@ scaledWindowIconPixbufGetter getter size =
   getter size >=>
   lift . traverse (scalePixbufToSize size GI.Gtk.OrientationHorizontal)
 
+constantScaleWindowIconPixbufGetter :: Int32
+                                    -> WindowIconPixbufGetter
+                                    -> WindowIconPixbufGetter
+constantScaleWindowIconPixbufGetter constantSize getter =
+  const $ scaledWindowIconPixbufGetter getter constantSize
+
 getWindowIconPixbufFromEWMH :: WindowIconPixbufGetter
 getWindowIconPixbufFromEWMH size windowData =
   runX11Def Nothing (getIconPixBufFromEWMH size $ windowId windowData)
