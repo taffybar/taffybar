@@ -11,42 +11,7 @@
 -- Portability : unportable
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widget.Workspaces
-  ( ControllerConstructor
-  , IconController(..)
-  , WWC(..)
-  , WindowData(..)
-  , Workspace(..)
-  , WorkspaceButtonController(..)
-  , WorkspaceContentsController(..)
-  , WorkspaceState(..)
-  , WorkspaceUnderlineController(..)
-  , WorkspaceWidgetController(..)
-  , WorkspacesConfig(..)
-  , WorkspacesContext(..)
-  , WorkspacesIO
-  , addCustomIconsAndFallback
-  , buildBorderButtonController
-  , buildButtonController
-  , buildContentsController
-  , buildIconController
-  , buildLabelController
-  , buildUnderlineButtonController
-  , buildUnderlineController
-  , buildWorkspaceData
-  , constantScaleWindowIconPixbufGetter
-  , defaultBuildContentsController
-  , defaultGetWindowIconPixbuf
-  , defaultWorkspacesConfig
-  , getWindowIconPixbufFromClass
-  , getWindowIconPixbufFromDesktopEntry
-  , getWindowIconPixbufFromEWMH
-  , getWorkspaceToWindows
-  , hideEmpty
-  , liftX11Def
-  , scaledWindowIconPixbufGetter
-  , workspacesNew
-) where
+module System.Taffybar.Widget.Workspaces where
 
 import           Control.Applicative
 import           Control.Arrow ((&&&))
@@ -676,25 +641,37 @@ getWindowIconPixbufFromDesktopEntry size windowData =
 
 defaultGetWindowIconPixbuf :: WindowIconPixbufGetter
 defaultGetWindowIconPixbuf =
-  scaledWindowIconPixbufGetter $
+  scaledWindowIconPixbufGetter unscaledDefaultGetWindowIconPixbuf
+
+unscaledDefaultGetWindowIconPixbuf :: WindowIconPixbufGetter
+unscaledDefaultGetWindowIconPixbuf =
   getWindowIconPixbufFromDesktopEntry <|||>
   getWindowIconPixbufFromClass <|||>
   getWindowIconPixbufFromEWMH
 
-addCustomIconsAndFallback
+addCustomIconsToDefaultWithFallbackByPath
   :: (WindowData -> Maybe FilePath)
   -> FilePath
   -> WindowIconPixbufGetter
+addCustomIconsToDefaultWithFallbackByPath getCustomIconPath fallbackPath =
+  addCustomIconsAndFallback
+    getCustomIconPath
+    (const $ lift $ getPixbufFromFilePath fallbackPath)
+    unscaledDefaultGetWindowIconPixbuf
+
+addCustomIconsAndFallback
+  :: (WindowData -> Maybe FilePath)
+  -> (Int32 -> TaffyIO (Maybe Gdk.Pixbuf))
   -> WindowIconPixbufGetter
-addCustomIconsAndFallback getCustomIconPath fallbackPath defaultGetter =
+  -> WindowIconPixbufGetter
+addCustomIconsAndFallback getCustomIconPath fallback defaultGetter =
   scaledWindowIconPixbufGetter $
-  getCustomIcon <|||> defaultGetter <|||> getFallbackIcon
+  getCustomIcon <|||> defaultGetter <|||> (\s _ -> fallback s)
   where
     getCustomIcon :: Int32 -> WindowData -> TaffyIO (Maybe Gdk.Pixbuf)
     getCustomIcon _ wdata =
       lift $
       maybe (return Nothing) getPixbufFromFilePath $ getCustomIconPath wdata
-    getFallbackIcon _ _ = lift $ getPixbufFromFilePath fallbackPath
 
 sortWindowsByPosition :: [WindowData] -> WorkspacesIO [WindowData]
 sortWindowsByPosition wins = do
