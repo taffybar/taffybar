@@ -17,8 +17,7 @@ extra-source-files:
   README.md
   CHANGELOG.md
   taffybar.hs.example
-  dbus-xml/org.mpris.MediaPlayer2.Player.xml
-
+  dbus-xml/*.xml
 
 description:
   Taffybar is a gtk+3 (through gtk2hs) based desktop information bar, intended
