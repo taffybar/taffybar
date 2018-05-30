@@ -113,7 +113,6 @@ library
                  , System.Taffybar.Information.Network
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.StreamInfo
-                 , System.Taffybar.Information.Volume
                  , System.Taffybar.Information.X11DesktopInfo
                  , System.Taffybar.Information.XDG.DesktopEntry
                  , System.Taffybar.Information.XDG.Protocol
@@ -148,7 +147,6 @@ library
                  , System.Taffybar.Widget.Text.MemoryMonitor
                  , System.Taffybar.Widget.Text.NetworkMonitor
                  , System.Taffybar.Widget.Util
-                 , System.Taffybar.Widget.Volume
                  , System.Taffybar.Widget.Weather
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
