@@ -4,6 +4,8 @@ about: Create a report to help us improve
 
 ---
 
+**NOTE: If your issue is really a support request, please use the gitter channel to ask it instead of filing an issue https://gitter.im/taffybar/Lobby (REMOVE THIS IF NOT).**
+
 **Describe the bug**
 A clear and concise description of what the bug is.
 
