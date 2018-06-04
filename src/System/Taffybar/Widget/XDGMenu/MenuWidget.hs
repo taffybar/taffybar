@@ -24,6 +24,7 @@ module System.Taffybar.Widget.XDGMenu.MenuWidget
 where
 
 import Control.Monad
+import Control.Monad.IO.Class
 import Graphics.UI.Gtk hiding (Menu)
 import System.Directory
 import System.FilePath.Posix
@@ -111,10 +112,10 @@ setIcon item (Just iconName) = do
     Nothing -> putStrLn $ "Icon not found: " ++ iconName
 
 -- | Create a new XDG Menu Widget.
-menuWidgetNew :: Maybe String -- ^ menu name, must end with a dash,
+menuWidgetNew :: MonadIO m => Maybe String -- ^ menu name, must end with a dash,
                               -- e.g. "mate-" or "gnome-"
-              -> IO Widget
-menuWidgetNew mMenuPrefix = do
+              -> m Widget
+menuWidgetNew mMenuPrefix = liftIO $ do
   mb <- menuBarNew
   m <- buildMenu mMenuPrefix
   addMenu mb m
