@@ -1,3 +1,4 @@
+-- -*- mode:haskell -*-
 module Main where
 
 import System.Taffybar
@@ -8,7 +9,6 @@ import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
 import System.Taffybar.Widget.Generic.PollingGraph
 import System.Taffybar.Widget.Generic.PollingLabel
-import System.Taffybar.Widget.SNITray
 import System.Taffybar.Widget.Util
 import System.Taffybar.Widget.Workspaces
 
