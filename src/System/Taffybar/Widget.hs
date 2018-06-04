@@ -36,7 +36,7 @@ module System.Taffybar.Widget
   , module System.Taffybar.Widget.NetworkGraph
 
   -- * "System.Taffybar.Widget.SNITray"
-  , sniTrayNew
+  , module System.Taffybar.Widget.SNITray
 
   -- * "System.Taffybar.Widget.SimpleClock"
   , textClockNew
