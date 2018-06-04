@@ -5,6 +5,7 @@ WORKDIR /taffybar
 # statement have no effect on the environment
 # (see https://docs.docker.com/engine/reference/builder/#from)
 ARG STACK_YAML
+RUN rm -rf /taffybar/src
 COPY . /taffybar
 # See https://github.com/commercialhaskell/stack/issues/3830#issuecomment-378751470
 # for an explanation of why we have to remove this directory.
