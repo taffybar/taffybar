@@ -8,6 +8,7 @@ import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
 import System.Taffybar.Widget.Generic.PollingGraph
 import System.Taffybar.Widget.Generic.PollingLabel
+import System.Taffybar.Widget.SNITray
 import System.Taffybar.Widget.Util
 import System.Taffybar.Widget.Workspaces
 
@@ -64,9 +65,9 @@ main = do
       clock = textClockNew Nothing "%a %b %_d %r" 1
       layout = layoutNew defaultLayoutConfig
       windows = windowsNew defaultWindowsConfig
-	  -- See https://github.com/taffybar/gtk-sni-tray#statusnotifierwatcher
-	  -- for a better way to set up the sni tray
-	  tray = sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt
+          -- See https://github.com/taffybar/gtk-sni-tray#statusnotifierwatcher
+          -- for a better way to set up the sni tray
+      tray = sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt
       myConfig = defaultSimpleTaffyConfig
         { startWidgets =
             workspaces : map (>>= buildContentsBox) [ layout, windows ]
