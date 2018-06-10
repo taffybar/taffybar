@@ -42,12 +42,15 @@ import System.Taffybar.Widget.XDGMenu.Menu
 --
 -- The menu will look for a file named "PREFIX-applications.menu" in
 -- the (subdirectory "menus" of the) directories specified by the
--- environment variable XDG_CONFIG_DIRS and "/etc/xdg".  If no prefix
--- is given (i.e. if you pass Nothing) then the value of the
+-- environment variables XDG_CONFIG_HOME and XDG_CONFIG_DIRS.  (If
+-- XDG_CONFIG_HOME is not set or empty then $HOME/.config is used, if
+-- XDG_CONFIG_DIRS is not set or empty then "/etc/xdg" is used).  If
+-- no prefix is given (i.e. if you pass Nothing) then the value of the
 -- environment variable XDG_MENU_PREFIX is used, if it is set.  If
 -- taffybar is running inside a desktop environment like Mate, Gnome,
 -- XFCE etc. the environment variables XDG_CONFIG_DIRS and
--- XDG_MENU_PREFIX should be set and you may create the menu like this:
+-- XDG_MENU_PREFIX should be set and you may create the menu like
+-- this:
 --
 -- >   let menu = menuWidgetNew Nothing
 --
