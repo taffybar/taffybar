@@ -46,19 +46,22 @@ import           Text.XML.Light.Helpers
 
 -- Environment Variables
 
--- | Produce a list of config locations to search, starting with XDG_CONFIG_HOME
--- and XDG_CONFIG_DIRS, with fallback to /etc/xdg
+-- | Produce a list of config locations to search, starting with
+-- XDG_CONFIG_HOME (or $HOME/.config) and XDG_CONFIG_DIRS, with
+-- fallback to /etc/xdg
 getXDGConfigDirs :: IO [String]
 getXDGConfigDirs = do
-  mXdgConfigHome <- lookupEnv "XDG_CONFIG_HOME"
+  mXdgConfigHome <- fromMaybe "" <$>
+                    lookupEnv "XDG_CONFIG_HOME"
+  xdgConfigHome <- if null mXdgConfigHome 
+                   then getDefaultConfigHome
+                   else return mXdgConfigHome
   xdgConfigDirs <- maybe [] splitSearchPath <$>
                    lookupEnv "XDG_CONFIG_DIRS"
   let xdgDirs = if null xdgConfigDirs
                 then ["/etc/xdg/"]
-                else map normalise xdgConfigDirs
-  existingDirs $ case mXdgConfigHome of
-                   Nothing -> xdgDirs
-                   Just h  -> normalise h : xdgDirs
+                else xdgConfigDirs
+  existingDirs $ map normalise $ xdgConfigHome : xdgDirs
 
 getXDGMenuPrefix :: IO (Maybe String)
 getXDGMenuPrefix = lookupEnv "XDG_MENU_PREFIX"

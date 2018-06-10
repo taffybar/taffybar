@@ -24,6 +24,7 @@ module System.Taffybar.Information.XDG.DesktopEntry
   , deNotShowIn
   , deOnlyShowIn
   , existingDirs
+  , getDefaultConfigHome
   , getDefaultDataHome
   , getDirectoryEntriesDefault
   , getDirectoryEntry
@@ -56,10 +57,16 @@ existingDirs  dirs = do
   mapM_ (putStrLn . ("Directory does not exist: " ++)) $ dirs \\ exDirs
   return exDirs
 
+getDefaultConfigHome :: IO FilePath
+getDefaultConfigHome = do
+  h <- getHomeDirectory
+  return $ h </> ".config"
+
 getDefaultDataHome :: IO FilePath
 getDefaultDataHome = do
   h <- getHomeDirectory
   return $ h </> ".local" </> "share"
+
 
 -- XXX: We really ought to use
 -- https://hackage.haskell.org/package/directory-1.3.2.2/docs/System-Directory.html#v:getXdgDirectory
