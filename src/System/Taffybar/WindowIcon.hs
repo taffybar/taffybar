@@ -58,10 +58,12 @@ pixelsARGBToBytesABGR ptr size = do
 
 selectEWMHIcon :: Int32 -> [EWMHIcon] -> Maybe EWMHIcon
 selectEWMHIcon imgSize icons = listToMaybe prefIcon
-  where sortedIcons = sortBy (comparing ewmhHeight) icons
-        smallestLargerIcon = take 1 $ dropWhile ((<= fromIntegral imgSize) . ewmhHeight) sortedIcons
-        largestIcon = take 1 $ reverse sortedIcons
-        prefIcon = smallestLargerIcon ++ largestIcon
+  where
+    sortedIcons = sortBy (comparing ewmhHeight) icons
+    smallestLargerIcon =
+      take 1 $ dropWhile ((<= fromIntegral imgSize) . ewmhHeight) sortedIcons
+    largestIcon = take 1 $ reverse sortedIcons
+    prefIcon = smallestLargerIcon ++ largestIcon
 
 getPixbufFromEWMHIcons :: Int32 -> [EWMHIcon] -> IO (Maybe Gdk.Pixbuf)
 getPixbufFromEWMHIcons size = traverse pixBufFromEWMHIcon . selectEWMHIcon size
@@ -96,7 +98,8 @@ getDirectoryEntryByClass
 getDirectoryEntryByClass klass = do
   entries <- MM.lookup klass <$> getDirectoryEntriesByClassName
   when (length entries > 1) $
-       logPrintF "System.Taffybar.WindowIcon" INFO "Multiple entries for: %s" (klass, entries)
+       logPrintF "System.Taffybar.WindowIcon" INFO "Multiple entries for: %s"
+       (klass, entries)
   return $ listToMaybe entries
 
 getWindowIconForAllClasses
@@ -108,7 +111,8 @@ getWindowIconForAllClasses doOnClass size klass =
     combine soFar theClass =
       maybeTCombine soFar (doOnClass size theClass)
 
-getWindowIconFromDesktopEntryByClasses :: Int32 -> String -> TaffyIO (Maybe Gdk.Pixbuf)
+getWindowIconFromDesktopEntryByClasses ::
+     Int32 -> String -> TaffyIO (Maybe Gdk.Pixbuf)
 getWindowIconFromDesktopEntryByClasses =
   getWindowIconForAllClasses getWindowIconFromDesktopEntryByClass
   where getWindowIconFromDesktopEntryByClass size klass =
