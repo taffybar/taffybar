@@ -50,14 +50,15 @@ import           Text.XML.Light.Helpers
 -- and XDG_CONFIG_DIRS, with fallback to /etc/xdg
 getXDGConfigDirs :: IO [String]
 getXDGConfigDirs = do
-  ch <- lookupEnv "XDG_CONFIG_HOME"
-  cd <- lookupEnv "XDG_CONFIG_DIRS"
-  let dirs = catMaybes [ch]
-             ++ maybe [] splitSearchPath cd
-  exDirs <- existingDirs dirs
-  return $ if null exDirs
-    then ["/etc/xdg/"]
-    else map normalise exDirs
+  mXdgConfigHome <- lookupEnv "XDG_CONFIG_HOME"
+  xdgConfigDirs <- maybe [] splitSearchPath <$>
+                   lookupEnv "XDG_CONFIG_DIRS"
+  let xdgDirs = if null xdgConfigDirs
+                then ["/etc/xdg/"]
+                else map normalise xdgConfigDirs
+  existingDirs $ case mXdgConfigHome of
+                   Nothing -> xdgDirs
+                   Just h  -> normalise h : xdgDirs
 
 getXDGMenuPrefix :: IO (Maybe String)
 getXDGMenuPrefix = lookupEnv "XDG_MENU_PREFIX"
