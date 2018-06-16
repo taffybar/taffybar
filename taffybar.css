@@ -12,6 +12,12 @@
 /* Top level styling */
 
 .taffy-window * {
+	/*
+	   This removes any existing styling from UI elements. Taffybar will not cohere
+	   with your gtk theme.
+   */
+	all: unset;
+
 	font-family: "Noto Sans", sans-serif;
 	font-size: 10pt;
 	color: @font-color;
