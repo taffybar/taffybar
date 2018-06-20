@@ -94,8 +94,9 @@ maybeTCombine
 maybeTCombine a b = runMaybeT $ MaybeT a <|> MaybeT b
 
 infixl 3 <||>
-(<||>) :: Monad m =>
-             (t -> m (Maybe a)) -> (t -> m (Maybe a)) -> t -> m (Maybe a)
+(<||>) ::
+  Monad m =>
+  (t -> m (Maybe a)) -> (t -> m (Maybe a)) -> t -> m (Maybe a)
 a <||> b = combineOptions
   where combineOptions v = maybeTCombine (a v) (b v)
 
