@@ -25,6 +25,7 @@ import           Control.Monad.Trans.Reader
 import           Control.RateLimit
 import qualified Data.Char as Char
 import qualified Data.Foldable as F
+import           Data.GI.Gtk.Threading
 import           Data.Int
 import           Data.List (intersect, sortBy)
 import qualified Data.Map as M
@@ -199,6 +200,10 @@ hideEmpty _ = True
 wLog :: MonadIO m => Priority -> String -> m ()
 wLog l s = liftIO $ logM "System.Taffybar.Widget.Workspaces" l s
 
+warnNotOnUIThread =
+  (lift $ not <$> isGUIThread) >>=
+  flip when (wLog WARNING "Attempting update, but not on UI thread")
+
 updateVar :: MV.MVar a -> (a -> WorkspacesIO a) -> WorkspacesIO a
 updateVar var modify = do
   ctx <- ask
@@ -325,6 +330,7 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
 
 updateAllWorkspaceWidgets :: WorkspacesIO ()
 updateAllWorkspaceWidgets = do
+  warnNotOnUIThread
   wLog DEBUG "Updating workspace widgets"
 
   workspacesMap <- updateWorkspacesVar
@@ -445,7 +451,7 @@ onIconChanged handler event =
 
 onIconsChanged :: WorkspacesContext -> IO (Set.Set X11Window -> IO ())
 onIconsChanged context =
-  (.) (void . forkIO) <$> rateLimitFn context onIconsChanged' combineRequests
+  (.) (void . Gtk.postGUIAsync) <$> rateLimitFn context onIconsChanged' combineRequests
   where
     combineRequests windows1 windows2 =
       Just (Set.union windows1 windows2, const ((), ()))
@@ -752,6 +758,7 @@ updateIconWidget _ IconWidget
                    , iconWindow = windowRef
                    , iconForceUpdate = updateIcon
                    } windowData = do
+  warnNotOnUIThread
   let statusString = maybe "inactive" getWindowStatusString windowData
       setIconWidgetProperties =
         updateWidgetClasses iconButton [statusString] possibleStatusStrings
