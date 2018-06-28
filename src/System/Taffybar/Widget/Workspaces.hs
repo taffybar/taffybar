@@ -450,14 +450,13 @@ onIconChanged handler event =
     _ -> return ()
 
 onIconsChanged :: WorkspacesContext -> IO (Set.Set X11Window -> IO ())
-onIconsChanged context =
-  (.) (void . Gtk.postGUIAsync) <$> rateLimitFn context onIconsChanged' combineRequests
+onIconsChanged context = rateLimitFn context onIconsChanged' combineRequests
   where
     combineRequests windows1 windows2 =
       Just (Set.union windows1 windows2, const ((), ()))
     onIconsChanged' wids = do
       wLog DEBUG $ printf "Icon update execute %s" $ show wids
-      flip runReaderT context $
+      Gtk.postGUIAsync $ flip runReaderT context $
         doWidgetUpdate
           (\idx c ->
              wLog DEBUG (printf "Updating %s icons." $ show idx) >>
