@@ -30,3 +30,23 @@ extra-deps:
 - xml-helpers-1.0.0
 resolver: lts-11.7
 allow-newer: true
+nix:
+  packages:
+    - cairo
+    - gcc
+    - gnome2.pango
+    - gobjectIntrospection
+    - gtk3
+    - hicolor-icon-theme
+    - libdbusmenu-glib
+    - libdbusmenu-gtk3
+    - libxml2
+    - numix-icon-theme-circle
+    - pkgconfig
+    - x11
+    - xorg.libX11
+    - xorg.libXext
+    - xorg.libXinerama
+    - xorg.libXrandr
+    - xorg.libXrender
+    - zlib
