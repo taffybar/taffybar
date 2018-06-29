@@ -58,6 +58,7 @@
 -- Implementation Note: the weather data parsing code is taken from xmobar. This
 -- version of the code makes direct HTTP requests instead of invoking a separate
 -- cURL process.
+
 module System.Taffybar.Widget.Weather
   ( WeatherConfig(..)
   , WeatherInfo(..)
@@ -94,7 +95,6 @@ data WeatherInfo = WI
   , humidity :: Int
   , pressure :: Int
   } deriving (Show)
-
 
 -- Parsers stolen from xmobar
 
@@ -170,7 +170,6 @@ skipTillString s =
 
 getNumbersAsString :: Parser String
 getNumbersAsString = skipMany space >> many1 digit >>= \n -> return n
-
 
 skipRestOfLine :: Parser Char
 skipRestOfLine = do
@@ -292,10 +291,12 @@ defaultWeatherConfig station =
   }
 
 -- | Create a periodically-updating weather widget that polls NOAA.
-weatherNew :: WeatherConfig -- ^ Configuration to render
-           -> Double     -- ^ Polling period in _minutes_
-           -> IO Widget
-weatherNew cfg delayMinutes = do
+weatherNew ::
+  MonadIO m
+  => WeatherConfig -- ^ Configuration to render
+  -> Double        -- ^ Polling period in _minutes_
+  -> MonadIO m
+weatherNew cfg delayMinutes = liftIO $ do
   let url = printf "%s/%s.TXT" baseUrl (weatherStation cfg)
       getter = getWeather (weatherProxy cfg) url
   weatherCustomNew getter (weatherTemplate cfg) (weatherTemplateTooltip cfg)
