@@ -295,7 +295,7 @@ weatherNew ::
   MonadIO m
   => WeatherConfig -- ^ Configuration to render
   -> Double        -- ^ Polling period in _minutes_
-  -> MonadIO m
+  -> m Widget
 weatherNew cfg delayMinutes = liftIO $ do
   let url = printf "%s/%s.TXT" baseUrl (weatherStation cfg)
       getter = getWeather (weatherProxy cfg) url
