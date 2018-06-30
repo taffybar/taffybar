@@ -36,16 +36,16 @@ import           Data.Tuple.Sequence
 import           Data.Unique
 import qualified GI.Gdk
 import qualified GI.GdkX11 as GdkX11
-import qualified GI.Gtk
+import qualified GI.Gtk as Gtk
+import           Data.GI.Gtk.Threading
 import           Graphics.UI.GIGtkStrut
-import           Graphics.UI.Gtk as Gtk
 import           StatusNotifier.TransparentWindow
 import           System.Log.Logger
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
+import qualified Data.Text as T
 import           Text.Printf
 import           Unsafe.Coerce
 
@@ -166,24 +166,22 @@ buildBarWindow context barConfig = do
       printf "Building bar window with StrutConfig: %s" $
       show $ strutConfig barConfig
 
-  window <- Gtk.windowNew
+  window <- Gtk.windowNew Gtk.WindowTypeToplevel
   box <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
-  _ <- widgetSetClass box "taffy-box"
+  _ <- widgetSetClassGI box (T.pack "taffy-box")
   centerBox <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
-  Gtk.boxSetCenterWidget box centerBox
+  Gtk.boxSetCenterWidget box (Just centerBox)
 
-  -- XXX: This conversion could leak memory
-  giWindow <- toGIWindow window
-  setupStrutWindow (strutConfig barConfig) giWindow
+  setupStrutWindow (strutConfig barConfig) window
   Gtk.containerAdd window box
 
-  _ <- widgetSetClass window "taffy-window"
+  _ <- widgetSetClassGI window (T.pack "taffy-window")
 
   let addWidgetWith widgetAdd buildWidget =
         runReaderT buildWidget thisContext >>= widgetAdd
-      addToStart widget = Gtk.boxPackStart box widget Gtk.PackNatural 0
-      addToEnd widget = Gtk.boxPackEnd box widget Gtk.PackNatural 0
-      addToCenter widget = Gtk.boxPackStart centerBox widget Gtk.PackNatural 0
+      addToStart widget = Gtk.boxPackStart box widget False False 0
+      addToEnd widget = Gtk.boxPackEnd box widget False False 0
+      addToCenter widget = Gtk.boxPackStart centerBox widget False False 0
 
   logIO DEBUG "Building start widgets"
   mapM_ (addWidgetWith addToStart) (startWidgets barConfig)
@@ -192,22 +190,22 @@ buildBarWindow context barConfig = do
   logIO DEBUG "Building end widgets"
   mapM_ (addWidgetWith addToEnd) (endWidgets barConfig)
 
-  makeWindowTransparent giWindow
+  makeWindowTransparent window
 
   logIO DEBUG "Showing window"
-  widgetShow window
-  widgetShow box
-  widgetShow centerBox
+  Gtk.widgetShow window
+  Gtk.widgetShow box
+  Gtk.widgetShow centerBox
 
   runX11Context context () $ void $ runMaybeT $ do
-    gdkWindow <- MaybeT $ GI.Gtk.widgetGetWindow giWindow
+    gdkWindow <- MaybeT $ Gtk.widgetGetWindow window
     xid <- GdkX11.x11WindowGetXid gdkWindow
     lift $ doLowerWindow (fromIntegral xid)
 
   return window
 
 refreshTaffyWindows :: TaffyIO ()
-refreshTaffyWindows = liftReader Gtk.postGUIAsync $ do
+refreshTaffyWindows = liftReader postGUIASync $ do
   logT DEBUG "Refreshing windows"
   ctx <- ask
   windowsVar <- asks existingWindows
@@ -217,12 +215,10 @@ refreshTaffyWindows = liftReader Gtk.postGUIAsync $ do
           barConfigs <- join $ asks getBarConfigs
 
           let currentConfigs = map sel1 currentWindows
-              (_, newConfs) = partition (`elem` currentConfigs) barConfigs
+              newConfs = filter (`notElem` currentConfigs) barConfigs
               (remainingWindows, removedWindows) =
                 partition ((`elem` barConfigs) . sel1) currentWindows
-              setPropertiesFromPair (barConf, window) =
-                toGIWindow window >>=
-                setupStrutWindow (strutConfig barConf)
+              setPropertiesFromPair (barConf, window) = setupStrutWindow (strutConfig barConf) window
 
           newWindowPairs <- lift $ do
             logIO DEBUG $ printf "removedWindows: %s" $
