@@ -473,7 +473,7 @@ buildContentsController constructors ws = do
   tempController <- lift $ do
     cons <- Gtk.hBoxNew False 0
     mapM_ (Gtk.containerAdd cons . getWidget) controllers
-    outerBox <- fromGIWidget =<< buildPadBox cons
+    outerBox <- toGIWidget (Gtk.toWidget cons) >>= buildPadBox >>= fromGIWidget
     _ <- widgetSetClass cons "contents"
     return
       WorkspaceContentsController

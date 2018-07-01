@@ -168,14 +168,14 @@ buildBarWindow context barConfig = do
 
   window <- Gtk.windowNew Gtk.WindowTypeToplevel
   box <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
-  _ <- widgetSetClassGI box (T.pack "taffy-box")
+  _ <- widgetSetClassGI box "taffy-box"
   centerBox <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
   Gtk.boxSetCenterWidget box (Just centerBox)
 
   setupStrutWindow (strutConfig barConfig) window
   Gtk.containerAdd window box
 
-  _ <- widgetSetClassGI window (T.pack "taffy-window")
+  _ <- widgetSetClassGI window "taffy-window"
 
   let addWidgetWith widgetAdd buildWidget =
         runReaderT buildWidget thisContext >>= widgetAdd

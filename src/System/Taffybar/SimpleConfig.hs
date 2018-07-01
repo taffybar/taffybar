@@ -136,10 +136,8 @@ simpleTaffybar :: SimpleTaffyConfig -> IO ()
 simpleTaffybar conf = dyreTaffybar $ toTaffyConfig conf
 
 getMonitorCount :: IO Int
-getMonitorCount = do
-   screen <- screenGetDefault
-   monitors <- maybe (return 0) screenGetNMonitors screen
-   return (fromIntegral monitors)
+getMonitorCount =
+  fromIntegral <$> (screenGetDefault >>= maybe (return 0) screenGetNMonitors)
 
 -- | Display a taffybar window on all monitors.
 useAllMonitors :: TaffyIO [Int]
