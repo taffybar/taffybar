@@ -31,7 +31,6 @@ import           Data.GI.Gtk.Threading
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Util
@@ -75,8 +74,8 @@ defaultWindowsConfig =
 
 -- | Create a new Windows widget that will use the given Pager as
 -- its source of events.
-windowsNew :: WindowsConfig -> TaffyIO Gtk2hs.Widget
-windowsNew config = (`widgetSetClass` "windows") =<< fromGIWidget =<< do
+windowsNew :: WindowsConfig -> TaffyIO Gtk.Widget
+windowsNew config = do
   label <- lift $ Gtk.labelNew Nothing
 
   let setLabelTitle title = lift $ postGUIASync $ Gtk.labelSetMarkup label (T.pack title)
@@ -88,10 +87,12 @@ windowsNew config = (`widgetSetClass` "windows") =<< fromGIWidget =<< do
   context <- ask
 
   labelWidget <- Gtk.toWidget label
-  dynamicMenuNew
+  menu <- dynamicMenuNew
     DynamicMenuConfig { dmClickWidget = labelWidget
                       , dmPopulateMenu = flip runReaderT context . fillMenu config
                       }
+
+  widgetSetClassGI menu (T.pack "windows")
 
 -- | Populate the given menu widget with the list of all currently open windows.
 fillMenu :: Gtk.IsMenuShell a => WindowsConfig -> a -> ReaderT Context IO ()

@@ -26,6 +26,8 @@ where
 import Control.Monad
 import Control.Monad.IO.Class
 import Graphics.UI.Gtk hiding (Menu)
+import qualified GI.Gtk
+import System.Taffybar.Compat.GtkLibs
 import System.Directory
 import System.FilePath.Posix
 import System.Process
@@ -117,13 +119,13 @@ setIcon item (Just iconName) = do
 -- | Create a new XDG Menu Widget.
 menuWidgetNew :: MonadIO m => Maybe String -- ^ menu name, must end with a dash,
                               -- e.g. "mate-" or "gnome-"
-              -> m Widget
+              -> m GI.Gtk.Widget
 menuWidgetNew mMenuPrefix = liftIO $ do
   mb <- menuBarNew
   m <- buildMenu mMenuPrefix
   addMenu mb m
   widgetShowAll mb
-  return (toWidget mb)
+  toGIWidget (toWidget mb)
 
 -- -- | Show XDG Menu Widget in a standalone frame.
 -- testMenuWidget :: IO ()

@@ -16,7 +16,7 @@ module System.Taffybar.Widget.CPUMonitor where
 
 import Control.Monad.IO.Class
 import Data.IORef
-import Graphics.UI.Gtk
+import qualified GI.Gtk
 import System.Taffybar.Information.CPU2 (getCPUInfo)
 import System.Taffybar.Information.StreamInfo (getAccLoad)
 import System.Taffybar.Widget.Generic.PollingGraph
@@ -29,7 +29,7 @@ cpuMonitorNew
   => GraphConfig -- ^ Configuration data for the Graph.
   -> Double -- ^ Polling period (in seconds).
   -> String -- ^ Name of the core to watch (e.g. \"cpu\", \"cpu0\").
-  -> m Widget
+  -> m GI.Gtk.Widget
 cpuMonitorNew cfg interval cpu = liftIO $ do
     info <- getCPUInfo cpu
     sample <- newIORef info

@@ -17,7 +17,7 @@
 module System.Taffybar.Widget.FSMonitor ( fsMonitorNew ) where
 
 import           Control.Monad.IO.Class
-import qualified Graphics.UI.Gtk as Gtk
+import qualified GI.Gtk
 import           System.Process ( readProcess )
 import           System.Taffybar.Widget.Generic.PollingLabel ( pollingLabelNew )
 
@@ -28,11 +28,11 @@ fsMonitorNew
   :: MonadIO m
   => Double -- ^ Polling interval (in seconds, e.g. 500)
   -> [String] -- ^ Names of the partitions to monitor (e.g. [\"\/\", \"\/home\"])
-  -> m Gtk.Widget
+  -> m GI.Gtk.Widget
 fsMonitorNew interval fsList = liftIO $ do
   label <- pollingLabelNew "" interval $ showFSInfo fsList
-  Gtk.widgetShowAll label
-  return $ Gtk.toWidget label
+  GI.Gtk.widgetShowAll label
+  GI.Gtk.toWidget label
 
 showFSInfo :: [String] -> IO String
 showFSInfo fsList = do

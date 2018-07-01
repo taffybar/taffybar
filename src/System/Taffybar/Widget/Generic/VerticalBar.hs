@@ -17,6 +17,8 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Graphics.Rendering.Cairo as C
 import           Graphics.UI.Gtk
+import qualified GI.Gtk
+import System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Widget.Util
 
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
@@ -159,7 +161,7 @@ drawBar mv drawArea = do
          return s
   renderBar (barPercent s) (barConfig s) w h
 
-verticalBarNew :: BarConfig -> IO (Widget, VerticalBarHandle)
+verticalBarNew :: BarConfig -> IO (GI.Gtk.Widget, VerticalBarHandle)
 verticalBarNew cfg = do
   drawArea <- drawingAreaNew
   mv <-
@@ -175,4 +177,5 @@ verticalBarNew cfg = do
   box <- hBoxNew False 1
   boxPackStart box drawArea PackGrow 0
   widgetShowAll box
-  return (toWidget box, VBH mv)
+  giBox <- toGIWidget $ toWidget box
+  return (giBox, VBH mv)

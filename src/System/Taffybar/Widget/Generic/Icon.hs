@@ -9,13 +9,15 @@ import Control.Concurrent ( forkIO, threadDelay )
 import Control.Exception as E
 import Control.Monad ( forever )
 import Graphics.UI.Gtk
+import qualified GI.Gtk
+import System.Taffybar.Compat.GtkLibs
 
 -- | Create a new widget that displays a static image
 --
 -- > iconImageWidgetNew path
 --
 -- returns a widget with icon at @path@.
-iconImageWidgetNew :: FilePath -> IO Widget
+iconImageWidgetNew :: FilePath -> IO GI.Gtk.Widget
 iconImageWidgetNew path = imageNewFromFile path >>= putInBox
 
 -- | Create a new widget that updates itself at regular intervals.  The
@@ -33,7 +35,7 @@ pollingIconImageWidgetNew
   :: FilePath -- ^ Initial file path of the icon
   -> Double -- ^ Update interval (in seconds)
   -> IO FilePath -- ^ Command to run to get the input filepath
-  -> IO Widget
+  -> IO GI.Gtk.Widget
 pollingIconImageWidgetNew path interval cmd = do
   icon <- imageNewFromFile path
   _ <- on icon realize $ do
@@ -46,12 +48,12 @@ pollingIconImageWidgetNew path interval cmd = do
     return ()
   putInBox icon
 
-putInBox :: WidgetClass child => child -> IO Widget
+putInBox :: WidgetClass child => child -> IO GI.Gtk.Widget
 putInBox icon = do
   box <- hBoxNew False 0
   boxPackStart box icon PackNatural 0
   widgetShowAll box
-  return $ toWidget box
+  toGIWidget $ toWidget box
 
 ignoreIOException :: IOException -> IO ()
 ignoreIOException _ = return ()

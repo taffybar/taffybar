@@ -16,6 +16,8 @@ import qualified Data.Time.Clock as Clock
 import           Data.Time.Format
 import           Data.Time.LocalTime
 import qualified Data.Time.Locale.Compat as L
+import qualified GI.Gtk
+import System.Taffybar.Compat.GtkLibs
 import           Graphics.UI.Gtk
 
 import           System.Taffybar.Widget.Generic.PollingLabel
@@ -55,9 +57,9 @@ toggleCalendar w c = do
 -- | Create the widget. I recommend passing @Nothing@ for the TimeLocale
 -- parameter. The format string can include Pango markup
 -- (http://developer.gnome.org/pango/stable/PangoMarkupFormat.html).
-textClockNew :: MonadIO m => Maybe L.TimeLocale -> String -> Double -> m Widget
-textClockNew userLocale =
-  textClockNewWith cfg
+textClockNew :: MonadIO m => Maybe L.TimeLocale -> String -> Double -> m GI.Gtk.Widget
+textClockNew userLocale s t =
+  textClockNewWith cfg s t >>= toGIWidget
   where
     cfg = defaultClockConfig { clockTimeLocale = userLocale }
 
@@ -98,7 +100,7 @@ textClockNewWith cfg fmt updateSeconds = liftIO $ do
   let ti = TimeInfo { getTZ = maybe systemGetTZ return userZone
                     , getLocale = maybe (return L.defaultTimeLocale) return userLocale
                     }
-  l    <- pollingLabelNew "" updateSeconds (getCurrentTime' ti fmt)
+  l    <- pollingLabelNew "" updateSeconds (getCurrentTime' ti fmt) >>= fromGIWidget
   ebox <- eventBoxNew
   containerAdd ebox l
   eventBoxSetVisibleWindow ebox False

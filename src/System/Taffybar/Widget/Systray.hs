@@ -3,10 +3,12 @@
 module System.Taffybar.Widget.Systray {-# DEPRECATED "Use SNITray instead" #-} ( systrayNew ) where
 
 import Control.Monad.IO.Class
+import qualified GI.Gtk
+import System.Taffybar.Compat.GtkLibs
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Misc.TrayManager
 
-systrayNew :: MonadIO m => m Widget
+systrayNew :: MonadIO m => m GI.Gtk.Widget
 systrayNew = liftIO $ do
   box <- hBoxNew False 5
 
@@ -19,4 +21,4 @@ systrayNew = liftIO $ do
     boxPackStart box w PackNatural 0
 
   widgetShowAll box
-  return (toWidget box)
+  toGIWidget (toWidget box)

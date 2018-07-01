@@ -25,8 +25,10 @@ module System.Taffybar.Widget.Layout
 
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
+import qualified GI.Gtk
 import qualified Graphics.UI.Gtk as Gtk
 import qualified Graphics.UI.Gtk.Abstract.Widget as W
+import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
@@ -65,8 +67,8 @@ xLayoutProp = "_XMONAD_CURRENT_LAYOUT"
 
 -- | Create a new Layout widget that will use the given Pager as
 -- its source of events.
-layoutNew :: LayoutConfig -> TaffyIO Gtk.Widget
-layoutNew config = do
+layoutNew :: LayoutConfig -> TaffyIO GI.Gtk.Widget
+layoutNew config = toGIWidget =<< do
   ctx <- ask
   label <- lift $ Gtk.labelNew (Nothing :: Maybe String)
 

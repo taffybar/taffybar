@@ -16,12 +16,14 @@ import qualified Control.Exception.Enclosed as E
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Graphics.UI.Gtk
+import qualified GI.Gtk
+import System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.Graph
 
 pollingGraphNew
   :: MonadIO m
-  => GraphConfig -> Double -> IO [Double] -> m Widget
+  => GraphConfig -> Double -> IO [Double] -> m GI.Gtk.Widget
 pollingGraphNew cfg pollSeconds action = liftIO $ do
   (graphWidget, graphHandle) <- graphNew cfg
 
@@ -33,4 +35,4 @@ pollingGraphNew cfg pollSeconds action = liftIO $ do
            Right sample -> graphAddSample graphHandle sample
        void $ on graphWidget unrealize $ killThread sampleThread
 
-  return graphWidget
+  toGIWidget graphWidget

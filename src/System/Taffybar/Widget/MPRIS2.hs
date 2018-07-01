@@ -33,7 +33,6 @@ import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import qualified Graphics.UI.Gtk as Gtk2hs
 import           System.Log.Logger
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.DBus.Client.MPRIS2
 import           System.Taffybar.Information.MPRIS2
@@ -51,8 +50,8 @@ data MPRIS2PlayerWidget = MPRIS2PlayerWidget
   , playerGrid :: Gtk.Grid
   }
 
-mpris2New :: TaffyIO Gtk2hs.Widget
-mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
+mpris2New :: TaffyIO Gtk.Widget
+mpris2New = asks sessionDBusClient >>= \client -> lift $ do
   grid <- Gtk.gridNew
   vFillCenter grid
   playerWidgetsVar <- MV.newMVar []

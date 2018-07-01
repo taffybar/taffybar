@@ -15,7 +15,7 @@
 module System.Taffybar.Widget.CommandRunner ( commandRunnerNew ) where
 
 import           Control.Monad.IO.Class
-import qualified Graphics.UI.Gtk as Gtk
+import qualified GI.Gtk
 import           System.Log.Logger
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.PollingLabel
@@ -30,7 +30,7 @@ commandRunnerNew
   -> String -- ^ Command to execute. Should be in $PATH or an absolute path
   -> [String] -- ^ Command argument. May be @[]@
   -> String -- ^ If command fails this will be displayed.
-  -> m Gtk.Widget
+  -> m GI.Gtk.Widget
 commandRunnerNew interval cmd args defaultOutput =
   pollingLabelNew "" interval $
   runCommandWithDefault cmd args defaultOutput

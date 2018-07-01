@@ -28,10 +28,8 @@ import           Data.GI.Gtk.Threading
 import           Data.Int (Int64)
 import qualified Data.Text as T
 import           GI.Gtk
-import qualified Graphics.UI.Gtk as Gtk2hs
 import           Prelude
 import           StatusNotifier.Tray (scalePixbufToSize)
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.Battery
 import           System.Taffybar.Widget.Generic.AutoSizeImage
@@ -89,8 +87,8 @@ formatBattInfo info fmt =
 -- charged/discharged.
 textBatteryNew
   :: String -- ^ Display format
-  -> TaffyIO Gtk2hs.Widget
-textBatteryNew format = fromGIWidget =<< do
+  -> TaffyIO Widget
+textBatteryNew format = do
   chan <- getDisplayBatteryChan
   ctx <- ask
   let getLabelText info =
@@ -106,8 +104,8 @@ textBatteryNew format = fromGIWidget =<< do
 themeLoadFlags :: [IconLookupFlags]
 themeLoadFlags = [IconLookupFlagsGenericFallback, IconLookupFlagsUseBuiltin]
 
-batteryIconNew :: TaffyIO Gtk2hs.Widget
-batteryIconNew = fromGIWidget =<< do
+batteryIconNew :: TaffyIO Widget
+batteryIconNew = do
   chan <- getDisplayBatteryChan
   ctx <- ask
   liftIO $ do

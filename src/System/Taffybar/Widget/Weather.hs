@@ -68,6 +68,7 @@ module System.Taffybar.Widget.Weather
   ) where
 
 import Control.Monad.IO.Class
+import qualified GI.Gtk
 import Graphics.UI.Gtk
 import qualified Network.Browser as Browser
 import Network.HTTP
@@ -294,7 +295,7 @@ defaultWeatherConfig station =
 -- | Create a periodically-updating weather widget that polls NOAA.
 weatherNew :: WeatherConfig -- ^ Configuration to render
            -> Double     -- ^ Polling period in _minutes_
-           -> IO Widget
+           -> IO GI.Gtk.Widget
 weatherNew cfg delayMinutes = do
   let url = printf "%s/%s.TXT" baseUrl (weatherStation cfg)
       getter = getWeather (weatherProxy cfg) url
@@ -309,7 +310,7 @@ weatherCustomNew
   -> String -- ^ Weather template
   -> WeatherFormatter -- ^ Weather formatter
   -> Double -- ^ Polling period in _minutes_
-  -> m Widget
+  -> m GI.Gtk.Widget
 weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = liftIO $ do
   let labelTpl' = newSTMP labelTpl
       tooltipTpl' = newSTMP tooltipTpl
@@ -317,5 +318,5 @@ weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = liftIO $ do
   l <- pollingLabelNewWithTooltip "N/A" (delayMinutes * 60)
        (getCurrentWeather getter labelTpl' tooltipTpl' formatter)
 
-  widgetShowAll l
+  GI.Gtk.widgetShowAll l
   return l

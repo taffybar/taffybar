@@ -5,8 +5,6 @@ import           Control.Monad.Trans.Class
 import           Data.GI.Gtk.Threading
 import qualified Data.Text as T
 import           GI.Gtk
-import qualified Graphics.UI.Gtk as Gtk2hs
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
 import           System.Taffybar.Information.Network
@@ -58,8 +56,8 @@ toAuto prec value = printf "%.*f%s" p v unit
         p :: Int
         p = max 0 $ floor $ fromIntegral prec - logBase 10 v
 
-networkMonitorNew :: String -> Maybe [String] -> TaffyIO Gtk2hs.Widget
-networkMonitorNew template interfaces = fromGIWidget =<< do
+networkMonitorNew :: String -> Maybe [String] -> TaffyIO GI.Gtk.Widget
+networkMonitorNew template interfaces = do
   NetworkInfoChan chan <- getNetworkChan
   let filterFn = maybe (const True) (flip elem) interfaces
   label <- lift $ labelNew Nothing

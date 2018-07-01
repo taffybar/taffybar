@@ -300,8 +300,8 @@ addWidget controller = do
       else Gtk.containerAdd hbox workspaceWidget
     Gtk.containerAdd cont hbox
 
-workspacesNew :: WorkspacesConfig -> TaffyIO Gtk.Widget
-workspacesNew cfg = ask >>= \tContext -> lift $ do
+workspacesNew :: WorkspacesConfig -> TaffyIO GI.Gtk.Widget
+workspacesNew cfg = toGIWidget =<< (ask >>= \tContext -> lift $ do
   cont <- Gtk.hBoxNew False (widgetGap cfg)
   controllersRef <- MV.newMVar M.empty
   workspacesRef <- MV.newMVar M.empty
@@ -326,7 +326,7 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
         mapM_ unsubscribe [iconSubscription, workspaceSubscription]
   _ <- Gtk.on cont W.unrealize doUnsubscribe
   _ <- widgetSetClass cont "workspaces"
-  return $ Gtk.toWidget cont
+  return $ Gtk.toWidget cont)
 
 updateAllWorkspaceWidgets :: WorkspacesIO ()
 updateAllWorkspaceWidgets = do
@@ -473,7 +473,7 @@ buildContentsController constructors ws = do
   tempController <- lift $ do
     cons <- Gtk.hBoxNew False 0
     mapM_ (Gtk.containerAdd cons . getWidget) controllers
-    outerBox <- buildPadBox cons
+    outerBox <- fromGIWidget =<< buildPadBox cons
     _ <- widgetSetClass cons "contents"
     return
       WorkspaceContentsController

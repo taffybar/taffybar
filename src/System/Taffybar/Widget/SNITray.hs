@@ -15,11 +15,9 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import qualified GI.Gtk
 import           Graphics.UI.GIGtkStrut
-import qualified Graphics.UI.Gtk as Gtk
 import qualified StatusNotifier.Host.Service as H
 import           StatusNotifier.Tray
 import           System.Posix.Process
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Widget.Util
 import           Text.Printf
@@ -37,7 +35,7 @@ getHost startWatcher = getStateDefault $ do
 
 -- | Build a new StatusNotifierItem tray that will share a host with any other
 -- trays that are constructed automatically
-sniTrayNewFromHost :: H.Host -> TaffyIO Gtk.Widget
+sniTrayNewFromHost :: H.Host -> TaffyIO GI.Gtk.Widget
 sniTrayNewFromHost host = do
   client <- asks sessionDBusClient
   lift $ do
@@ -53,11 +51,11 @@ sniTrayNewFromHost host = do
         }
     _ <- widgetSetClassGI tray "sni-tray"
     GI.Gtk.widgetShowAll tray
-    GI.Gtk.toWidget tray >>= fromGIWidget
+    GI.Gtk.toWidget tray
 
-sniTrayNew :: TaffyIO Gtk.Widget
+sniTrayNew :: TaffyIO GI.Gtk.Widget
 sniTrayNew = getHost False >>= sniTrayNewFromHost
 
-sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt :: TaffyIO Gtk.Widget
+sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt :: TaffyIO GI.Gtk.Widget
 sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt = getHost True >>= sniTrayNewFromHost
 

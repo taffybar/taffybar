@@ -44,6 +44,8 @@ import           Data.Text ( Text )
 import qualified Data.Text as T
 import           Data.Word ( Word32 )
 import           Graphics.UI.Gtk hiding ( Variant )
+import qualified GI.Gtk
+import           System.Taffybar.Compat.GtkLibs
 
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification
@@ -57,7 +59,7 @@ data Notification = Notification
 
 data NotifyState = NotifyState
   { noteWidget :: Label
-  , noteContainer :: Widget
+  , noteContainer :: GI.Gtk.Widget
   , noteConfig :: NotificationConfig -- ^ The associated configuration
   , noteQueue :: TVar (Seq Notification) -- ^ The queue of active notifications
   , noteIdSource :: TVar Word32 -- ^ A source of fresh notification ids
@@ -69,10 +71,11 @@ initialNoteState wrapper l cfg = do
   m <- newTVarIO 1
   q <- newTVarIO S.empty
   ch <- newChan
+  giWrapper <- toGIWidget wrapper
   return NotifyState { noteQueue = q
                      , noteIdSource = m
                      , noteWidget = l
-                     , noteContainer = wrapper
+                     , noteContainer = giWrapper
                      , noteConfig = cfg
                      , noteChan = ch
                      }
@@ -176,10 +179,10 @@ displayThread s = forever $ do
   ns <- readTVarIO (noteQueue s)
   postGUIAsync $
     if S.length ns == 0
-    then widgetHide (noteContainer s)
+    then widgetHide =<< fromGIWidget (noteContainer s)
     else do
       labelSetMarkup (noteWidget s) $ formatMessage (noteConfig s) (toList ns)
-      widgetShowAll (noteContainer s)
+      widgetShowAll =<< fromGIWidget (noteContainer s)
   where
     formatMessage NotificationConfig {..} ns =
       take notificationMaxLength $ notificationFormatter ns
@@ -226,8 +229,8 @@ defaultNotificationConfig =
                      }
 
 -- | Create a new notification area with the given configuration.
-notifyAreaNew :: MonadIO m => NotificationConfig -> m Widget
-notifyAreaNew cfg = liftIO $ do
+notifyAreaNew :: MonadIO m => NotificationConfig -> m GI.Gtk.Widget
+notifyAreaNew cfg = toGIWidget =<< (liftIO $ do
   frame <- frameNew
   box <- hBoxNew False 3
   textArea <- labelNew (Nothing :: Maybe String)
@@ -267,6 +270,7 @@ notifyAreaNew cfg = liftIO $ do
 
   -- Don't show the widget by default - it will appear when needed
   return (toWidget realizableWrapper)
+  )
   where
     -- | Close the current note and pull up the next, if any
     userCancel s = liftIO $ do
