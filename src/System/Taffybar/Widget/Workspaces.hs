@@ -44,7 +44,6 @@ import qualified GI.Gtk as Gtk
 import           Prelude
 import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.SafeX11
@@ -104,12 +103,20 @@ liftContext action = asks taffyContext >>= lift . runReaderT action
 liftX11Def :: a -> X11Property a -> WorkspacesIO a
 liftX11Def def prop = liftContext $ runX11Def def prop
 
+setWorkspaceWidgetStatusClass ::
+     (MonadIO m, Gtk.IsWidget a) => Workspace -> a -> m ()
 setWorkspaceWidgetStatusClass workspace widget =
   updateWidgetClasses
     widget
     [getCSSClass $ workspaceState workspace]
     cssWorkspaceStates
 
+updateWidgetClasses ::
+  (Foldable t1, Foldable t, Gtk.IsWidget a, MonadIO m)
+  => a
+  -> t1 T.Text
+  -> t T.Text
+  -> m ()
 updateWidgetClasses widget toAdd toRemove = do
   context <- Gtk.widgetGetStyleContext widget
   let hasClass = Gtk.styleContextHasClass context
@@ -191,6 +198,7 @@ hideEmpty _ = True
 wLog :: MonadIO m => Priority -> String -> m ()
 wLog l s = liftIO $ logM "System.Taffybar.Widget.Workspaces" l s
 
+warnNotOnUIThread :: WorkspacesIO
 warnNotOnUIThread =
   (lift $ not <$> Gtk.isGUIThread) >>=
   flip when (wLog WARNING "Attempting update, but not on UI thread")
@@ -776,7 +784,6 @@ buildButtonController contentsBuilder workspace = do
                 (switchOneWorkspace a (length (M.toList workspaces) - 1)) >>
               return True
         case dir of
-          _ -> switchOne True
           Gdk.ScrollDirectionUp -> switchOne True
           Gdk.ScrollDirectionLeft -> switchOne True
           Gdk.ScrollDirectionDown -> switchOne False

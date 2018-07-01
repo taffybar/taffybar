@@ -45,7 +45,6 @@ import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
-import qualified Data.Text as T
 import           Text.Printf
 import           Unsafe.Coerce
 
