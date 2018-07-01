@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-{-# LANGUAGE ScopedTypeVariables, ExistentialQuantification, RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables, ExistentialQuantification, RankNTypes, OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.Workspaces
@@ -25,7 +25,7 @@ import           Control.Monad.Trans.Reader
 import           Control.RateLimit
 import qualified Data.Char as Char
 import qualified Data.Foldable as F
-import           Data.GI.Gtk.Threading
+import qualified Data.GI.Gtk.Threading as Gtk
 import           Data.Int
 import           Data.List (intersect, sortBy)
 import qualified Data.Map as M
@@ -33,15 +33,14 @@ import           Data.Maybe
 import qualified Data.MultiMap as MM
 import           Data.Ord
 import qualified Data.Set as Set
+import qualified Data.Text as T
 import           Data.Time.Units
 import           Data.Tuple.Select
 import           Data.Tuple.Sequence
+import qualified GI.Gdk.Enums as Gdk
+import qualified GI.Gdk.Structs.EventScroll as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
-import qualified GI.Gtk
-import qualified Graphics.UI.Gtk as Gtk
-import qualified Graphics.UI.Gtk.Abstract.Widget as W
-import           Graphics.UI.Gtk.General.StyleContext
-import qualified Graphics.UI.Gtk.Layout.Table as T
+import qualified GI.Gtk as Gtk
 import           Prelude
 import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
@@ -65,10 +64,10 @@ data WorkspaceState
   | Urgent
   deriving (Show, Eq)
 
-getCSSClass :: (Show s) => s -> String
-getCSSClass = map Char.toLower . show
+getCSSClass :: (Show s) => s -> T.Text
+getCSSClass = T.pack . map Char.toLower . show
 
-cssWorkspaceStates :: [String]
+cssWorkspaceStates :: [T.Text]
 cssWorkspaceStates = map getCSSClass [Active, Visible, Hidden, Empty, Urgent]
 
 data WindowData = WindowData
@@ -105,30 +104,24 @@ liftContext action = asks taffyContext >>= lift . runReaderT action
 liftX11Def :: a -> X11Property a -> WorkspacesIO a
 liftX11Def def prop = liftContext $ runX11Def def prop
 
-setWorkspaceWidgetStatusClass
-  :: W.WidgetClass widget
-  => Workspace -> widget -> IO ()
 setWorkspaceWidgetStatusClass workspace widget =
   updateWidgetClasses
     widget
-    [map Char.toLower $ show $ workspaceState workspace]
+    [getCSSClass $ workspaceState workspace]
     cssWorkspaceStates
 
-updateWidgetClasses
-  :: W.WidgetClass widget
-  => widget -> [String] -> [String] -> IO ()
 updateWidgetClasses widget toAdd toRemove = do
   context <- Gtk.widgetGetStyleContext widget
-  let hasClass = styleContextHasClass context
+  let hasClass = Gtk.styleContextHasClass context
       addIfMissing klass =
-        hasClass klass >>= (`when` styleContextAddClass context klass) . not
+        hasClass klass >>= (`when` Gtk.styleContextAddClass context klass) . not
       removeIfPresent klass = unless (klass `elem` toAdd) $
-        hasClass klass >>= (`when` styleContextRemoveClass context klass)
+        hasClass klass >>= (`when` Gtk.styleContextRemoveClass context klass)
   mapM_ removeIfPresent toRemove
   mapM_ addIfMissing toAdd
 
 class WorkspaceWidgetController wc where
-  getWidget :: wc -> Gtk.Widget
+  getWidget :: wc -> WorkspacesIO Gtk.Widget
   updateWidget :: wc -> WidgetUpdate -> WorkspacesIO wc
   updateWidgetX11 :: wc -> WidgetUpdate -> WorkspacesIO wc
   updateWidgetX11 cont _ = return cont
@@ -152,7 +145,6 @@ data WorkspacesConfig =
   { widgetBuilder :: ControllerConstructor
   , widgetGap :: Int
   , underlineHeight :: Int
-  , minWSWidgetSize :: Maybe Int
   , underlinePadding :: Int
   , maxIcons :: Maybe Int
   , minIcons :: Int
@@ -172,7 +164,6 @@ defaultWorkspacesConfig =
   { widgetBuilder = buildButtonController defaultBuildContentsController
   , widgetGap = 0
   , underlineHeight = 4
-  , minWSWidgetSize = Just 30
   , underlinePadding = 1
   , maxIcons = Nothing
   , minIcons = 0
@@ -201,7 +192,7 @@ wLog :: MonadIO m => Priority -> String -> m ()
 wLog l s = liftIO $ logM "System.Taffybar.Widget.Workspaces" l s
 
 warnNotOnUIThread =
-  (lift $ not <$> isGUIThread) >>=
+  (lift $ not <$> Gtk.isGUIThread) >>=
   flip when (wLog WARNING "Attempting update, but not on UI thread")
 
 updateVar :: MV.MVar a -> (a -> WorkspacesIO a) -> WorkspacesIO a
@@ -288,7 +279,7 @@ addWidgetsToTopLevel = do
 addWidget :: WWC -> WorkspacesIO ()
 addWidget controller = do
   cont <- asks workspacesWidget
-  let workspaceWidget = getWidget controller
+  workspaceWidget <- getWidget controller
   lift $ do
      -- XXX: This hbox exists to (hopefully) prevent the issue where workspace
      -- widgets appear out of order, in the switcher, by acting as an empty
@@ -296,13 +287,13 @@ addWidget controller = do
     hbox <- Gtk.hBoxNew False 0
     parent <- Gtk.widgetGetParent workspaceWidget
     if isJust parent
-      then Gtk.widgetReparent (getWidget controller) hbox
+      then Gtk.widgetReparent workspaceWidget hbox
       else Gtk.containerAdd hbox workspaceWidget
     Gtk.containerAdd cont hbox
 
-workspacesNew :: WorkspacesConfig -> TaffyIO GI.Gtk.Widget
-workspacesNew cfg = toGIWidget =<< (ask >>= \tContext -> lift $ do
-  cont <- Gtk.hBoxNew False (widgetGap cfg)
+workspacesNew :: WorkspacesConfig -> TaffyIO Gtk.Widget
+workspacesNew cfg = (ask >>= \tContext -> lift $ do
+  cont <- Gtk.hBoxNew False $ fromIntegral (widgetGap cfg)
   controllersRef <- MV.newMVar M.empty
   workspacesRef <- MV.newMVar M.empty
   let context =
@@ -324,9 +315,9 @@ workspacesNew cfg = toGIWidget =<< (ask >>= \tContext -> lift $ do
          )
   let doUnsubscribe = flip runReaderT tContext $
         mapM_ unsubscribe [iconSubscription, workspaceSubscription]
-  _ <- Gtk.on cont W.unrealize doUnsubscribe
-  _ <- widgetSetClass cont "workspaces"
-  return $ Gtk.toWidget cont)
+  _ <- Gtk.onWidgetUnrealize cont doUnsubscribe
+  _ <- widgetSetClassGI cont "workspaces"
+  Gtk.toWidget cont)
 
 updateAllWorkspaceWidgets :: WorkspacesIO ()
 updateAllWorkspaceWidgets = do
@@ -357,21 +348,22 @@ updateAllWorkspaceWidgets = do
 
 setControllerWidgetVisibility :: WorkspacesIO ()
 setControllerWidgetVisibility = do
-  WorkspacesContext { workspacesVar = workspacesRef
-          , controllersVar = controllersRef
-          , workspacesConfig = cfg
-          } <- ask
+  ctx@WorkspacesContext
+    { workspacesVar = workspacesRef
+    , controllersVar = controllersRef
+    , workspacesConfig = cfg
+    } <- ask
   lift $ do
     workspacesMap <- MV.readMVar workspacesRef
     controllersMap <- MV.readMVar controllersRef
     forM_ (M.elems workspacesMap) $ \ws ->
-      let c = M.lookup (workspaceIdx ws) controllersMap
-          mWidget = getWidget <$> c
-          action = if showWorkspaceFn cfg ws
+      let action = if showWorkspaceFn cfg ws
                    then Gtk.widgetShow
                    else Gtk.widgetHide
       in
-        maybe (return ()) action mWidget
+        (traverse (flip runReaderT ctx . getWidget)
+                    (M.lookup (workspaceIdx ws) controllersMap)) >>=
+        (maybe (return ()) action)
 
 doWidgetUpdate :: (WorkspaceIdx -> WWC -> WorkspacesIO WWC) -> WorkspacesIO ()
 doWidgetUpdate updateController = do
@@ -439,7 +431,7 @@ onWorkspaceUpdate context = do
   return withLog
   where
     combineRequests _ b = Just (b, const ((), ()))
-    doUpdate _ = Gtk.postGUIAsync $ runReaderT updateAllWorkspaceWidgets context
+    doUpdate _ = Gtk.postGUIASync $ runReaderT updateAllWorkspaceWidgets context
 
 onIconChanged :: (Set.Set X11Window -> IO ()) -> Event -> IO ()
 onIconChanged handler event =
@@ -456,7 +448,7 @@ onIconsChanged context = rateLimitFn context onIconsChanged' combineRequests
       Just (Set.union windows1 windows2, const ((), ()))
     onIconsChanged' wids = do
       wLog DEBUG $ printf "Icon update execute %s" $ show wids
-      Gtk.postGUIAsync $ flip runReaderT context $
+      Gtk.postGUIASync $ flip runReaderT context $
         doWidgetUpdate
           (\idx c ->
              wLog DEBUG (printf "Updating %s icons." $ show idx) >>
@@ -470,14 +462,16 @@ data WorkspaceContentsController = WorkspaceContentsController
 buildContentsController :: [ControllerConstructor] -> ControllerConstructor
 buildContentsController constructors ws = do
   controllers <- mapM ($ ws) constructors
+  ctx <- ask
   tempController <- lift $ do
     cons <- Gtk.hBoxNew False 0
-    mapM_ (Gtk.containerAdd cons . getWidget) controllers
-    outerBox <- toGIWidget (Gtk.toWidget cons) >>= buildPadBox >>= fromGIWidget
-    _ <- widgetSetClass cons "contents"
+    mapM_ (flip runReaderT ctx . getWidget >=> Gtk.containerAdd cons) controllers
+    outerBox <- Gtk.toWidget cons >>= buildPadBox
+    _ <- widgetSetClassGI cons "contents"
+    widget <- Gtk.toWidget outerBox
     return
       WorkspaceContentsController
-      { containerWidget = Gtk.toWidget outerBox
+      { containerWidget = widget
       , contentsControllers = controllers
       }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
@@ -487,12 +481,9 @@ defaultBuildContentsController =
   buildContentsController [buildLabelController, buildIconController]
 
 instance WorkspaceWidgetController WorkspaceContentsController where
-  getWidget = containerWidget
+  getWidget = return . containerWidget
   updateWidget cc update = do
     WorkspacesContext {workspacesConfig = cfg} <- ask
-    lift $
-      maybe (return ()) (updateMinSize $ Gtk.toWidget $ containerWidget cc) $
-      minWSWidgetSize cfg
     case update of
       WorkspaceUpdate newWorkspace ->
         lift $ setWorkspaceWidgetStatusClass newWorkspace $ containerWidget cc
@@ -508,18 +499,18 @@ newtype LabelController = LabelController { label :: Gtk.Label }
 buildLabelController :: ControllerConstructor
 buildLabelController ws = do
   tempController <- lift $ do
-    lbl <- Gtk.labelNew (Nothing :: Maybe String)
-    _ <- widgetSetClass lbl "workspace-label"
+    lbl <- Gtk.labelNew Nothing
+    _ <- widgetSetClassGI lbl "workspace-label"
     return LabelController { label = lbl }
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
 instance WorkspaceWidgetController LabelController where
-  getWidget = Gtk.toWidget . label
+  getWidget = lift . Gtk.toWidget . label
   updateWidget lc (WorkspaceUpdate newWorkspace) = do
     WorkspacesContext { workspacesConfig = cfg } <- ask
     labelText <- labelSetter cfg newWorkspace
     lift $ do
-      Gtk.labelSetMarkup (label lc) labelText
+      Gtk.labelSetMarkup (label lc) $ T.pack labelText
       setWorkspaceWidgetStatusClass newWorkspace $ label lc
     return lc
   updateWidget lc _ = return lc
@@ -552,18 +543,17 @@ buildIconWidget transparentOnNone ws = do
   lift $ do
     windowVar <- MV.newMVar Nothing
     img <- Gtk.imageNew
-    giImg <- toGIImage img
     refreshImage <-
-      autoSizeImage giImg
+      autoSizeImage img
         (flip runReaderT ctx . getPixbufForIconWidget transparentOnNone windowVar)
-        GI.Gtk.OrientationHorizontal
+        Gtk.OrientationHorizontal
     ebox <- Gtk.eventBoxNew
-    _ <- widgetSetClass img "window-icon"
-    _ <- widgetSetClass ebox "window-icon-container"
+    _ <- widgetSetClassGI img "window-icon"
+    _ <- widgetSetClassGI ebox "window-icon-container"
     Gtk.containerAdd ebox img
     _ <-
-      Gtk.on ebox Gtk.buttonPressEvent $
-      liftIO $ do
+      Gtk.onWidgetButtonPressEvent ebox $
+      const $ liftIO $ do
         info <- MV.readMVar windowVar
         case info of
           Just updatedInfo ->
@@ -596,7 +586,7 @@ buildIconController ws = do
   WWC <$> updateWidget tempController (WorkspaceUpdate ws)
 
 instance WorkspaceWidgetController IconController where
-  getWidget = Gtk.toWidget . iconsContainer
+  getWidget = lift . Gtk.toWidget . iconsContainer
   updateWidget ic (WorkspaceUpdate newWorkspace) = do
     newImages <- updateImages ic newWorkspace
     return ic { iconImages = newImages, iconWorkspace = newWorkspace }
@@ -615,16 +605,10 @@ updateWindowIconsById ic windowIds =
         when (maybe False (flip elem windowIds . windowId) info) $
          updateIconWidget ic widget info
 
-updateMinSize :: Gtk.Widget -> Int  -> IO ()
-updateMinSize widget minWidth = do
-  W.widgetSetSizeRequest widget (-1) (-1)
-  W.Requisition w _ <- W.widgetSizeRequest widget
-  when (w < minWidth) $ W.widgetSetSizeRequest widget minWidth  $ -1
-
 scaledWindowIconPixbufGetter :: WindowIconPixbufGetter -> WindowIconPixbufGetter
 scaledWindowIconPixbufGetter getter size =
   getter size >=>
-  lift . traverse (scalePixbufToSize size GI.Gtk.OrientationHorizontal)
+  lift . traverse (scalePixbufToSize size Gtk.OrientationHorizontal)
 
 constantScaleWindowIconPixbufGetter :: Int32
                                     -> WindowIconPixbufGetter
@@ -733,18 +717,18 @@ updateImages ic ws = do
   when newImagesNeeded $ lift $ Gtk.widgetShowAll $ iconsContainer ic
   return newImgs
 
-getWindowStatusString :: WindowData -> String
-getWindowStatusString windowData = map Char.toLower $
+getWindowStatusString :: WindowData -> T.Text
+getWindowStatusString windowData = T.pack $ map Char.toLower $
   case windowData of
     WindowData { windowMinimized = True } -> "minimized"
     WindowData { windowActive = True } -> show Active
     WindowData { windowUrgent = True } -> show Urgent
     _ -> "normal"
 
-possibleStatusStrings :: [String]
+possibleStatusStrings :: [T.Text]
 possibleStatusStrings =
   map
-    (map Char.toLower)
+    (T.pack . map Char.toLower)
     [show Active, show Urgent, "minimized", "normal", "inactive"]
 
 updateIconWidget
@@ -758,7 +742,7 @@ updateIconWidget _ IconWidget
                    , iconForceUpdate = updateIcon
                    } windowData = do
   warnNotOnUIThread
-  let statusString = maybe "inactive" getWindowStatusString windowData
+  let statusString = maybe "inactive" getWindowStatusString windowData :: T.Text
       setIconWidgetProperties =
         updateWidgetClasses iconButton [statusString] possibleStatusStrings
   void $ updateVar windowRef $ const $ return windowData
@@ -775,12 +759,14 @@ buildButtonController contentsBuilder workspace = do
   cc <- contentsBuilder workspace
   workspacesRef <- asks workspacesVar
   ctx <- ask
+  widget <- getWidget cc
   lift $ do
     ebox <- Gtk.eventBoxNew
-    Gtk.containerAdd ebox $ getWidget cc
+    Gtk.containerAdd ebox widget
     Gtk.eventBoxSetVisibleWindow ebox False
     _ <-
-      Gtk.on ebox Gtk.scrollEvent $ do
+      Gtk.onWidgetScrollEvent ebox $ \scrollEvent -> do
+        dir <- Gdk.getEventScrollDirection scrollEvent
         workspaces <- liftIO $ MV.readMVar workspacesRef
         let switchOne a =
               liftIO $
@@ -789,14 +775,14 @@ buildButtonController contentsBuilder workspace = do
                 ()
                 (switchOneWorkspace a (length (M.toList workspaces) - 1)) >>
               return True
-        dir <- Gtk.eventScrollDirection
         case dir of
-          Gtk.ScrollUp -> switchOne True
-          Gtk.ScrollLeft -> switchOne True
-          Gtk.ScrollDown -> switchOne False
-          Gtk.ScrollRight -> switchOne False
-          Gtk.ScrollSmooth -> return False
-    _ <- Gtk.on ebox Gtk.buttonPressEvent $ switch ctx $ workspaceIdx workspace
+          _ -> switchOne True
+          Gdk.ScrollDirectionUp -> switchOne True
+          Gdk.ScrollDirectionLeft -> switchOne True
+          Gdk.ScrollDirectionDown -> switchOne False
+          Gdk.ScrollDirectionRight -> switchOne False
+          _ -> return False
+    _ <- Gtk.onWidgetButtonPressEvent ebox $ const $ switch ctx $ workspaceIdx workspace
     return $
       WWC
         WorkspaceButtonController
@@ -809,94 +795,7 @@ switch ctx idx = do
 
 instance WorkspaceWidgetController WorkspaceButtonController
   where
-    getWidget wbc = Gtk.toWidget $ button wbc
+    getWidget wbc = lift $ Gtk.toWidget $ button wbc
     updateWidget wbc update = do
       newContents <- updateWidget (contentsController wbc) update
       return wbc { contentsController = newContents }
-
-data WorkspaceUnderlineController = WorkspaceUnderlineController
-  { table :: T.Table
-  -- XXX: An event box is used here because we need to change the background
-  , underline :: Gtk.EventBox
-  , overlineController :: WWC
-  }
-
-buildUnderlineController :: ParentControllerConstructor
-buildUnderlineController contentsBuilder workspace = do
-  cfg <- asks workspacesConfig
-  cc <- contentsBuilder workspace
-
-  lift $ do
-    t <- T.tableNew 2 1 False
-    u <- Gtk.eventBoxNew
-    W.widgetSetSizeRequest u (-1) $ underlineHeight cfg
-
-    T.tableAttach t (getWidget cc) 0 1 0 1
-       [T.Expand, T.Fill] [T.Expand, T.Fill] 0 0
-    T.tableAttach t u 0 1 1 2
-       [T.Fill] [T.Shrink] (underlinePadding cfg) 0
-
-    _ <- widgetSetClass u "underline"
-    return $ WWC WorkspaceUnderlineController
-      {table = t, underline = u, overlineController = cc}
-
-instance WorkspaceWidgetController WorkspaceUnderlineController where
-  getWidget uc = Gtk.toWidget $ table uc
-  updateWidget uc wu@(WorkspaceUpdate workspace) =
-    lift (setWorkspaceWidgetStatusClass workspace (underline uc)) >>
-    updateUnderline uc wu
-  updateWidget a b = updateUnderline a b
-
-updateUnderline :: WorkspaceUnderlineController
-                -> WidgetUpdate
-                -> WorkspacesIO WorkspaceUnderlineController
-updateUnderline uc u = do
-  newContents <- updateWidget (overlineController uc) u
-  return uc { overlineController = newContents }
-
-data WorkspaceBorderController = WorkspaceBorderController
-  { border :: Gtk.EventBox
-  , borderContents :: Gtk.EventBox
-  , insideController :: WWC
-  }
-
-buildBorderController :: ParentControllerConstructor
-buildBorderController contentsBuilder workspace = do
-  cc <- contentsBuilder workspace
-  cfg <- asks workspacesConfig
-  lift $ do
-    brd <- Gtk.eventBoxNew
-    cnt <- Gtk.eventBoxNew
-    Gtk.eventBoxSetVisibleWindow brd True
-    Gtk.containerSetBorderWidth cnt $ borderWidth cfg
-    Gtk.containerAdd brd cnt
-    Gtk.containerAdd cnt $ getWidget cc
-    _ <- widgetSetClass brd "border"
-    _ <- widgetSetClass cnt "container"
-    return $
-      WWC
-        WorkspaceBorderController
-        {border = brd, borderContents = cnt, insideController = cc}
-
-instance WorkspaceWidgetController WorkspaceBorderController where
-  getWidget bc = Gtk.toWidget $ border bc
-  updateWidget bc wu@(WorkspaceUpdate workspace) =
-    let setClasses = setWorkspaceWidgetStatusClass workspace
-    in lift (setClasses (border bc) >> setClasses (borderContents bc)) >>
-       updateBorder bc wu
-  updateWidget a b = updateBorder a b
-
-updateBorder :: WorkspaceBorderController
-             -> WidgetUpdate
-             -> WorkspacesIO WorkspaceBorderController
-updateBorder bc update = do
-  newContents <- updateWidget (insideController bc) update
-  return bc { insideController = newContents }
-
-buildUnderlineButtonController :: ControllerConstructor
-buildUnderlineButtonController =
-  buildButtonController (buildUnderlineController defaultBuildContentsController)
-
-buildBorderButtonController :: ControllerConstructor
-buildBorderButtonController =
-  buildButtonController (buildBorderController defaultBuildContentsController)
