@@ -22,6 +22,7 @@ import           Graphics.UI.Gtk
 
 import           System.Taffybar.Widget.Generic.PollingLabel
 import           System.Taffybar.Widget.Util
+import qualified Data.Text as T
 
 makeCalendar :: IO TimeZone -> IO Window
 makeCalendar tzfn = do
@@ -100,7 +101,7 @@ textClockNewWith cfg fmt updateSeconds = liftIO $ do
   let ti = TimeInfo { getTZ = maybe systemGetTZ return userZone
                     , getLocale = maybe (return L.defaultTimeLocale) return userLocale
                     }
-  l    <- pollingLabelNew "" updateSeconds (getCurrentTime' ti fmt) >>= fromGIWidget
+  l    <- pollingLabelNew (T.pack "") updateSeconds (getCurrentTime' ti fmt) >>= fromGIWidget
   ebox <- eventBoxNew
   containerAdd ebox l
   eventBoxSetVisibleWindow ebox False
@@ -112,10 +113,10 @@ textClockNewWith cfg fmt updateSeconds = liftIO $ do
     userZone = clockTimeZone cfg
     userLocale = clockTimeLocale cfg
     -- alternate getCurrentTime that takes a specific TZ
-    getCurrentTime' :: TimeInfo -> String -> IO String
+    getCurrentTime' :: TimeInfo -> String -> IO T.Text
     getCurrentTime' ti f = do
       l <- getLocale ti
       z <- getTZ ti
       t <- Clock.getCurrentTime
-      return $ formatTime l f $ utcToZonedTime z t
+      return $ T.pack $ formatTime l f $ utcToZonedTime z t
 

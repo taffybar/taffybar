@@ -69,14 +69,15 @@ module System.Taffybar.Widget.Weather
   ) where
 
 import Control.Monad.IO.Class
-import qualified GI.Gtk
-import Graphics.UI.Gtk
+import GI.Gtk
+import           GI.GLib(markupEscapeText)
 import qualified Network.Browser as Browser
 import Network.HTTP
 import Network.URI
 import Text.Parsec
 import Text.Printf
 import Text.StringTemplate
+import qualified Data.Text as T
 
 import System.Taffybar.Widget.Generic.PollingLabel
 
@@ -198,14 +199,14 @@ downloadURL mProxy url = do
                       }
     Just uri = parseURI url
 
-getWeather :: Maybe String -> String -> IO (Either String WeatherInfo)
+getWeather :: Maybe String -> String -> IO (Either T.Text WeatherInfo)
 getWeather mProxy url = do
   dat <- downloadURL mProxy url
   case dat of
     Right dat' -> case parse parseData url dat' of
       Right d -> return (Right d)
-      Left err -> return (Left (show err))
-    Left err -> return (Left (show err))
+      Left err -> return (Left (T.pack $ show err))
+    Left err -> return (Left (T.pack $ show err))
 
 defaultFormatter :: StringTemplate String -> WeatherInfo -> String
 defaultFormatter tpl wi = render tpl'
@@ -226,24 +227,29 @@ defaultFormatter tpl wi = render tpl'
                          , ("pressure", show (pressure wi))
                          ] tpl
 
-getCurrentWeather :: IO (Either String WeatherInfo)
+getCurrentWeather :: IO (Either T.Text WeatherInfo)
     -> StringTemplate String
     -> StringTemplate String
     -> WeatherFormatter
-    -> IO (String, Maybe String)
+    -> IO (T.Text, Maybe T.Text)
 getCurrentWeather getter labelTpl tooltipTpl formatter = do
   dat <- getter
   case dat of
     Right wi ->
-      return $
       case formatter of
-        DefaultWeatherFormatter ->
-          ( escapeMarkup $ defaultFormatter labelTpl wi
-          , Just $ escapeMarkup $ defaultFormatter tooltipTpl wi)
-        WeatherFormatter f -> (f wi, Just $ f wi)
+        DefaultWeatherFormatter -> do
+          let rawLabel = T.pack $ defaultFormatter labelTpl wi
+          let rawTooltip = T.pack $ defaultFormatter tooltipTpl wi
+          lbl <- markupEscapeText rawLabel (fromIntegral $ T.length rawLabel)
+          tooltip <- markupEscapeText rawTooltip (fromIntegral $ T.length rawTooltip)
+          return (lbl, Just tooltip)
+        WeatherFormatter f -> do
+          let rawLabel = T.pack $ f wi
+          lbl <- markupEscapeText rawLabel (fromIntegral $ T.length rawLabel)
+          return (lbl, Just lbl)
     Left err -> do
-      putStrLn err
-      return ("N/A", Nothing)
+      putStrLn (T.unpack err)
+      return (T.pack "N/A", Nothing)
 
 -- | The NOAA URL to get data from
 baseUrl :: String
@@ -305,7 +311,7 @@ weatherNew cfg delayMinutes = liftIO $ do
 -- | Create a periodically-updating weather widget using custom weather getter
 weatherCustomNew
   :: MonadIO m
-  => IO (Either String WeatherInfo) -- ^ Weather querying action
+  => IO (Either T.Text WeatherInfo) -- ^ Weather querying action
   -> String -- ^ Weather template
   -> String -- ^ Weather template
   -> WeatherFormatter -- ^ Weather formatter
@@ -315,7 +321,7 @@ weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = liftIO $ do
   let labelTpl' = newSTMP labelTpl
       tooltipTpl' = newSTMP tooltipTpl
 
-  l <- pollingLabelNewWithTooltip "N/A" (delayMinutes * 60)
+  l <- pollingLabelNewWithTooltip (T.pack "N/A") (delayMinutes * 60)
        (getCurrentWeather getter labelTpl' tooltipTpl' formatter)
 
   GI.Gtk.widgetShowAll l
