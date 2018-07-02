@@ -31,7 +31,6 @@ module System.Taffybar.Widget.FreedesktopNotifications
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Monad ( forever, void )
-import           Control.Monad.IO.Class
 import           DBus
 import           DBus.Client
 import           Data.Foldable
@@ -43,9 +42,10 @@ import qualified Data.Sequence as S
 import           Data.Text ( Text )
 import qualified Data.Text as T
 import           Data.Word ( Word32 )
-import           Graphics.UI.Gtk hiding ( Variant )
-import qualified GI.Gtk
-import           System.Taffybar.Compat.GtkLibs
+import           Data.GI.Gtk.Threading
+import           GI.Gtk
+import           GI.GLib (markupEscapeText)
+import qualified GI.Pango as Pango
 
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification
@@ -59,7 +59,7 @@ data Notification = Notification
 
 data NotifyState = NotifyState
   { noteWidget :: Label
-  , noteContainer :: GI.Gtk.Widget
+  , noteContainer :: Widget
   , noteConfig :: NotificationConfig -- ^ The associated configuration
   , noteQueue :: TVar (Seq Notification) -- ^ The queue of active notifications
   , noteIdSource :: TVar Word32 -- ^ A source of fresh notification ids
@@ -71,11 +71,10 @@ initialNoteState wrapper l cfg = do
   m <- newTVarIO 1
   q <- newTVarIO S.empty
   ch <- newChan
-  giWrapper <- toGIWidget wrapper
   return NotifyState { noteQueue = q
                      , noteIdSource = m
                      , noteWidget = l
-                     , noteContainer = giWrapper
+                     , noteContainer = wrapper
                      , noteConfig = cfg
                      , noteChan = ch
                      }
@@ -114,17 +113,19 @@ notify :: NotifyState
        -> IO Word32
 notify s appName replaceId _ summary body _ _ timeout = do
   realId <- if replaceId == 0 then noteFreshId s else return replaceId
-  let escapeText = T.pack . escapeMarkup . T.unpack
-      configTimeout = notificationMaxTimeout (noteConfig s)
+  let configTimeout = notificationMaxTimeout (noteConfig s)
       realTimeout = if timeout <= 0 -- Gracefully handle out of spec negative values
                     then configTimeout
                     else case configTimeout of
                            Nothing -> Just timeout
                            Just maxTimeout -> Just (min maxTimeout timeout)
-      n = Notification { noteAppName = appName
+
+  escapedSummary <- markupEscapeText summary (fromIntegral $ T.length summary)
+  escapedBody <- markupEscapeText body (fromIntegral $ T.length body)
+  let n = Notification { noteAppName = appName
                        , noteReplaceId = replaceId
-                       , noteSummary = escapeText summary
-                       , noteBody = escapeText body
+                       , noteSummary = escapedSummary
+                       , noteBody = escapedBody
                        , noteExpireTimeout = realTimeout
                        , noteId = realId
                        }
@@ -177,15 +178,15 @@ displayThread :: NotifyState -> IO ()
 displayThread s = forever $ do
   () <- readChan (noteChan s)
   ns <- readTVarIO (noteQueue s)
-  postGUIAsync $
+  postGUIASync $
     if S.length ns == 0
-    then widgetHide =<< fromGIWidget (noteContainer s)
+    then widgetHide (noteContainer s)
     else do
       labelSetMarkup (noteWidget s) $ formatMessage (noteConfig s) (toList ns)
-      widgetShowAll =<< fromGIWidget (noteContainer s)
+      widgetShowAll (noteContainer s)
   where
     formatMessage NotificationConfig {..} ns =
-      take notificationMaxLength $ notificationFormatter ns
+      T.pack $ take notificationMaxLength $ notificationFormatter ns
 
 --------------------------------------------------------------------------------
 startTimeoutThread :: NotifyState -> Notification -> IO ()
@@ -229,51 +230,52 @@ defaultNotificationConfig =
                      }
 
 -- | Create a new notification area with the given configuration.
-notifyAreaNew :: MonadIO m => NotificationConfig -> m GI.Gtk.Widget
-notifyAreaNew cfg = toGIWidget =<< (liftIO $ do
-  frame <- frameNew
+notifyAreaNew :: NotificationConfig -> IO Widget
+notifyAreaNew cfg = do
+  frame <- frameNew Nothing
   box <- hBoxNew False 3
-  textArea <- labelNew (Nothing :: Maybe String)
+  textArea <- labelNew (Nothing :: Maybe Text)
   button <- eventBoxNew
-  sep <- vSeparatorNew
+  sep <- separatorNew OrientationHorizontal
 
-  bLabel <- labelNew (Nothing :: Maybe String)
-  widgetSetName bLabel ("NotificationCloseButton" :: String)
-  labelSetMarkup bLabel ("×" :: String)
+  bLabel <- labelNew (Nothing :: Maybe Text)
+  widgetSetName bLabel (T.pack "NotificationCloseButton")
+  labelSetMarkup bLabel (T.pack "×")
 
-  labelSetMaxWidthChars textArea (notificationMaxLength cfg)
-  labelSetEllipsize textArea EllipsizeEnd
+  labelSetMaxWidthChars textArea (fromIntegral $ notificationMaxLength cfg)
+  labelSetEllipsize textArea Pango.EllipsizeModeEnd
 
   containerAdd button bLabel
-  boxPackStart box textArea PackGrow 0
-  boxPackStart box sep PackNatural 0
-  boxPackStart box button PackNatural 0
+  boxPackStart box textArea True True 0
+  boxPackStart box sep False False 0
+  boxPackStart box button False False 0
 
   containerAdd frame box
 
   widgetHide frame
+  w <- toWidget frame
 
-  s <- initialNoteState (toWidget frame) textArea cfg
-  _ <- on button buttonReleaseEvent (userCancel s)
+  s <- initialNoteState w textArea cfg
+  _ <- onWidgetButtonReleaseEvent button (userCancel s)
 
   realizableWrapper <- hBoxNew False 0
-  boxPackStart realizableWrapper frame PackNatural 0
+  boxPackStart realizableWrapper frame False False 0
   widgetShow realizableWrapper
 
   -- We can't start the dbus listener thread until we are in the GTK
   -- main loop, otherwise things are prone to lock up and block
   -- infinitely on an mvar.  Bad stuff - only start the dbus thread
   -- after the fake invisible wrapper widget is realized.
-  void $ on realizableWrapper realize $ do
+  void $ onWidgetRealize realizableWrapper $ do
     void $ forkIO (displayThread s)
     notificationDaemon (notify s) (closeNotification s)
 
   -- Don't show the widget by default - it will appear when needed
-  return (toWidget realizableWrapper)
-  )
+  toWidget realizableWrapper
+
   where
     -- | Close the current note and pull up the next, if any
-    userCancel s = liftIO $ do
+    userCancel s _ = do
       noteNext s
       wakeupDisplayThread s
       return True
