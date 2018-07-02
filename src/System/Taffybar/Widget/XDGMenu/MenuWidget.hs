@@ -66,7 +66,7 @@ addItem :: (IsMenuShell msc) =>
         -> IO ()
 addItem ms de = do
   item <- imageMenuItemNewWithLabel (feName de)
-  set item [ widgetTooltipText := feComment de]
+  setWidgetTooltipText item (feComment de)
   setIcon item (T.unpack <$> feIcon de)
   menuShellAppend ms item
   _ <- onMenuItemActivate item $ do
