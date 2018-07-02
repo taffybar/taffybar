@@ -198,7 +198,7 @@ hideEmpty _ = True
 wLog :: MonadIO m => Priority -> String -> m ()
 wLog l s = liftIO $ logM "System.Taffybar.Widget.Workspaces" l s
 
-warnNotOnUIThread :: WorkspacesIO
+warnNotOnUIThread :: WorkspacesIO ()
 warnNotOnUIThread =
   (lift $ not <$> Gtk.isGUIThread) >>=
   flip when (wLog WARNING "Attempting update, but not on UI thread")
