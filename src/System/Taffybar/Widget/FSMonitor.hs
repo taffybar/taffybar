@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.FSMonitor
@@ -31,7 +32,7 @@ fsMonitorNew
   -> [String] -- ^ Names of the partitions to monitor (e.g. [\"\/\", \"\/home\"])
   -> m GI.Gtk.Widget
 fsMonitorNew interval fsList = liftIO $ do
-  label <- pollingLabelNew (T.pack "") interval $ showFSInfo fsList
+  label <- pollingLabelNew "" interval $ showFSInfo fsList
   GI.Gtk.widgetShowAll label
   GI.Gtk.toWidget label
 

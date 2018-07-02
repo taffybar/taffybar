@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- | This module defines a simple textual weather widget that polls
 -- NOAA for weather data.  To find your weather station, you can use
 --
@@ -249,7 +250,7 @@ getCurrentWeather getter labelTpl tooltipTpl formatter = do
           return (lbl, Just lbl)
     Left err -> do
       putStrLn (T.unpack err)
-      return (T.pack "N/A", Nothing)
+      return ("N/A", Nothing)
 
 -- | The NOAA URL to get data from
 baseUrl :: String
@@ -321,7 +322,7 @@ weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = liftIO $ do
   let labelTpl' = newSTMP labelTpl
       tooltipTpl' = newSTMP tooltipTpl
 
-  l <- pollingLabelNewWithTooltip (T.pack "N/A") (delayMinutes * 60)
+  l <- pollingLabelNewWithTooltip "N/A" (delayMinutes * 60)
        (getCurrentWeather getter labelTpl' tooltipTpl' formatter)
 
   GI.Gtk.widgetShowAll l

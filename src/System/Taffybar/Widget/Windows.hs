@@ -92,7 +92,7 @@ windowsNew config = do
                       , dmPopulateMenu = flip runReaderT context . fillMenu config
                       }
 
-  widgetSetClassGI menu (T.pack "windows")
+  widgetSetClassGI menu "windows"
 
 -- | Populate the given menu widget with the list of all currently open windows.
 fillMenu :: Gtk.IsMenuShell a => WindowsConfig -> a -> ReaderT Context IO ()

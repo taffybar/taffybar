@@ -239,8 +239,8 @@ notifyAreaNew cfg = do
   sep <- separatorNew OrientationHorizontal
 
   bLabel <- labelNew (Nothing :: Maybe Text)
-  widgetSetName bLabel (T.pack "NotificationCloseButton")
-  labelSetMarkup bLabel (T.pack "×")
+  widgetSetName bLabel "NotificationCloseButton"
+  labelSetMarkup bLabel "×"
 
   labelSetMaxWidthChars textArea (fromIntegral $ notificationMaxLength cfg)
   labelSetEllipsize textArea Pango.EllipsizeModeEnd
