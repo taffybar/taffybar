@@ -30,7 +30,7 @@ import           Control.Monad.Trans.Reader
 import           Data.GI.Gtk.Threading
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
-import qualified Graphics.UI.Gtk as Gtk2hs
+import           GI.GLib (markupEscapeText)
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Util
@@ -56,14 +56,14 @@ data WindowsConfig = WindowsConfig
   }
 
 truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO String
-truncatedGetMenuLabel maxLength =
-  fmap (Gtk2hs.escapeMarkup . truncateString maxLength) .
-  runX11Def "(nameless window)" . getWindowTitle
+truncatedGetMenuLabel maxLength window =
+  runX11Def "(nameless window)" (getWindowTitle window) >>= \s ->
+  T.unpack <$> markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral $ maxLength)
 
 truncatedGetActiveLabel :: Int -> TaffyIO String
 truncatedGetActiveLabel maxLength =
-  Gtk2hs.escapeMarkup . truncateString maxLength <$>
-        runX11Def "(nameless window)" getActiveWindowTitle
+  runX11Def "(nameless window)" getActiveWindowTitle >>= \s ->
+  T.unpack <$> markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral $ maxLength)
 
 defaultWindowsConfig :: WindowsConfig
 defaultWindowsConfig =
