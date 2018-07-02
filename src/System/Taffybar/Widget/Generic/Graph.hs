@@ -238,8 +238,8 @@ graphNew cfg = liftIO $ do
       Gtk.labelSetMarkup l lbl
       Gtk.boxPackStart box l False False 0
 
-  Gtk.set drawArea [Gtk.widgetVexpand Gtk.:= True]
-  Gtk.set box [Gtk.widgetVexpand Gtk.:= True]
+  Gtk.widgetSetVexpand drawArea True
+  Gtk.widgetSetVexpand box True
   Gtk.boxPackStart box drawArea True True 0
   Gtk.widgetShowAll box
   giBox <- Gtk.toWidget box
