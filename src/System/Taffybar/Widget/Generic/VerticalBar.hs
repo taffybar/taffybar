@@ -16,9 +16,8 @@ import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Graphics.Rendering.Cairo as C
-import           Graphics.UI.Gtk
-import qualified GI.Gtk
-import System.Taffybar.Compat.GtkLibs
+import GI.Gtk
+import Data.GI.Gtk.Threading
 import           System.Taffybar.Widget.Util
 
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
@@ -80,7 +79,7 @@ verticalBarSetPercent (VBH mv) pct = do
   let drawArea = barCanvas s
   when (barIsBootstrapped s) $ do
     modifyMVar_ mv (\s' -> return s' { barPercent = clamp 0 1 pct })
-    postGUIAsync $ widgetQueueDraw drawArea
+    postGUIASync $ widgetQueueDraw drawArea
 
 clamp :: Double -> Double -> Double -> Double
 clamp lo hi d = max lo $ min hi d
@@ -103,8 +102,8 @@ liftedBarColor bc pct =
     BarConfig { barColor = c } -> return (c pct)
     BarConfigIO { barColorIO = c } -> c pct
 
-renderFrame :: Double -> BarConfig -> Int -> Int -> C.Render ()
-renderFrame pct cfg width height = do
+renderFrame_ :: Double -> BarConfig -> Int -> Int -> C.Render ()
+renderFrame_ pct cfg width height = do
   let fwidth = fromIntegral width
       fheight = fromIntegral height
 
@@ -137,7 +136,7 @@ renderBar pct cfg width height = do
                        HORIZONTAL -> 0
       pad = barPadding cfg
 
-  renderFrame pct cfg width height
+  renderFrame_ pct cfg width height
 
   -- After we draw the frame, transform the coordinate space so that
   -- we only draw within the frame.
@@ -154,7 +153,8 @@ renderBar pct cfg width height = do
 
 drawBar :: MVar VerticalBarState -> DrawingArea -> C.Render ()
 drawBar mv drawArea = do
-  (w, h) <- widgetGetAllocatedSize drawArea
+  w <- fromIntegral <$> widgetGetAllocatedWidth drawArea
+  h <- fromIntegral <$> widgetGetAllocatedHeight drawArea
   s <- liftIO $ do
          s <- readMVar mv
          modifyMVar_ mv (\s' -> return s' { barIsBootstrapped = True })
@@ -172,10 +172,10 @@ verticalBarNew cfg = do
       , barCanvas = drawArea
       , barConfig = cfg
       }
-  widgetSetSizeRequest drawArea (barWidth cfg) (-1)
-  _ <- on drawArea draw $ drawBar mv drawArea
+  widgetSetSizeRequest drawArea (fromIntegral $ barWidth cfg) (-1)
+  _ <- onWidgetDraw drawArea $ \ctx -> renderWithContext ctx (drawBar mv drawArea) >> return True
   box <- hBoxNew False 1
-  boxPackStart box drawArea PackGrow 0
+  boxPackStart box drawArea True True 0
   widgetShowAll box
-  giBox <- toGIWidget $ toWidget box
+  giBox <- toWidget box
   return (giBox, VBH mv)
