@@ -19,6 +19,7 @@ module System.Taffybar.SimpleConfig
   ) where
 
 import qualified Control.Concurrent.MVar as MV
+import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Data.List
 import           Data.Maybe
@@ -137,7 +138,7 @@ simpleTaffybar conf = dyreTaffybar $ toTaffyConfig conf
 
 getMonitorCount :: IO Int
 getMonitorCount =
-  fromIntegral <$> (screenGetDefault >>= maybe (return 0) screenGetNMonitors)
+  fromIntegral <$> (screenGetDefault >>= maybe (return 0) (screenGetDisplay >=> displayGetNMonitors))
 
 -- | Display a taffybar window on all monitors.
 useAllMonitors :: TaffyIO [Int]
