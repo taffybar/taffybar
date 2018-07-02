@@ -30,9 +30,11 @@ import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import qualified Data.Sequence as S
 import qualified Graphics.Rendering.Cairo as C
 import qualified Graphics.Rendering.Cairo.Matrix as M
-import qualified Graphics.UI.Gtk as Gtk
+import qualified GI.Gtk as Gtk
+import           Data.GI.Gtk.Threading
 import           Prelude hiding ( mapM_ )
 import           System.Taffybar.Widget.Util
+import qualified Data.Text as T
 
 newtype GraphHandle = GH (MVar GraphState)
 data GraphState =
@@ -70,7 +72,7 @@ data GraphConfig = GraphConfig {
   -- | The number of data points to retain for each data set (default 20)
   , graphHistorySize :: Int
   -- | May contain Pango markup (default @Nothing@)
-  , graphLabel :: Maybe String
+  , graphLabel :: Maybe T.Text
   -- | The width (in pixels) of the graph widget (default 50)
   , graphWidth :: Int
   -- | The direction in which the graph will move as time passes (default LEFT_TO_RIGHT)
@@ -105,7 +107,7 @@ graphAddSample (GH mv) rawData = do
         _ -> map (\(p,h) -> S.take histSize $ p <| h) histsAndNewVals
   when (graphIsBootstrapped s) $ do
     modifyMVar_ mv (\s' -> return s' { graphHistory = newHists })
-    Gtk.postGUIAsync $ Gtk.widgetQueueDraw drawArea
+    postGUIASync $ Gtk.widgetQueueDraw drawArea
   where
     pcts = map (clamp 0 1) rawData
 
@@ -191,7 +193,8 @@ renderGraph hists cfg w h xStep = do
 
 drawBorder :: MVar GraphState -> Gtk.DrawingArea -> C.Render ()
 drawBorder mv drawArea = do
-  (w, h) <- widgetGetAllocatedSize drawArea
+  w <- fromIntegral <$> Gtk.widgetGetAllocatedWidth drawArea
+  h <- fromIntegral <$> Gtk.widgetGetAllocatedHeight drawArea
   s <- liftIO $ readMVar mv
   let cfg = graphConfig s
   renderFrameAndBackground cfg w h
@@ -200,7 +203,8 @@ drawBorder mv drawArea = do
 
 drawGraph :: MVar GraphState -> Gtk.DrawingArea ->  C.Render ()
 drawGraph mv drawArea = do
-  (w, h) <- widgetGetAllocatedSize drawArea
+  w <- fromIntegral <$> Gtk.widgetGetAllocatedWidth drawArea
+  h <- fromIntegral <$> Gtk.widgetGetAllocatedHeight drawArea
   drawBorder mv drawArea
   s <- liftIO $ readMVar mv
   let hist = graphHistory s
@@ -223,19 +227,20 @@ graphNew cfg = liftIO $ do
                            , graphConfig = cfg
                            }
 
-  Gtk.widgetSetSizeRequest drawArea (graphWidth cfg) (-1)
-  _ <- Gtk.on drawArea Gtk.draw $ drawGraph mv drawArea
+  Gtk.widgetSetSizeRequest drawArea (fromIntegral $ graphWidth cfg) (-1)
+  _ <- Gtk.onWidgetDraw drawArea $ (\ctx -> renderWithContext ctx (drawGraph mv drawArea) >> return True)
   box <- Gtk.hBoxNew False 1
 
   case graphLabel cfg of
     Nothing  -> return ()
     Just lbl -> do
-      l <- Gtk.labelNew (Nothing :: Maybe String)
+      l <- Gtk.labelNew (Nothing :: Maybe T.Text)
       Gtk.labelSetMarkup l lbl
-      Gtk.boxPackStart box l Gtk.PackNatural 0
+      Gtk.boxPackStart box l False False 0
 
-  Gtk.set drawArea [Gtk.widgetVExpand Gtk.:= True]
-  Gtk.set box [Gtk.widgetVExpand Gtk.:= True]
-  Gtk.boxPackStart box drawArea Gtk.PackGrow 0
+  Gtk.set drawArea [Gtk.widgetVexpand Gtk.:= True]
+  Gtk.set box [Gtk.widgetVexpand Gtk.:= True]
+  Gtk.boxPackStart box drawArea True True 0
   Gtk.widgetShowAll box
-  return (Gtk.toWidget box, GH mv)
+  giBox <- Gtk.toWidget box
+  return (giBox, GH mv)
