@@ -99,7 +99,7 @@ textClockNewWith cfg fmt updateSeconds = liftIO $ do
   let ti = TimeInfo { getTZ = maybe systemGetTZ return userZone
                     , getLocale = maybe (return L.defaultTimeLocale) return userLocale
                     }
-  l    <- pollingLabelNew (T.pack "") updateSeconds (getCurrentTime' ti fmt)
+  l    <- pollingLabelNew "" updateSeconds (getCurrentTime' ti fmt)
   ebox <- eventBoxNew
   containerAdd ebox l
   eventBoxSetVisibleWindow ebox False

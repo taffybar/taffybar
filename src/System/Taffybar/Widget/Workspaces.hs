@@ -64,7 +64,7 @@ data WorkspaceState
   deriving (Show, Eq)
 
 getCSSClass :: (Show s) => s -> T.Text
-getCSSClass = T.pack . map Char.toLower . show
+getCSSClass = T.toLower . T.pack . show
 
 cssWorkspaceStates :: [T.Text]
 cssWorkspaceStates = map getCSSClass [Active, Visible, Hidden, Empty, Urgent]
@@ -726,7 +726,7 @@ updateImages ic ws = do
   return newImgs
 
 getWindowStatusString :: WindowData -> T.Text
-getWindowStatusString windowData = T.pack $ map Char.toLower $
+getWindowStatusString windowData = T.toLower $ T.pack $
   case windowData of
     WindowData { windowMinimized = True } -> "minimized"
     WindowData { windowActive = True } -> show Active
@@ -736,7 +736,7 @@ getWindowStatusString windowData = T.pack $ map Char.toLower $
 possibleStatusStrings :: [T.Text]
 possibleStatusStrings =
   map
-    (T.pack . map Char.toLower)
+    (T.toLower . T.pack)
     [show Active, show Urgent, "minimized", "normal", "inactive"]
 
 updateIconWidget
