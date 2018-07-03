@@ -36,10 +36,13 @@ module System.Taffybar
   --
   -- Below is a fairly typical example:
   --
+  -- > {-# LANGUAGE OverloadedStrings #-}
   -- > import System.Taffybar
+  -- > import System.Taffybar.Information.CPU
   -- > import System.Taffybar.SimpleConfig
   -- > import System.Taffybar.Widget
-  -- > import System.Taffybar.Information.CPU
+  -- > import System.Taffybar.Widget.Generic.Graph
+  -- > import System.Taffybar.Widget.Generic.PollingGraph
   -- >
   -- > cpuCallback = do
   -- >   (_, systemLoad, totalLoad) <- cpuLoad
