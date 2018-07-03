@@ -58,12 +58,12 @@ data WindowsConfig = WindowsConfig
 truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO String
 truncatedGetMenuLabel maxLength window =
   runX11Def "(nameless window)" (getWindowTitle window) >>= \s ->
-  T.unpack <$> markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral $ maxLength)
+  T.unpack <$> markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral maxLength)
 
 truncatedGetActiveLabel :: Int -> TaffyIO String
 truncatedGetActiveLabel maxLength =
   runX11Def "(nameless window)" getActiveWindowTitle >>= \s ->
-  T.unpack <$> markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral $ maxLength)
+  T.unpack <$> markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral maxLength)
 
 defaultWindowsConfig :: WindowsConfig
 defaultWindowsConfig =
