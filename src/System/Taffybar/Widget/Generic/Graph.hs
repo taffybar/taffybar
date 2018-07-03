@@ -193,8 +193,7 @@ renderGraph hists cfg w h xStep = do
 
 drawBorder :: MVar GraphState -> Gtk.DrawingArea -> C.Render ()
 drawBorder mv drawArea = do
-  w <- fromIntegral <$> Gtk.widgetGetAllocatedWidth drawArea
-  h <- fromIntegral <$> Gtk.widgetGetAllocatedHeight drawArea
+  (w, h) <- widgetGetAllocatedSize drawArea
   s <- liftIO $ readMVar mv
   let cfg = graphConfig s
   renderFrameAndBackground cfg w h
@@ -203,8 +202,7 @@ drawBorder mv drawArea = do
 
 drawGraph :: MVar GraphState -> Gtk.DrawingArea ->  C.Render ()
 drawGraph mv drawArea = do
-  w <- fromIntegral <$> Gtk.widgetGetAllocatedWidth drawArea
-  h <- fromIntegral <$> Gtk.widgetGetAllocatedHeight drawArea
+  (w, h) <- widgetGetAllocatedSize drawArea
   drawBorder mv drawArea
   s <- liftIO $ readMVar mv
   let hist = graphHistory s

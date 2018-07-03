@@ -16,8 +16,8 @@ import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Graphics.Rendering.Cairo as C
-import GI.Gtk
-import Data.GI.Gtk.Threading
+import           GI.Gtk hiding (widgetGetAllocatedSize)
+import           Data.GI.Gtk.Threading
 import           System.Taffybar.Widget.Util
 
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
@@ -153,8 +153,7 @@ renderBar pct cfg width height = do
 
 drawBar :: MVar VerticalBarState -> DrawingArea -> C.Render ()
 drawBar mv drawArea = do
-  w <- fromIntegral <$> widgetGetAllocatedWidth drawArea
-  h <- fromIntegral <$> widgetGetAllocatedHeight drawArea
+  (w, h) <- widgetGetAllocatedSize drawArea
   s <- liftIO $ do
          s <- readMVar mv
          modifyMVar_ mv (\s' -> return s' { barIsBootstrapped = True })

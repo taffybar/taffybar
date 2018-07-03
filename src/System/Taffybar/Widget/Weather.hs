@@ -71,7 +71,7 @@ module System.Taffybar.Widget.Weather
 
 import Control.Monad.IO.Class
 import GI.Gtk
-import           GI.GLib(markupEscapeText)
+import GI.GLib(markupEscapeText)
 import qualified Network.Browser as Browser
 import Network.HTTP
 import Network.URI

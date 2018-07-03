@@ -23,7 +23,7 @@ import           Data.Int
 import qualified Data.Text as T
 import qualified GI.GdkPixbuf.Objects.Pixbuf as GI
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
-import GI.Gtk as Gtk
+import           GI.Gtk as Gtk
 import qualified GI.Gdk as D
 import           System.Directory
 import           System.FilePath.Posix
@@ -32,10 +32,10 @@ import           System.Taffybar.Util
 import           Text.Printf
 import qualified Graphics.Rendering.Cairo as C
 import qualified GI.Cairo
-import Control.Monad.Trans.Reader (runReaderT)
-import Graphics.Rendering.Cairo.Internal (Render(runRender))
-import Foreign.Ptr (castPtr)
-import Graphics.Rendering.Cairo.Types (Cairo(Cairo))
+import           Control.Monad.Trans.Reader (runReaderT)
+import           Graphics.Rendering.Cairo.Internal (Render(runRender))
+import           Foreign.Ptr (castPtr)
+import           Graphics.Rendering.Cairo.Types (Cairo(Cairo))
 
 
 import           Paths_taffybar ( getDataDir )
