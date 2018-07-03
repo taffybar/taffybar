@@ -25,9 +25,9 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
-import Graphics.UI.Gtk hiding (Menu)
-import qualified GI.Gtk
-import System.Taffybar.Compat.GtkLibs
+import qualified Data.Text as T
+import GI.Gtk hiding (Menu)
+import GI.GdkPixbuf
 import System.Directory
 import System.FilePath.Posix
 import System.Process
@@ -60,16 +60,16 @@ import System.Taffybar.Widget.XDGMenu.Menu
 
 
 -- | Add a desktop entry to a gtk menu by appending a gtk menu item.
-addItem :: (MenuShellClass msc) =>
+addItem :: (IsMenuShell msc) =>
            msc -- ^ GTK menu
         -> MenuEntry -- ^ Desktop entry
         -> IO ()
 addItem ms de = do
   item <- imageMenuItemNewWithLabel (feName de)
-  set item [ widgetTooltipText := Just (feComment de)]
-  setIcon item (feIcon de)
+  setWidgetTooltipText item (feComment de)
+  setIcon item (T.unpack <$> feIcon de)
   menuShellAppend ms item
-  _ <- on item menuItemActivated $ do
+  _ <- onMenuItemActivate item $ do
     let cmd = feCommand de
     putStrLn $ "Launching '" ++ cmd ++ "'"
     _ <- spawnCommand cmd
@@ -78,7 +78,7 @@ addItem ms de = do
 
 -- | Add an xdg menu to a gtk menu by appending gtk menu items and
 -- submenus.
-addMenu :: (MenuShellClass msc) =>
+addMenu :: (IsMenuShell msc) =>
            msc -- ^ GTK menu
         -> Menu -- ^ menu
         -> IO ()
@@ -86,11 +86,11 @@ addMenu ms fm = do
   let subMenus = fmSubmenus fm
       items = fmEntries fm
   when (not (null items) || not (null subMenus)) $ do
-    item <- imageMenuItemNewWithLabel (fmName fm)
+    item <- imageMenuItemNewWithLabel (T.pack $ fmName fm)
     setIcon item (fmIcon fm)
     menuShellAppend ms item
     subMenu <- menuNew
-    menuItemSetSubmenu item subMenu
+    menuItemSetSubmenu item (Just subMenu)
     mapM_ (addMenu subMenu) subMenus
     mapM_ (addItem subMenu) items
 
@@ -98,9 +98,9 @@ setIcon :: ImageMenuItem -> Maybe String -> IO ()
 setIcon _ Nothing = return ()
 setIcon item (Just iconName) = do
   iconTheme <- iconThemeGetDefault
-  hasIcon <- iconThemeHasIcon iconTheme iconName
+  hasIcon <- iconThemeHasIcon iconTheme (T.pack iconName)
   mImg <- if hasIcon
-          then Just <$> imageNewFromIconName iconName IconSizeMenu
+          then Just <$> imageNewFromIconName (Just $ T.pack $ iconName) (fromIntegral $ fromEnum IconSizeMenu)
           else if isAbsolute iconName
                then
                  do
@@ -109,11 +109,11 @@ setIcon item (Just iconName) = do
                    then do let defaultSize = 24 -- FIXME should auto-adjust to font size
                            pb <- pixbufNewFromFileAtScale iconName
                                defaultSize defaultSize True
-                           Just <$> imageNewFromPixbuf pb
+                           Just <$> imageNewFromPixbuf (Just pb)
                      else return Nothing
                else return Nothing
   case mImg of
-    Just img -> imageMenuItemSetImage item img
+    Just img -> imageMenuItemSetImage item (Just img)
     Nothing -> putStrLn $ "Icon not found: " ++ iconName
 
 -- | Create a new XDG Menu Widget.
@@ -125,7 +125,7 @@ menuWidgetNew mMenuPrefix = liftIO $ do
   m <- buildMenu mMenuPrefix
   addMenu mb m
   widgetShowAll mb
-  toGIWidget (toWidget mb)
+  toWidget mb
 
 -- -- | Show XDG Menu Widget in a standalone frame.
 -- testMenuWidget :: IO ()

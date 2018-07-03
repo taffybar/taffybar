@@ -31,7 +31,7 @@ import qualified Data.GI.Gtk.Threading as Gtk
 import           Data.List
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
-import qualified Graphics.UI.Gtk as Gtk2hs
+import qualified GI.GLib as G
 import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.DBus.Client.MPRIS2
@@ -108,7 +108,7 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ do
               } = do
                 logPrintF "System.Taffybar.Widget.MPRIS2"
                           DEBUG "Setting state %s" nowPlaying
-                Gtk.labelSetMarkup label $ playingText 20 30 nowPlaying
+                Gtk.labelSetMarkup label =<< playingText 20 30 nowPlaying
                 if status == "Playing"
                 then Gtk.widgetShowAll playerBox
                 else Gtk.widgetHide playerBox
@@ -144,11 +144,10 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ do
   Gtk.widgetShow grid
   Gtk.toWidget grid
 
-playingText :: Int -> Int -> NowPlaying -> T.Text
+playingText :: MonadIO m => Int -> Int -> NowPlaying -> m T.Text
 playingText artistMax songMax NowPlaying {npArtists = artists, npTitle = title} =
-  T.pack $
-  Gtk2hs.escapeMarkup $
-  printf
-    "%s - %s"
-    (truncateString artistMax $ intercalate "," artists)
-    (truncateString songMax title)
+  G.markupEscapeText formattedText (fromIntegral $ T.length formattedText)
+  where formattedText = T.pack $ printf
+           "%s - %s"
+           (truncateString artistMax $ intercalate "," artists)
+           (truncateString songMax title)

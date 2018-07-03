@@ -29,28 +29,28 @@ import           System.Taffybar.Widget.Util
 -- not update until the update interval expires.
 pollingLabelNew
   :: MonadIO m
-  => String -- ^ Initial value for the label
+  => T.Text -- ^ Initial value for the label
   -> Double -- ^ Update interval (in seconds)
-  -> IO String -- ^ Command to run to get the input string
+  -> IO T.Text -- ^ Command to run to get the input string
   -> m GI.Gtk.Widget
 pollingLabelNew initialString interval cmd =
   pollingLabelNewWithTooltip initialString interval $ (, Nothing) <$> cmd
 
 pollingLabelNewWithTooltip
   :: MonadIO m
-  => String -- ^ Initial value for the label
+  => T.Text -- ^ Initial value for the label
   -> Double -- ^ Update interval (in seconds)
-  -> IO (String, Maybe String) -- ^ Command to run to get the input string
+  -> IO (T.Text, Maybe T.Text) -- ^ Command to run to get the input string
   -> m GI.Gtk.Widget
 pollingLabelNewWithTooltip initialString interval cmd =
   liftIO $ do
     grid <- gridNew
-    label <- labelNew $ Just $ T.pack initialString
+    label <- labelNew $ Just $ initialString
 
     let updateLabel (labelStr, tooltipStr) =
           postGUIASync $ do
-            labelSetMarkup label $ T.pack labelStr
-            widgetSetTooltipMarkup label $ T.pack <$> tooltipStr
+            labelSetMarkup label $ labelStr
+            widgetSetTooltipMarkup label $ tooltipStr
 
     _ <- onWidgetRealize label $ void $ foreverWithDelay interval $
       E.tryAny cmd >>= either (const $ return ()) updateLabel

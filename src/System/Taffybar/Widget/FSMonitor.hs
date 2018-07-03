@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.FSMonitor
@@ -20,6 +21,7 @@ import           Control.Monad.IO.Class
 import qualified GI.Gtk
 import           System.Process ( readProcess )
 import           System.Taffybar.Widget.Generic.PollingLabel ( pollingLabelNew )
+import qualified Data.Text as T
 
 -- | Creates a new filesystem monitor widget. It contains one 'PollingLabel'
 -- that displays the data returned by the df command. The usage level of all
@@ -34,8 +36,8 @@ fsMonitorNew interval fsList = liftIO $ do
   GI.Gtk.widgetShowAll label
   GI.Gtk.toWidget label
 
-showFSInfo :: [String] -> IO String
+showFSInfo :: [String] -> IO T.Text
 showFSInfo fsList = do
   fsOut <- readProcess "df" ("-kP":fsList) ""
   let fss = map (take 2 . reverse . words) $ drop 1 $ lines fsOut
-  return $ unwords $ map ((\s -> "[" ++ s ++ "]") . unwords) fss
+  return $ T.pack $ unwords $ map ((\s -> "[" ++ s ++ "]") . unwords) fss

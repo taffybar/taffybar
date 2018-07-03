@@ -8,17 +8,17 @@ module System.Taffybar.Widget.Generic.Icon
 import Control.Concurrent ( forkIO, threadDelay )
 import Control.Exception as E
 import Control.Monad ( forever )
-import Graphics.UI.Gtk
-import qualified GI.Gtk
-import System.Taffybar.Compat.GtkLibs
+import Control.Monad.IO.Class
+import GI.Gtk
+import Data.GI.Gtk.Threading
 
 -- | Create a new widget that displays a static image
 --
 -- > iconImageWidgetNew path
 --
 -- returns a widget with icon at @path@.
-iconImageWidgetNew :: FilePath -> IO GI.Gtk.Widget
-iconImageWidgetNew path = imageNewFromFile path >>= putInBox
+iconImageWidgetNew :: MonadIO m => FilePath -> m Widget
+iconImageWidgetNew path = liftIO $ imageNewFromFile path >>= putInBox
 
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
@@ -32,28 +32,29 @@ iconImageWidgetNew path = imageNewFromFile path >>= putInBox
 -- If the IO action throws an exception, it will be swallowed and the
 -- label will not update until the update interval expires.
 pollingIconImageWidgetNew
-  :: FilePath -- ^ Initial file path of the icon
+  :: MonadIO m
+  => FilePath -- ^ Initial file path of the icon
   -> Double -- ^ Update interval (in seconds)
   -> IO FilePath -- ^ Command to run to get the input filepath
-  -> IO GI.Gtk.Widget
-pollingIconImageWidgetNew path interval cmd = do
+  -> m Widget
+pollingIconImageWidgetNew path interval cmd = liftIO $ do
   icon <- imageNewFromFile path
-  _ <- on icon realize $ do
+  _ <- onWidgetRealize icon $ do
     _ <- forkIO $ forever $ do
       let tryUpdate = do
             str <- cmd
-            postGUIAsync $ imageSetFromFile icon str
+            postGUIASync $ imageSetFromFile icon (Just str)
       E.catch tryUpdate ignoreIOException
       threadDelay $ floor (interval * 1000000)
     return ()
   putInBox icon
 
-putInBox :: WidgetClass child => child -> IO GI.Gtk.Widget
+putInBox :: IsWidget child => child -> IO Widget
 putInBox icon = do
   box <- hBoxNew False 0
-  boxPackStart box icon PackNatural 0
+  boxPackStart box icon False False 0
   widgetShowAll box
-  toGIWidget $ toWidget box
+  toWidget box
 
 ignoreIOException :: IOException -> IO ()
 ignoreIOException _ = return ()
