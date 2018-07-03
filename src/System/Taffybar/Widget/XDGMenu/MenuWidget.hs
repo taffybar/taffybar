@@ -100,7 +100,7 @@ setIcon item (Just iconName) = do
   iconTheme <- iconThemeGetDefault
   hasIcon <- iconThemeHasIcon iconTheme (T.pack iconName)
   mImg <- if hasIcon
-          then Just <$> imageNewFromIconName (Just $ T.pack $ iconName) 16 -- FIXME: should use IconSizeMenu?
+          then Just <$> imageNewFromIconName (Just $ T.pack $ iconName) (fromIntegral $ fromEnum IconSizeMenu)
           else if isAbsolute iconName
                then
                  do
