@@ -491,7 +491,7 @@ defaultBuildContentsController =
 instance WorkspaceWidgetController WorkspaceContentsController where
   getWidget = return . containerWidget
   updateWidget cc update = do
-    WorkspacesContext {workspacesConfig = cfg} <- ask
+    WorkspacesContext {} <- ask
     case update of
       WorkspaceUpdate newWorkspace ->
         lift $ setWorkspaceWidgetStatusClass newWorkspace $ containerWidget cc
