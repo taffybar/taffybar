@@ -31,6 +31,7 @@ module System.Taffybar.Widget.FreedesktopNotifications
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Monad ( forever, void )
+import Control.Monad.IO.Class
 import           DBus
 import           DBus.Client
 import           Data.Foldable
@@ -46,6 +47,7 @@ import           Data.GI.Gtk.Threading
 import           GI.Gtk
 import           GI.GLib (markupEscapeText)
 import qualified GI.Pango as Pango
+import System.Taffybar.Context
 
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification
@@ -230,8 +232,8 @@ defaultNotificationConfig =
                      }
 
 -- | Create a new notification area with the given configuration.
-notifyAreaNew :: NotificationConfig -> IO Widget
-notifyAreaNew cfg = do
+notifyAreaNew :: NotificationConfig -> TaffyIO Widget
+notifyAreaNew cfg = liftIO $ do
   frame <- frameNew Nothing
   box <- hBoxNew False 3
   textArea <- labelNew (Nothing :: Maybe Text)
