@@ -48,7 +48,7 @@ onClick :: [D.EventType] -- ^ Types of button clicks to listen to.
         -> IO Bool
 onClick triggers action btn = do
   click <- D.getEventButtonType btn
-  if (click `elem` triggers)
+  if click `elem` triggers
   then action >> return True
   else return False
 

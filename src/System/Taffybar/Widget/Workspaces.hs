@@ -200,7 +200,7 @@ wLog l s = liftIO $ logM "System.Taffybar.Widget.Workspaces" l s
 
 warnNotOnUIThread :: WorkspacesIO ()
 warnNotOnUIThread =
-  (lift $ not <$> Gtk.isGUIThread) >>=
+  lift (not <$> Gtk.isGUIThread) >>=
   flip when (wLog WARNING "Attempting update, but not on UI thread")
 
 updateVar :: MV.MVar a -> (a -> WorkspacesIO a) -> WorkspacesIO a
@@ -300,7 +300,7 @@ addWidget controller = do
     Gtk.containerAdd cont hbox
 
 workspacesNew :: WorkspacesConfig -> TaffyIO Gtk.Widget
-workspacesNew cfg = (ask >>= \tContext -> lift $ do
+workspacesNew cfg = ask >>= \tContext -> lift $ do
   cont <- Gtk.hBoxNew False $ fromIntegral (widgetGap cfg)
   controllersRef <- MV.newMVar M.empty
   workspacesRef <- MV.newMVar M.empty
@@ -325,7 +325,7 @@ workspacesNew cfg = (ask >>= \tContext -> lift $ do
         mapM_ unsubscribe [iconSubscription, workspaceSubscription]
   _ <- Gtk.onWidgetUnrealize cont doUnsubscribe
   _ <- widgetSetClassGI cont "workspaces"
-  Gtk.toWidget cont)
+  Gtk.toWidget cont
 
 updateAllWorkspaceWidgets :: WorkspacesIO ()
 updateAllWorkspaceWidgets = do
@@ -369,9 +369,9 @@ setControllerWidgetVisibility = do
                    then Gtk.widgetShow
                    else Gtk.widgetHide
       in
-        (traverse (flip runReaderT ctx . getWidget)
-                    (M.lookup (workspaceIdx ws) controllersMap)) >>=
-        (maybe (return ()) action)
+        traverse (flip runReaderT ctx . getWidget)
+                    (M.lookup (workspaceIdx ws) controllersMap) >>=
+        maybe (return ()) action
 
 doWidgetUpdate :: (WorkspaceIdx -> WWC -> WorkspacesIO WWC) -> WorkspacesIO ()
 doWidgetUpdate updateController = do

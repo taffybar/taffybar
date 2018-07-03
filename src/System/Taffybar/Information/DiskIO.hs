@@ -31,7 +31,7 @@ getDiskInfo :: String -> IO [Int]
 getDiskInfo = getParsedInfo "/proc/diskstats" parse
 
 parse :: String -> [(String, [Int])]
-parse = mapMaybe (tuplize . (drop 2 . words)) . lines
+parse = mapMaybe (tuplize . drop 2 . words) . lines
 
 tuplize :: [String] -> Maybe (String, [Int])
 tuplize s = do

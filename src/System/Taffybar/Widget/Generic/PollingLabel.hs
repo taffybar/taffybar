@@ -45,12 +45,12 @@ pollingLabelNewWithTooltip
 pollingLabelNewWithTooltip initialString interval cmd =
   liftIO $ do
     grid <- gridNew
-    label <- labelNew $ Just $ initialString
+    label <- labelNew $ Just initialString
 
     let updateLabel (labelStr, tooltipStr) =
           postGUIASync $ do
-            labelSetMarkup label $ labelStr
-            widgetSetTooltipMarkup label $ tooltipStr
+            labelSetMarkup label labelStr
+            widgetSetTooltipMarkup label tooltipStr
 
     _ <- onWidgetRealize label $ void $ foreverWithDelay interval $
       E.tryAny cmd >>= either (const $ return ()) updateLabel
