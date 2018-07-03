@@ -161,8 +161,8 @@ drawBar mv drawArea = do
          return s
   renderBar (barPercent s) (barConfig s) w h
 
-verticalBarNew :: BarConfig -> IO (GI.Gtk.Widget, VerticalBarHandle)
-verticalBarNew cfg = do
+verticalBarNew :: MonadIO m => BarConfig -> m (GI.Gtk.Widget, VerticalBarHandle)
+verticalBarNew cfg = liftIO $ do
   drawArea <- drawingAreaNew
   mv <-
     newMVar

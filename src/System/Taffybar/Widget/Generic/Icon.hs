@@ -8,6 +8,7 @@ module System.Taffybar.Widget.Generic.Icon
 import Control.Concurrent ( forkIO, threadDelay )
 import Control.Exception as E
 import Control.Monad ( forever )
+import Control.Monad.IO.Class
 import GI.Gtk
 import Data.GI.Gtk.Threading
 
@@ -16,8 +17,8 @@ import Data.GI.Gtk.Threading
 -- > iconImageWidgetNew path
 --
 -- returns a widget with icon at @path@.
-iconImageWidgetNew :: FilePath -> IO Widget
-iconImageWidgetNew path = imageNewFromFile path >>= putInBox
+iconImageWidgetNew :: MonadIO m => FilePath -> m Widget
+iconImageWidgetNew path = liftIO $ imageNewFromFile path >>= putInBox
 
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
@@ -31,11 +32,12 @@ iconImageWidgetNew path = imageNewFromFile path >>= putInBox
 -- If the IO action throws an exception, it will be swallowed and the
 -- label will not update until the update interval expires.
 pollingIconImageWidgetNew
-  :: FilePath -- ^ Initial file path of the icon
+  :: MonadIO m
+  => FilePath -- ^ Initial file path of the icon
   -> Double -- ^ Update interval (in seconds)
   -> IO FilePath -- ^ Command to run to get the input filepath
-  -> IO Widget
-pollingIconImageWidgetNew path interval cmd = do
+  -> m Widget
+pollingIconImageWidgetNew path interval cmd = liftIO $ do
   icon <- imageNewFromFile path
   _ <- onWidgetRealize icon $ do
     _ <- forkIO $ forever $ do
