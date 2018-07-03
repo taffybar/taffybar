@@ -45,7 +45,7 @@ resetCalendarDate cal tzfn = do
 
 toggleCalendar :: IsWidget w => w -> Window -> IO Bool
 toggleCalendar w c = do
-  isVis <- get c widgetVisible
+  isVis <- widgetGetVisible c
   if isVis
     then widgetHide c
     else do
