@@ -22,13 +22,13 @@ import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Data.Either.Combinators
 import           Data.GI.Base.GError
+import qualified Data.GI.Gtk.Threading as Gtk
 import           Data.Tuple.Sequence
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import           System.Exit (ExitCode (..))
 import           System.Log.Logger
 import qualified System.Process as P
 import           Text.Printf
-import qualified Data.GI.Gtk.Threading as Gtk
 
 liftReader ::
   Monad m => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b
