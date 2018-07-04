@@ -9,18 +9,18 @@ import qualified Data.Text as T
 
 -- | Creates a simple textual CPU monitor. It updates once every polling
 -- period (in seconds).
-textCpuMonitorNew :: T.Text -- ^ Format. You can use variables: $total$, $user$, $system$
+textCpuMonitorNew :: String -- ^ Format. You can use variables: $total$, $user$, $system$
                   -> Double -- ^ Polling period (in seconds)
                   -> IO GI.Gtk.Widget
 textCpuMonitorNew fmt period = do
-  label <- pollingLabelNew fmt period callback
+  label <- pollingLabelNew (T.pack fmt) period callback
   GI.Gtk.widgetShowAll label
   return label
   where
     callback = do
       (userLoad, systemLoad, totalLoad) <- cpuLoad
       let [userLoad', systemLoad', totalLoad'] = map (formatPercent.(*100)) [userLoad, systemLoad, totalLoad]
-      let template = ST.newSTMP (T.unpack fmt)
+      let template = ST.newSTMP fmt
       let template' = ST.setManyAttrib [ ("user", userLoad'),
                                          ("system", systemLoad'),
                                          ("total", totalLoad') ] template

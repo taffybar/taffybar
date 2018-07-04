@@ -226,7 +226,7 @@ graphNew cfg = liftIO $ do
                            }
 
   Gtk.widgetSetSizeRequest drawArea (fromIntegral $ graphWidth cfg) (-1)
-  _ <- Gtk.onWidgetDraw drawArea $ (\ctx -> renderWithContext ctx (drawGraph mv drawArea) >> return True)
+  _ <- Gtk.onWidgetDraw drawArea (\ctx -> renderWithContext ctx (drawGraph mv drawArea) >> return True)
   box <- Gtk.hBoxNew False 1
 
   case graphLabel cfg of

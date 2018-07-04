@@ -200,14 +200,14 @@ downloadURL mProxy url = do
                       }
     Just uri = parseURI url
 
-getWeather :: Maybe String -> String -> IO (Either T.Text WeatherInfo)
+getWeather :: Maybe String -> String -> IO (Either String WeatherInfo)
 getWeather mProxy url = do
   dat <- downloadURL mProxy url
   case dat of
     Right dat' -> case parse parseData url dat' of
       Right d -> return (Right d)
-      Left err -> return (Left (T.pack $ show err))
-    Left err -> return (Left (T.pack $ show err))
+      Left err -> return (Left (show err))
+    Left err -> return (Left (show err))
 
 defaultFormatter :: StringTemplate String -> WeatherInfo -> String
 defaultFormatter tpl wi = render tpl'
@@ -228,7 +228,7 @@ defaultFormatter tpl wi = render tpl'
                          , ("pressure", show (pressure wi))
                          ] tpl
 
-getCurrentWeather :: IO (Either T.Text WeatherInfo)
+getCurrentWeather :: IO (Either String WeatherInfo)
     -> StringTemplate String
     -> StringTemplate String
     -> WeatherFormatter
@@ -249,7 +249,7 @@ getCurrentWeather getter labelTpl tooltipTpl formatter = do
           lbl <- markupEscapeText rawLabel (fromIntegral $ T.length rawLabel)
           return (lbl, Just lbl)
     Left err -> do
-      putStrLn (T.unpack err)
+      putStrLn err
       return ("N/A", Nothing)
 
 -- | The NOAA URL to get data from
@@ -312,7 +312,7 @@ weatherNew cfg delayMinutes = liftIO $ do
 -- | Create a periodically-updating weather widget using custom weather getter
 weatherCustomNew
   :: MonadIO m
-  => IO (Either T.Text WeatherInfo) -- ^ Weather querying action
+  => IO (Either String WeatherInfo) -- ^ Weather querying action
   -> String -- ^ Weather template
   -> String -- ^ Weather template
   -> WeatherFormatter -- ^ Weather formatter

@@ -72,7 +72,7 @@ getBatteryWidgetInfo info =
   in BWI {seconds = battTime, percent = battPctNum, status = battStatus}
 
 -- | Given (maybe summarized) battery info and format: provides the string to display
-formatBattInfo :: BatteryWidgetInfo -> String -> String
+formatBattInfo :: BatteryWidgetInfo -> String -> T.Text
 formatBattInfo info fmt =
   let tpl = newSTMP fmt
       tpl' = setManyAttrib [ ("percentage", (show . percent) info)
@@ -91,8 +91,7 @@ textBatteryNew
 textBatteryNew format = do
   chan <- getDisplayBatteryChan
   ctx <- ask
-  let getLabelText info =
-        T.pack $ formatBattInfo (getBatteryWidgetInfo info) format
+  let getLabelText info = formatBattInfo (getBatteryWidgetInfo info) format
       getBatteryInfoIO = runReaderT getDisplayBatteryInfo ctx
   liftIO $ do
     label <- getLabelText <$> getBatteryInfoIO >>= labelNew . Just

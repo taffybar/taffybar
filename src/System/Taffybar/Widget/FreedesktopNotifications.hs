@@ -187,7 +187,7 @@ displayThread s = forever $ do
       widgetShowAll (noteContainer s)
   where
     formatMessage NotificationConfig {..} ns =
-      T.pack $ take notificationMaxLength $ notificationFormatter ns
+      T.take notificationMaxLength $ notificationFormatter ns
 
 --------------------------------------------------------------------------------
 startTimeoutThread :: NotifyState -> Notification -> IO ()
@@ -202,19 +202,19 @@ startTimeoutThread s Notification {..} = case noteExpireTimeout of
 data NotificationConfig = NotificationConfig
   { notificationMaxTimeout :: Maybe Int32 -- ^ Maximum time that a notification will be displayed (in seconds).  Default: None
   , notificationMaxLength :: Int -- ^ Maximum length displayed, in characters.  Default: 100
-  , notificationFormatter :: [Notification] -> String -- ^ Function used to format notifications, takes the notifications from first to last
+  , notificationFormatter :: [Notification] -> T.Text -- ^ Function used to format notifications, takes the notifications from first to last
   }
 
-defaultFormatter :: [Notification] -> String
+defaultFormatter :: [Notification] -> T.Text
 defaultFormatter ns =
   let count = length ns
       n = head ns
       prefix = if count == 1
                then ""
-               else "(" <> show count <> ") "
-      msg = T.unpack $ if T.null (noteBody n)
-                       then noteSummary n
-                       else noteSummary n <> ": " <> noteBody n
+               else "(" <> T.pack (show count) <> ") "
+      msg =  if T.null (noteBody n)
+             then noteSummary n
+             else noteSummary n <> ": " <> noteBody n
   in "<span fgcolor='yellow'>" <> prefix <> "</span>" <> msg
 
 -- | The default formatter is one of

@@ -47,22 +47,22 @@ import           System.Taffybar.Widget.Util
 -- > ...
 
 data WindowsConfig = WindowsConfig
-  { getMenuLabel :: X11Window -> TaffyIO String
+  { getMenuLabel :: X11Window -> TaffyIO T.Text
   -- ^ A monadic function that will be used to make a label for the window in
   -- the window menu.
-  , getActiveLabel :: TaffyIO String
+  , getActiveLabel :: TaffyIO T.Text
   -- ^ Action to build the label text for the active window.
   }
 
-truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO String
+truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO T.Text
 truncatedGetMenuLabel maxLength window =
   runX11Def "(nameless window)" (getWindowTitle window) >>= \s ->
-  T.unpack <$> markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral $ maxLength)
+  markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral maxLength)
 
-truncatedGetActiveLabel :: Int -> TaffyIO String
+truncatedGetActiveLabel :: Int -> TaffyIO T.Text
 truncatedGetActiveLabel maxLength =
   runX11Def "(nameless window)" getActiveWindowTitle >>= \s ->
-  T.unpack <$> markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral $ maxLength)
+  markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral maxLength)
 
 defaultWindowsConfig :: WindowsConfig
 defaultWindowsConfig =
@@ -77,7 +77,7 @@ windowsNew :: WindowsConfig -> TaffyIO Gtk.Widget
 windowsNew config = do
   label <- lift $ Gtk.labelNew Nothing
 
-  let setLabelTitle title = lift $ postGUIASync $ Gtk.labelSetMarkup label (T.pack title)
+  let setLabelTitle title = lift $ postGUIASync $ Gtk.labelSetMarkup label title
       activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
 
   subscription <- subscribeToEvents ["_NET_ACTIVE_WINDOW"] activeWindowUpdatedCallback
@@ -102,7 +102,7 @@ fillMenu config menu = ask >>= \context ->
       lift $ do
         labelText <- runReaderT (getMenuLabel config windowId) context
         let focusCallback = runReaderT (runX11 $ focusWindow windowId) context >> return True
-        item <- Gtk.menuItemNewWithLabel $ T.pack labelText
+        item <- Gtk.menuItemNewWithLabel labelText
         _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
         Gtk.menuShellAppend menu item
         Gtk.widgetShow item

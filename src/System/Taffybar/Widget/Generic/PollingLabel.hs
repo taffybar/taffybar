@@ -5,6 +5,7 @@ module System.Taffybar.Widget.Generic.PollingLabel
   , pollingLabelNewWithTooltip
   ) where
 
+import           Control.Concurrent
 import           Control.Exception.Enclosed as E
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -45,15 +46,16 @@ pollingLabelNewWithTooltip
 pollingLabelNewWithTooltip initialString interval cmd =
   liftIO $ do
     grid <- gridNew
-    label <- labelNew $ Just $ initialString
+    label <- labelNew $ Just initialString
 
     let updateLabel (labelStr, tooltipStr) =
           postGUIASync $ do
-            labelSetMarkup label $ labelStr
-            widgetSetTooltipMarkup label $ tooltipStr
+            labelSetMarkup label labelStr
+            widgetSetTooltipMarkup label tooltipStr
 
-    _ <- onWidgetRealize label $ void $ foreverWithDelay interval $
-      E.tryAny cmd >>= either (const $ return ()) updateLabel
+    _ <- onWidgetRealize label $ do
+      sampleThread <- foreverWithDelay interval $ E.tryAny cmd >>= either (const $ return ()) updateLabel
+      void $ onWidgetUnrealize label $ killThread sampleThread
 
     vFillCenter label
     vFillCenter grid

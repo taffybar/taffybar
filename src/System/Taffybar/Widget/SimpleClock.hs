@@ -57,8 +57,8 @@ toggleCalendar w c = do
 -- parameter. The format string can include Pango markup
 -- (http://developer.gnome.org/pango/stable/PangoMarkupFormat.html).
 textClockNew :: MonadIO m => Maybe L.TimeLocale -> String -> Double -> m GI.Gtk.Widget
-textClockNew userLocale s t =
-  textClockNewWith cfg s t
+textClockNew userLocale =
+  textClockNewWith cfg
   where
     cfg = defaultClockConfig { clockTimeLocale = userLocale }
 
@@ -99,7 +99,7 @@ textClockNewWith cfg fmt updateSeconds = liftIO $ do
   let ti = TimeInfo { getTZ = maybe systemGetTZ return userZone
                     , getLocale = maybe (return L.defaultTimeLocale) return userLocale
                     }
-  l    <- pollingLabelNew (T.pack "") updateSeconds (getCurrentTime' ti fmt)
+  l    <- pollingLabelNew "" updateSeconds (getCurrentTime' ti fmt)
   ebox <- eventBoxNew
   containerAdd ebox l
   eventBoxSetVisibleWindow ebox False

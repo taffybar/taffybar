@@ -15,7 +15,7 @@ import           Text.StringTemplate
 defaultNetFormat :: String
 defaultNetFormat = "▼ $inAuto$ ▲ $outAuto$"
 
-showInfo :: String -> Int -> (Double, Double) -> String
+showInfo :: String -> Int -> (Double, Double) -> T.Text
 showInfo template prec (incomingb, outgoingb) =
   let
     attribs = [ ("inB", show incomingb)
@@ -63,7 +63,6 @@ networkMonitorNew template interfaces = do
   label <- lift $ labelNew Nothing
   void $ channelWidgetNew label chan $ \speedInfo ->
     let (up, down) = sumSpeeds $ map snd $ filter (filterFn . fst) speedInfo
-        labelString =
-          T.pack $ showInfo template 3 (fromRational down, fromRational up)
+        labelString = showInfo template 3 (fromRational down, fromRational up)
     in postGUIASync $ labelSetMarkup label labelString
   toWidget label
