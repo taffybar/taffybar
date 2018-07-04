@@ -4,7 +4,6 @@ module System.Taffybar.Widget.Generic.AutoSizeImage where
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
-import qualified Data.GI.Gtk.Threading as Gtk
 import           Data.Int
 import           Data.Maybe
 import qualified GI.Gdk as Gdk
@@ -12,6 +11,7 @@ import           GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
 import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
+import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
 
@@ -149,7 +149,7 @@ autoSizeImage image getPixbuf orientation = liftIO $ do
                  (show pbHeight)
 
           Gtk.imageSetFromPixbuf image pixbuf
-          Gtk.postGUIASync $ Gtk.widgetQueueResize image
+          postGUIASync $ Gtk.widgetQueueResize image
 
   _ <- Gtk.onWidgetSizeAllocate image $ setPixbuf False
   return $ Gtk.widgetGetAllocation image >>= setPixbuf True

@@ -2,12 +2,12 @@ module System.Taffybar.Widget.Text.NetworkMonitor where
 
 import           Control.Monad
 import           Control.Monad.Trans.Class
-import           Data.GI.Gtk.Threading
 import qualified Data.Text as T
 import           GI.Gtk
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
 import           System.Taffybar.Information.Network
+import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.ChannelWidget
 import           Text.Printf
 import           Text.StringTemplate

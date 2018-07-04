@@ -28,6 +28,7 @@ import           System.Exit (ExitCode (..))
 import           System.Log.Logger
 import qualified System.Process as P
 import           Text.Printf
+import qualified Data.GI.Gtk.Threading as Gtk
 
 liftReader ::
   Monad m => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b
@@ -126,3 +127,6 @@ getPixbufFromFilePath filepath = do
        logM "System.Taffybar.WindowIcon" WARNING $
             printf "Failed to load icon from filepath %s" filepath
   return $ rightToMaybe result
+
+postGUIASync = Gtk.postGUIASync
+postGUISync = Gtk.postGUISync

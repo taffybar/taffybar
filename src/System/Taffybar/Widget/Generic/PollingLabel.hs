@@ -8,7 +8,7 @@ module System.Taffybar.Widget.Generic.PollingLabel
 import           Control.Exception.Enclosed as E
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Data.GI.Gtk.Threading
+import           System.Taffybar.Util
 import qualified Data.Text as T
 import           GI.Gtk
 import           System.Taffybar.Util

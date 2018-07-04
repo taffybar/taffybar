@@ -37,7 +37,6 @@ import           Data.Unique
 import qualified GI.Gdk
 import qualified GI.GdkX11 as GdkX11
 import qualified GI.Gtk as Gtk
-import           Data.GI.Gtk.Threading
 import           Graphics.UI.GIGtkStrut
 import           StatusNotifier.TransparentWindow
 import           System.Log.Logger

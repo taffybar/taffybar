@@ -28,13 +28,13 @@ import           Control.Monad.IO.Class
 import           Data.Foldable ( mapM_ )
 import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import qualified Data.Sequence as S
+import qualified Data.Text as T
+import qualified GI.Gtk as Gtk
 import qualified Graphics.Rendering.Cairo as C
 import qualified Graphics.Rendering.Cairo.Matrix as M
-import qualified GI.Gtk as Gtk
-import           Data.GI.Gtk.Threading
 import           Prelude hiding ( mapM_ )
+import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
-import qualified Data.Text as T
 
 newtype GraphHandle = GH (MVar GraphState)
 data GraphState =

@@ -27,10 +27,9 @@ module System.Taffybar.Widget.Windows (
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
-import           Data.GI.Gtk.Threading
 import qualified Data.Text as T
-import qualified GI.Gtk as Gtk
 import           GI.GLib (markupEscapeText)
+import qualified GI.Gtk as Gtk
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Util

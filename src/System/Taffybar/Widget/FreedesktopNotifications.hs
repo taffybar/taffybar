@@ -43,10 +43,10 @@ import qualified Data.Sequence as S
 import           Data.Text ( Text )
 import qualified Data.Text as T
 import           Data.Word ( Word32 )
-import           Data.GI.Gtk.Threading
-import           GI.Gtk
 import           GI.GLib (markupEscapeText)
+import           GI.Gtk
 import qualified GI.Pango as Pango
+import           System.Taffybar.Util
 
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification

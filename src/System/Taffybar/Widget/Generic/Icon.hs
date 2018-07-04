@@ -10,7 +10,7 @@ import Control.Exception as E
 import Control.Monad ( forever )
 import Control.Monad.IO.Class
 import GI.Gtk
-import Data.GI.Gtk.Threading
+import System.Taffybar.Util
 
 -- | Create a new widget that displays a static image
 --

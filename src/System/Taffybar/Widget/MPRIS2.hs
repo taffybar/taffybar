@@ -27,7 +27,6 @@ import           DBus.Client
 import           DBus.Internal.Types
 import qualified DBus.TH as DBus
 import           Data.Coerce
-import qualified Data.GI.Gtk.Threading as Gtk
 import           Data.List
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
@@ -123,7 +122,7 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ do
 
     updatePlayerWidgetsVar nowPlayings =
       MV.modifyMVar_ playerWidgetsVar $
-          Gtk.postGUISync . updatePlayerWidgets nowPlayings
+          postGUISync . updatePlayerWidgets nowPlayings
 
     doUpdate = getNowPlayingInfo client >>= updatePlayerWidgetsVar
     signalCallback _ _ _ _ = doUpdate

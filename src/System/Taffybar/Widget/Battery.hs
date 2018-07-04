@@ -24,7 +24,6 @@ import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
-import           Data.GI.Gtk.Threading
 import           Data.Int (Int64)
 import qualified Data.Text as T
 import           GI.Gtk
@@ -32,6 +31,7 @@ import           Prelude
 import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Taffybar.Context
 import           System.Taffybar.Information.Battery
+import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.ChannelWidget
 import           Text.Printf

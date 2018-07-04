@@ -15,9 +15,9 @@ module System.Taffybar.Widget.Generic.VerticalBar (
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
-import qualified Graphics.Rendering.Cairo as C
 import           GI.Gtk hiding (widgetGetAllocatedSize)
-import           Data.GI.Gtk.Threading
+import qualified Graphics.Rendering.Cairo as C
+import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
