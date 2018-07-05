@@ -2,8 +2,7 @@
 
 ![https://github.com/taffybar/taffybar/blob/master/doc/screenshot.png](https://raw.githubusercontent.com/taffybar/taffybar/master/doc/screenshot.png)
 
-Taffybar is a gtk+3 [(through gtk2hs and
-gi-gtk)](https://github.com/taffybar/taffybar/issues/256) based desktop
+Taffybar is a gtk+3 [(through gi-gtk)](https://github.com/taffybar/taffybar/issues/256) based desktop
 information bar, intended primarily for use with XMonad, though it can also
 function alongside other EWMH compliant window managers. It is similar in spirit
 to xmobar, but it differs in that it gives up some simplicity for a reasonable
@@ -72,17 +71,6 @@ For more details about how to configure taffybar, see the [full
 documentation](https://hackage.haskell.org/package/taffybar). You can find a
 list of available widgets
 [here](http://hackage.haskell.org/package/taffybar-2.0.0/docs/System-Taffybar-Widget.html)
-
-Development Status
-------------------
-
-Taffybar has recently undergone a lot changes recently with the release of
-[2.0.0](https://github.com/taffybar/taffybar/releases/tag/v2.0.0), but it's API
-should be pretty stable moving forward, with the exception of the ongoing gi-gtk
-migration (see [#256](https://github.com/taffybar/taffybar/issues/256). Though
-it does/will involve significant code changes, this migration should be pretty
-transparent, especially for users who don't do any advanced widget customization
-(i.e. that involves actually directly importing gtk2hs).
 
 Contributing
 ------------
