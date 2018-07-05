@@ -163,7 +163,7 @@ library
                , System.Taffybar.DBus.Client.Util
 
   cc-options: -fPIC
-  ghc-options: -g -debug -Wall -funbox-strict-fields -fno-warn-orphans
+  ghc-options: -Wall -funbox-strict-fields -fno-warn-orphans
 
 executable taffybar
   default-language: Haskell2010
