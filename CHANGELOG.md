@@ -1,3 +1,10 @@
+# 3.0.0
+
+## Breaking Changes
+
+ * Taffybar has replaced gtk2hs with gi-gtk everywhere. All widgets must now be
+   created with gi-gtk.
+
 # 2.0.0
 
 ## Breaking Changes
