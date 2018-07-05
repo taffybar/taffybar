@@ -120,9 +120,8 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ do
       mapM_ (Gtk.widgetHide . playerGrid . snd) noInfoPlayerWidgets
       return newWidgets
 
-    updatePlayerWidgetsVar nowPlayings =
-      MV.modifyMVar_ playerWidgetsVar $
-          postGUISync . updatePlayerWidgets nowPlayings
+    updatePlayerWidgetsVar nowPlayings = postGUIASync $
+      MV.modifyMVar_ playerWidgetsVar $ updatePlayerWidgets nowPlayings
 
     doUpdate = getNowPlayingInfo client >>= updatePlayerWidgetsVar
     signalCallback _ _ _ _ = doUpdate

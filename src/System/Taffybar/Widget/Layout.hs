@@ -71,7 +71,7 @@ layoutNew config = do
   label <- lift $ Gtk.labelNew (Nothing :: Maybe T.Text)
 
   -- This callback is run in a separate thread and needs to use
-  -- postGUIAsync
+  -- postGUIASync
   let callback _ = liftReader postGUIASync $ do
         layout <- runX11Def "" $ readAsString Nothing xLayoutProp
         markup <- formatLayout config (T.pack layout)
