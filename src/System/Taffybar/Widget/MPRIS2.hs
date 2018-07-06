@@ -9,9 +9,9 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- This is a "Now Playing" widget that listens for MPRIS events on DBus. Various
--- media players implement this. This widget works with version 2 of the MPRIS
--- protocol (https://specifications.freedesktop.org/mpris-spec/latest/).
+-- This is a "Now Playing" widget that listens for MPRIS2 events on DBus. You
+-- can find the MPRIS2 specification here at
+-- (https://specifications.freedesktop.org/mpris-spec/latest/).
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.MPRIS2 ( mpris2New ) where
 
@@ -30,9 +30,8 @@ import           Data.Coerce
 import           Data.List
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
-import qualified Graphics.UI.Gtk as Gtk2hs
+import qualified GI.GLib as G
 import           System.Log.Logger
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.DBus.Client.MPRIS2
 import           System.Taffybar.Information.MPRIS2
@@ -50,8 +49,8 @@ data MPRIS2PlayerWidget = MPRIS2PlayerWidget
   , playerGrid :: Gtk.Grid
   }
 
-mpris2New :: TaffyIO Gtk2hs.Widget
-mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
+mpris2New :: TaffyIO Gtk.Widget
+mpris2New = asks sessionDBusClient >>= \client -> lift $ do
   grid <- Gtk.gridNew
   vFillCenter grid
   playerWidgetsVar <- MV.newMVar []
@@ -63,14 +62,17 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
               mprisLog WARNING "Failed to get MPRIS icon: %s" err >>
               mprisLog WARNING "MPRIS failure for: %s" busName >>
                        loadIcon size "play.svg"
-            makeExcept :: String -> (a -> IO (Maybe b)) -> a -> ExceptT String IO b
+            makeExcept ::
+              String -> (a -> IO (Maybe b)) -> a -> ExceptT String IO b
             makeExcept errorString actionBuilder =
               ExceptT . fmap (maybeToEither errorString) . actionBuilder
             loadIconAtSize size =
               either (logErrorAndLoadDefault size) return =<< runExceptT
               (   ExceptT (left show <$> getDesktopEntry client busName)
-              >>= makeExcept "Failed to get desktop entry" getDirectoryEntryDefault
-              >>= makeExcept "Failed to get image" (getImageForDesktopEntry size)
+              >>= makeExcept "Failed to get desktop entry"
+                  getDirectoryEntryDefault
+              >>= makeExcept "Failed to get image"
+                    (getImageForDesktopEntry size)
               )
 
         image <- autoSizeImageNew loadIconAtSize Gtk.OrientationHorizontal
@@ -98,10 +100,14 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
           setNowPlaying playerWidget
           return $ (busName, playerWidget):children
         Just playerWidget -> setNowPlaying playerWidget >> return children
-      where setNowPlaying MPRIS2PlayerWidget {playerLabel = label , playerGrid = playerBox} =
-              do
-                logPrintF "System.Taffybar.Widget.MPRIS2" DEBUG "Setting state %s" nowPlaying
-                Gtk.labelSetMarkup label $ playingText 20 30 nowPlaying
+      where setNowPlaying
+              MPRIS2PlayerWidget
+              { playerLabel = label
+              , playerGrid = playerBox
+              } = do
+                logPrintF "System.Taffybar.Widget.MPRIS2"
+                          DEBUG "Setting state %s" nowPlaying
+                Gtk.labelSetMarkup label =<< playingText 20 30 nowPlaying
                 if status == "Playing"
                 then Gtk.widgetShowAll playerBox
                 else Gtk.widgetHide playerBox
@@ -109,12 +115,13 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
     updatePlayerWidgets nowPlayings playerWidgets = do
       newWidgets <- foldM updatePlayerWidget playerWidgets nowPlayings
       let existingBusNames = map npBusName nowPlayings
-          noInfoPlayerWidgets = filter ((`notElem` existingBusNames) . fst) newWidgets
+          noInfoPlayerWidgets =
+            filter ((`notElem` existingBusNames) . fst) newWidgets
       mapM_ (Gtk.widgetHide . playerGrid . snd) noInfoPlayerWidgets
       return newWidgets
 
-    updatePlayerWidgetsVar nowPlayings =
-      MV.modifyMVar_ playerWidgetsVar (updatePlayerWidgets nowPlayings)
+    updatePlayerWidgetsVar nowPlayings = postGUIASync $
+      MV.modifyMVar_ playerWidgetsVar $ updatePlayerWidgets nowPlayings
 
     doUpdate = getNowPlayingInfo client >>= updatePlayerWidgetsVar
     signalCallback _ _ _ _ = doUpdate
@@ -135,8 +142,10 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ fromGIWidget =<< do
   Gtk.widgetShow grid
   Gtk.toWidget grid
 
-playingText :: Int -> Int -> NowPlaying -> T.Text
-playingText artistMax songMax NowPlaying { npArtists = artists, npTitle = title } = T.pack $
-  Gtk2hs.escapeMarkup $ printf "%s - %s"
-       (truncateString artistMax $ intercalate "," artists)
-       (truncateString songMax title)
+playingText :: MonadIO m => Int -> Int -> NowPlaying -> m T.Text
+playingText artistMax songMax NowPlaying {npArtists = artists, npTitle = title} =
+  G.markupEscapeText formattedText (fromIntegral $ T.length formattedText)
+  where formattedText = T.pack $ printf
+           "%s - %s"
+           (truncateString artistMax $ intercalate "," artists)
+           (truncateString songMax title)

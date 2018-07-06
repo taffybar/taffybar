@@ -25,12 +25,12 @@ module System.Taffybar.Widget.Layout
 
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
-import qualified Graphics.UI.Gtk as Gtk
-import qualified Graphics.UI.Gtk.Abstract.Widget as W
+import qualified Data.Text as T
+import qualified GI.Gtk as Gtk
+import           GI.Gdk
 import           System.Taffybar.Context
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Util
 
 -- $usage
 --
@@ -52,7 +52,7 @@ import           System.Taffybar.Widget.Util
 -- now you can use @los@ as any other Taffybar widget.
 
 newtype LayoutConfig = LayoutConfig
-  { formatLayout :: String -> TaffyIO String
+  { formatLayout :: T.Text -> TaffyIO T.Text
   }
 
 defaultLayoutConfig :: LayoutConfig
@@ -68,37 +68,38 @@ xLayoutProp = "_XMONAD_CURRENT_LAYOUT"
 layoutNew :: LayoutConfig -> TaffyIO Gtk.Widget
 layoutNew config = do
   ctx <- ask
-  label <- lift $ Gtk.labelNew (Nothing :: Maybe String)
+  label <- lift $ Gtk.labelNew (Nothing :: Maybe T.Text)
 
   -- This callback is run in a separate thread and needs to use
-  -- postGUIAsync
-  let callback _ = liftReader Gtk.postGUIAsync $ do
+  -- postGUIASync
+  let callback _ = liftReader postGUIASync $ do
         layout <- runX11Def "" $ readAsString Nothing xLayoutProp
-        markup <- formatLayout config layout
+        markup <- formatLayout config (T.pack layout)
         lift $ Gtk.labelSetMarkup label markup
 
   subscription <- subscribeToEvents [xLayoutProp] callback
 
-  lift $ do
+  do
     ebox <- Gtk.eventBoxNew
     Gtk.containerAdd ebox label
-    _ <- Gtk.on ebox Gtk.buttonPressEvent $ dispatchButtonEvent ctx
+    _ <- Gtk.onWidgetButtonPressEvent ebox $ dispatchButtonEvent ctx
     Gtk.widgetShowAll ebox
-    _ <- Gtk.on ebox W.unrealize $ flip runReaderT ctx $ unsubscribe subscription
-    return $ Gtk.toWidget ebox
+    _ <- Gtk.onWidgetUnrealize ebox $ flip runReaderT ctx $ unsubscribe subscription
+    Gtk.toWidget ebox
 
 -- | Call 'switch' with the appropriate argument (1 for left click, -1 for
 -- right click), depending on the click event received.
-dispatchButtonEvent :: Context -> Gtk.EventM Gtk.EButton Bool
-dispatchButtonEvent context = do
-  btn <- Gtk.eventButton
-  let trigger prop =
-        onClick [Gtk.SingleClick] $
-                runReaderT (runX11Def () prop) context >> return True
-  case btn of
-    Gtk.LeftButton  -> trigger $ switch 1
-    Gtk.RightButton -> trigger $ switch (-1)
-    _               -> return False
+dispatchButtonEvent :: Context -> EventButton -> IO Bool
+dispatchButtonEvent context btn = do
+  pressType <- getEventButtonType btn
+  buttonNumber <- getEventButtonButton btn
+  case pressType of
+    EventTypeButtonPress ->
+        case buttonNumber of
+          1 -> runReaderT (runX11Def () (switch 1)) context >> return True
+          2 -> runReaderT (runX11Def () (switch (-1))) context >> return True
+          _ -> return False
+    _ -> return False
 
 -- | Emit a new custom event of type _XMONAD_CURRENT_LAYOUT, that can be
 -- intercepted by the PagerHints hook, which in turn can instruct XMonad to

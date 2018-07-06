@@ -3,18 +3,18 @@ module System.Taffybar.Widget.Generic.ChannelGraph where
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class
-import Graphics.UI.Gtk
+import GI.Gtk
 import System.Taffybar.Widget.Generic.Graph
 
 channelGraphNew
   :: MonadIO m
-  => GraphConfig -> Chan a -> (a -> IO [Double]) -> m Widget
-channelGraphNew config chan sampleBuilder = liftIO $ do
+  => GraphConfig -> Chan a -> (a -> IO [Double]) -> m GI.Gtk.Widget
+channelGraphNew config chan sampleBuilder = do
   (graphWidget, graphHandle) <- graphNew config
-  _ <- on graphWidget realize $ do
+  _ <- onWidgetRealize graphWidget $ do
        ourChan <- dupChan chan
        sampleThread <- forkIO $ forever $ do
          value <- readChan ourChan
          sampleBuilder value >>= graphAddSample graphHandle
-       void $ on graphWidget unrealize $ killThread sampleThread
+       void $ onWidgetUnrealize graphWidget $ killThread sampleThread
   return graphWidget

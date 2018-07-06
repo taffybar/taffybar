@@ -1,16 +1,8 @@
-Taffybar
-========
-[![Hackage](https://img.shields.io/hackage/v/taffybar.svg)](https://hackage.haskell.org/package/taffybar)
-[![Commits](https://img.shields.io/github/commits-since/taffybar/taffybar/latest-release.svg?label=unreleased%20commits)](https://github.com/taffybar/taffybar/compare/latest-release...master)
-[![Build Status](https://travis-ci.org/taffybar/taffybar.svg?branch=master)](https://travis-ci.org/taffybar/taffybar)
-[![Help Wanted](https://img.shields.io/github/issues/taffybar/taffybar/help%20wanted.svg)](https://github.com/taffybar/taffybar/labels/help%20wanted)
-[![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/taffybar/Lobby)
-[![License BSD3](https://img.shields.io/badge/license-BSD3-green.svg?dummy)](https://github.com/taffybar/taffybar/blob/master/LICENSE)
+# Taffybar [![Hackage](https://img.shields.io/hackage/v/taffybar.svg)](https://hackage.haskell.org/package/taffybar) [![Commits](https://img.shields.io/github/commits-since/taffybar/taffybar/latest-release.svg?label=unreleased%20commits)](https://github.com/taffybar/taffybar/compare/latest-release...master) [![Build Status](https://travis-ci.org/taffybar/taffybar.svg?branch=master)](https://travis-ci.org/taffybar/taffybar) [![Help Wanted](https://img.shields.io/github/issues/taffybar/taffybar/help%20wanted.svg)](https://github.com/taffybar/taffybar/labels/help%20wanted) [![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/taffybar/Lobby) [![License BSD3](https://img.shields.io/badge/license-BSD3-green.svg?dummy)](https://github.com/taffybar/taffybar/blob/master/LICENSE)
 
 ![https://github.com/taffybar/taffybar/blob/master/doc/screenshot.png](https://raw.githubusercontent.com/taffybar/taffybar/master/doc/screenshot.png)
 
-Taffybar is a gtk+3 [(through gtk2hs and
-gi-gtk)](https://github.com/taffybar/taffybar/issues/256) based desktop
+Taffybar is a gtk+3 [(through gi-gtk)](https://github.com/taffybar/taffybar/issues/256) based desktop
 information bar, intended primarily for use with XMonad, though it can also
 function alongside other EWMH compliant window managers. It is similar in spirit
 to xmobar, but it differs in that it gives up some simplicity for a reasonable
@@ -53,6 +45,13 @@ run the binary that is produced by the stack build in your local directory. The
 name of the binary can be changed in the cabal file in the taffybar
 configuration directory.
 
+#### Running with stack
+
+When you build with stack, it is recommended that you start taffybar with
+`startTaffybar` rather than `dyreTaffybar`, and use
+https://github.com/yamadapc/stack-run to execute the custom executable specified
+by your cabal and stack files. The maintainers have plans for a better solution
+(that does not require the user to use stack-run themselves) in [#158](https://github.com/taffybar/taffybar/issues/158).
 
 ### Cabal
 
@@ -72,17 +71,6 @@ For more details about how to configure taffybar, see the [full
 documentation](https://hackage.haskell.org/package/taffybar). You can find a
 list of available widgets
 [here](http://hackage.haskell.org/package/taffybar-2.0.0/docs/System-Taffybar-Widget.html)
-
-Development Status
-------------------
-
-Taffybar has recently undergone a lot changes recently with the release of
-[2.0.0](https://github.com/taffybar/taffybar/releases/tag/v2.0.0), but it's API
-should be pretty stable moving forward, with the exception of the ongoing gi-gtk
-migration (see [#256](https://github.com/taffybar/taffybar/issues/256). Though
-it does/will involve significant code changes, this migration should be pretty
-transparent, especially for users who don't do any advanced widget customization
-(i.e. that involves actually directly importing gtk2hs).
 
 Contributing
 ------------

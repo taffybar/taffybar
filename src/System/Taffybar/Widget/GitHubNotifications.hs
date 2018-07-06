@@ -17,10 +17,8 @@ import qualified GI.Gtk as Gtk
 import qualified GitHub.Auth as Auth
 import           GitHub.Data
 import           GitHub.Endpoints.Activity.Notifications
-import qualified Graphics.UI.Gtk as Gtk2hs
 import           Network.HTTP.Simple
 import           System.Log.Logger
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.DynamicMenu
@@ -49,13 +47,13 @@ defaultGithubConfig auth = GitHubConfig
   , ghRefreshSeconds = 15
   }
 
-githubNotificationsNew :: MonadIO m => GitHubConfig -> m Gtk2hs.Widget
+githubNotificationsNew :: MonadIO m => GitHubConfig -> m Gtk.Widget
 githubNotificationsNew config@GitHubConfig
                          { ghAuth = auth
                          , ghGetLabelText = getLabelTextFromNotifs
                          , ghRefreshSeconds = refreshSeconds
                          , ghGetPixbuf = getPixbuf
-                         } = liftIO $ fromGIWidget =<< do
+                         } = liftIO $ do
   let getAllNotifications = getNotifications auth
       logAndShow :: (Show v) => Priority -> String -> v -> IO ()
       logAndShow level message value =
@@ -73,7 +71,7 @@ githubNotificationsNew config@GitHubConfig
              ((logAndShow DEBUG "Got %s notifications from github") . V.length)
              newNotifications
       void $ MV.swapMVar notificationsVar newNotifications
-      runOnUIThread $ getLabelText >>= Gtk.labelSetMarkup label
+      postGUIASync $ getLabelText >>= Gtk.labelSetMarkup label
     void $ Gtk.onWidgetDestroy label $ killThread refreshThreadID
     return ()
 

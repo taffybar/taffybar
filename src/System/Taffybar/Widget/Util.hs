@@ -15,66 +15,77 @@
 module System.Taffybar.Widget.Util where
 
 import           Control.Concurrent ( forkIO )
-import           Control.Monad ( when, forever, void )
+import           Control.Monad ( forever, void )
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Maybe
 import           Data.Functor ( ($>) )
 import           Data.Int
 import qualified Data.Text as T
-import           Data.Tuple.Sequence
 import qualified GI.GdkPixbuf.Objects.Pixbuf as GI
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
-import qualified GI.Gtk
-import           Graphics.UI.Gtk as Gtk
-import           Graphics.UI.Gtk.General.StyleContext
+import           GI.Gtk as Gtk
+import qualified GI.Gdk as D
 import           System.Directory
 import           System.FilePath.Posix
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           Text.Printf
+import qualified Graphics.Rendering.Cairo as C
+import qualified GI.Cairo
+import           Control.Monad.Trans.Reader (runReaderT)
+import           Graphics.Rendering.Cairo.Internal (Render(runRender))
+import           Foreign.Ptr (castPtr)
+import           Graphics.Rendering.Cairo.Types (Cairo(Cairo))
+
 
 import           Paths_taffybar ( getDataDir )
 
 -- | Execute the given action as a response to any of the given types
 -- of mouse button clicks.
-onClick :: [Click] -- ^ Types of button clicks to listen to.
+onClick :: [D.EventType] -- ^ Types of button clicks to listen to.
         -> IO a    -- ^ Action to execute.
-        -> EventM EButton Bool
-onClick triggers action = tryEvent $ do
-  click <- eventClick
-  when (click `elem` triggers) $ void $ liftIO action
+        -> D.EventButton
+        -> IO Bool
+onClick triggers action btn = do
+  click <- D.getEventButtonType btn
+  if click `elem` triggers
+  then action >> return True
+  else return False
 
 -- | Attach the given widget as a popup with the given title to the
 -- given window. The newly attached popup is not shown initially. Use
 -- the 'displayPopup' function to display it.
-attachPopup :: (WidgetClass w, WindowClass wnd) =>
+attachPopup :: (Gtk.IsWidget w, Gtk.IsWindow wnd) =>
                w      -- ^ The widget to set as popup.
-            -> String -- ^ The title of the popup.
+            -> T.Text -- ^ The title of the popup.
             -> wnd    -- ^ The window to attach the popup to.
             -> IO ()
 attachPopup widget title window = do
-  set window [ windowTitle := title
-             , windowTypeHint := WindowTypeHintTooltip
-             , windowSkipTaskbarHint := True
-             , windowSkipPagerHint := True
-             , windowTransientFor :=> getWindow
-             ]
+
+  windowSetTitle window title
+  windowSetTypeHint window D.WindowTypeHintTooltip
+  windowSetSkipTaskbarHint window True
+  windowSetSkipPagerHint window True
+  transient <- getWindow
+  windowSetTransientFor window transient
   windowSetKeepAbove window True
   windowStick window
-  where getWindow = do
-          Just topLevelWindow <- fmap castToWindow <$> widgetGetAncestor widget gTypeWindow
-          return topLevelWindow
+  where
+    getWindow :: IO (Maybe Window)
+    getWindow = do
+          windowGType <- gobjectType (undefined :: Window)
+          Just ancestor <- Gtk.widgetGetAncestor widget windowGType
+          castTo Window ancestor
 
 -- | Display the given popup widget (previously prepared using the
 -- 'attachPopup' function) immediately beneath (or above) the given
 -- window.
-displayPopup :: (WidgetClass w, WindowClass wnd) =>
+displayPopup :: (Gtk.IsWidget w, Gtk.IsWidget wnd, Gtk.IsWindow wnd) =>
                 w   -- ^ The popup widget.
              -> wnd -- ^ The window the widget was attached to.
              -> IO ()
 displayPopup widget window = do
-  windowSetPosition window WinPosMouse
+  windowSetPosition window WindowPositionMouse
   (x, y ) <- windowGetPosition window
   (_, y') <- widgetGetSizeRequest widget
   widgetShowAll window
@@ -83,11 +94,12 @@ displayPopup widget window = do
     else windowMove window x y'
 
 widgetGetAllocatedSize
-  :: (WidgetClass self, MonadIO m)
+  :: (Gtk.IsWidget self, MonadIO m)
   => self -> m (Int, Int)
-widgetGetAllocatedSize widget =
-  liftIO $
-  sequenceT (widgetGetAllocatedWidth widget, widgetGetAllocatedHeight widget)
+widgetGetAllocatedSize widget = do
+  w <- Gtk.widgetGetAllocatedWidth widget
+  h <- Gtk.widgetGetAllocatedHeight widget
+  return (fromIntegral w, fromIntegral h)
 
 -- | Creates markup with the given foreground and background colors and the
 -- given contents.
@@ -103,26 +115,18 @@ colorize fg bg = printf "<span%s%s>%s</span>" (attr "fg" fg) (attr "bg" bg)
 backgroundLoop :: IO a -> IO ()
 backgroundLoop = void . forkIO . forever
 
-drawOn :: WidgetClass object => object -> IO () -> IO object
-drawOn drawArea action = on drawArea realize action $> drawArea
+drawOn :: Gtk.IsWidget object => object -> IO () -> IO object
+drawOn drawArea action = Gtk.onWidgetRealize drawArea action $> drawArea
 
-widgetSetClass
-  :: (Gtk.WidgetClass widget, MonadIO m)
-  => widget -> String -> m widget
-widgetSetClass widget klass = liftIO $ do
-  context <- Gtk.widgetGetStyleContext widget
-  styleContextAddClass context klass
-  return widget
-
-widgetSetClassGI :: (GI.Gtk.IsWidget b, MonadIO m) => b -> String -> m b
+widgetSetClassGI :: (Gtk.IsWidget b, MonadIO m) => b -> T.Text -> m b
 widgetSetClassGI widget klass =
-  GI.Gtk.toWidget widget >>= fromGIWidget >>= flip widgetSetClass klass >>
-    return widget
+  Gtk.widgetGetStyleContext widget >>=
+    flip Gtk.styleContextAddClass klass >> return widget
 
-themeLoadFlags :: [GI.Gtk.IconLookupFlags]
+themeLoadFlags :: [Gtk.IconLookupFlags]
 themeLoadFlags =
-  [ GI.Gtk.IconLookupFlagsGenericFallback
-  , GI.Gtk.IconLookupFlagsUseBuiltin
+  [ Gtk.IconLookupFlagsGenericFallback
+  , Gtk.IconLookupFlagsUseBuiltin
   ]
 
 getImageForDesktopEntry :: Int32 -> DesktopEntry -> IO (Maybe GI.Pixbuf)
@@ -130,29 +134,37 @@ getImageForDesktopEntry size entry = runMaybeT $ do
   iconName <- MaybeT $ return $ deIcon entry
   let iconNameText = T.pack iconName
   MaybeT $ do
-    iconTheme <- GI.Gtk.iconThemeGetDefault
-    hasIcon <- GI.Gtk.iconThemeHasIcon iconTheme iconNameText
+    iconTheme <- Gtk.iconThemeGetDefault
+    hasIcon <- Gtk.iconThemeHasIcon iconTheme iconNameText
     logPrintFDebug "System.Taffybar.Widget.Util" "Entry: %s" entry
     logPrintFDebug "System.Taffybar.Widget.Util" "Icon present: %s" hasIcon
     if hasIcon
     then
-      GI.Gtk.iconThemeLoadIcon iconTheme iconNameText size themeLoadFlags
+      Gtk.iconThemeLoadIcon iconTheme iconNameText size themeLoadFlags
     else do
       exists <- doesFileExist iconName
       if isAbsolute iconName && exists
       then Just <$> GI.pixbufNewFromFile iconName
       else return Nothing
 
-alignCenter :: (GI.Gtk.IsWidget o, MonadIO m) => o -> m ()
-alignCenter widget =
-  GI.Gtk.setWidgetValign widget GI.Gtk.AlignCenter >>
-  GI.Gtk.setWidgetHalign widget GI.Gtk.AlignCenter
+loadPixbufByName :: Int32 -> T.Text -> IO (Maybe GI.Pixbuf)
+loadPixbufByName size name = do
+  iconTheme <- Gtk.iconThemeGetDefault
+  hasIcon <- Gtk.iconThemeHasIcon iconTheme name
+  if hasIcon
+  then Gtk.iconThemeLoadIcon iconTheme name size themeLoadFlags
+  else return Nothing
 
-vFillCenter :: (GI.Gtk.IsWidget o, MonadIO m) => o -> m ()
+alignCenter :: (Gtk.IsWidget o, MonadIO m) => o -> m ()
+alignCenter widget =
+  Gtk.setWidgetValign widget Gtk.AlignCenter >>
+  Gtk.setWidgetHalign widget Gtk.AlignCenter
+
+vFillCenter :: (Gtk.IsWidget o, MonadIO m) => o -> m ()
 vFillCenter widget =
-  GI.Gtk.widgetSetVexpand widget True >>
-  GI.Gtk.setWidgetValign widget GI.Gtk.AlignFill >>
-  GI.Gtk.setWidgetHalign widget GI.Gtk.AlignCenter
+  Gtk.widgetSetVexpand widget True >>
+  Gtk.setWidgetValign widget Gtk.AlignFill >>
+  Gtk.setWidgetHalign widget Gtk.AlignCenter
 
 pixbufNewFromFileAtScaleByHeight :: MonadIO m => Int32 -> String -> m PB.Pixbuf
 pixbufNewFromFileAtScaleByHeight height name =
@@ -162,3 +174,13 @@ loadIcon :: MonadIO m => Int32 -> String -> m PB.Pixbuf
 loadIcon height name =
   ((</> "icons" </> name) <$> liftIO getDataDir) >>=
   pixbufNewFromFileAtScaleByHeight height
+
+setMinWidth :: (Gtk.IsWidget w, MonadIO m) => Int -> w -> m w
+setMinWidth width widget = liftIO $ do
+  Gtk.widgetSetSizeRequest widget (fromIntegral width) (-1)
+  return widget
+
+renderWithContext :: GI.Cairo.Context -> C.Render () -> IO ()
+renderWithContext ct r = GI.Cairo.withManagedPtr ct $ \p ->
+  runReaderT (runRender r) (Cairo (castPtr p))
+

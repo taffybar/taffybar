@@ -4,8 +4,6 @@ import           Control.Monad
 import           Control.Monad.Trans.Class
 import qualified Data.Text as T
 import           GI.Gtk
-import qualified Graphics.UI.Gtk as Gtk2hs
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
 import           System.Taffybar.Information.Network
@@ -17,7 +15,7 @@ import           Text.StringTemplate
 defaultNetFormat :: String
 defaultNetFormat = "▼ $inAuto$ ▲ $outAuto$"
 
-showInfo :: String -> Int -> (Double, Double) -> String
+showInfo :: String -> Int -> (Double, Double) -> T.Text
 showInfo template prec (incomingb, outgoingb) =
   let
     attribs = [ ("inB", show incomingb)
@@ -58,14 +56,13 @@ toAuto prec value = printf "%.*f%s" p v unit
         p :: Int
         p = max 0 $ floor $ fromIntegral prec - logBase 10 v
 
-networkMonitorNew :: String -> Maybe [String] -> TaffyIO Gtk2hs.Widget
-networkMonitorNew template interfaces = fromGIWidget =<< do
+networkMonitorNew :: String -> Maybe [String] -> TaffyIO GI.Gtk.Widget
+networkMonitorNew template interfaces = do
   NetworkInfoChan chan <- getNetworkChan
   let filterFn = maybe (const True) (flip elem) interfaces
   label <- lift $ labelNew Nothing
   void $ channelWidgetNew label chan $ \speedInfo ->
     let (up, down) = sumSpeeds $ map snd $ filter (filterFn . fst) speedInfo
-        labelString =
-          T.pack $ showInfo template 3 (fromRational down, fromRational up)
-    in runOnUIThread $ labelSetMarkup label labelString
+        labelString = showInfo template 3 (fromRational down, fromRational up)
+    in postGUIASync $ labelSetMarkup label labelString
   toWidget label

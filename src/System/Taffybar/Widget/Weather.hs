@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- | This module defines a simple textual weather widget that polls
 -- NOAA for weather data.  To find your weather station, you can use
 --
@@ -58,6 +59,7 @@
 -- Implementation Note: the weather data parsing code is taken from xmobar. This
 -- version of the code makes direct HTTP requests instead of invoking a separate
 -- cURL process.
+
 module System.Taffybar.Widget.Weather
   ( WeatherConfig(..)
   , WeatherInfo(..)
@@ -68,13 +70,15 @@ module System.Taffybar.Widget.Weather
   ) where
 
 import Control.Monad.IO.Class
-import Graphics.UI.Gtk
+import GI.Gtk
+import GI.GLib(markupEscapeText)
 import qualified Network.Browser as Browser
 import Network.HTTP
 import Network.URI
 import Text.Parsec
 import Text.Printf
 import Text.StringTemplate
+import qualified Data.Text as T
 
 import System.Taffybar.Widget.Generic.PollingLabel
 
@@ -94,7 +98,6 @@ data WeatherInfo = WI
   , humidity :: Int
   , pressure :: Int
   } deriving (Show)
-
 
 -- Parsers stolen from xmobar
 
@@ -171,7 +174,6 @@ skipTillString s =
 getNumbersAsString :: Parser String
 getNumbersAsString = skipMany space >> many1 digit >>= \n -> return n
 
-
 skipRestOfLine :: Parser Char
 skipRestOfLine = do
   _ <- many $ noneOf "\n\r"
@@ -230,17 +232,22 @@ getCurrentWeather :: IO (Either String WeatherInfo)
     -> StringTemplate String
     -> StringTemplate String
     -> WeatherFormatter
-    -> IO (String, Maybe String)
+    -> IO (T.Text, Maybe T.Text)
 getCurrentWeather getter labelTpl tooltipTpl formatter = do
   dat <- getter
   case dat of
     Right wi ->
-      return $
       case formatter of
-        DefaultWeatherFormatter ->
-          ( escapeMarkup $ defaultFormatter labelTpl wi
-          , Just $ escapeMarkup $ defaultFormatter tooltipTpl wi)
-        WeatherFormatter f -> (f wi, Just $ f wi)
+        DefaultWeatherFormatter -> do
+          let rawLabel = T.pack $ defaultFormatter labelTpl wi
+          let rawTooltip = T.pack $ defaultFormatter tooltipTpl wi
+          lbl <- markupEscapeText rawLabel (fromIntegral $ T.length rawLabel)
+          tooltip <- markupEscapeText rawTooltip (fromIntegral $ T.length rawTooltip)
+          return (lbl, Just tooltip)
+        WeatherFormatter f -> do
+          let rawLabel = T.pack $ f wi
+          lbl <- markupEscapeText rawLabel (fromIntegral $ T.length rawLabel)
+          return (lbl, Just lbl)
     Left err -> do
       putStrLn err
       return ("N/A", Nothing)
@@ -292,10 +299,11 @@ defaultWeatherConfig station =
   }
 
 -- | Create a periodically-updating weather widget that polls NOAA.
-weatherNew :: WeatherConfig -- ^ Configuration to render
+weatherNew :: MonadIO m
+           => WeatherConfig -- ^ Configuration to render
            -> Double     -- ^ Polling period in _minutes_
-           -> IO Widget
-weatherNew cfg delayMinutes = do
+           -> m GI.Gtk.Widget
+weatherNew cfg delayMinutes = liftIO $ do
   let url = printf "%s/%s.TXT" baseUrl (weatherStation cfg)
       getter = getWeather (weatherProxy cfg) url
   weatherCustomNew getter (weatherTemplate cfg) (weatherTemplateTooltip cfg)
@@ -309,7 +317,7 @@ weatherCustomNew
   -> String -- ^ Weather template
   -> WeatherFormatter -- ^ Weather formatter
   -> Double -- ^ Polling period in _minutes_
-  -> m Widget
+  -> m GI.Gtk.Widget
 weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = liftIO $ do
   let labelTpl' = newSTMP labelTpl
       tooltipTpl' = newSTMP tooltipTpl
@@ -317,5 +325,5 @@ weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = liftIO $ do
   l <- pollingLabelNewWithTooltip "N/A" (delayMinutes * 60)
        (getCurrentWeather getter labelTpl' tooltipTpl' formatter)
 
-  widgetShowAll l
+  GI.Gtk.widgetShowAll l
   return l

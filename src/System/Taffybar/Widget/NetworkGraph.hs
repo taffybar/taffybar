@@ -1,6 +1,6 @@
 module System.Taffybar.Widget.NetworkGraph where
 
-import Graphics.UI.Gtk
+import qualified GI.Gtk
 import System.Taffybar.Context
 import System.Taffybar.Hooks
 import System.Taffybar.Information.Network
@@ -12,7 +12,7 @@ logScale base maxValue value =
   logBase base (min value maxValue) / actualMax
     where actualMax = logBase base maxValue
 
-networkGraphNew :: GraphConfig -> Maybe [String] -> TaffyIO Widget
+networkGraphNew :: GraphConfig -> Maybe [String] -> TaffyIO GI.Gtk.Widget
 networkGraphNew config interfaces = do
   NetworkInfoChan chan <- getNetworkChan
   let filterFn = maybe (const True) (flip elem) interfaces

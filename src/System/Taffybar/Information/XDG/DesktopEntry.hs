@@ -10,7 +10,7 @@
 --
 -- Implementation of version 1.1 of the freedesktop "Desktop Entry
 -- specification", see
--- https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-1.1.html.
+-- https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-1.2.html.
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Information.XDG.DesktopEntry
@@ -24,7 +24,9 @@ module System.Taffybar.Information.XDG.DesktopEntry
   , deNotShowIn
   , deOnlyShowIn
   , existingDirs
+  , getDefaultConfigHome
   , getDefaultDataHome
+  , getDirectoryEntriesDefault
   , getDirectoryEntry
   , getDirectoryEntryDefault
   , getXDGDataDirs
@@ -38,7 +40,6 @@ import           Data.Char
 import qualified Data.ConfigFile as CF
 import           Data.List
 import           Data.Maybe
-import qualified Data.Set as S
 import           System.Directory
 import           System.Environment
 import           System.FilePath.Posix
@@ -52,12 +53,20 @@ data DesktopEntryType = Application | Link | Directory
 existingDirs :: [FilePath] -> IO [FilePath]
 existingDirs  dirs = do
   exs <- mapM fileExist dirs
-  return $ S.toList $ S.fromList $ map fst $ filter snd $ zip dirs exs
+  let exDirs = nub $ map fst $ filter snd $ zip dirs exs
+  mapM_ (putStrLn . ("Directory does not exist: " ++)) $ dirs \\ exDirs
+  return exDirs
+
+getDefaultConfigHome :: IO FilePath
+getDefaultConfigHome = do
+  h <- getHomeDirectory
+  return $ h </> ".config"
 
 getDefaultDataHome :: IO FilePath
 getDefaultDataHome = do
   h <- getHomeDirectory
   return $ h </> ".local" </> "share"
+
 
 -- XXX: We really ought to use
 -- https://hackage.haskell.org/package/directory-1.3.2.2/docs/System-Directory.html#v:getXdgDirectory
@@ -184,6 +193,12 @@ getDirectoryEntryDefault :: String -> IO (Maybe DesktopEntry)
 getDirectoryEntryDefault entry =
   fmap (</> "applications") <$> getXDGDataDirs >>=
   flip getDirectoryEntry (printf "%s.desktop" entry)
+
+getDirectoryEntriesDefault :: IO [DesktopEntry]
+getDirectoryEntriesDefault =
+  fmap (</> "applications") <$> getXDGDataDirs >>= foldM addDirectories []
+  where addDirectories soFar directory =
+          (soFar ++) <$> listDesktopEntries "desktop" directory
 
 -- | Main section of a desktop entry file.
 sectionMain :: String

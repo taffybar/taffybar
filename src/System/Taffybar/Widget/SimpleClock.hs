@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 -- | This module implements a very simple text-based clock widget.
 -- The widget also toggles a calendar widget when clicked.  This
 -- calendar is not fancy at all and has no data backend.
@@ -16,22 +18,21 @@ import qualified Data.Time.Clock as Clock
 import           Data.Time.Format
 import           Data.Time.LocalTime
 import qualified Data.Time.Locale.Compat as L
-import           Graphics.UI.Gtk
-
+import GI.Gtk
+import qualified GI.Gdk as D
 import           System.Taffybar.Widget.Generic.PollingLabel
 import           System.Taffybar.Widget.Util
+import qualified Data.Text as T
 
 makeCalendar :: IO TimeZone -> IO Window
 makeCalendar tzfn = do
-  container <- windowNew
+  container <- windowNew WindowTypeToplevel
   cal <- calendarNew
   containerAdd container cal
   -- update the date on show
-  _ <- on container showSignal $ resetCalendarDate cal tzfn
+  _ <- onWidgetShow container $ resetCalendarDate cal tzfn
   -- prevent calendar from being destroyed, it can be only hidden:
-  _ <- on container deleteEvent $ do
-    liftIO (widgetHide container)
-    return True
+  _ <- onWidgetDeleteEvent container $ \_ -> widgetHide container >> return True
   return container
 
 resetCalendarDate :: Calendar -> IO TimeZone -> IO ()
@@ -42,9 +43,9 @@ resetCalendarDate cal tzfn = do
   calendarSelectMonth cal (fromIntegral m - 1) (fromIntegral y)
   calendarSelectDay cal (fromIntegral d)
 
-toggleCalendar :: WidgetClass w => w -> Window -> IO Bool
+toggleCalendar :: IsWidget w => w -> Window -> IO Bool
 toggleCalendar w c = do
-  isVis <- get c widgetVisible
+  isVis <- widgetGetVisible c
   if isVis
     then widgetHide c
     else do
@@ -55,7 +56,7 @@ toggleCalendar w c = do
 -- | Create the widget. I recommend passing @Nothing@ for the TimeLocale
 -- parameter. The format string can include Pango markup
 -- (http://developer.gnome.org/pango/stable/PangoMarkupFormat.html).
-textClockNew :: MonadIO m => Maybe L.TimeLocale -> String -> Double -> m Widget
+textClockNew :: MonadIO m => Maybe L.TimeLocale -> String -> Double -> m GI.Gtk.Widget
 textClockNew userLocale =
   textClockNewWith cfg
   where
@@ -103,17 +104,17 @@ textClockNewWith cfg fmt updateSeconds = liftIO $ do
   containerAdd ebox l
   eventBoxSetVisibleWindow ebox False
   cal <- makeCalendar $ getTZ ti
-  _ <- on ebox buttonPressEvent $ onClick [SingleClick] (toggleCalendar l cal)
+  _ <- onWidgetButtonPressEvent ebox $ onClick [D.EventTypeButtonPress] (toggleCalendar l cal)
   widgetShowAll ebox
-  return (toWidget ebox)
+  toWidget ebox
   where
     userZone = clockTimeZone cfg
     userLocale = clockTimeLocale cfg
     -- alternate getCurrentTime that takes a specific TZ
-    getCurrentTime' :: TimeInfo -> String -> IO String
+    getCurrentTime' :: TimeInfo -> String -> IO T.Text
     getCurrentTime' ti f = do
       l <- getLocale ti
       z <- getTZ ti
       t <- Clock.getCurrentTime
-      return $ formatTime l f $ utcToZonedTime z t
+      return $ T.pack $ formatTime l f $ utcToZonedTime z t
 

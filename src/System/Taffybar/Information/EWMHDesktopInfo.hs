@@ -20,31 +20,32 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Information.EWMHDesktopInfo
-  ( X11Window      -- re-exported from X11DesktopInfo
-  , X11WindowHandle
-  , WorkspaceIdx(..)
-  , EWMHIcon(..)
+  ( EWMHIcon(..)
   , EWMHIconData
-  , withDefaultCtx -- re-exported from X11DesktopInfo
-  , isWindowUrgent -- re-exported from X11DesktopInfo
+  , WorkspaceIdx(..)
+  , X11Window      -- re-exported from X11DesktopInfo
+  , X11WindowHandle
+  , focusWindow
+  , getActiveWindow
   , getCurrentWorkspace
   , getVisibleWorkspaces
-  , getWorkspaceNames
-  , switchToWorkspace
-  , switchOneWorkspace
-  , withEWMHIcons
-  , getWindowTitle
   , getWindowClass
   , getWindowIconsData
-  , getActiveWindowTitle
+  , getWindowTitle
   , getWindows
-  , getWindowHandles
   , getWorkspace
-  , focusWindow
+  , getWorkspaceNames
+  , isWindowUrgent -- re-exported from X11DesktopInfo
+  , parseWindowClasses
+  , switchOneWorkspace
+  , switchToWorkspace
+  , withDefaultCtx -- re-exported from X11DesktopInfo
+  , withEWMHIcons
   ) where
 
 import Control.Applicative
 import Control.Monad.Trans.Class
+import Data.List.Split
 import Data.Maybe
 import Data.Tuple
 import Data.Word
@@ -79,13 +80,11 @@ type PixelsWordType = Word64
 type EWMHIconData = (ForeignPtr PixelsWordType, Int)
 
 data EWMHIcon = EWMHIcon
-  { width :: Int
-  , height :: Int
-  , pixelsARGB :: Ptr PixelsWordType
+  { ewmhWidth :: Int
+  , ewmhHeight :: Int
+  , ewmhPixelsARGB :: Ptr PixelsWordType
   } deriving (Show, Eq)
 
-noFocus :: String
-noFocus = "..."
 
 -- | Retrieve the index of the current workspace in the desktop,
 -- starting from 0.
@@ -145,6 +144,9 @@ getWindowTitle window = do
 getWindowClass :: X11Window -> X11Property String
 getWindowClass window = readAsString (Just window) "WM_CLASS"
 
+parseWindowClasses :: String -> [String]
+parseWindowClasses = filter (not . null) . splitOn "\NUL"
+
 -- | Get EWMHIconData for the given X11Window
 getWindowIconsData :: X11Window -> X11Property (Maybe EWMHIconData)
 getWindowIconsData window = do
@@ -179,41 +181,26 @@ parseIcons totalSize arr = do
       newArr = advancePtr pixelsPtr thisSize
       thisIcon =
         EWMHIcon
-        { width = iwidth
-        , height = iheight
-        , pixelsARGB = pixelsPtr
+        { ewmhWidth = iwidth
+        , ewmhHeight = iheight
+        , ewmhPixelsARGB = pixelsPtr
         }
       getRes newSize
         | newSize < 0 = trace "This should not happen parseIcons" return []
         | otherwise = (thisIcon :) <$> parseIcons newSize newArr -- Keep going
   getRes $ totalSize - fromIntegral (thisSize + 2)
 
-withActiveWindow :: (X11Window -> X11Property String) -> X11Property String
-withActiveWindow getProp = do
-  awt <- readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
-  let w = listToMaybe $ filter (>0) awt
-  maybe (return noFocus) getProp w
-
--- | Get the title of the currently focused window.
-getActiveWindowTitle :: X11Property String
-getActiveWindowTitle = withActiveWindow getWindowTitle
+-- Get the window that currently has focus if such a window exists
+getActiveWindow :: X11Property (Maybe X11Window)
+getActiveWindow =
+  listToMaybe . filter (> 0) <$> readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
 
 -- | Return a list of all windows
 getWindows :: X11Property [X11Window]
 getWindows = readAsListOfWindow Nothing "_NET_CLIENT_LIST"
 
--- | Return a list of X11 window handles, one for each window open. Refer to the
--- documentation of 'X11WindowHandle' for details on the structure returned.
-getWindowHandles :: X11Property [X11WindowHandle]
-getWindowHandles = do
-  windows <- getWindows
-  workspaces <- mapM getWorkspace windows
-  wtitles <- mapM getWindowTitle windows
-  wclasses <- mapM getWindowClass windows
-  return $ zip (zip3 workspaces wtitles wclasses) windows
-
--- | Return the index (starting from 0) of the workspace on which the
--- given window is being displayed.
+-- | Return the index (starting from 0) of the workspace on which the given
+-- window is being displayed.
 getWorkspace :: X11Window -> X11Property WorkspaceIdx
 getWorkspace window = WSIdx <$> readAsInt (Just window) "_NET_WM_DESKTOP"
 

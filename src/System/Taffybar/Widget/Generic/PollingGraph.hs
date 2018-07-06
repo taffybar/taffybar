@@ -15,22 +15,22 @@ import           Control.Concurrent
 import qualified Control.Exception.Enclosed as E
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Graphics.UI.Gtk
+import           GI.Gtk
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.Graph
 
 pollingGraphNew
   :: MonadIO m
-  => GraphConfig -> Double -> IO [Double] -> m Widget
+  => GraphConfig -> Double -> IO [Double] -> m GI.Gtk.Widget
 pollingGraphNew cfg pollSeconds action = liftIO $ do
   (graphWidget, graphHandle) <- graphNew cfg
 
-  _ <- on graphWidget realize $ do
+  _ <- onWidgetRealize graphWidget $ do
        sampleThread <- foreverWithDelay pollSeconds $ do
          esample <- E.tryAny action
          case esample of
            Left _ -> return ()
            Right sample -> graphAddSample graphHandle sample
-       void $ on graphWidget unrealize $ killThread sampleThread
+       void $ onWidgetUnrealize graphWidget $ killThread sampleThread
 
   return graphWidget

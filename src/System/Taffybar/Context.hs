@@ -36,14 +36,12 @@ import           Data.Tuple.Sequence
 import           Data.Unique
 import qualified GI.Gdk
 import qualified GI.GdkX11 as GdkX11
-import qualified GI.Gtk
+import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
-import           Graphics.UI.Gtk as Gtk
+import           StatusNotifier.TransparentWindow
 import           System.Log.Logger
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
-import           StatusNotifier.TransparentWindow
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
@@ -109,6 +107,7 @@ data Context = Context
   , sessionDBusClient :: DBus.Client
   , systemDBusClient :: DBus.Client
   , getBarConfigs :: BarConfigGetter
+  , contextBarConfig :: Maybe BarConfig
   }
 
 buildContext :: TaffybarConfig -> IO Context
@@ -134,6 +133,7 @@ buildContext TaffybarConfig
                 , systemDBusClient = sDBusC
                 , getBarConfigs = barConfigGetter
                 , existingWindows = windowsVar
+                , contextBarConfig = Nothing
                 }
   _ <- runMaybeT $ MaybeT GI.Gdk.displayGetDefault >>=
               (lift . GI.Gdk.displayGetDefaultScreen) >>=
@@ -159,36 +159,27 @@ instance GdkX11.IsX11Window GI.Gdk.Window
 
 buildBarWindow :: Context -> BarConfig -> IO Gtk.Window
 buildBarWindow context barConfig = do
+  let thisContext = context { contextBarConfig = Just barConfig }
   logIO DEBUG $
       printf "Building bar window with StrutConfig: %s" $
       show $ strutConfig barConfig
 
-  window <- Gtk.windowNew
+  window <- Gtk.windowNew Gtk.WindowTypeToplevel
   box <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
-  _ <- widgetSetClass box "TaffyBox"
+  _ <- widgetSetClassGI box "taffy-box"
   centerBox <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
-  Gtk.boxSetCenterWidget box centerBox
+  Gtk.boxSetCenterWidget box (Just centerBox)
 
-  -- XXX: This conversion could leak memory
-  giWindow <- toGIWindow window
-  setupStrutWindow (strutConfig barConfig) giWindow
+  setupStrutWindow (strutConfig barConfig) window
   Gtk.containerAdd window box
 
-  _ <- widgetSetClass window "Taffybar"
+  _ <- widgetSetClassGI window "taffy-window"
 
   let addWidgetWith widgetAdd buildWidget =
-        do
-          widget <- runReaderT buildWidget context
-          -- XXX: This is a pretty bad way to do this
-          let height =
-                case strutHeight $ strutConfig barConfig of
-                  ExactSize size -> fromIntegral size
-                  _ -> 40
-          Gtk.widgetSetSizeRequest widget (-1) height
-          widgetAdd widget
-      addToStart widget = Gtk.boxPackStart box widget Gtk.PackNatural 0
-      addToEnd widget = Gtk.boxPackEnd box widget Gtk.PackNatural 0
-      addToCenter widget = Gtk.boxPackStart centerBox widget Gtk.PackNatural 0
+        runReaderT buildWidget thisContext >>= widgetAdd
+      addToStart widget = Gtk.boxPackStart box widget False False 0
+      addToEnd widget = Gtk.boxPackEnd box widget False False 0
+      addToCenter widget = Gtk.boxPackStart centerBox widget False False 0
 
   logIO DEBUG "Building start widgets"
   mapM_ (addWidgetWith addToStart) (startWidgets barConfig)
@@ -197,22 +188,22 @@ buildBarWindow context barConfig = do
   logIO DEBUG "Building end widgets"
   mapM_ (addWidgetWith addToEnd) (endWidgets barConfig)
 
-  makeWindowTransparent giWindow
+  makeWindowTransparent window
 
   logIO DEBUG "Showing window"
-  widgetShow window
-  widgetShow box
-  widgetShow centerBox
+  Gtk.widgetShow window
+  Gtk.widgetShow box
+  Gtk.widgetShow centerBox
 
   runX11Context context () $ void $ runMaybeT $ do
-    gdkWindow <- MaybeT $ GI.Gtk.widgetGetWindow giWindow
+    gdkWindow <- MaybeT $ Gtk.widgetGetWindow window
     xid <- GdkX11.x11WindowGetXid gdkWindow
     lift $ doLowerWindow (fromIntegral xid)
 
   return window
 
 refreshTaffyWindows :: TaffyIO ()
-refreshTaffyWindows = liftReader Gtk.postGUIAsync $ do
+refreshTaffyWindows = liftReader postGUIASync $ do
   logT DEBUG "Refreshing windows"
   ctx <- ask
   windowsVar <- asks existingWindows
@@ -222,12 +213,10 @@ refreshTaffyWindows = liftReader Gtk.postGUIAsync $ do
           barConfigs <- join $ asks getBarConfigs
 
           let currentConfigs = map sel1 currentWindows
-              (_, newConfs) = partition (`elem` currentConfigs) barConfigs
+              newConfs = filter (`notElem` currentConfigs) barConfigs
               (remainingWindows, removedWindows) =
                 partition ((`elem` barConfigs) . sel1) currentWindows
-              setPropertiesFromPair (barConf, window) =
-                toGIWindow window >>=
-                setupStrutWindow (strutConfig barConf)
+              setPropertiesFromPair (barConf, window) = setupStrutWindow (strutConfig barConf) window
 
           newWindowPairs <- lift $ do
             logIO DEBUG $ printf "removedWindows: %s" $
@@ -249,7 +238,8 @@ refreshTaffyWindows = liftReader Gtk.postGUIAsync $ do
             mapM_ setPropertiesFromPair remainingWindows
 
             logIO DEBUG "Constructing new windows"
-            mapM (sequenceT . ((return :: a -> IO a) &&& buildBarWindow ctx)) newConfs
+            mapM (sequenceT . ((return :: a -> IO a) &&& buildBarWindow ctx))
+                 newConfs
 
           return $ newWindowPairs ++ remainingWindows
 
@@ -299,10 +289,11 @@ putState :: forall t. Typeable t => Taffy IO t -> Taffy IO t
 putState getValue = do
   contextVar <- asks contextState
   ctx <- ask
-  lift $ (MV.modifyMVar contextVar) $ \contextStateMap ->
+  lift $ MV.modifyMVar contextVar $ \contextStateMap ->
     let theType = typeOf (undefined :: t)
         currentValue = M.lookup theType contextStateMap
-        insertAndReturn value = (M.insert theType (Value value) contextStateMap, value)
+        insertAndReturn value =
+          (M.insert theType (Value value) contextStateMap, value)
     in flip runReaderT ctx $  maybe
          (insertAndReturn  <$> getValue)
          (return . (contextStateMap,))
@@ -340,7 +331,8 @@ subscribeToEvents :: [String] -> Listener -> Taffy IO Unique
 subscribeToEvents eventNames listener = do
   eventAtoms <- mapM (runX11 . getAtom) eventNames
   let filteredListener event@PropertyEvent { ev_atom = atom } =
-        when (atom `elem` eventAtoms) $ catchAny (listener event) (const $ return ())
+        when (atom `elem` eventAtoms) $
+             catchAny (listener event) (const $ return ())
       filteredListener _ = return ()
   subscribeToAll filteredListener
 

@@ -27,10 +27,10 @@ module System.Taffybar.Widget.Windows (
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
+import           Data.Maybe
 import qualified Data.Text as T
+import           GI.GLib (markupEscapeText)
 import qualified GI.Gtk as Gtk
-import qualified Graphics.UI.Gtk as Gtk2hs
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Util
@@ -48,37 +48,44 @@ import           System.Taffybar.Widget.Util
 -- > ...
 
 data WindowsConfig = WindowsConfig
-  { getMenuLabel :: X11Window -> TaffyIO String
+  { getMenuLabel :: X11Window -> TaffyIO T.Text
   -- ^ A monadic function that will be used to make a label for the window in
   -- the window menu.
-  , getActiveLabel :: TaffyIO String
+  , getActiveLabel :: TaffyIO T.Text
   -- ^ Action to build the label text for the active window.
   }
 
-truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO String
-truncatedGetMenuLabel maxLength =
-  fmap (Gtk2hs.escapeMarkup . truncateString maxLength) .
-  runX11Def "(nameless window)" . getWindowTitle
+defaultGetMenuLabel :: X11Window -> TaffyIO T.Text
+defaultGetMenuLabel window = do
+  windowString <- runX11Def "(nameless window)" (getWindowTitle window)
+  markupEscapeText (T.pack windowString) $ fromIntegral $ length windowString
 
-truncatedGetActiveLabel :: Int -> TaffyIO String
+defaultGetActiveLabel :: TaffyIO T.Text
+defaultGetActiveLabel = fromMaybe "" <$>
+  (runX11Def Nothing getActiveWindow >>= traverse defaultGetMenuLabel)
+
+truncatedGetActiveLabel :: Int -> TaffyIO T.Text
 truncatedGetActiveLabel maxLength =
-  Gtk2hs.escapeMarkup . truncateString maxLength <$>
-        runX11Def "(nameless window)" getActiveWindowTitle
+  truncateText maxLength <$> defaultGetActiveLabel
+
+truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO T.Text
+truncatedGetMenuLabel maxLength =
+  fmap (truncateText maxLength) . defaultGetMenuLabel
 
 defaultWindowsConfig :: WindowsConfig
 defaultWindowsConfig =
   WindowsConfig
-  { getMenuLabel = truncatedGetMenuLabel 35
-  , getActiveLabel = truncatedGetActiveLabel 35
+  { getMenuLabel = defaultGetMenuLabel
+  , getActiveLabel = defaultGetActiveLabel
   }
 
 -- | Create a new Windows widget that will use the given Pager as
 -- its source of events.
-windowsNew :: WindowsConfig -> TaffyIO Gtk2hs.Widget
-windowsNew config = (`widgetSetClass` "Windows") =<< fromGIWidget =<< do
+windowsNew :: WindowsConfig -> TaffyIO Gtk.Widget
+windowsNew config = do
   label <- lift $ Gtk.labelNew Nothing
 
-  let setLabelTitle title = lift $ runOnUIThread $ Gtk.labelSetMarkup label (T.pack title)
+  let setLabelTitle title = lift $ postGUIASync $ Gtk.labelSetMarkup label title
       activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
 
   subscription <- subscribeToEvents ["_NET_ACTIVE_WINDOW"] activeWindowUpdatedCallback
@@ -87,10 +94,12 @@ windowsNew config = (`widgetSetClass` "Windows") =<< fromGIWidget =<< do
   context <- ask
 
   labelWidget <- Gtk.toWidget label
-  dynamicMenuNew
+  menu <- dynamicMenuNew
     DynamicMenuConfig { dmClickWidget = labelWidget
                       , dmPopulateMenu = flip runReaderT context . fillMenu config
                       }
+
+  widgetSetClassGI menu "windows"
 
 -- | Populate the given menu widget with the list of all currently open windows.
 fillMenu :: Gtk.IsMenuShell a => WindowsConfig -> a -> ReaderT Context IO ()
@@ -101,7 +110,7 @@ fillMenu config menu = ask >>= \context ->
       lift $ do
         labelText <- runReaderT (getMenuLabel config windowId) context
         let focusCallback = runReaderT (runX11 $ focusWindow windowId) context >> return True
-        item <- Gtk.menuItemNewWithLabel $ T.pack labelText
+        item <- Gtk.menuItemNewWithLabel labelText
         _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
         Gtk.menuShellAppend menu item
         Gtk.widgetShow item

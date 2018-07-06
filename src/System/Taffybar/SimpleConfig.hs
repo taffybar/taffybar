@@ -19,12 +19,14 @@ module System.Taffybar.SimpleConfig
   ) where
 
 import qualified Control.Concurrent.MVar as MV
+import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Data.List
 import           Data.Maybe
 import           Data.Unique
+import qualified GI.Gtk as Gtk
+import           GI.Gdk
 import           Graphics.UI.GIGtkStrut
-import           Graphics.UI.Gtk as Gtk
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar
 import qualified System.Taffybar.Context as BC (BarConfig(..))
@@ -135,7 +137,8 @@ simpleTaffybar :: SimpleTaffyConfig -> IO ()
 simpleTaffybar conf = dyreTaffybar $ toTaffyConfig conf
 
 getMonitorCount :: IO Int
-getMonitorCount = screenGetDefault >>= maybe (return 0) screenGetNMonitors
+getMonitorCount =
+  fromIntegral <$> (screenGetDefault >>= maybe (return 0) (screenGetDisplay >=> displayGetNMonitors))
 
 -- | Display a taffybar window on all monitors.
 useAllMonitors :: TaffyIO [Int]

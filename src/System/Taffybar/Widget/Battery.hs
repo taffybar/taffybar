@@ -27,10 +27,8 @@ import           Control.Monad.Trans.Reader
 import           Data.Int (Int64)
 import qualified Data.Text as T
 import           GI.Gtk
-import qualified Graphics.UI.Gtk as Gtk2hs
 import           Prelude
 import           StatusNotifier.Tray (scalePixbufToSize)
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Context
 import           System.Taffybar.Information.Battery
 import           System.Taffybar.Util
@@ -74,7 +72,7 @@ getBatteryWidgetInfo info =
   in BWI {seconds = battTime, percent = battPctNum, status = battStatus}
 
 -- | Given (maybe summarized) battery info and format: provides the string to display
-formatBattInfo :: BatteryWidgetInfo -> String -> String
+formatBattInfo :: BatteryWidgetInfo -> String -> T.Text
 formatBattInfo info fmt =
   let tpl = newSTMP fmt
       tpl' = setManyAttrib [ ("percentage", (show . percent) info)
@@ -89,16 +87,15 @@ formatBattInfo info fmt =
 -- charged/discharged.
 textBatteryNew
   :: String -- ^ Display format
-  -> TaffyIO Gtk2hs.Widget
-textBatteryNew format = fromGIWidget =<< do
+  -> TaffyIO Widget
+textBatteryNew format = do
   chan <- getDisplayBatteryChan
   ctx <- ask
-  let getLabelText info =
-        T.pack $ formatBattInfo (getBatteryWidgetInfo info) format
+  let getLabelText info = formatBattInfo (getBatteryWidgetInfo info) format
       getBatteryInfoIO = runReaderT getDisplayBatteryInfo ctx
   liftIO $ do
     label <- getLabelText <$> getBatteryInfoIO >>= labelNew . Just
-    let setMarkup text = runOnUIThread $ labelSetMarkup label text
+    let setMarkup text = postGUIASync $ labelSetMarkup label text
         updateWidget = setMarkup . getLabelText
     void $ onWidgetRealize label $ getLabelText <$> getBatteryInfoIO >>= setMarkup
     toWidget =<< channelWidgetNew label chan updateWidget
@@ -106,8 +103,8 @@ textBatteryNew format = fromGIWidget =<< do
 themeLoadFlags :: [IconLookupFlags]
 themeLoadFlags = [IconLookupFlagsGenericFallback, IconLookupFlagsUseBuiltin]
 
-batteryIconNew :: TaffyIO Gtk2hs.Widget
-batteryIconNew = fromGIWidget =<< do
+batteryIconNew :: TaffyIO Widget
+batteryIconNew = do
   chan <- getDisplayBatteryChan
   ctx <- ask
   liftIO $ do
@@ -120,4 +117,4 @@ batteryIconNew = fromGIWidget =<< do
           iconThemeLoadIcon defaultTheme name size themeLoadFlags >>=
                             traverse (scalePixbufToSize size OrientationHorizontal)
     updateImage <- autoSizeImage image setIconForSize OrientationHorizontal
-    toWidget =<< channelWidgetNew image chan (const $ runOnUIThread $ updateImage)
+    toWidget =<< channelWidgetNew image chan (const $ postGUIASync updateImage)

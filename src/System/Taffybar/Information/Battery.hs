@@ -212,7 +212,8 @@ refreshBatteriesOnPropChange :: TaffyIO ()
 refreshBatteriesOnPropChange = ask >>= \ctx ->
   let updateIfRealChange _ _ changedProps _ =
         flip runReaderT ctx $
-             when (any ((`notElem` ["UpdateTime", "Voltage"]) . fst) $ M.toList changedProps) $
+             when (any ((`notElem` ["UpdateTime", "Voltage"]) . fst) $
+                       M.toList changedProps) $
                   lift (threadDelay 1000000) >> refreshAllBatteries
   in void $ registerForAnyUPowerPropertiesChanged updateIfRealChange
 
@@ -221,8 +222,9 @@ refreshBatteriesOnPropChange = ask >>= \ctx ->
 refreshAllBatteries :: TaffyIO ()
 refreshAllBatteries = do
   client <- asks systemDBusClient
-  let doRefresh path = batteryLogF DEBUG "Refreshing battery: %s" path >> refresh client path
-  eerror <- runExceptT $ (ExceptT getBatteryPaths) >>= liftIO . mapM doRefresh
+  let doRefresh path =
+        batteryLogF DEBUG "Refreshing battery: %s" path >> refresh client path
+  eerror <- runExceptT $ ExceptT getBatteryPaths >>= liftIO . mapM doRefresh
   let logRefreshError = batteryLogF ERROR "Failed to refresh battery: %s"
       logGetPathsError = batteryLogF ERROR "Failed to get battery paths %s"
 

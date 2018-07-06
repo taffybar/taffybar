@@ -5,15 +5,14 @@ module System.Taffybar.Widget.Generic.PollingLabel
   , pollingLabelNewWithTooltip
   ) where
 
+import           Control.Concurrent
 import           Control.Exception.Enclosed as E
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           System.Taffybar.Util
 import qualified Data.Text as T
 import           GI.Gtk
-import qualified Graphics.UI.Gtk as Gtk2hs
-import           System.Taffybar.Compat.GtkLibs
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Decorators
 import           System.Taffybar.Widget.Util
 
 -- | Create a new widget that updates itself at regular intervals.  The
@@ -31,31 +30,32 @@ import           System.Taffybar.Widget.Util
 -- not update until the update interval expires.
 pollingLabelNew
   :: MonadIO m
-  => String -- ^ Initial value for the label
+  => T.Text -- ^ Initial value for the label
   -> Double -- ^ Update interval (in seconds)
-  -> IO String -- ^ Command to run to get the input string
-  -> m Gtk2hs.Widget
+  -> IO T.Text -- ^ Command to run to get the input string
+  -> m GI.Gtk.Widget
 pollingLabelNew initialString interval cmd =
   pollingLabelNewWithTooltip initialString interval $ (, Nothing) <$> cmd
 
 pollingLabelNewWithTooltip
   :: MonadIO m
-  => String -- ^ Initial value for the label
+  => T.Text -- ^ Initial value for the label
   -> Double -- ^ Update interval (in seconds)
-  -> IO (String, Maybe String) -- ^ Command to run to get the input string
-  -> m Gtk2hs.Widget
+  -> IO (T.Text, Maybe T.Text) -- ^ Command to run to get the input string
+  -> m GI.Gtk.Widget
 pollingLabelNewWithTooltip initialString interval cmd =
-  liftIO $ fromGIWidget =<< do
+  liftIO $ do
     grid <- gridNew
-    label <- labelNew $ Just $ T.pack initialString
+    label <- labelNew $ Just initialString
 
     let updateLabel (labelStr, tooltipStr) =
-          runOnUIThread $ do
-            labelSetMarkup label $ T.pack labelStr
-            widgetSetTooltipMarkup label $ T.pack <$> tooltipStr
+          postGUIASync $ do
+            labelSetMarkup label labelStr
+            widgetSetTooltipMarkup label tooltipStr
 
-    _ <- onWidgetRealize label $ void $ foreverWithDelay interval $
-      E.tryAny cmd >>= either (const $ return ()) updateLabel
+    _ <- onWidgetRealize label $ do
+      sampleThread <- foreverWithDelay interval $ E.tryAny cmd >>= either (const $ return ()) updateLabel
+      void $ onWidgetUnrealize label $ killThread sampleThread
 
     vFillCenter label
     vFillCenter grid

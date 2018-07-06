@@ -40,7 +40,7 @@ module System.Taffybar.Widget
   , module System.Taffybar.Widget.NetworkGraph
 
   -- * "System.Taffybar.Widget.SNITray"
-  , sniTrayNew
+  , module System.Taffybar.Widget.SNITray
 
   -- * "System.Taffybar.Widget.SimpleClock"
   , textClockNew
@@ -56,10 +56,6 @@ module System.Taffybar.Widget
 
   -- * "System.Taffybar.Widget.Text.NetworkMonitor"
   , module System.Taffybar.Widget.Text.NetworkMonitor
-
-  -- * "System.Taffybar.Widget.Volume"
-  , volumeTextNew
-  , volumeControlNew
 
   -- * "System.Taffybar.Widget.Weather"
   , WeatherConfig(..)
@@ -77,12 +73,7 @@ module System.Taffybar.Widget
   , truncatedGetMenuLabel
 
   -- * "System.Taffybar.Widget.Workspaces"
-  , IconInfo(..)
-  , Workspace(..)
-  , WorkspacesConfig(..)
-  , WorkspacesIO
-  , hideEmpty
-  , workspacesNew
+  , module System.Taffybar.Widget.Workspaces
 
   -- * "System.Taffybar.Widget.XDGMenu.MenuWidget"
   , module System.Taffybar.Widget.XDGMenu.MenuWidget
@@ -105,7 +96,6 @@ import System.Taffybar.Widget.Text.CPUMonitor
 import System.Taffybar.Widget.Text.MemoryMonitor
 import System.Taffybar.Widget.Text.NetworkMonitor
 import System.Taffybar.Widget.Util
-import System.Taffybar.Widget.Volume
 import System.Taffybar.Widget.Weather
 import System.Taffybar.Widget.Windows
 import System.Taffybar.Widget.Workspaces

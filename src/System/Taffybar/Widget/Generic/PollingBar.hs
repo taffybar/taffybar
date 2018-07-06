@@ -13,20 +13,24 @@ module System.Taffybar.Widget.Generic.PollingBar (
 
 import Control.Concurrent
 import Control.Exception.Enclosed ( tryAny )
-import Graphics.UI.Gtk
-import System.Taffybar.Widget.Util ( backgroundLoop, drawOn )
+import qualified GI.Gtk
+import System.Taffybar.Widget.Util ( backgroundLoop )
+import Control.Monad.IO.Class
 
 import System.Taffybar.Widget.Generic.VerticalBar
 
-verticalBarFromCallback :: BarConfig -> IO Double -> IO Widget
-verticalBarFromCallback cfg action = do
+verticalBarFromCallback :: MonadIO m
+                        => BarConfig -> IO Double -> m GI.Gtk.Widget
+verticalBarFromCallback cfg action = liftIO $ do
   (drawArea, h) <- verticalBarNew cfg
-  drawOn drawArea $
-    backgroundLoop $ do
+  _ <- GI.Gtk.onWidgetRealize drawArea $ backgroundLoop $ do
       esample <- tryAny action
       traverse (verticalBarSetPercent h) esample
+  return drawArea
 
-pollingBarNew :: BarConfig -> Double -> IO Double -> IO Widget
+pollingBarNew :: MonadIO m
+              => BarConfig -> Double -> IO Double -> m GI.Gtk.Widget
 pollingBarNew cfg pollSeconds action =
+  liftIO $
   verticalBarFromCallback cfg $ action <* delay
   where delay = threadDelay $ floor (pollSeconds * 1000000)

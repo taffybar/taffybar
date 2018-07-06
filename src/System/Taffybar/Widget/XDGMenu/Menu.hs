@@ -25,6 +25,7 @@ module System.Taffybar.Widget.XDGMenu.Menu
 import Data.Char (toLower)
 import Data.List
 import Data.Maybe
+import qualified Data.Text as T
 import System.Taffybar.Information.XDG.DesktopEntry
 import System.Taffybar.Information.XDG.Protocol
 
@@ -40,10 +41,10 @@ data Menu = Menu
 
 -- | Displayable menu entry
 data MenuEntry = MenuEntry
-  { feName :: String
-  , feComment :: String
+  { feName :: T.Text
+  , feComment :: T.Text
   , feCommand :: String
-  , feIcon :: Maybe String
+  , feIcon :: Maybe T.Text
   } deriving (Eq, Show)
 
 -- | Fetch menus and desktop entries and assemble the menu.
@@ -114,13 +115,14 @@ xdgToMenuEntry langs de =
         Nothing -> Nothing
         Just c -> Just $ "(" ++ c ++ ")"
     comment =
+      T.pack $
       fromMaybe "??" $
       case deComment langs de of
         Nothing -> mc
         Just tt -> Just $ tt ++ maybe "" ("\n" ++) mc
     cmd = fromMaybe "FIXME" $ deCommand de
-    name = deName langs de
-    mIcon = deIcon de
+    name = T.pack $ deName langs de
+    mIcon = T.pack <$> deIcon de
 
 -- | postprocess unallocated entries
 fixOnlyUnallocated :: [MenuEntry] -> Menu -> Menu

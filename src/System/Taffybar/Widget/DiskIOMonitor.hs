@@ -16,7 +16,7 @@
 module System.Taffybar.Widget.DiskIOMonitor ( dioMonitorNew ) where
 
 import           Control.Monad.IO.Class
-import qualified Graphics.UI.Gtk as Gtk
+import qualified GI.Gtk
 import           System.Taffybar.Information.DiskIO ( getDiskTransfer )
 import           System.Taffybar.Widget.Generic.PollingGraph ( GraphConfig, pollingGraphNew )
 
@@ -29,7 +29,7 @@ dioMonitorNew
   => GraphConfig -- ^ Configuration data for the Graph.
   -> Double -- ^ Polling period (in seconds).
   -> String -- ^ Name of the disk or partition to watch (e.g. \"sda\", \"sdb1\").
-  -> m Gtk.Widget
+  -> m GI.Gtk.Widget
 dioMonitorNew cfg pollSeconds =
   pollingGraphNew cfg pollSeconds . probeDisk
 

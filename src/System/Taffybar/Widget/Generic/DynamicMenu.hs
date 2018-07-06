@@ -2,7 +2,6 @@ module System.Taffybar.Widget.Generic.DynamicMenu where
 
 import           Control.Monad.IO.Class
 import qualified GI.Gtk as Gtk
-import           System.Taffybar.Widget.Util
 
 data DynamicMenuConfig = DynamicMenuConfig
   { dmClickWidget :: Gtk.Widget
@@ -10,23 +9,20 @@ data DynamicMenuConfig = DynamicMenuConfig
   }
 
 dynamicMenuNew :: MonadIO m => DynamicMenuConfig -> m Gtk.Widget
-dynamicMenuNew DynamicMenuConfig { dmClickWidget = clickWidget
-                                 , dmPopulateMenu = populateMenu
-                                 } = do
-  bar <- Gtk.menuBarNew
+dynamicMenuNew DynamicMenuConfig
+                 { dmClickWidget = clickWidget
+                 , dmPopulateMenu = populateMenu
+                 } = do
+  button <- Gtk.menuButtonNew
   menu <- Gtk.menuNew
-  menuItem <- Gtk.menuItemNew
-  Gtk.containerAdd menuItem clickWidget
-  Gtk.menuItemSetSubmenu menuItem $ Just menu
-  Gtk.containerAdd bar menuItem
-  _ <- widgetSetClassGI menu "Menu"
+  Gtk.containerAdd button clickWidget
+  Gtk.menuButtonSetPopup button $ Just menu
 
-  _ <- Gtk.onMenuItemActivate menuItem $ populateMenu menu
-  _ <- Gtk.onMenuItemDeselect menuItem $ emptyMenu menu
+  _ <- Gtk.onButtonPressed button $ emptyMenu menu >> populateMenu menu
 
-  Gtk.widgetShowAll bar
+  Gtk.widgetShowAll button
 
-  Gtk.toWidget bar
+  Gtk.toWidget button
 
 emptyMenu :: (Gtk.IsContainer a, MonadIO m) => a -> m ()
 emptyMenu menu =
