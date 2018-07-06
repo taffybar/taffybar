@@ -131,7 +131,7 @@ autoSizeImage image getPixbuf orientation = liftIO $ do
 
           pixbuf <- getPixbuf size
           pbWidth <- fromMaybe 0 <$> traverse Gdk.getPixbufWidth pixbuf
-          pbHeight <- fromMaybe 0 <$> traverse Gdk.getPixbufWidth pixbuf
+          pbHeight <- fromMaybe 0 <$> traverse Gdk.getPixbufHeight pixbuf
           let pbSize = case orientation of
                          Gtk.OrientationHorizontal -> pbHeight
                          _ -> pbWidth

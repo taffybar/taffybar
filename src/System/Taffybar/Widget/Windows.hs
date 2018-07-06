@@ -27,6 +27,7 @@ module System.Taffybar.Widget.Windows (
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
+import           Data.Maybe
 import qualified Data.Text as T
 import           GI.GLib (markupEscapeText)
 import qualified GI.Gtk as Gtk
@@ -54,21 +55,28 @@ data WindowsConfig = WindowsConfig
   -- ^ Action to build the label text for the active window.
   }
 
-truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO T.Text
-truncatedGetMenuLabel maxLength window =
-  runX11Def "(nameless window)" (getWindowTitle window) >>= \s ->
-  markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral maxLength)
+defaultGetMenuLabel :: X11Window -> TaffyIO T.Text
+defaultGetMenuLabel window = do
+  windowString <- runX11Def "(nameless window)" (getWindowTitle window)
+  markupEscapeText (T.pack windowString) $ fromIntegral $ length windowString
+
+defaultGetActiveLabel :: TaffyIO T.Text
+defaultGetActiveLabel = fromMaybe "" <$>
+  (runX11Def Nothing getActiveWindow >>= traverse defaultGetMenuLabel)
 
 truncatedGetActiveLabel :: Int -> TaffyIO T.Text
 truncatedGetActiveLabel maxLength =
-  runX11Def "(nameless window)" getActiveWindowTitle >>= \s ->
-  markupEscapeText (T.pack (truncateString maxLength s)) (fromIntegral maxLength)
+  truncateText maxLength <$> defaultGetActiveLabel
+
+truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO T.Text
+truncatedGetMenuLabel maxLength =
+  fmap (truncateText maxLength) . defaultGetMenuLabel
 
 defaultWindowsConfig :: WindowsConfig
 defaultWindowsConfig =
   WindowsConfig
-  { getMenuLabel = truncatedGetMenuLabel 35
-  , getActiveLabel = truncatedGetActiveLabel 35
+  { getMenuLabel = defaultGetMenuLabel
+  , getActiveLabel = defaultGetActiveLabel
   }
 
 -- | Create a new Windows widget that will use the given Pager as

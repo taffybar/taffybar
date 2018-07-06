@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Util
@@ -23,6 +24,7 @@ import           Control.Monad.Trans.Reader
 import           Data.Either.Combinators
 import           Data.GI.Base.GError
 import qualified Data.GI.Gtk.Threading as Gtk
+import qualified Data.Text as T
 import           Data.Tuple.Sequence
 import           GI.GLib.Constants
 import           GI.Gdk (threadsAddIdle)
@@ -62,9 +64,14 @@ maybeToEither :: b -> Maybe a -> Either b a
 maybeToEither = flip maybe Right . Left
 
 truncateString :: Int -> String -> String
-truncateString n xs
-  | length xs <= n = xs
-  | otherwise      = take n xs ++ "…"
+truncateString n incoming
+  | length incoming <= n = incoming
+  | otherwise = take n incoming ++ "…"
+
+truncateText :: Int -> T.Text -> T.Text
+truncateText n incoming
+  | T.length incoming <= n = incoming
+  | otherwise = T.append (T.take n incoming) "…"
 
 runCommandFromPath :: MonadIO m => [String] -> m (Either String String)
 runCommandFromPath = runCommand "/usr/bin/env"
@@ -130,7 +137,11 @@ getPixbufFromFilePath filepath = do
             printf "Failed to load icon from filepath %s" filepath
   return $ rightToMaybe result
 
-postGUIASync action = threadsAddIdle PRIORITY_DEFAULT_IDLE (action >> return False) >> return ()
+postGUIASync action =
+  threadsAddIdle PRIORITY_DEFAULT_IDLE (action >> return False) >> return ()
+
+-- XXX: This has serious problems becuase it will cause a hang if it is used
+-- when already on the UI Thread
 postGUISync action = do
   ans <- newEmptyMVar
   threadsAddIdle PRIORITY_DEFAULT_IDLE $ action >>= putMVar ans >> return False
