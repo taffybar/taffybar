@@ -61,7 +61,7 @@ library
                , gi-gtk-hs
                , gi-pango
                , glib
-               , gtk-sni-tray >= 0.1.3.2
+               , gtk-sni-tray >= 0.1.4.0
                , gtk-strut >= 0.1.2.1
                , haskell-gi >= 0.21.2
                , haskell-gi-base >= 0.21.1
@@ -74,7 +74,7 @@ library
                , regex-compat
                , safe >= 0.3 && < 1
                , split >= 0.1.4.2
-               , status-notifier-item >= 0.2.2.0
+               , status-notifier-item >= 0.3.0.0
                , stm
                , template-haskell
                , text
