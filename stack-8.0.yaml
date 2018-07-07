@@ -24,7 +24,7 @@ extra-deps:
 - gi-gtk-hs-0.3.6.1
 - gi-pango-1.0.16
 - gi-xlib-2.0.2
-- gtk-sni-tray-0.1.3.2
+- gtk-sni-tray-0.1.4.0
 - gtk-strut-0.1.2.1
 - gtk-traymanager-1.0.1
 - gtk3-0.14.9
@@ -33,7 +33,7 @@ extra-deps:
 - http-types-0.12.1
 - libxml-sax-0.7.5
 - rate-limit-1.1.1
-- status-notifier-item-0.2.2.1
+- status-notifier-item-0.3.0.0
 - time-1.8.0.4
 - time-units-1.0.0
 - unix-2.7.2.2
