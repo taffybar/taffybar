@@ -14,15 +14,7 @@
 -- which to switch the focus.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widget.Windows (
-  -- * Usage
-  -- $usage
-    windowsNew
-  , WindowsConfig(..)
-  , defaultWindowsConfig
-  , truncatedGetActiveLabel
-  , truncatedGetMenuLabel
-) where
+module System.Taffybar.Widget.Windows where
 
 import           Control.Monad
 import           Control.Monad.Trans.Class
@@ -36,16 +28,6 @@ import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.DynamicMenu
 import           System.Taffybar.Widget.Util
-
--- $usage
---
--- The window switcher widget requires that the EwmhDesktops hook from the
--- XMonadContrib project be installed in your @xmonad.hs@ file:
---
--- > import XMonad.Hooks.EwmhDesktops (ewmh)
--- > main = do
--- >   xmonad $ ewmh $ defaultConfig
--- > ...
 
 data WindowsConfig = WindowsConfig
   { getMenuLabel :: X11Window -> TaffyIO T.Text
@@ -75,8 +57,8 @@ truncatedGetMenuLabel maxLength =
 defaultWindowsConfig :: WindowsConfig
 defaultWindowsConfig =
   WindowsConfig
-  { getMenuLabel = defaultGetMenuLabel
-  , getActiveLabel = defaultGetActiveLabel
+  { getMenuLabel = truncatedGetMenuLabel 35
+  , getActiveLabel = truncatedGetActiveLabel 35
   }
 
 -- | Create a new Windows widget that will use the given Pager as
