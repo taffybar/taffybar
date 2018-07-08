@@ -26,8 +26,6 @@ import           Data.GI.Base.GError
 import qualified Data.GI.Gtk.Threading as Gtk
 import qualified Data.Text as T
 import           Data.Tuple.Sequence
-import           GI.GLib.Constants
-import           GI.Gdk (threadsAddIdle)
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import           System.Exit (ExitCode (..))
 import           System.Log.Logger
@@ -137,12 +135,5 @@ getPixbufFromFilePath filepath = do
             printf "Failed to load icon from filepath %s" filepath
   return $ rightToMaybe result
 
-postGUIASync action =
-  threadsAddIdle PRIORITY_DEFAULT_IDLE (action >> return False) >> return ()
-
--- XXX: This has serious problems becuase it will cause a hang if it is used
--- when already on the UI Thread
-postGUISync action = do
-  ans <- newEmptyMVar
-  threadsAddIdle PRIORITY_DEFAULT_IDLE $ action >>= putMVar ans >> return False
-  takeMVar ans
+postGUIASync = Gtk.postGUIASync
+postGUISync = Gtk.postGUISync
