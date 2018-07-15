@@ -61,7 +61,7 @@ library
                , gi-gtk-hs
                , gi-pango
                , glib
-               , gtk-sni-tray >= 0.1.4.0
+               , gtk-sni-tray >= 0.1.5.0
                , gtk-strut >= 0.1.2.1
                , haskell-gi >= 0.21.2
                , haskell-gi-base >= 0.21.1

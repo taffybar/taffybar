@@ -13,6 +13,7 @@ module System.Taffybar.Widget.SNITray where
 
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
+import           Data.Ratio
 import qualified GI.Gtk
 import           Graphics.UI.GIGtkStrut
 import qualified StatusNotifier.Host.Service as H
@@ -48,6 +49,7 @@ sniTrayNewFromHost host = do
         , trayImageSize = Expand
         , trayIconExpand = False
         , trayAlignment = End
+        , trayOverlayScale = 3 % 5
         }
     _ <- widgetSetClassGI tray "sni-tray"
     GI.Gtk.widgetShowAll tray
@@ -57,5 +59,6 @@ sniTrayNew :: TaffyIO GI.Gtk.Widget
 sniTrayNew = getHost False >>= sniTrayNewFromHost
 
 sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt :: TaffyIO GI.Gtk.Widget
-sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt = getHost True >>= sniTrayNewFromHost
+sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt =
+  getHost True >>= sniTrayNewFromHost
 

@@ -22,7 +22,7 @@ extra-deps:
 - gi-xlib-2.0.2
 - gi-glib-2.0.17
 - gio-0.13.4.1
-- gtk-sni-tray-0.1.4.0
+- gtk-sni-tray-0.1.5.0
 - gtk-strut-0.1.2.1
 - gtk-traymanager-1.0.1
 - gtk3-0.14.9
@@ -34,4 +34,4 @@ extra-deps:
 - status-notifier-item-0.3.0.0
 - time-units-1.0.0
 - xml-helpers-1.0.0
-resolver: lts-11.4
+resolver: lts-11.16
