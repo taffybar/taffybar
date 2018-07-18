@@ -15,7 +15,7 @@
 module System.Taffybar.Widget.Util where
 
 import           Control.Concurrent ( forkIO )
-import           Control.Monad ( forever, void )
+import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Maybe
 import           Data.Functor ( ($>) )
@@ -130,22 +130,10 @@ themeLoadFlags =
   ]
 
 getImageForDesktopEntry :: Int32 -> DesktopEntry -> IO (Maybe GI.Pixbuf)
-getImageForDesktopEntry size entry = runMaybeT $ do
-  iconName <- MaybeT $ return $ deIcon entry
-  let iconNameText = T.pack iconName
-  MaybeT $ do
-    iconTheme <- Gtk.iconThemeGetDefault
-    hasIcon <- Gtk.iconThemeHasIcon iconTheme iconNameText
-    logPrintFDebug "System.Taffybar.Widget.Util" "Entry: %s" entry
-    logPrintFDebug "System.Taffybar.Widget.Util" "Icon present: %s" hasIcon
-    if hasIcon
-    then
-      Gtk.iconThemeLoadIcon iconTheme iconNameText size themeLoadFlags
-    else do
-      exists <- doesFileExist iconName
-      if isAbsolute iconName && exists
-      then Just <$> GI.pixbufNewFromFile iconName
-      else return Nothing
+getImageForDesktopEntry size entry = fmap join $ traverse run $ deIcon entry
+  where run iconName =
+          maybeTCombine (loadPixbufByName size $ T.pack iconName)
+                        (getPixbufFromFilePath iconName)
 
 loadPixbufByName :: Int32 -> T.Text -> IO (Maybe GI.Pixbuf)
 loadPixbufByName size name = do
@@ -183,4 +171,3 @@ setMinWidth width widget = liftIO $ do
 renderWithContext :: GI.Cairo.Context -> C.Render () -> IO ()
 renderWithContext ct r = GI.Cairo.withManagedPtr ct $ \p ->
   runReaderT (runRender r) (Cairo (castPtr p))
-
