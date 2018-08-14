@@ -26,7 +26,7 @@ versionOption :: Parser (a -> a)
 versionOption = infoOption
                 (printf "taffybar %s" $ showVersion version)
                 (  long "version"
-                <> help "Show the version number of gtk-sni-tray"
+                <> help "Show the version number of taffybar"
                 )
 
 main :: IO ()
