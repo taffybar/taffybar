@@ -194,7 +194,7 @@ startTimeoutThread :: NotifyState -> Notification -> IO ()
 startTimeoutThread s Notification {..} = case noteExpireTimeout of
   Nothing -> return ()
   Just timeout -> void $ forkIO $ do
-    threadDelay (fromIntegral timeout * 10^(6 :: Int))
+    threadDelay (fromIntegral timeout * 10^(3 :: Int))
     notePurge s noteId
     wakeupDisplayThread s
 
