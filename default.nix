@@ -15,12 +15,12 @@ let
   haskellPackages = pkgs.haskell.packages.ghc822.override {
     overrides = self: super: {
       taffybar = with pkgs.haskell.lib;
-        ((addPkgconfigDepend (disableLibraryProfiling (dontCheck (dontHaddock
+        (addPkgconfigDepend (disableLibraryProfiling (dontCheck (dontHaddock
           ( pkgs.haskell.packages.ghc822.callCabal2nix
               "taffybar"
               (builtins.path { name = "taffybar"; inherit filter; path = ./.; } )
               { }
-          )))) pkgs.gtk3).overrideAttrs (_: { strictDeps = true; }));
+          )))) pkgs.gtk3);
         };
   };
   ghcWithTaffybar = haskellPackages.ghcWithPackages (p: with p; [taffybar]);
