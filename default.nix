@@ -2,7 +2,8 @@
 #   $ nix-build
 
 {
-pkgs_path ? ./nix/nixpkgs.nix
+  pkgs_path ? ./nix/nixpkgs.nix
+, compiler ? "ghc822"
 }:
 
 let
@@ -12,11 +13,11 @@ let
     overlays = [ overlay ];
   };
   filter =  import ./nix/filter.nix {inherit (pkgs)lib;};
-  haskellPackages = pkgs.haskell.packages.ghc822.override {
+  haskellPackages = pkgs.haskell.packages.${compiler}.override {
     overrides = self: super: {
       taffybar = with pkgs.haskell.lib;
         (addPkgconfigDepend (disableLibraryProfiling (dontCheck (dontHaddock
-          ( pkgs.haskell.packages.ghc822.callCabal2nix
+          ( pkgs.haskell.packages.${compiler}.callCabal2nix
               "taffybar"
               (builtins.path { name = "taffybar"; inherit filter; path = ./.; } )
               { }
