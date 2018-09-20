@@ -241,12 +241,12 @@ getCurrentWeather getter labelTpl tooltipTpl formatter = do
         DefaultWeatherFormatter -> do
           let rawLabel = T.pack $ defaultFormatter labelTpl wi
           let rawTooltip = T.pack $ defaultFormatter tooltipTpl wi
-          lbl <- markupEscapeText rawLabel (fromIntegral $ T.length rawLabel)
-          tooltip <- markupEscapeText rawTooltip (fromIntegral $ T.length rawTooltip)
+          lbl <- markupEscapeText rawLabel (-1)
+          tooltip <- markupEscapeText rawTooltip (-1)
           return (lbl, Just tooltip)
         WeatherFormatter f -> do
           let rawLabel = T.pack $ f wi
-          lbl <- markupEscapeText rawLabel (fromIntegral $ T.length rawLabel)
+          lbl <- markupEscapeText rawLabel (-1)
           return (lbl, Just lbl)
     Left err -> do
       putStrLn err
