@@ -144,7 +144,7 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ do
 
 playingText :: MonadIO m => Int -> Int -> NowPlaying -> m T.Text
 playingText artistMax songMax NowPlaying {npArtists = artists, npTitle = title} =
-  G.markupEscapeText formattedText (fromIntegral $ T.length formattedText)
+  G.markupEscapeText formattedText (-1)
   where formattedText = T.pack $ printf
            "%s - %s"
            (truncateString artistMax $ intercalate "," artists)

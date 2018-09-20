@@ -121,8 +121,8 @@ notify s appName replaceId _ summary body _ _ timeout = do
                            Nothing -> Just timeout
                            Just maxTimeout -> Just (min maxTimeout timeout)
 
-  escapedSummary <- markupEscapeText summary (fromIntegral $ T.length summary)
-  escapedBody <- markupEscapeText body (fromIntegral $ T.length body)
+  escapedSummary <- markupEscapeText summary (-1)
+  escapedBody <- markupEscapeText body (-1)
   let n = Notification { noteAppName = appName
                        , noteReplaceId = replaceId
                        , noteSummary = escapedSummary
