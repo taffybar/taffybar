@@ -40,11 +40,12 @@ data WindowsConfig = WindowsConfig
 defaultGetMenuLabel :: X11Window -> TaffyIO T.Text
 defaultGetMenuLabel window = do
   windowString <- runX11Def "(nameless window)" (getWindowTitle window)
-  markupEscapeText (T.pack windowString) $ fromIntegral $ length windowString
+  return $ T.pack windowString
 
 defaultGetActiveLabel :: TaffyIO T.Text
-defaultGetActiveLabel = fromMaybe "" <$>
-  (runX11Def Nothing getActiveWindow >>= traverse defaultGetMenuLabel)
+defaultGetActiveLabel = do
+  label <- fromMaybe "" <$> (runX11Def Nothing getActiveWindow >>= traverse defaultGetMenuLabel)
+  markupEscapeText label (-1)
 
 truncatedGetActiveLabel :: Int -> TaffyIO T.Text
 truncatedGetActiveLabel maxLength =
