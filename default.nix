@@ -13,7 +13,7 @@ let
     overlays = [ overlay ];
   };
   filter =  import ./nix/filter.nix {inherit (pkgs)lib;};
-  haskellPackages = pkgs.haskell.packages.${compiler}.override {
+  hpkgs = pkgs.haskell.packages.${compiler}.override {
     overrides = self: super: {
       taffybar = with pkgs.haskell.lib;
         (addPkgconfigDepend (disableLibraryProfiling (dontCheck (dontHaddock
@@ -24,16 +24,8 @@ let
           )))) pkgs.gtk3);
         };
   };
-  ghcWithTaffybar = haskellPackages.ghcWithPackages (p: with p; [taffybar]);
 
 in
-
-  pkgs.stdenv.mkDerivation {
-    name = "taffy-ghc-env";
-    nativeBuildInputs = [ pkgs.makeWrapper ];
-    buildCommand = ''
-      mkdir -p $out/bin
-      makeWrapper ${ghcWithTaffybar}/bin/taffybar $out/bin/taffybar \
-        --set NIX_GHC "${ghcWithTaffybar}/bin/ghc"
-    '';
+  pkgs.taffybar.override {
+    inherit (hpkgs) ghcWithPackages;
   }
