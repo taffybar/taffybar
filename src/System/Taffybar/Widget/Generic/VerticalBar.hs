@@ -12,13 +12,14 @@ module System.Taffybar.Widget.Generic.VerticalBar (
   defaultBarConfigIO
   ) where
 
-import           Control.Concurrent
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           GI.Gtk hiding (widgetGetAllocatedSize)
-import qualified Graphics.Rendering.Cairo as C
-import           System.Taffybar.Util
-import           System.Taffybar.Widget.Util
+import Control.Concurrent
+import Control.Monad
+import Control.Monad.IO.Class
+import GI.Cairo.Render
+import GI.Cairo.Render.Connector
+import GI.Gtk                      hiding ( widgetGetAllocatedSize )
+import System.Taffybar.Util
+import System.Taffybar.Widget.Util
 
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
 data VerticalBarState = VerticalBarState
@@ -102,34 +103,34 @@ liftedBarColor bc pct =
     BarConfig { barColor = c } -> return (c pct)
     BarConfigIO { barColorIO = c } -> c pct
 
-renderFrame_ :: Double -> BarConfig -> Int -> Int -> C.Render ()
+renderFrame_ :: Double -> BarConfig -> Int -> Int -> Render ()
 renderFrame_ pct cfg width height = do
   let fwidth = fromIntegral width
       fheight = fromIntegral height
 
   -- Now draw the user's requested background, respecting padding
-  (bgR, bgG, bgB) <- C.liftIO $ liftedBackgroundColor cfg pct
+  (bgR, bgG, bgB) <- liftIO $ liftedBackgroundColor cfg pct
   let pad = barPadding cfg
       fpad = fromIntegral pad
-  C.setSourceRGB bgR bgG bgB
-  C.rectangle fpad fpad (fwidth - 2 * fpad) (fheight - 2 * fpad)
-  C.fill
+  setSourceRGB bgR bgG bgB
+  rectangle fpad fpad (fwidth - 2 * fpad) (fheight - 2 * fpad)
+  fill
 
   -- Now draw a nice frame
-  (frameR, frameG, frameB) <- C.liftIO $ liftedBorderColor cfg
-  C.setSourceRGB frameR frameG frameB
-  C.setLineWidth 1.0
-  C.rectangle (fpad + 0.5) (fpad + 0.5) (fwidth - 2 * fpad - 1) (fheight - 2 * fpad - 1)
-  C.stroke
+  (frameR, frameG, frameB) <- liftIO $ liftedBorderColor cfg
+  setSourceRGB frameR frameG frameB
+  setLineWidth 1.0
+  rectangle (fpad + 0.5) (fpad + 0.5) (fwidth - 2 * fpad - 1) (fheight - 2 * fpad - 1)
+  stroke
 
-renderBar :: Double -> BarConfig -> Int -> Int -> C.Render ()
+renderBar :: Double -> BarConfig -> Int -> Int -> Render ()
 renderBar pct cfg width height = do
   let direction = barDirection cfg
       activeHeight = case direction of
-                       VERTICAL   -> pct * fromIntegral height
+                       VERTICAL -> pct * fromIntegral height
                        HORIZONTAL -> fromIntegral height
       activeWidth  = case direction of
-                       VERTICAL   -> fromIntegral width
+                       VERTICAL -> fromIntegral width
                        HORIZONTAL -> pct * fromIntegral width
       newOrigin    = case direction of
                        VERTICAL -> fromIntegral height - activeHeight
@@ -140,18 +141,18 @@ renderBar pct cfg width height = do
 
   -- After we draw the frame, transform the coordinate space so that
   -- we only draw within the frame.
-  C.translate (fromIntegral pad + 1) (fromIntegral pad + 1)
+  translate (fromIntegral pad + 1) (fromIntegral pad + 1)
   let xS = fromIntegral (width - 2 * pad - 2) / fromIntegral width
       yS = fromIntegral (height - 2 * pad - 2) / fromIntegral height
-  C.scale xS yS
+  scale xS yS
 
-  (r, g, b) <- C.liftIO $ liftedBarColor cfg pct
-  C.setSourceRGB r g b
-  C.translate 0 newOrigin
-  C.rectangle 0 0 activeWidth activeHeight
-  C.fill
+  (r, g, b) <- liftIO $ liftedBarColor cfg pct
+  setSourceRGB r g b
+  translate 0 newOrigin
+  rectangle 0 0 activeWidth activeHeight
+  fill
 
-drawBar :: MVar VerticalBarState -> DrawingArea -> C.Render ()
+drawBar :: MVar VerticalBarState -> DrawingArea -> Render ()
 drawBar mv drawArea = do
   (w, h) <- widgetGetAllocatedSize drawArea
   s <- liftIO $ do
@@ -172,7 +173,7 @@ verticalBarNew cfg = liftIO $ do
       , barConfig = cfg
       }
   widgetSetSizeRequest drawArea (fromIntegral $ barWidth cfg) (-1)
-  _ <- onWidgetDraw drawArea $ \ctx -> renderWithContext ctx (drawBar mv drawArea) >> return True
+  _ <- onWidgetDraw drawArea $ \ctx -> flip renderWithContext ctx (drawBar mv drawArea) >> return True
   box <- hBoxNew False 1
   boxPackStart box drawArea True True 0
   widgetShowAll box

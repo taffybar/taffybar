@@ -43,7 +43,6 @@ library
                , HStringTemplate >= 0.8 && < 0.9
                , HTTP
                , X11 >= 1.5.0.1
-               , cairo
                , containers
                , dbus >= 1.0.0 && < 2.0.0
                , dbus-hslogger >= 0.1.0.1 && < 0.2.0.0
@@ -53,6 +52,8 @@ library
                , enclosed-exceptions >= 1.0.0.1
                , filepath
                , gi-cairo
+               , gi-cairo-render
+               , gi-cairo-connector
                , gi-gdk
                , gi-gdkpixbuf >= 2.0.16
                , gi-gdkx11
@@ -60,7 +61,6 @@ library
                , gi-gtk
                , gi-gtk-hs
                , gi-pango
-               , glib
                , gtk-sni-tray >= 0.1.5.0
                , gtk-strut >= 0.1.2.1
                , haskell-gi >= 0.21.2

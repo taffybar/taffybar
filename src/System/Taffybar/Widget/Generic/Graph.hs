@@ -23,16 +23,17 @@ module System.Taffybar.Widget.Generic.Graph (
   ) where
 
 import           Control.Concurrent
-import           Control.Monad ( when )
+import           Control.Monad               ( when )
 import           Control.Monad.IO.Class
-import           Data.Foldable ( mapM_ )
-import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
-import qualified Data.Sequence as S
-import qualified Data.Text as T
-import qualified GI.Gtk as Gtk
-import qualified Graphics.Rendering.Cairo as C
-import qualified Graphics.Rendering.Cairo.Matrix as M
-import           Prelude hiding ( mapM_ )
+import           Data.Foldable               ( mapM_ )
+import           Data.Sequence               ( Seq, ViewL (..), viewl, (<|) )
+import qualified Data.Sequence               as S
+import qualified Data.Text                   as T
+import           GI.Cairo.Render
+import           GI.Cairo.Render.Connector
+import           GI.Cairo.Render.Types
+import qualified GI.Gtk                      as Gtk
+import           Prelude                     hiding ( mapM_ )
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 
@@ -114,12 +115,12 @@ graphAddSample (GH mv) rawData = do
 clamp :: Double -> Double -> Double -> Double
 clamp lo hi d = max lo $ min hi d
 
-outlineData :: (Double -> Double) -> Double -> Double -> C.Render ()
+outlineData :: (Double -> Double) -> Double -> Double -> Render ()
 outlineData pctToY xStep pct = do
-  (curX,_) <- C.getCurrentPoint
-  C.lineTo (curX + xStep) (pctToY pct)
+  (curX,_) <- getCurrentPoint
+  lineTo (curX + xStep) (pctToY pct)
 
-renderFrameAndBackground :: GraphConfig -> Int -> Int -> C.Render ()
+renderFrameAndBackground :: GraphConfig -> Int -> Int -> Render ()
 renderFrameAndBackground cfg w h = do
   let (backR, backG, backB, backA) = graphBackgroundColor cfg
       (frameR, frameG, frameB, frameA) = graphBorderColor cfg
@@ -129,26 +130,26 @@ renderFrameAndBackground cfg w h = do
       fh = fromIntegral h
 
   -- Draw the requested background
-  C.setSourceRGBA backR backG backB backA
-  C.rectangle fpad fpad (fw - 2 * fpad) (fh - 2 * fpad)
-  C.fill
+  setSourceRGBA backR backG backB backA
+  rectangle fpad fpad (fw - 2 * fpad) (fh - 2 * fpad)
+  fill
 
   -- Draw a frame around the widget area
   -- (unless equal to background color, which likely means the user does not
   -- want a frame)
   when (graphBorderWidth cfg > 0) $ do
     let p = fromIntegral (graphBorderWidth cfg)
-    C.setLineWidth p
-    C.setSourceRGBA frameR frameG frameB frameA
-    C.rectangle (fpad + (p / 2)) (fpad + (p / 2)) (fw - 2 * fpad - p) (fh - 2 * fpad - p)
-    C.stroke
+    setLineWidth p
+    setSourceRGBA frameR frameG frameB frameA
+    rectangle (fpad + (p / 2)) (fpad + (p / 2)) (fw - 2 * fpad - p) (fh - 2 * fpad - p)
+    stroke
 
 
-renderGraph :: [Seq Double] -> GraphConfig -> Int -> Int -> Double -> C.Render ()
+renderGraph :: [Seq Double] -> GraphConfig -> Int -> Int -> Double -> Render ()
 renderGraph hists cfg w h xStep = do
   renderFrameAndBackground cfg w h
 
-  C.setLineWidth 0.1
+  setLineWidth 0.1
 
   let pad = fromIntegral $ graphPadding cfg
   let framePad = fromIntegral $ graphBorderWidth cfg
@@ -156,15 +157,15 @@ renderGraph hists cfg w h xStep = do
   -- Make the new origin be inside the frame and then scale the
   -- drawing area so that all operations in terms of width and height
   -- are inside the drawn frame.
-  C.translate (pad + framePad) (pad + framePad)
+  translate (pad + framePad) (pad + framePad)
   let xS = (fromIntegral w - 2 * pad - 2 * framePad) / fromIntegral w
       yS = (fromIntegral h - 2 * pad - 2 * framePad) / fromIntegral h
-  C.scale xS yS
+  scale xS yS
 
   -- If right-to-left direction is requested, apply an horizontal inversion
   -- transformation with an offset to the right equal to the width of the widget.
   when (graphDirection cfg == RIGHT_TO_LEFT) $
-      C.transform $ M.Matrix (-1) 0 0 1 (fromIntegral w) 0
+      transform $ Matrix (-1) 0 0 1 (fromIntegral w) 0
 
   let pctToY pct = fromIntegral h * (1 - pct)
       renderDataSet hist color style
@@ -174,24 +175,24 @@ renderGraph hists cfg w h xStep = do
               originY = pctToY newestSample
               originX = 0
               newestSample :< hist' = viewl hist
-          C.setSourceRGBA r g b a
-          C.moveTo originX originY
+          setSourceRGBA r g b a
+          moveTo originX originY
 
           mapM_ (outlineData pctToY xStep) hist'
           case style of
             Area -> do
-              (endX, _) <- C.getCurrentPoint
-              C.lineTo endX (fromIntegral h)
-              C.lineTo 0 (fromIntegral h)
-              C.fill
+              (endX, _) <- getCurrentPoint
+              lineTo endX (fromIntegral h)
+              lineTo 0 (fromIntegral h)
+              fill
             Line -> do
-              C.setLineWidth 1.0
-              C.stroke
+              setLineWidth 1.0
+              stroke
 
 
   sequence_ $ zipWith3 renderDataSet hists (graphDataColors cfg) (graphDataStyles cfg)
 
-drawBorder :: MVar GraphState -> Gtk.DrawingArea -> C.Render ()
+drawBorder :: MVar GraphState -> Gtk.DrawingArea -> Render ()
 drawBorder mv drawArea = do
   (w, h) <- widgetGetAllocatedSize drawArea
   s <- liftIO $ readMVar mv
@@ -200,7 +201,7 @@ drawBorder mv drawArea = do
   liftIO $ modifyMVar_ mv (\s' -> return s' { graphIsBootstrapped = True })
   return ()
 
-drawGraph :: MVar GraphState -> Gtk.DrawingArea ->  C.Render ()
+drawGraph :: MVar GraphState -> Gtk.DrawingArea ->  Render ()
 drawGraph mv drawArea = do
   (w, h) <- widgetGetAllocatedSize drawArea
   drawBorder mv drawArea
@@ -226,11 +227,11 @@ graphNew cfg = liftIO $ do
                            }
 
   Gtk.widgetSetSizeRequest drawArea (fromIntegral $ graphWidth cfg) (-1)
-  _ <- Gtk.onWidgetDraw drawArea (\ctx -> renderWithContext ctx (drawGraph mv drawArea) >> return True)
+  _ <- Gtk.onWidgetDraw drawArea (\ctx -> flip renderWithContext ctx (drawGraph mv drawArea) >> return True)
   box <- Gtk.hBoxNew False 1
 
   case graphLabel cfg of
-    Nothing  -> return ()
+    Nothing -> return ()
     Just lbl -> do
       l <- Gtk.labelNew (Nothing :: Maybe T.Text)
       Gtk.labelSetMarkup l lbl

@@ -1,1 +1,41 @@
-stack-11.22.yaml
+packages:
+- '.'
+extra-deps:
+- X11-xft-0.3.1
+- dbus-1.0.1
+- dbus-hslogger-0.1.0.1
+- gi-dbusmenu-0.4.1
+- gi-dbusmenugtk3-0.4.1
+- gi-gdk-3.0.15
+- gi-gdkpixbuf-2.0.16
+- gi-gdkx11-3.0.2
+- gi-gio-2.0.18
+- gi-gtk-3.0.25
+- gi-gtk-hs-0.3.6.3
+- gi-glib-2.0.17
+- gi-pango-1.0.16
+- gi-xlib-2.0.2
+- gio-0.13.4.1
+- gtk-traymanager-1.0.1
+- haskell-gi-0.21.2
+- haskell-gi-base-0.21.4
+- libxml-sax-0.7.5
+- rate-limit-1.4.1
+- spool-0.1
+- status-notifier-item-0.3.0.0
+- time-units-1.0.0
+- xml-helpers-1.0.0
+- github: Magicloud/gtk-sni-tray
+  commit: HEAD
+- github: cohomology/gi-cairo-render
+  commit: HEAD
+  subdirs:
+    - gi-cairo-connector
+    - gi-cairo-render
+- github: IvanMalison/gtk-strut
+  commit: HEAD
+- ConfigFile-1.1.4
+resolver: nightly-2018-10-29
+allow-newer: true
+system-ghc: true
+skip-ghc-check: true

@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module System.Taffybar.WindowIcon where
 
 import           Control.Monad
@@ -8,16 +9,16 @@ import           Data.Bits
 import           Data.Int
 import           Data.List
 import           Data.Maybe
-import qualified Data.MultiMap as MM
+import qualified Data.MultiMap                                as MM
 import           Data.Ord
-import qualified Data.Text as T
+import qualified Data.Text                                    as T
 import           Data.Word
 import           Foreign.Marshal.Alloc
 import           Foreign.Marshal.Array
 import           Foreign.Ptr
 import           Foreign.Storable
-import qualified GI.GdkPixbuf.Enums as Gdk
-import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
+import qualified GI.GdkPixbuf.Enums                           as Gdk
+import qualified GI.GdkPixbuf.Objects.Pixbuf                  as Gdk
 import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
@@ -88,9 +89,11 @@ pixBufFromColor
   :: MonadIO m
   => Int32 -> Word32 -> m Gdk.Pixbuf
 pixBufFromColor imgSize c = do
-  Just pixbuf <- Gdk.pixbufNew Gdk.ColorspaceRgb True 8 imgSize imgSize
-  Gdk.pixbufFill pixbuf c
-  return pixbuf
+  Gdk.pixbufNew Gdk.ColorspaceRgb True 8 imgSize imgSize >>= \case
+    Nothing -> error "pixBufFromColor: cannot create pixbuf."
+    Just pixbuf -> do
+      Gdk.pixbufFill pixbuf c
+      return pixbuf
 
 getDirectoryEntryByClass
   :: String
