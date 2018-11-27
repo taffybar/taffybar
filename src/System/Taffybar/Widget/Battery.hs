@@ -109,12 +109,16 @@ batteryIconNew = do
   ctx <- ask
   liftIO $ do
     image <- imageNew
+    styleCtx <- widgetGetStyleContext =<< toWidget image
     defaultTheme <- iconThemeGetDefault
     let getCurrentBatteryIconNameString =
           T.pack . batteryIconName <$> runReaderT getDisplayBatteryInfo ctx
+        extractPixbuf info =
+          fst <$> iconInfoLoadSymbolicForContext info styleCtx
         setIconForSize size = do
           name <- getCurrentBatteryIconNameString
-          iconThemeLoadIcon defaultTheme name size themeLoadFlags >>=
-                            traverse (scalePixbufToSize size OrientationHorizontal)
+          iconThemeLookupIcon defaultTheme name size themeLoadFlags >>=
+            traverse extractPixbuf >>=
+              traverse (scalePixbufToSize size OrientationHorizontal)
     updateImage <- autoSizeImage image setIconForSize OrientationHorizontal
     toWidget =<< channelWidgetNew image chan (const $ postGUIASync updateImage)
