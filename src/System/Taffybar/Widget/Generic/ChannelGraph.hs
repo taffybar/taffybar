@@ -12,9 +12,8 @@ channelGraphNew
 channelGraphNew config chan sampleBuilder = do
   (graphWidget, graphHandle) <- graphNew config
   _ <- onWidgetRealize graphWidget $ do
-       ourChan <- dupChan chan
        sampleThread <- forkIO $ forever $ do
-         value <- readChan ourChan
+         value <- readChan chan
          sampleBuilder value >>= graphAddSample graphHandle
        void $ onWidgetUnrealize graphWidget $ killThread sampleThread
   return graphWidget
