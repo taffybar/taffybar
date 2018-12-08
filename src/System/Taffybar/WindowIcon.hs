@@ -88,7 +88,7 @@ pixBufFromColor
   :: MonadIO m
   => Int32 -> Word32 -> m Gdk.Pixbuf
 pixBufFromColor imgSize c = do
-  Just pixbuf <- Gdk.pixbufNew Gdk.ColorspaceRgb True 8 imgSize imgSize
+  pixbuf <- fromJust <$> Gdk.pixbufNew Gdk.ColorspaceRgb True 8 imgSize imgSize
   Gdk.pixbufFill pixbuf c
   return pixbuf
 
