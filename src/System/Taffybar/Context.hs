@@ -84,6 +84,7 @@ data TaffybarConfig = TaffybarConfig
   { dbusClientParam :: Maybe DBus.Client
   , startupHook :: TaffyIO ()
   , getBarConfigsParam :: BarConfigGetter
+  , cssPath :: Maybe FilePath
   , errorMsg :: Maybe String
   }
 
@@ -96,6 +97,7 @@ defaultTaffybarConfig = TaffybarConfig
   { dbusClientParam = Nothing
   , startupHook = return ()
   , getBarConfigsParam = return []
+  , cssPath = Nothing
   , errorMsg = Nothing
   }
 
