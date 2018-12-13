@@ -5,15 +5,11 @@ import           XMonad.Hooks.EwmhDesktops        (ewmh)
 import           XMonad.Hooks.ManageDocks
 import           System.Taffybar.Support.PagerHints (pagerHints)
 
-       -- xmonad entrypoint
 main = xmonad $
-
        -- docks allows xmonad to handle taffybar
        docks $
-
-       -- gives taffybar logger information
+       -- ewmh allows taffybar access to the state of xmonad/x11
        ewmh $
+       -- pagerHints supplies additional state that is not supplied by ewmh
        pagerHints
-
-       -- xmonad config
        defaultConfig
