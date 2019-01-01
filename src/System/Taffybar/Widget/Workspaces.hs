@@ -23,7 +23,6 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.RateLimit
-import qualified Data.Char as Char
 import qualified Data.Foldable as F
 import           Data.Int
 import           Data.List (intersect, sortBy)
