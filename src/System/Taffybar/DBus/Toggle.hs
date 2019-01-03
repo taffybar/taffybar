@@ -27,6 +27,7 @@ import           Data.Int
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified GI.Gdk as Gdk
+import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
 import           Paths_taffybar ( getDataDir )
 import           Prelude
@@ -135,6 +136,7 @@ exportTogglesInterface = do
           , autoMethod "showOnMonitor" $
             takeInt $ toggleTaffyOnMon (const True)
           , autoMethod "refresh" $ runReaderT refreshTaffyWindows ctx
+          , autoMethod "exit" (Gtk.mainQuit :: IO ())
           ]
         }
   lift $ do

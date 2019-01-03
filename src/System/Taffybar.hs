@@ -182,7 +182,7 @@ startTaffybar config = do
   _ <- initThreads
   _ <- Gtk.init Nothing
   GIThreading.setCurrentThreadAsGUIThread
-  _ <- startCSS (cssPath config)
+  _ <- startCSS $ cssPath config
   _ <- buildContext config
 
   Gtk.main
