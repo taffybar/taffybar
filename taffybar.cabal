@@ -43,6 +43,7 @@ library
                , HStringTemplate >= 0.8 && < 0.9
                , HTTP
                , X11 >= 1.5.0.1
+               , bytestring
                , cairo
                , containers
                , dbus >= 1.0.0 && < 2.0.0
@@ -73,6 +74,7 @@ library
                , rate-limit >= 1.1.1
                , regex-compat
                , safe >= 0.3 && < 1
+               , scotty >= 11.2 && < 12.0
                , split >= 0.1.4.2
                , status-notifier-item >= 0.3.0.0
                , stm
@@ -106,6 +108,7 @@ library
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.CPU
                  , System.Taffybar.Information.CPU2
+                 , System.Taffybar.Information.Chrome
                  , System.Taffybar.Information.DiskIO
                  , System.Taffybar.Information.EWMHDesktopInfo
                  , System.Taffybar.Information.MPRIS2

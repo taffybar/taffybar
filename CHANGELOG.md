@@ -1,3 +1,10 @@
+# 3.1.0
+
+## New Features
+
+ * A new module Chrome which makes it so that Workspaces can display the
+   favicons of the website that the chrome window is currently visiting.
+
 # 3.0.0
 
 ## Breaking Changes

@@ -1,5 +1,6 @@
 module System.Taffybar.WindowIcon where
 
+import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -7,6 +8,7 @@ import           Control.Monad.Trans.Maybe
 import           Data.Bits
 import           Data.Int
 import           Data.List
+import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.MultiMap as MM
 import           Data.Ord
@@ -21,6 +23,7 @@ import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
+import           System.Taffybar.Information.Chrome
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Information.XDG.DesktopEntry
@@ -124,3 +127,10 @@ getWindowIconFromClasses :: Int32 -> String -> IO (Maybe Gdk.Pixbuf)
 getWindowIconFromClasses =
   getWindowIconForAllClasses getWindowIconFromClass
   where getWindowIconFromClass size klass = loadPixbufByName size (T.pack klass)
+
+getPixBufFromChromeData :: X11Window -> TaffyIO (Maybe Gdk.Pixbuf)
+getPixBufFromChromeData window = do
+  imageData <- getChromeTabImageDataTable >>= lift . readMVar
+  X11WindowToChromeTabId x11LookupMapVar <- getX11WindowToChromeTabId
+  x11LookupMap <- lift $ readMVar x11LookupMapVar
+  return $ tabImageData <$> (M.lookup window x11LookupMap >>= flip M.lookup imageData)

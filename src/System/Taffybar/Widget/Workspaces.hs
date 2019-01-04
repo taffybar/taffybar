@@ -628,6 +628,10 @@ getWindowIconPixbufFromDesktopEntry :: WindowIconPixbufGetter
 getWindowIconPixbufFromDesktopEntry size windowData =
   getWindowIconFromDesktopEntryByClasses size (windowClass windowData)
 
+getWindowIconPixbufFromChrome :: WindowIconPixbufGetter
+getWindowIconPixbufFromChrome _ windowData =
+  getPixBufFromChromeData $ windowId windowData
+
 defaultGetWindowIconPixbuf :: WindowIconPixbufGetter
 defaultGetWindowIconPixbuf =
   scaledWindowIconPixbufGetter unscaledDefaultGetWindowIconPixbuf
