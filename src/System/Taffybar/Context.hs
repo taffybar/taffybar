@@ -218,7 +218,8 @@ refreshTaffyWindows = liftReader postGUIASync $ do
               newConfs = filter (`notElem` currentConfigs) barConfigs
               (remainingWindows, removedWindows) =
                 partition ((`elem` barConfigs) . sel1) currentWindows
-              setPropertiesFromPair (barConf, window) = setupStrutWindow (strutConfig barConf) window
+              setPropertiesFromPair (barConf, window) =
+                setupStrutWindow (strutConfig barConf) window
 
           newWindowPairs <- lift $ do
             logIO DEBUG $ printf "removedWindows: %s" $
@@ -322,8 +323,8 @@ subscribeToAll listener = do
   identifier <- lift newUnique
   listenersVar <- asks listeners
   let
-    -- This type annotation probably has something to do with the warnings that
-    -- occur without MonoLocalBinds, but it still seems to be necessary
+    -- XXX: This type annotation probably has something to do with the warnings
+    -- that occur without MonoLocalBinds, but it still seems to be necessary
     addListener :: SubscriptionList -> SubscriptionList
     addListener = ((identifier, listener):)
   lift $ MV.modifyMVar_ listenersVar (return . addListener)

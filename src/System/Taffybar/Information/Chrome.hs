@@ -33,8 +33,9 @@ newtype ChromeTabImageDataState =
   (MVar (M.Map Int ChromeTabImageData), Chan ChromeTabImageData)
 
 getChromeTabImageDataState :: TaffyIO ChromeTabImageDataState
-getChromeTabImageDataState =
-  getStateDefault listenForChromeFaviconUpdates
+getChromeTabImageDataState = do
+  ChromeFaviconServerPort port <- fromMaybe (ChromeFaviconServerPort 5000) <$> getState
+  getStateDefault (listenForChromeFaviconUpdates port)
 
 getChromeTabImageDataChannel :: TaffyIO (Chan ChromeTabImageData)
 getChromeTabImageDataChannel = do
@@ -48,11 +49,10 @@ getChromeTabImageDataTable = do
 
 newtype ChromeFaviconServerPort = ChromeFaviconServerPort Int
 
-listenForChromeFaviconUpdates :: TaffyIO ChromeTabImageDataState
-listenForChromeFaviconUpdates = do
+listenForChromeFaviconUpdates :: Int -> TaffyIO ChromeTabImageDataState
+listenForChromeFaviconUpdates port = do
   infoVar <- lift $ newMVar M.empty
   chan <- lift newChan
-  ChromeFaviconServerPort port <- getStateDefault (return $ ChromeFaviconServerPort 5000)
   _ <- lift $ forkIO $ scotty port $
     post "/setTabImageData/:tabID" $ do
       tabID <- param "tabID"
