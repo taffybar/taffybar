@@ -4,7 +4,7 @@ extra-deps:
 - X11-xft-0.3.1
 - alsa-core-0.5.0.1
 - alsa-mixer-0.2.0.3
-- dbus-1.0.1
+- dbus-1.2.1
 - dbus-hslogger-0.1.0.1
 - directory-1.3.2.2
 - gi-dbusmenu-0.4.1
@@ -27,7 +27,7 @@ extra-deps:
 - http-types-0.12.1
 - libxml-sax-0.7.5
 - rate-limit-1.1.1
-- status-notifier-item-0.3.0.0
+- status-notifier-item-0.3.0.1
 - time-1.8.0.4
 - time-units-1.0.0
 - unix-2.7.2.2

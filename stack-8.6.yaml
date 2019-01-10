@@ -12,7 +12,7 @@ extra-deps:
 - X11-xft-0.3.1
 - cairo-0.13.5.0
 - containers-0.5.11.0
-- dbus-1.0.1
+- dbus-1.2.1
 - dbus-hslogger-0.1.0.1
 - gi-dbusmenu-0.4.1
 - gi-dbusmenugtk3-0.4.1
@@ -36,7 +36,7 @@ extra-deps:
 - libxml-sax-0.7.5
 - rate-limit-1.4.1
 - spool-0.1
-- status-notifier-item-0.3.0.0
+- status-notifier-item-0.3.0.1
 - time-units-1.0.0
 - xml-helpers-1.0.0
 - xmonad-0.15
