@@ -8,7 +8,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as M
 import           Data.Maybe
-import qualified Data.Text as StrictText
 import qualified GI.GLib as Gdk
 import qualified GI.GdkPixbuf as Gdk
 import           Prelude
@@ -56,12 +55,10 @@ listenForChromeFaviconUpdates port = do
   _ <- lift $ forkIO $ scotty port $
     post "/setTabImageData/:tabID" $ do
       tabID <- param "tabID"
-      lazyImageData <- body
-      let imageData = LBS.toStrict lazyImageData
+      imageData <- LBS.toStrict <$> body
       when (BS.length imageData > 0) $ lift $ do
         loader <- Gdk.pixbufLoaderNew
-        bytesData <- Gdk.bytesNew $ Just imageData
-        Gdk.pixbufLoaderWriteBytes loader bytesData
+        Gdk.pixbufLoaderWriteBytes loader =<< Gdk.bytesNew (Just imageData)
         Gdk.pixbufLoaderClose loader
         pixbuf <- Gdk.pixbufLoaderGetPixbuf loader
         let chromeTabImageData =
