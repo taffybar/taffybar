@@ -1,3 +1,5 @@
+build:
+  haddock: true
 packages:
 - '.'
 - location:
@@ -41,7 +43,7 @@ extra-deps:
 - xml-helpers-1.0.0
 - xmonad-0.15
 allow-newer: true
-resolver: nightly-2018-12-07
+resolver: lts-13.2
 nix:
   packages:
     - cairo
