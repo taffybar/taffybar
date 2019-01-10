@@ -20,7 +20,6 @@ extra-deps:
 - gi-xlib-2.0.2
 - gtk-sni-tray-0.1.5.0
 - gtk-strut-0.1.2.1
-- gtk-traymanager-1.0.1
 - gtk3-0.14.9
 - haskell-gi-0.21.2
 - haskell-gi-base-0.21.1

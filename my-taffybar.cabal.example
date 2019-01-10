@@ -14,7 +14,6 @@ executable my-taffybar
                      , directory
                      , filepath
                      , gtk3
-                     , gtk-traymanager>=0.1.6
                      , taffybar
                      , xmonad-contrib>=0.13
                      , X11>=1.8
