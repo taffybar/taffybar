@@ -89,7 +89,7 @@ maintainX11WindowToChromeTabId = do
             logIO DEBUG (show newMap)
             return newMap
       handleEvent _ = return ()
-  subscribeToEvents ["_NET_WM_NAME"] handleEvent
+  _ <- subscribeToEvents ["_NET_WM_NAME"] handleEvent
   return tabMapVar
 
 tabIDRegex :: Regex

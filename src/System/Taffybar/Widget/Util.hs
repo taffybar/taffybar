@@ -25,14 +25,10 @@ import qualified GI.GdkPixbuf.Objects.Pixbuf as GI
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 import           GI.Gtk as Gtk
 import qualified GI.Gdk as D
-import           System.Directory
 import           System.FilePath.Posix
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           Text.Printf
-import qualified GI.Cairo
-import           Control.Monad.Trans.Reader (runReaderT)
-import           Foreign.Ptr (castPtr)
 
 import           Paths_taffybar ( getDataDir )
 

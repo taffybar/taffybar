@@ -12,7 +12,6 @@ import           Control.Monad.IO.Class
 import           System.Taffybar.Util
 import qualified Data.Text as T
 import           GI.Gtk
-import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 
 -- | Create a new widget that updates itself at regular intervals.  The
