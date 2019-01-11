@@ -2,25 +2,20 @@ build:
   haddock: true
 packages:
 - '.'
-- location:
-    git: git@github.com:gtk2hs/gtk2hs.git
-    commit: 7bccd432e2f962d80b2b804fa2a59712e402753c
-  subdirs:
-    - tools
-  extra-dep: true
 extra-deps:
 - ConfigFile-1.1.4
 - X11-1.8
 - X11-xft-0.3.1
-- cairo-0.13.5.0
 - containers-0.5.11.0
 - dbus-1.2.1
 - dbus-hslogger-0.1.0.1
+- gi-cairo-connector-0.0.1
+- gi-cairo-render-0.0.1
 - gi-dbusmenu-0.4.1
 - gi-dbusmenugtk3-0.4.1
 - gi-gdk-3.0.15
 - gi-gdkpixbuf-2.0.16
-- gi-gdkx11-3.0.2
+- gi-gdkx11-3.0.4
 - gi-gio-2.0.18
 - gi-glib-2.0.17
 - gi-gtk-3.0.26
@@ -28,8 +23,7 @@ extra-deps:
 - gi-pango-1.0.16
 - gi-xlib-2.0.2
 - gio-0.13.4.1
-- glib-0.13.6.0
-- gtk-sni-tray-0.1.5.0
+- gtk-sni-tray-0.1.6.0
 - gtk-strut-0.1.3.0
 - gtk3-0.14.9
 - haskell-gi-0.21.2
@@ -41,7 +35,6 @@ extra-deps:
 - time-units-1.0.0
 - xml-helpers-1.0.0
 - xmonad-0.15
-allow-newer: true
 resolver: lts-13.2
 nix:
   packages:

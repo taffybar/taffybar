@@ -18,9 +18,10 @@ extra-deps:
 - gi-gtk-hs-0.3.6.1
 - gi-pango-1.0.16
 - gi-xlib-2.0.2
-- gtk-sni-tray-0.1.5.0
+- gtk-sni-tray-0.1.6.0
 - gtk-strut-0.1.2.1
 - gtk3-0.14.9
+- http-types-0.11
 - haskell-gi-0.21.2
 - haskell-gi-base-0.21.1
 - http-types-0.12.1

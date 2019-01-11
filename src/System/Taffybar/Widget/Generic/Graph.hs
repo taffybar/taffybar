@@ -29,9 +29,10 @@ import           Data.Foldable ( mapM_ )
 import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import qualified Data.Sequence as S
 import qualified Data.Text as T
+import qualified GI.Cairo.Render as C
+import           GI.Cairo.Render.Connector
+import qualified GI.Cairo.Render.Matrix as M
 import qualified GI.Gtk as Gtk
-import qualified Graphics.Rendering.Cairo as C
-import qualified Graphics.Rendering.Cairo.Matrix as M
 import           Prelude hiding ( mapM_ )
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
@@ -226,7 +227,7 @@ graphNew cfg = liftIO $ do
                            }
 
   Gtk.widgetSetSizeRequest drawArea (fromIntegral $ graphWidth cfg) (-1)
-  _ <- Gtk.onWidgetDraw drawArea (\ctx -> renderWithContext ctx (drawGraph mv drawArea) >> return True)
+  _ <- Gtk.onWidgetDraw drawArea (\ctx -> renderWithContext (drawGraph mv drawArea) ctx >> return True)
   box <- Gtk.hBoxNew False 1
 
   case graphLabel cfg of
