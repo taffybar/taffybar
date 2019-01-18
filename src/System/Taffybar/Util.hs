@@ -135,5 +135,8 @@ getPixbufFromFilePath filepath = do
             printf "Failed to load icon from filepath %s" filepath
   return $ rightToMaybe result
 
+postGUIASync :: IO () -> IO ()
 postGUIASync = Gtk.postGUIASync
+
+postGUISync :: IO () -> IO ()
 postGUISync = Gtk.postGUISync

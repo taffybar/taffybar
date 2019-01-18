@@ -60,15 +60,18 @@ listenForChromeFaviconUpdates port = do
         loader <- Gdk.pixbufLoaderNew
         Gdk.pixbufLoaderWriteBytes loader =<< Gdk.bytesNew (Just imageData)
         Gdk.pixbufLoaderClose loader
-        pixbuf <- Gdk.pixbufLoaderGetPixbuf loader
-        let chromeTabImageData =
-              ChromeTabImageData
-              { tabImageData = pixbuf
-              , tabImageDataId = tabID
-              }
-        modifyMVar_ infoVar $ \currentMap -> do
-          writeChan chan chromeTabImageData
-          return $ M.insert tabID chromeTabImageData currentMap
+        let updateChannelAndMVar pixbuf =
+              let chromeTabImageData =
+                    ChromeTabImageData
+                    { tabImageData = pixbuf
+                    , tabImageDataId = tabID
+                    }
+              in
+                modifyMVar_ infoVar $ \currentMap ->
+                  do
+                    writeChan chan chromeTabImageData
+                    return $ M.insert tabID chromeTabImageData currentMap
+        Gdk.pixbufLoaderGetPixbuf loader >>= maybe (return ()) updateChannelAndMVar
   return $ ChromeTabImageDataState (infoVar, chan)
 
 newtype X11WindowToChromeTabId = X11WindowToChromeTabId (MVar (M.Map X11Window Int))

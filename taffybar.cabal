@@ -56,7 +56,7 @@ library
                , gi-cairo-render
                , gi-cairo-connector
                , gi-gdk
-               , gi-gdkpixbuf >= 2.0.16
+               , gi-gdkpixbuf >= 2.0.18
                , gi-gdkx11
                , gi-glib >= 2.0.17
                , gi-gtk
