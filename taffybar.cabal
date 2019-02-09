@@ -41,7 +41,6 @@ library
   build-depends: base > 3 && < 5
                , ConfigFile
                , HStringTemplate >= 0.8 && < 0.9
-               , HTTP
                , X11 >= 1.5.0.1
                , bytestring
                , containers
@@ -67,6 +66,9 @@ library
                , haskell-gi >= 0.21.2
                , haskell-gi-base >= 0.21.1
                , hslogger
+               , http-client >= 0.5
+               , http-client-tls
+               , http-types
                , multimap >= 1.2.1
                , old-locale
                , parsec >= 3.1
