@@ -2,7 +2,7 @@
 -- | This module defines a simple textual weather widget that polls
 -- NOAA for weather data.  To find your weather station, you can use
 --
--- <http://www.nws.noaa.gov/tg/siteloc.php>
+-- <https://www.weather.gov/tg/siteloc>
 --
 -- For example, Madison, WI is KMSN.
 --
