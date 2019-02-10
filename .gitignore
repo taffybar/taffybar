@@ -3,3 +3,4 @@
 .cabal-sandbox
 cabal.sandbox.config
 /result
+*build-docs*
