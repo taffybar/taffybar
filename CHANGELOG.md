@@ -1,3 +1,11 @@
+# 3.1.2
+
+## Updates
+
+ * Weather now uses new uris and https (Kirill Zaborsky)
+
+ * Bump the version of gi-gdkpixbuf, this fixes nixpkgs compilation
+
 # 3.1.0
 
 ## New Features
