@@ -2,7 +2,7 @@
 -- | This module defines a simple textual weather widget that polls
 -- NOAA for weather data.  To find your weather station, you can use
 --
--- <http://www.nws.noaa.gov/tg/siteloc.php>
+-- <https://www.weather.gov/tg/siteloc>
 --
 -- For example, Madison, WI is KMSN.
 --
@@ -70,15 +70,19 @@ module System.Taffybar.Widget.Weather
   ) where
 
 import Control.Monad.IO.Class
+import qualified Data.ByteString.Lazy as LB
+import Data.List (stripPrefix)
+import Data.Maybe (fromMaybe)
 import GI.Gtk
 import GI.GLib(markupEscapeText)
-import qualified Network.Browser as Browser
-import Network.HTTP
-import Network.URI
+import Network.HTTP.Client
+import Network.HTTP.Client.TLS (tlsManagerSettings)
+import Network.HTTP.Types.Status
 import Text.Parsec
 import Text.Printf
 import Text.StringTemplate
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 
 import System.Taffybar.Widget.Generic.PollingLabel
 
@@ -179,30 +183,20 @@ skipRestOfLine = do
   _ <- many $ noneOf "\n\r"
   newline
 
--- | Simple: download the document at a URL.  Taken from Real World
--- Haskell.
-downloadURL :: Maybe String -> String -> IO (Either String String)
-downloadURL mProxy url = do
-  (_, r) <- Browser.browse $ do
-              case mProxy of
-                Just proxy -> Browser.setProxy $ Browser.Proxy proxy Nothing
-                Nothing    -> return ()
-              Browser.setAllowRedirects True
-              Browser.request request
-  case rspCode r of
-    (2,_,_) -> return $ Right (rspBody r)
-    _       -> return $ Left (show r)
-  where
-    request = Request { rqURI = uri
-                      , rqMethod = GET
-                      , rqHeaders = []
-                      , rqBody = ""
-                      }
-    Just uri = parseURI url
+-- | Simple: download the document at a URL.
+downloadURL :: Manager -> Request -> IO (Either String String)
+downloadURL mgr request = do
+  response <- httpLbs request mgr
+  case responseStatus response of
+    s | s >= status200 && s < status300 ->
+      return $ Right (T.unpack . T.decodeUtf8 . LB.toStrict $ responseBody response)
+    otherStatus ->
+      return . Left $ "HTTP 2XX status was expected but received " ++ show otherStatus
 
-getWeather :: Maybe String -> String -> IO (Either String WeatherInfo)
-getWeather mProxy url = do
-  dat <- downloadURL mProxy url
+getWeather :: Manager -> String -> IO (Either String WeatherInfo)
+getWeather mgr url = do
+  request <- parseRequest url
+  dat <- downloadURL mgr request
   case dat of
     Right dat' -> case parse parseData url dat' of
       Right d -> return (Right d)
@@ -254,7 +248,7 @@ getCurrentWeather getter labelTpl tooltipTpl formatter = do
 
 -- | The NOAA URL to get data from
 baseUrl :: String
-baseUrl = "http://tgftp.nws.noaa.gov/data/observations/metar/decoded"
+baseUrl = "https://tgftp.nws.noaa.gov/data/observations/metar/decoded"
 
 -- | A wrapper to allow users to specify a custom weather formatter.
 -- The default interpolates variables into a string as described
@@ -304,8 +298,21 @@ weatherNew :: MonadIO m
            -> Double     -- ^ Polling period in _minutes_
            -> m GI.Gtk.Widget
 weatherNew cfg delayMinutes = liftIO $ do
+  -- TODO: add explicit proxy host/port to WeatherConfig and
+  -- get rid of this ugly stringly-typed setting
+  let usedProxy = case weatherProxy cfg of
+        Nothing -> noProxy
+        Just str ->
+          let strToBs = T.encodeUtf8 . T.pack
+              noHttp = fromMaybe str $ stripPrefix "http://" str
+              (phost, pport) = case span (':'/=) noHttp of
+                (h, "") -> (strToBs h, 80) -- HTTP seems to assume 80 to be the default
+                (h, ':':p) -> (strToBs h, read p)
+                _ -> error "unreachable: broken span"
+          in useProxy $ Proxy phost pport
+  mgr <- newManager $ managerSetProxy usedProxy tlsManagerSettings
   let url = printf "%s/%s.TXT" baseUrl (weatherStation cfg)
-      getter = getWeather (weatherProxy cfg) url
+  let getter = getWeather mgr url
   weatherCustomNew getter (weatherTemplate cfg) (weatherTemplateTooltip cfg)
     (weatherFormatter cfg) delayMinutes
 
