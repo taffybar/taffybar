@@ -51,11 +51,11 @@ data SimpleTaffyConfig = SimpleTaffyConfig
   , barPosition :: Position
   -- | The number of pixels between widgets
   , widgetSpacing :: Int
-  -- | Widget constructors whose results are placed at the beginning of the bar
+  -- | Widget constructors whose output are placed at the beginning of the bar
   , startWidgets :: [TaffyIO Gtk.Widget]
-  -- | Widget constructors whose results will be placed in the center of the bar
+  -- | Widget constructors whose output are placed in the center of the bar
   , centerWidgets :: [TaffyIO Gtk.Widget]
-  -- | Widget constructors whose results are placed at the end of the bar
+  -- | Widget constructors whose output are placed at the end of the bar
   , endWidgets :: [TaffyIO Gtk.Widget]
   -- | Optional path to CSS stylesheet (loaded in addition to stylesheet found
   -- in XDG data directory).

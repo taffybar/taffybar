@@ -1,3 +1,10 @@
+# 3.2.0
+
+## Breaking Changes
+
+ * The file specified in the cssPath parameter in config is now used instead of,
+   rather than in addition to the default user config file.
+
 # 3.1.2
 
 ## Updates
