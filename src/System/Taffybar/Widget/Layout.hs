@@ -31,6 +31,7 @@ import           GI.Gdk
 import           System.Taffybar.Context
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
+import           System.Taffybar.Widget.Util
 
 -- $usage
 --
@@ -69,6 +70,8 @@ layoutNew :: LayoutConfig -> TaffyIO Gtk.Widget
 layoutNew config = do
   ctx <- ask
   label <- lift $ Gtk.labelNew (Nothing :: Maybe T.Text)
+  _ <- widgetSetClassGI label "layout-label"
+  
 
   -- This callback is run in a separate thread and needs to use
   -- postGUIASync
