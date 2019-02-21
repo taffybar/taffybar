@@ -1,5 +1,9 @@
 # 3.2.0
 
+## New Features
+
+ * The Layout widget can now be styled with the css class "layout-label".
+
 ## Breaking Changes
 
  * The file specified in the cssPath parameter in config is now used instead of,

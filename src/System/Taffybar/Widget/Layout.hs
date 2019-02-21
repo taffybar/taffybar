@@ -72,7 +72,6 @@ layoutNew config = do
   ctx <- ask
   label <- lift $ Gtk.labelNew (Nothing :: Maybe T.Text)
   _ <- widgetSetClassGI label "layout-label"
-  
 
   -- This callback is run in a separate thread and needs to use
   -- postGUIASync
