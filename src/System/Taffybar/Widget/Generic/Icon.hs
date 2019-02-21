@@ -51,7 +51,7 @@ pollingIconImageWidgetNew path interval cmd = liftIO $ do
 
 putInBox :: IsWidget child => child -> IO Widget
 putInBox icon = do
-  box <- hBoxNew False 0
+  box <- boxNew OrientationHorizontal 0
   boxPackStart box icon False False 0
   widgetShowAll box
   toWidget box

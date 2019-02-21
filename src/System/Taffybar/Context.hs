@@ -167,9 +167,9 @@ buildBarWindow context barConfig = do
       show $ strutConfig barConfig
 
   window <- Gtk.windowNew Gtk.WindowTypeToplevel
-  box <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
+  box <- Gtk.boxNew Gtk.OrientationHorizontal $ fromIntegral $ widgetSpacing barConfig
   _ <- widgetSetClassGI box "taffy-box"
-  centerBox <- Gtk.hBoxNew False $ fromIntegral $ widgetSpacing barConfig
+  centerBox <- Gtk.boxNew Gtk.OrientationHorizontal $ fromIntegral $ widgetSpacing barConfig
   Gtk.boxSetCenterWidget box (Just centerBox)
 
   setupStrutWindow (strutConfig barConfig) window

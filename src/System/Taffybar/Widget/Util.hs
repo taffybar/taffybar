@@ -17,7 +17,6 @@ module System.Taffybar.Widget.Util where
 import           Control.Concurrent ( forkIO )
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Maybe
 import           Data.Functor ( ($>) )
 import           Data.Int
 import qualified Data.Text as T

@@ -11,7 +11,7 @@ import           System.Taffybar.Widget.Util
 -- for the purpose of displaying a different background behind the widget.
 buildPadBox :: MonadIO m => Gtk.Widget -> m Gtk.Widget
 buildPadBox contents = liftIO $ do
-  innerBox <- Gtk.hBoxNew False 0
+  innerBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
   outerBox <- Gtk.eventBoxNew
   Gtk.containerAdd innerBox contents
   Gtk.containerAdd outerBox innerBox
@@ -23,7 +23,7 @@ buildPadBox contents = liftIO $ do
 
 buildContentsBox :: MonadIO m => Gtk.Widget -> m Gtk.Widget
 buildContentsBox widget = liftIO $ do
-  contents <- Gtk.hBoxNew False 0
+  contents <- Gtk.boxNew Gtk.OrientationHorizontal 0
   Gtk.containerAdd contents widget
   _ <- widgetSetClassGI contents "contents"
   Gtk.widgetShowAll contents
