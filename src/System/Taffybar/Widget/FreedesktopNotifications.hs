@@ -37,6 +37,7 @@ import           DBus.Client
 import           Data.Foldable
 import           Data.Int ( Int32 )
 import           Data.Map ( Map )
+import           Data.Monoid
 import           Data.Sequence ( Seq, (|>), viewl, ViewL(..) )
 import qualified Data.Sequence as S
 import           Data.Text ( Text )
