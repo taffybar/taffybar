@@ -15,7 +15,7 @@ data MemoryInfo = MemoryInfo
   , memorySwapFree :: Double
   , memorySwapUsed :: Double -- swapTotal - swapFree
   , memorySwapUsedRatio :: Double -- swapUsed / swapTotal
-  , memoryAvailable :: Double -- An estimate of how much memory is available for starting new apps
+  , memoryAvailable :: Double -- An estimate of how much memory is available
   , memoryRest :: Double -- free + buffer + cache
   , memoryUsed :: Double -- total - rest
   , memoryUsedRatio :: Double -- used / total
