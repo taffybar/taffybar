@@ -106,7 +106,9 @@ monitorNetworkInterfaces interval onUpdate = void $ do
       doUpdate = MV.modifyMVar_ samplesVar ((>>= doOnUpdate) . updateSamples)
   foreverWithDelay interval doUpdate
 
-updateSamples :: [(String, (TxSample, TxSample))] -> IO [(String, (TxSample, TxSample))]
+updateSamples ::
+  [(String, (TxSample, TxSample))] ->
+  IO [(String, (TxSample, TxSample))]
 updateSamples currentSamples = do
   let getLast sample@TxSample { sampleDevice = device } =
         maybe sample fst $ lookup device currentSamples

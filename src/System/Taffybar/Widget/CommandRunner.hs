@@ -34,8 +34,7 @@ commandRunnerNew
   -> T.Text -- ^ If command fails this will be displayed.
   -> m GI.Gtk.Widget
 commandRunnerNew interval cmd args defaultOutput =
-  pollingLabelNew "" interval $
-  runCommandWithDefault cmd args defaultOutput
+  pollingLabelNew interval $ runCommandWithDefault cmd args defaultOutput
 
 runCommandWithDefault :: FilePath -> [String] -> T.Text -> IO T.Text
 runCommandWithDefault cmd args def =

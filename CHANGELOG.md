@@ -4,10 +4,20 @@
 
  * The Layout widget can now be styled with the css class "layout-label".
 
+ * A new polling label function `pollingLabelWithVariableDelay` that allows for
+   variable poll times was added.
+
 ## Breaking Changes
 
  * The file specified in the cssPath parameter in config is now used instead of,
    rather than in addition to the default user config file.
+
+ * All parameters are now passed to `textClockNewWith` as part of the
+   ClockConfig it receives. A new mechanism for rounded variable polling should
+   allow the clock to always remain accurate (to the precision selected by the
+   user) without having a very high polling rate, thus reducing CPU usage.
+
+ * The polling label functions no longer accept a default text parameter.
 
 # 3.1.2
 

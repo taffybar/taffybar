@@ -13,7 +13,7 @@ textCpuMonitorNew :: String -- ^ Format. You can use variables: $total$, $user$,
                   -> Double -- ^ Polling period (in seconds)
                   -> IO GI.Gtk.Widget
 textCpuMonitorNew fmt period = do
-  label <- pollingLabelNew (T.pack fmt) period callback
+  label <- pollingLabelNew period callback
   GI.Gtk.widgetShowAll label
   return label
   where

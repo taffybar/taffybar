@@ -1,18 +1,17 @@
 -- | This is a simple text widget that updates its contents by calling
 -- a callback at a set interval.
-module System.Taffybar.Widget.Generic.PollingLabel
-  ( pollingLabelNew
-  , pollingLabelNewWithTooltip
-  ) where
+module System.Taffybar.Widget.Generic.PollingLabel where
 
 import           Control.Concurrent
 import           Control.Exception.Enclosed as E
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           System.Taffybar.Util
 import qualified Data.Text as T
 import           GI.Gtk
+import           System.Log.Logger
+import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
+import           Text.Printf
 
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
@@ -29,31 +28,42 @@ import           System.Taffybar.Widget.Util
 -- not update until the update interval expires.
 pollingLabelNew
   :: MonadIO m
-  => T.Text -- ^ Initial value for the label
-  -> Double -- ^ Update interval (in seconds)
+  => Double -- ^ Update interval (in seconds)
   -> IO T.Text -- ^ Command to run to get the input string
   -> m GI.Gtk.Widget
-pollingLabelNew initialString interval cmd =
-  pollingLabelNewWithTooltip initialString interval $ (, Nothing) <$> cmd
+pollingLabelNew interval cmd =
+  pollingLabelNewWithTooltip interval $ (, Nothing) <$> cmd
 
 pollingLabelNewWithTooltip
   :: MonadIO m
-  => T.Text -- ^ Initial value for the label
-  -> Double -- ^ Update interval (in seconds)
+  => Double -- ^ Update interval (in seconds)
   -> IO (T.Text, Maybe T.Text) -- ^ Command to run to get the input string
   -> m GI.Gtk.Widget
-pollingLabelNewWithTooltip initialString interval cmd =
+pollingLabelNewWithTooltip interval action =
+  pollingLabelWithVariableDelay $ withInterval <$> action
+    where withInterval (a, b) = (a, b, interval)
+
+pollingLabelWithVariableDelay
+  :: MonadIO m
+  => IO (T.Text, Maybe T.Text, Double)
+  -> m GI.Gtk.Widget
+pollingLabelWithVariableDelay action =
   liftIO $ do
     grid <- gridNew
-    label <- labelNew $ Just initialString
+    label <- labelNew Nothing
 
-    let updateLabel (labelStr, tooltipStr) =
+    let updateLabel (labelStr, tooltipStr, delay) = do
           postGUIASync $ do
-            labelSetMarkup label labelStr
-            widgetSetTooltipMarkup label tooltipStr
+             labelSetMarkup label labelStr
+             widgetSetTooltipMarkup label tooltipStr
+          logM "System.Taffybar.Widget.Generic.PollingLabel" DEBUG $
+               printf "Polling label delay was %s" $ show delay
+          return delay
+        updateLabelHandlingErrors =
+          E.tryAny action >>= either (const $ return 1) updateLabel
 
     _ <- onWidgetRealize label $ do
-      sampleThread <- foreverWithDelay interval $ E.tryAny cmd >>= either (const $ return ()) updateLabel
+      sampleThread <- foreverWithVariableDelay updateLabelHandlingErrors
       void $ onWidgetUnrealize label $ killThread sampleThread
 
     vFillCenter label

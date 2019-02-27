@@ -85,9 +85,14 @@ runCommand cmd args = liftIO $ do
     ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) stderr
 
 -- | Execute the provided IO action at the provided interval.
-foreverWithDelay :: RealFrac a1 => a1 -> IO a -> IO ThreadId
+foreverWithDelay :: RealFrac d => d -> IO a -> IO ThreadId
 foreverWithDelay delay action =
-  forkIO $ forever $ action >> threadDelay (floor $ delay * 1000000)
+  foreverWithVariableDelay $ action >> return delay
+
+foreverWithVariableDelay :: RealFrac d => IO d -> IO ThreadId
+foreverWithVariableDelay action = forkIO $ action >>= delayThenAction
+  where delayThenAction delay =
+          threadDelay (floor $ delay * 1000000) >> action >>= delayThenAction
 
 liftActionTaker
   :: (Monad m)

@@ -12,7 +12,7 @@ textMemoryMonitorNew :: String -- ^ Format. You can use variables: "used", "tota
                      -> Double -- ^ Polling period in seconds.
                      -> IO GI.Gtk.Widget
 textMemoryMonitorNew fmt period = do
-    label <- pollingLabelNew (T.pack fmt) period callback
+    label <- pollingLabelNew period callback
     GI.Gtk.widgetShowAll label
     return label
     where

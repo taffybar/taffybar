@@ -329,7 +329,7 @@ weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = liftIO $ do
   let labelTpl' = newSTMP labelTpl
       tooltipTpl' = newSTMP tooltipTpl
 
-  l <- pollingLabelNewWithTooltip "N/A" (delayMinutes * 60)
+  l <- pollingLabelNewWithTooltip (delayMinutes * 60)
        (getCurrentWeather getter labelTpl' tooltipTpl' formatter)
 
   GI.Gtk.widgetShowAll l
