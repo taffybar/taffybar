@@ -62,7 +62,7 @@ toggleCalendar w c = do
 
 -- | Create the widget. I recommend passing @Nothing@ for the TimeLocale
 -- parameter. The format string can include Pango markup
--- (http://developer.gnome.org/pango/stable/PangoMarkupFormat.html).
+-- (<http://developer.gnome.org/pango/stable/PangoMarkupFormat.html>).
 textClockNew ::
   MonadIO m => Maybe L.TimeLocale -> String -> Double -> m GI.Gtk.Widget
 textClockNew userLocale format interval =
