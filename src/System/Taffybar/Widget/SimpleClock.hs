@@ -121,14 +121,12 @@ textClockNewWith ClockConfig
                    , clockUpdateStrategy = updateStrategy
                    } = liftIO $ do
   let getTZ = maybe systemGetTZ return userZone
-      locale = fromMaybe (L.defaultTimeLocale) userLocale
+      locale = fromMaybe L.defaultTimeLocale userLocale
 
-  let getUserZonedTime = do
-        zone <- getTZ
-        currentTime <- Clock.getCurrentTime
-        return $ utcToZonedTime zone currentTime
+  let getUserZonedTime =
+        utcToZonedTime <$> getTZ <*> Clock.getCurrentTime
 
-      doTimeFormat zonedTime = T.pack $ formatTime locale formatString $ zonedTime
+      doTimeFormat zonedTime = T.pack $ formatTime locale formatString zonedTime
 
       getRoundedTimeAndNextTarget = do
         zonedTime <- getUserZonedTime
