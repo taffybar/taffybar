@@ -147,9 +147,18 @@ getDisplayBatteryInfo = do
   DisplayBatteryChanVar (_, theVar) <- getDisplayBatteryChanVar
   lift $ readMVar theVar
 
+defaultMonitorDisplayBatteryProperties :: [String]
+defaultMonitorDisplayBatteryProperties = [ "IconName", "State", "Percentage" ]
+
+-- | Start the monitoring of the display battery, and setup the associated
+-- channel and mvar for the current state.
+setupDisplayBatteryChanVar :: [String] -> TaffyIO DisplayBatteryChanVar
+setupDisplayBatteryChanVar properties = getStateDefault $
+  DisplayBatteryChanVar <$> monitorDisplayBattery properties
+
 getDisplayBatteryChanVar :: TaffyIO DisplayBatteryChanVar
 getDisplayBatteryChanVar =
-  getStateDefault $ DisplayBatteryChanVar <$> monitorDisplayBattery
+  setupDisplayBatteryChanVar defaultMonitorDisplayBatteryProperties
 
 getDisplayBatteryChan :: TaffyIO (Chan BatteryInfo)
 getDisplayBatteryChan = do
@@ -172,17 +181,27 @@ updateBatteryInfo chan var path =
 registerForAnyUPowerPropertiesChanged
   :: (Signal -> String -> Map String Variant -> [String] -> IO ())
   -> ReaderT Context IO SignalHandler
-registerForAnyUPowerPropertiesChanged signalHandler = do
+registerForAnyUPowerPropertiesChanged = registerForUPowerPropertyChanges []
+
+registerForUPowerPropertyChanges
+  :: [String]
+  -> (Signal -> String -> Map String Variant -> [String] -> IO ())
+  -> ReaderT Context IO SignalHandler
+registerForUPowerPropertyChanges properties signalHandler = do
   client <- asks systemDBusClient
   lift $ DBus.registerForPropertiesChanged
       client
       matchAny { matchInterface = Just uPowerDeviceInterfaceName }
-      signalHandler
+      handleIfPropertyMatches
+  where handleIfPropertyMatches rawSignal n propertiesMap l =
+          let propertyPresent prop = isJust $ M.lookup prop propertiesMap
+          in when (any propertyPresent properties || null properties) $
+             signalHandler rawSignal n propertiesMap l
 
 -- | Monitor the DisplayDevice for changes, writing a new "BatteryInfo" object
 -- to returned "MVar" and "Chan" objects
-monitorDisplayBattery :: TaffyIO (Chan BatteryInfo, MVar BatteryInfo)
-monitorDisplayBattery = do
+monitorDisplayBattery :: [String] -> TaffyIO (Chan BatteryInfo, MVar BatteryInfo)
+monitorDisplayBattery propertiesToMonitor = do
   lift $ batteryLog DEBUG "Starting Battery Monitor"
   client <- asks systemDBusClient
   infoVar <- lift $ newMVar $ infoMapToBatteryInfo M.empty
@@ -199,7 +218,7 @@ monitorDisplayBattery = do
           do
             batteryLogF DEBUG "Battery changed properties: %s" changedProps
             runReaderT doUpdate ctx
-    _ <- registerForAnyUPowerPropertiesChanged signalCallback
+    _ <- registerForUPowerPropertyChanges propertiesToMonitor signalCallback
     doUpdate
     return ()
   return (chan, infoVar)
