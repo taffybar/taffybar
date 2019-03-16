@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | This widget listens on DBus for freedesktop notifications
--- (http://developer.gnome.org/notification-spec/).  Currently it is
+-- (<http://developer.gnome.org/notification-spec/>).  Currently it is
 -- somewhat ugly, but the format is somewhat configurable.  A visual
 -- overhaul of the widget is coming.
 --

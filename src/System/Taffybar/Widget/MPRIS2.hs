@@ -11,7 +11,7 @@
 --
 -- This is a "Now Playing" widget that listens for MPRIS2 events on DBus. You
 -- can find the MPRIS2 specification here at
--- (https://specifications.freedesktop.org/mpris-spec/latest/).
+-- (<https://specifications.freedesktop.org/mpris-spec/latest/>).
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.MPRIS2 ( mpris2New ) where
 
