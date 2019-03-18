@@ -72,6 +72,12 @@ documentation](https://hackage.haskell.org/package/taffybar). You can find a
 list of available widgets
 [here](http://hackage.haskell.org/package/taffybar-2.0.0/docs/System-Taffybar-Widget.html)
 
+FAQ
+---
+
+For the time being, taffybar's frequently asked questions page lives in [this
+github issue](https://github.com/taffybar/taffybar/issues/332).
+
 Contributing
 ------------
 
