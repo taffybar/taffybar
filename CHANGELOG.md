@@ -19,6 +19,12 @@
 
  * The polling label functions no longer accept a default text parameter.
 
+## Miscellaneous
+
+ * Battery updates are only triggered when a more limited number of UPower
+   properties are changed. This can be customized by manually calling
+   `setupDisplayBatteryChanVar` as a hook.
+
 # 3.1.2
 
 ## Updates
