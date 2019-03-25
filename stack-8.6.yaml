@@ -4,6 +4,10 @@ extra-deps:
 - ConfigFile-1.1.4
 - X11-1.8
 - X11-xft-0.3.1
+- github: Infinisil/broadcast-chan
+  commit: 1bf5ae2887387fdab49685262131dd83d5180eb4
+  subdirs:
+    - broadcast-chan
 - containers-0.5.11.0
 - dbus-1.2.1
 - dbus-hslogger-0.1.0.1

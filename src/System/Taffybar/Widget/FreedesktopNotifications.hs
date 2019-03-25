@@ -28,6 +28,7 @@ module System.Taffybar.Widget.FreedesktopNotifications
   , notifyAreaNew
   ) where
 
+import           BroadcastChan
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Monad ( forever, void )
@@ -64,14 +65,14 @@ data NotifyState = NotifyState
   , noteConfig :: NotificationConfig -- ^ The associated configuration
   , noteQueue :: TVar (Seq Notification) -- ^ The queue of active notifications
   , noteIdSource :: TVar Word32 -- ^ A source of fresh notification ids
-  , noteChan :: Chan () -- ^ Writing to this channel wakes up the display thread
+  , noteChan :: BroadcastChan In () -- ^ Writing to this channel wakes up the display thread
   }
 
 initialNoteState :: Widget -> Label -> NotificationConfig -> IO NotifyState
 initialNoteState wrapper l cfg = do
   m <- newTVarIO 1
   q <- newTVarIO S.empty
-  ch <- newChan
+  ch <- newBroadcastChan
   return NotifyState { noteQueue = q
                      , noteIdSource = m
                      , noteWidget = l
@@ -172,19 +173,21 @@ notificationDaemon onNote onCloseNote = do
 
 --------------------------------------------------------------------------------
 wakeupDisplayThread :: NotifyState -> IO ()
-wakeupDisplayThread s = writeChan (noteChan s) ()
+wakeupDisplayThread s = void $ writeBChan (noteChan s) ()
 
 -- | Refreshes the GUI
 displayThread :: NotifyState -> IO ()
-displayThread s = forever $ do
-  () <- readChan (noteChan s)
-  ns <- readTVarIO (noteQueue s)
-  postGUIASync $
-    if S.length ns == 0
-    then widgetHide (noteContainer s)
-    else do
-      labelSetMarkup (noteWidget s) $ formatMessage (noteConfig s) (toList ns)
-      widgetShowAll (noteContainer s)
+displayThread s = do
+  chan <- newBChanListener (noteChan s)
+  forever $ do
+    _ <- readBChan chan
+    ns <- readTVarIO (noteQueue s)
+    postGUIASync $
+      if S.length ns == 0
+      then widgetHide (noteContainer s)
+      else do
+        labelSetMarkup (noteWidget s) $ formatMessage (noteConfig s) (toList ns)
+        widgetShowAll (noteContainer s)
   where
     formatMessage NotificationConfig {..} ns =
       T.take notificationMaxLength $ notificationFormatter ns
