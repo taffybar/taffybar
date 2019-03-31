@@ -42,6 +42,7 @@ library
                , ConfigFile
                , HStringTemplate >= 0.8 && < 0.9
                , X11 >= 1.5.0.1
+               , broadcast-chan >= 0.2.0.0
                , bytestring
                , containers
                , dbus >= 1.2.1 && < 2.0.0

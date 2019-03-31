@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module System.Taffybar.Information.Chrome where
 
+import           BroadcastChan
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans.Class
@@ -29,14 +30,14 @@ data ChromeTabImageData = ChromeTabImageData
 
 newtype ChromeTabImageDataState =
   ChromeTabImageDataState
-  (MVar (M.Map Int ChromeTabImageData), Chan ChromeTabImageData)
+  (MVar (M.Map Int ChromeTabImageData), BroadcastChan Out ChromeTabImageData)
 
 getChromeTabImageDataState :: TaffyIO ChromeTabImageDataState
 getChromeTabImageDataState = do
   ChromeFaviconServerPort port <- fromMaybe (ChromeFaviconServerPort 5000) <$> getState
   getStateDefault (listenForChromeFaviconUpdates port)
 
-getChromeTabImageDataChannel :: TaffyIO (Chan ChromeTabImageData)
+getChromeTabImageDataChannel :: TaffyIO (BroadcastChan Out ChromeTabImageData)
 getChromeTabImageDataChannel = do
   ChromeTabImageDataState (_, chan) <- getChromeTabImageDataState
   return chan
@@ -51,7 +52,8 @@ newtype ChromeFaviconServerPort = ChromeFaviconServerPort Int
 listenForChromeFaviconUpdates :: Int -> TaffyIO ChromeTabImageDataState
 listenForChromeFaviconUpdates port = do
   infoVar <- lift $ newMVar M.empty
-  chan <- lift newChan
+  inChan <- newBroadcastChan
+  outChan <- newBChanListener inChan
   _ <- lift $ forkIO $ scotty port $
     post "/setTabImageData/:tabID" $ do
       tabID <- param "tabID"
@@ -69,10 +71,10 @@ listenForChromeFaviconUpdates port = do
               in
                 modifyMVar_ infoVar $ \currentMap ->
                   do
-                    writeChan chan chromeTabImageData
+                    _ <- writeBChan inChan chromeTabImageData
                     return $ M.insert tabID chromeTabImageData currentMap
         Gdk.pixbufLoaderGetPixbuf loader >>= maybe (return ()) updateChannelAndMVar
-  return $ ChromeTabImageDataState (infoVar, chan)
+  return $ ChromeTabImageDataState (infoVar, outChan)
 
 newtype X11WindowToChromeTabId = X11WindowToChromeTabId (MVar (M.Map X11Window Int))
 
