@@ -148,6 +148,7 @@ library
                  , System.Taffybar.Widget.NetworkGraph
                  , System.Taffybar.Widget.SNITray
                  , System.Taffybar.Widget.SimpleClock
+                 , System.Taffybar.Widget.SimpleCommandButton
                  , System.Taffybar.Widget.Text.CPUMonitor
                  , System.Taffybar.Widget.Text.MemoryMonitor
                  , System.Taffybar.Widget.Text.NetworkMonitor
