@@ -28,9 +28,9 @@ import qualified Data.Text as T
 -- In order to use this widget add the following line to your
 -- @taffybar.hs@ file:
 --
--- > import System.Taffybar.Widget.SimpleCommandButton
+-- > import System.Taffybar.Widget
 -- > main = do
--- >   let cmdButton = simpleCommandButtonNew $ xterm -c "echo Hello World!"
+-- >   let cmdButton = simpleCommandButtonNew "Hello World!" "xterm -e \"echo Hello World!; read x\""
 --
 -- Now you can use @cmdButton@ like any other Taffybar widget.
 
