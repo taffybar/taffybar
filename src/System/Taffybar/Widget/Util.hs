@@ -78,7 +78,8 @@ displayPopup :: (Gtk.IsWidget w, Gtk.IsWidget wnd, Gtk.IsWindow wnd) =>
 displayPopup widget window = do
   windowSetPosition window WindowPositionMouse
   (x, y ) <- windowGetPosition window
-  (_, y') <- widgetGetSizeRequest widget
+  (_, natReq) <- widgetGetPreferredSize =<< widgetGetToplevel widget
+  y' <- getRequisitionHeight natReq
   widgetShowAll window
   if y > y'
     then windowMove window x (y - y')
