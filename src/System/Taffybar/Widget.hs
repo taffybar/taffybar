@@ -44,6 +44,9 @@ module System.Taffybar.Widget
   , defaultClockConfig
   , ClockConfig(..)
 
+  -- * "System.Taffybar.Widget.SimpleCommandButton"
+  , simpleCommandButtonNew
+
   -- * "System.Taffybar.Widget.Text.CPUMonitor"
   , module System.Taffybar.Widget.Text.CPUMonitor
 
@@ -87,6 +90,7 @@ import System.Taffybar.Widget.MPRIS2
 import System.Taffybar.Widget.NetworkGraph
 import System.Taffybar.Widget.SNITray
 import System.Taffybar.Widget.SimpleClock
+import System.Taffybar.Widget.SimpleCommandButton
 import System.Taffybar.Widget.Text.CPUMonitor
 import System.Taffybar.Widget.Text.MemoryMonitor
 import System.Taffybar.Widget.Text.NetworkMonitor
