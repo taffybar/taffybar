@@ -7,6 +7,8 @@
  * A new polling label function `pollingLabelWithVariableDelay` that allows for
    variable poll times was added.
 
+ * A new widget `System.Taffybar.Widget.SimpleCommandButton` was added.
+
 ## Breaking Changes
 
  * The file specified in the cssPath parameter in config is now used instead of,
@@ -24,6 +26,10 @@
  * Battery updates are only triggered when a more limited number of UPower
    properties are changed. This can be customized by manually calling
    `setupDisplayBatteryChanVar` as a hook.
+
+## Bug Fixes
+
+ * Calendar pops up below bar without hiding any other widget.
 
 # 3.1.2
 
