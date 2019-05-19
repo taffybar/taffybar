@@ -63,7 +63,7 @@ main = do
       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
       mem = pollingGraphNew memCfg 1 memCallback
       net = networkGraphNew netCfg Nothing
-      clock = textClockNew defaultClockConfig
+      clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
       layout = layoutNew defaultLayoutConfig
       windows = windowsNew defaultWindowsConfig
           -- See https://github.com/taffybar/gtk-sni-tray#statusnotifierwatcher
