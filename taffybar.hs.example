@@ -63,11 +63,11 @@ main = do
       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
       mem = pollingGraphNew memCfg 1 memCallback
       net = networkGraphNew netCfg Nothing
-      clock = textClockNew defaultClockConfig
+      clock = textClockNewWith defaultClockConfig
       layout = layoutNew defaultLayoutConfig
       windows = windowsNew defaultWindowsConfig
-          -- See https://github.com/taffybar/gtk-sni-tray#statusnotifierwatcher
-          -- for a better way to set up the sni tray
+      -- See https://github.com/taffybar/gtk-sni-tray#statusnotifierwatcher
+      -- for a better way to set up the sni tray
       tray = sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt
       myConfig = defaultSimpleTaffyConfig
         { startWidgets =
