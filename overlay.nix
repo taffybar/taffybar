@@ -1,6 +1,6 @@
 pkgs: rec {
-  haskellPackages = pkgs.haskellPackages.override {
-    overrides = self: super: rec {
+  haskellPackages = pkgs.haskellPackages.override (old: {
+    overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: {})) (self: super: rec {
       taffybar = pkgs.haskell.lib.overrideCabal (super.taffybar.overrideAttrs (oldAttrs: rec {
         src = fetchGit ./.;
       })) (oldDerivation: {
@@ -13,6 +13,6 @@ pkgs: rec {
         editedCabalFile = null;
         broken = false;
       });
-    };
-  };
+    });
+  });
 }
