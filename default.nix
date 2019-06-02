@@ -1,31 +1,22 @@
-# You can build this repository by running:
-#   $ nix-build
-
-{
-  pkgs_path ? ./nix/nixpkgs.nix
-, compiler ? "ghc822"
-}:
-
-let
-  overlay = import ./nix/overlay.nix;
-  pkgs = import pkgs_path {
-    config = {};
-    overlays = [ overlay ];
-  };
-  filter =  import ./nix/filter.nix {inherit (pkgs)lib;};
-  hpkgs = pkgs.haskell.packages.${compiler}.override {
-    overrides = self: super: {
-      taffybar = with pkgs.haskell.lib;
-        (addPkgconfigDepend (disableLibraryProfiling (dontCheck (dontHaddock
-          ( pkgs.haskell.packages.${compiler}.callCabal2nix
-              "taffybar"
-              (builtins.path { name = "taffybar"; inherit filter; path = ./.; } )
-              { }
-          )))) pkgs.gtk3);
+let config = {
+  packageOverrides = pkgs: rec {
+      haskellPackages = pkgs.haskellPackages.override {
+        overrides = self: super: rec {
+          taffybar = pkgs.haskell.lib.overrideCabal (super.taffybar.overrideAttrs (oldAttrs: rec {
+            src = ./.;
+          })) (oldDerivation: {
+            libraryHaskellDepends = oldDerivation.libraryHaskellDepends ++ [ self.broadcast-chan ];
+          });
+          broadcast-chan = pkgs.haskell.lib.overrideCabal super.broadcast-chan (_: {
+            version = "0.2.0.2";
+            sha256 = "12ax37y9i3cs8wifz01lpq0awm9c235l5xkybf13ywvyk5svb0jv";
+            revision = null;
+            editedCabalFile = null;
+            broken = false;
+          });
         };
+      };
+    };
   };
-
-in
-  pkgs.taffybar.override {
-    inherit (hpkgs) ghcWithPackages;
-  }
+  pkgs = import <nixpkgs> { inherit config; };
+in pkgs.haskellPackages.taffybar
