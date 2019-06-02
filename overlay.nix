@@ -2,7 +2,7 @@ pkgs: rec {
   haskellPackages = pkgs.haskellPackages.override {
     overrides = self: super: rec {
       taffybar = pkgs.haskell.lib.overrideCabal (super.taffybar.overrideAttrs (oldAttrs: rec {
-        src = ./.;
+        src = fetchGit ./.;
       })) (oldDerivation: {
         libraryHaskellDepends = oldDerivation.libraryHaskellDepends ++ [ self.broadcast-chan ];
       });
