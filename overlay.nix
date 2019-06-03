@@ -1,7 +1,9 @@
-pkgs: rec {
+_: pkgs:
+
+{
   haskellPackages = pkgs.haskellPackages.override (old: {
-    overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: {})) (self: super: rec {
-      taffybar = pkgs.haskell.lib.overrideCabal (super.taffybar.overrideAttrs (oldAttrs: rec {
+    overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: {})) (self: super: {
+      taffybar = pkgs.haskell.lib.overrideCabal (super.taffybar.overrideAttrs (oldAttrs: {
         src = fetchGit ./.;
       })) (oldDerivation: {
         libraryHaskellDepends = oldDerivation.libraryHaskellDepends ++ [ self.broadcast-chan ];

@@ -1,5 +1,4 @@
-let config = {
-  packageOverrides = import ./overlay.nix;
-  };
-  pkgs = import <nixpkgs> { inherit config; };
+let
+  overlays = [ (import ./overlay.nix) ];
+  pkgs = import <nixpkgs> { inherit overlays; };
 in pkgs.haskellPackages.taffybar
