@@ -40,12 +40,16 @@ import           Data.Char
 import qualified Data.ConfigFile as CF
 import           Data.List
 import           Data.Maybe
+import           Debug.Trace
 import           System.Directory
 import           System.Environment
 import           System.FilePath.Posix
 import           System.Log.Logger
 import           System.Posix.Files
 import           Text.Printf
+import           Text.Read (readMaybe)
+
+logHere = logM "System.Taffybar.Information.XDG.DesktopEntry"
 
 data DesktopEntryType = Application | Link | Directory
   deriving (Read, Show, Eq)
@@ -182,8 +186,7 @@ listDesktopEntries extension dir = do
 -- | Retrieve a desktop entry with a specific name.
 getDirectoryEntry :: [FilePath] -> String -> IO (Maybe DesktopEntry)
 getDirectoryEntry dirs name = do
-  liftIO $ logM "System.Taffybar.Information.XDG.DesktopEntry" DEBUG $
-           printf "Searching %s for %s" (show dirs) name
+  liftIO $ logHere DEBUG $ printf "Searching %s for %s" (show dirs) name
   exFiles <- filterM doesFileExist $ map ((</> name) . normalise) dirs
   if null exFiles
   then return Nothing
@@ -206,27 +209,16 @@ sectionMain = "Desktop Entry"
 
 -- | Read a desktop entry from a file.
 readDesktopEntry :: FilePath -> IO (Maybe DesktopEntry)
-readDesktopEntry fp = do
-  ex <- doesFileExist fp
-  if ex
-    then doReadDesktopEntry fp
-    else do
-      putStrLn $ "File does not exist: '" ++ fp ++ "'"
-      return Nothing
+readDesktopEntry filePath = doReadDesktopEntry >>= either logWarning (return . Just)
   where
-    doReadDesktopEntry :: FilePath -> IO (Maybe DesktopEntry)
-    doReadDesktopEntry f = do
-      eResult <-
-        runExceptT $ do
-          cp <- join $ liftIO $ CF.readfile CF.emptyCP f
-          CF.items cp sectionMain
-      case eResult of
-        Left _ -> return Nothing
-        Right r ->
-          return $
-          Just
-            DesktopEntry
-            { deType = maybe Application read (lookup "Type" r)
-            , deFilename = f
-            , deAttributes = r
-            }
+    logWarning error =
+      logHere  WARNING (printf "Failed to parse desktop entry at %s" filePath) >>
+               return Nothing
+    doReadDesktopEntry = runExceptT $ do
+         result <- (join $ liftIO $ CF.readfile CF.emptyCP filePath) >>=
+                   flip CF.items sectionMain
+         return DesktopEntry
+                { deType = fromMaybe Application $ lookup "Type" result >>= readMaybe
+                , deFilename = filePath
+                , deAttributes = result
+                }
