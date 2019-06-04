@@ -29,7 +29,10 @@
 
 ## Bug Fixes
 
- * Calendar pops up below bar without hiding any other widget.
+ * Calendar pops up below bar without hiding any other widget #261.
+
+ * Avoid failing when parsing XDG Desktop files with unrecognized application
+   type, which previously resulted in "Prelude.read: no parse" #447.
 
 # 3.1.2
 
