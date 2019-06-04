@@ -6,6 +6,7 @@ module System.Taffybar.Widget.SimpleClock
   , textClockNewWith
   , defaultClockConfig
   , ClockConfig(..)
+  , ClockUpdateStrategy(..)
   ) where
 
 import           Control.Monad.IO.Class

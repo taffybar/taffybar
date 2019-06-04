@@ -39,10 +39,7 @@ module System.Taffybar.Widget
   , module System.Taffybar.Widget.SNITray
 
   -- * "System.Taffybar.Widget.SimpleClock"
-  , textClockNew
-  , textClockNewWith
-  , defaultClockConfig
-  , ClockConfig(..)
+  , module System.Taffybar.Widget.SimpleClock
 
   -- * "System.Taffybar.Widget.SimpleCommandButton"
   , simpleCommandButtonNew
