@@ -206,7 +206,8 @@ updateWorkspacesVar = do
   workspacesRef <- asks workspacesVar
   updateVar workspacesRef buildWorkspaceData
 
-getWorkspaceToWindows :: [X11Window] -> X11Property (MM.MultiMap WorkspaceIdx X11Window)
+getWorkspaceToWindows ::
+  [X11Window] -> X11Property (MM.MultiMap WorkspaceIdx X11Window)
 getWorkspaceToWindows =
   foldM
     (\theMap window ->
@@ -670,7 +671,9 @@ sortWindowsByPosition :: [WindowData] -> WorkspacesIO [WindowData]
 sortWindowsByPosition wins = do
   let getGeometryWorkspaces w = getDisplay >>= liftIO . (`safeGetGeometry` w)
       getGeometries = mapM
-                      (forkM return ((((sel2 &&& sel3) <$>) .) getGeometryWorkspaces) . windowId)
+                      (forkM return
+                               ((((sel2 &&& sel3) <$>) .) getGeometryWorkspaces) .
+                               windowId)
                       wins
   windowGeometries <- liftX11Def [] getGeometries
   let getLeftPos wd =
