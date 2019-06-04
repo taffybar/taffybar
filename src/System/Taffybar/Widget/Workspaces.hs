@@ -594,9 +594,8 @@ instance WorkspaceWidgetController IconController where
   updateWidget ic (IconUpdate updatedIcons) =
     updateWindowIconsById ic updatedIcons >> return ic
 
-updateWindowIconsById :: IconController
-                      -> [X11Window]
-                      -> WorkspacesIO ()
+updateWindowIconsById ::
+  IconController -> [X11Window] -> WorkspacesIO ()
 updateWindowIconsById ic windowIds =
   mapM_ maybeUpdateWindowIcon $ iconImages ic
   where
@@ -611,9 +610,8 @@ scaledWindowIconPixbufGetter getter size =
   getter size >=>
   lift . traverse (scalePixbufToSize size Gtk.OrientationHorizontal)
 
-constantScaleWindowIconPixbufGetter :: Int32
-                                    -> WindowIconPixbufGetter
-                                    -> WindowIconPixbufGetter
+constantScaleWindowIconPixbufGetter ::
+  Int32 -> WindowIconPixbufGetter -> WindowIconPixbufGetter
 constantScaleWindowIconPixbufGetter constantSize getter =
   const $ scaledWindowIconPixbufGetter getter constantSize
 

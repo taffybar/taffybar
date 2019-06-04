@@ -40,7 +40,6 @@ import           Data.Char
 import qualified Data.ConfigFile as CF
 import           Data.List
 import           Data.Maybe
-import           Debug.Trace
 import           System.Directory
 import           System.Environment
 import           System.FilePath.Posix
