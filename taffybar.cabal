@@ -1,10 +1,10 @@
 name: taffybar
-version: 3.1.2
+version: 3.2.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
-author: Tristan Ravitch
-maintainer: tristan@nochair.net
+author: Ivan Malison
+maintainer: IvanMalison@gmail.com
 category: System
 build-type: Simple
 cabal-version: >=1.10
