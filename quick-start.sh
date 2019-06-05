@@ -29,9 +29,9 @@ ensure_stack_present () {
 }
 
 setup_taffy_config () {
-	cp -n my-taffybar.cabal.example "$TAFFY_CONFIG_DIR/my-taffybar.cabal"
-	cp -n taffybar.hs.example "$TAFFY_CONFIG_DIR/taffybar.hs"
-	cp -n stack.yaml.example "$TAFFY_CONFIG_DIR/stack.yaml"
+	cp -n example/my-taffybar.cabal "$TAFFY_CONFIG_DIR/my-taffybar.cabal"
+	cp -n example/taffybar.hs "$TAFFY_CONFIG_DIR/taffybar.hs"
+	cp -n example/stack.yaml "$TAFFY_CONFIG_DIR/stack.yaml"
 	cd "$TAFFY_CONFIG_DIR" || exit
 	stack install --install-ghc
 }
