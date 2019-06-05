@@ -9,7 +9,7 @@
 
  * A new widget `System.Taffybar.Widget.SimpleCommandButton` was added.
 
- * Taffybar now outputs colorized and annoted logs by default.
+ * Taffybar now outputs colorized and annotated logs by default.
 
 ## Breaking Changes
 
@@ -35,6 +35,10 @@
 
  * Avoid failing when parsing XDG Desktop files with unrecognized application
    type, which previously resulted in "Prelude.read: no parse" #447.
+
+ * Use XDG data dir so that taffybar dbus toggling functions correctly when
+   taffybar is installed in a location that is not writable by the user. This is
+   the case with nix when it is installed in the nix store #452.
 
 # 3.1.2
 
