@@ -54,11 +54,7 @@ data DesktopEntryType = Application | Link | Directory
   deriving (Read, Show, Eq)
 
 existingDirs :: [FilePath] -> IO [FilePath]
-existingDirs  dirs = do
-  exs <- mapM fileExist dirs
-  let exDirs = nub $ map fst $ filter snd $ zip dirs exs
-  mapM_ (putStrLn . ("Directory does not exist: " ++)) $ dirs \\ exDirs
-  return exDirs
+existingDirs  dirs = filterM fileExist dirs
 
 getDefaultConfigHome :: IO FilePath
 getDefaultConfigHome = do

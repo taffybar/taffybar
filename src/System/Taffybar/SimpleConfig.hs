@@ -30,7 +30,7 @@ import           Graphics.UI.GIGtkStrut
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar
 import qualified System.Taffybar.Context as BC (BarConfig(..), TaffybarConfig(..))
-import           System.Taffybar.Context hiding (BarConfig(..), cssPath)
+import           System.Taffybar.Context hiding (TaffybarConfig(..), BarConfig(..))
 import           System.Taffybar.Util
 
 -- | The side of the monitor at which taffybar should be displayed.
@@ -60,6 +60,8 @@ data SimpleTaffyConfig = SimpleTaffyConfig
   -- | Optional path to CSS stylesheet (loaded in addition to stylesheet found
   -- in XDG data directory).
   , cssPath :: Maybe FilePath
+  -- | Hook to run at taffybar startup.
+  , startupHook :: TaffyIO ()
   }
 
 -- | Sensible defaults for most of the fields of 'SimpleTaffyConfig'. You'll
@@ -76,6 +78,7 @@ defaultSimpleTaffyConfig = SimpleTaffyConfig
   , centerWidgets = []
   , endWidgets = []
   , cssPath = Nothing
+  , startupHook = return ()
   }
 
 toStrutConfig :: SimpleTaffyConfig -> Int -> StrutConfig
@@ -111,11 +114,13 @@ toBarConfig config monitor = do
 
 newtype SimpleBarConfigs = SimpleBarConfigs (MV.MVar [(Int, BC.BarConfig)])
 
-toTaffyConfig :: SimpleTaffyConfig -> TaffybarConfig
+toTaffyConfig :: SimpleTaffyConfig -> BC.TaffybarConfig
 toTaffyConfig conf =
-    defaultTaffybarConfig { getBarConfigsParam = configGetter
-                          , BC.cssPath = cssPath conf
-                          }
+    defaultTaffybarConfig
+    { BC.getBarConfigsParam = configGetter
+    , BC.cssPath = cssPath conf
+    , BC.startupHook = startupHook conf
+    }
   where
     configGetter = do
       SimpleBarConfigs configsVar <-

@@ -35,7 +35,11 @@ import Graphics.X11.Xlib.Extras
 import Prelude
 import System.IO
 import System.IO.Unsafe
+import System.Log.Logger
 import System.Timeout
+import Text.Printf
+
+logHere = logM "System.Taffybar.Information.SafeX11"
 
 foreign import ccall safe "XlibExtras.h XGetWMHints"
     safeXGetWMHints :: Display -> Window -> IO (Ptr WMHints)
@@ -124,9 +128,9 @@ startHandlingX11Requests :: IO ()
 startHandlingX11Requests =
   withErrorHandler handleError handleX11Requests
   where handleError _ xerrptr = do
-          putStrLn "Got error"
           ee <- getErrorEvent xerrptr
-          print ee
+          logHere WARNING $
+                  printf "Handling X11 error with error handler: %s" $ show ee
 
 handleX11Requests :: IO ()
 handleX11Requests = do
@@ -136,9 +140,8 @@ handleX11Requests = do
     catch
       (maybe (Left SafeX11Exception) Right <$> timeout 500000 action)
       (\e -> do
-         putStrLn "Got error on X11 thread"
-         hFlush stdout
-         print (e :: IOException)
+         logHere WARNING $ printf "Handling X11 error with catch: %s" $
+                 show (e :: IOException)
          return $ Left SafeX11Exception)
   writeChan responseChannel res
   handleX11Requests

@@ -23,15 +23,16 @@ module System.Taffybar.Widget.XDGMenu.MenuWidget
   )
 where
 
-import Control.Monad
-import Control.Monad.IO.Class
+import           Control.Monad
+import           Control.Monad.IO.Class
 import qualified Data.Text as T
-import GI.Gtk hiding (Menu)
-import GI.GdkPixbuf
-import System.Directory
-import System.FilePath.Posix
-import System.Process
-import System.Taffybar.Widget.XDGMenu.Menu
+import           GI.GdkPixbuf
+import           GI.Gtk hiding (Menu)
+import           System.Directory
+import           System.FilePath.Posix
+import           System.Log.Logger
+import           System.Process
+import           System.Taffybar.Widget.XDGMenu.Menu
 
 -- $usage
 --
@@ -71,7 +72,7 @@ addItem ms de = do
   menuShellAppend ms item
   _ <- onMenuItemActivate item $ do
     let cmd = feCommand de
-    putStrLn $ "Launching '" ++ cmd ++ "'"
+    logM "System.Taffybar.Widget.XDGMenu.MenuWidget" DEBUG $ "Launching '" ++ cmd ++ "'"
     _ <- spawnCommand cmd
     return ()
   return ()
@@ -114,7 +115,7 @@ setIcon item (Just iconName) = do
                else return Nothing
   case mImg of
     Just img -> imageMenuItemSetImage item (Just img)
-    Nothing -> putStrLn $ "Icon not found: " ++ iconName
+    Nothing -> logM "System.Taffybar.Widget.XDGMenu.MenuWidget" WARNING $ "Icon not found: " ++ iconName
 
 -- | Create a new XDG Menu Widget.
 menuWidgetNew :: MonadIO m => Maybe String -- ^ menu name, must end with a dash,
@@ -126,13 +127,3 @@ menuWidgetNew mMenuPrefix = liftIO $ do
   addMenu mb m
   widgetShowAll mb
   toWidget mb
-
--- -- | Show XDG Menu Widget in a standalone frame.
--- testMenuWidget :: IO ()
--- testMenuWidget = do
---    _ <- initGUI
---    window <- windowNew
---    _ <- window `on` deleteEvent $ liftIO mainQuit >> return False
---    containerAdd window =<< menuWidgetNew Nothing
---    widgetShowAll window
---    mainGUI

@@ -117,7 +117,9 @@ import           System.Environment.XDG.BaseDir ( getUserConfigFile )
 import           System.Exit ( exitFailure )
 import           System.FilePath ( (</>) )
 import qualified System.IO as IO
+import           System.Log.Logger
 import           System.Taffybar.Context
+import           System.Taffybar.Hooks
 
 import           Paths_taffybar ( getDataDir )
 
@@ -185,6 +187,9 @@ getDefaultCSSPaths = do
 -- perfectly fine to use this function.
 startTaffybar :: TaffybarConfig -> IO ()
 startTaffybar config = do
+  updateGlobalLogger "" $ removeHandler
+  setTaffyLogFormatter "System.Taffybar"
+  setTaffyLogFormatter "StatusNotifier"
   _ <- initThreads
   _ <- Gtk.init Nothing
   GIThreading.setCurrentThreadAsGUIThread

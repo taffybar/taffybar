@@ -39,6 +39,7 @@ import           Safe (headMay)
 import           System.Directory
 import           System.Environment
 import           System.FilePath.Posix
+import           System.Log.Logger
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           Text.XML.Light
@@ -250,13 +251,13 @@ maybeMenu :: FilePath -> IO (Maybe (XDGMenu, [DesktopEntry]))
 maybeMenu filename =
   ifM (doesFileExist filename)
       (do
-        putStrLn $ "Reading " ++ filename
         contents <- readFile filename
         langs <- getPreferredLanguages
         runMaybeT $ do
           m <- MaybeT $ return $ parseXMLDoc contents >>= parseMenu
           des <- lift $ getApplicationEntries langs m
           return (m, des))
-      (do
-        putStrLn $ "Error: menu file '" ++ filename ++ "' does not exist!"
-        return Nothing)
+       (do
+         logM "System.Taffybar.Information.XDG.Protocol" WARNING $
+                "Menu file '" ++ filename ++ "' does not exist!"
+         return Nothing)

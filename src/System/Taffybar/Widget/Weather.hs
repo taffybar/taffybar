@@ -73,16 +73,17 @@ import Control.Monad.IO.Class
 import qualified Data.ByteString.Lazy as LB
 import Data.List (stripPrefix)
 import Data.Maybe (fromMaybe)
-import GI.Gtk
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import GI.GLib(markupEscapeText)
+import GI.Gtk
 import Network.HTTP.Client
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types.Status
+import System.Log.Logger
 import Text.Parsec
 import Text.Printf
 import Text.StringTemplate
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 
 import System.Taffybar.Widget.Generic.PollingLabel
 
@@ -243,7 +244,7 @@ getCurrentWeather getter labelTpl tooltipTpl formatter = do
           lbl <- markupEscapeText rawLabel (-1)
           return (lbl, Just lbl)
     Left err -> do
-      putStrLn err
+      logM "System.Taffybar.Widget.Weather" ERROR $ "Error in weather: " <> show err
       return ("N/A", Nothing)
 
 -- | The NOAA URL to get data from

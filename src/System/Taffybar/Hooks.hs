@@ -2,10 +2,11 @@ module System.Taffybar.Hooks
   ( module System.Taffybar.DBus
   , module System.Taffybar.Hooks
   , ChromeTabImageData(..)
-  , refreshBatteriesOnPropChange
-  , getX11WindowToChromeTabId
   , getChromeTabImageDataChannel
   , getChromeTabImageDataTable
+  , getX11WindowToChromeTabId
+  , refreshBatteriesOnPropChange
+  , setTaffyLogFormatter
   ) where
 
 import           BroadcastChan
@@ -17,12 +18,14 @@ import           Control.Monad.Trans.Reader
 import           Data.Maybe
 import qualified Data.MultiMap as MM
 import           System.FilePath
+import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.DBus
 import           System.Taffybar.Information.Battery
 import           System.Taffybar.Information.Chrome
 import           System.Taffybar.Information.Network
 import           System.Taffybar.Information.XDG.DesktopEntry
+import           System.Taffybar.LogFormatter
 import           System.Taffybar.Util
 
 newtype NetworkInfoChan = NetworkInfoChan (BroadcastChan In [(String, (Rational, Rational))])
@@ -35,6 +38,11 @@ buildInfoChan interval = do
 
 getNetworkChan :: TaffyIO NetworkInfoChan
 getNetworkChan = getStateDefault $ lift $ buildInfoChan 2.0
+
+setTaffyLogFormatter :: String -> IO ()
+setTaffyLogFormatter loggerName = do
+  handler <- taffyLogHandler
+  updateGlobalLogger loggerName $ setHandlers [handler]
 
 withBatteryRefresh :: TaffybarConfig -> TaffybarConfig
 withBatteryRefresh = appendHook refreshBatteriesOnPropChange

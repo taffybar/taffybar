@@ -42,6 +42,7 @@ library
                , ConfigFile
                , HStringTemplate >= 0.8 && < 0.9
                , X11 >= 1.5.0.1
+               , ansi-terminal
                , broadcast-chan >= 0.2.0.0
                , bytestring
                , containers
@@ -53,8 +54,8 @@ library
                , enclosed-exceptions >= 1.0.0.1
                , filepath
                , gi-cairo
-               , gi-cairo-render
                , gi-cairo-connector
+               , gi-cairo-render
                , gi-gdk
                , gi-gdkpixbuf >= 2.0.18
                , gi-gdkx11
@@ -122,6 +123,7 @@ library
                  , System.Taffybar.Information.X11DesktopInfo
                  , System.Taffybar.Information.XDG.DesktopEntry
                  , System.Taffybar.Information.XDG.Protocol
+                 , System.Taffybar.LogFormatter
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Support.PagerHints
                  , System.Taffybar.Util

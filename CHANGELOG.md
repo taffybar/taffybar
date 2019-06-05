@@ -9,6 +9,8 @@
 
  * A new widget `System.Taffybar.Widget.SimpleCommandButton` was added.
 
+ * Taffybar now outputs colorized and annoted logs by default.
+
 ## Breaking Changes
 
  * The file specified in the cssPath parameter in config is now used instead of,

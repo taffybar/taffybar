@@ -4,7 +4,6 @@ import qualified Text.StringTemplate as ST
 import System.Taffybar.Information.Memory
 import System.Taffybar.Widget.Generic.PollingLabel ( pollingLabelNew )
 import qualified GI.Gtk
-import qualified Data.Text as T
 
 -- | Creates a simple textual memory monitor. It updates once every polling
 -- period (in seconds).
