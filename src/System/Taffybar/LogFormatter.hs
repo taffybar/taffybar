@@ -34,15 +34,17 @@ priorityToColor DEBUG = Green
 reset :: String
 reset = setSGRCode [Reset]
 
+colorize :: Color -> String -> String
 colorize color txt = setColor color <> txt <> reset
 
 taffyLogFormatter :: LogFormatter a
-taffyLogFormatter _ (priority, msg) name =
+taffyLogFormatter _ (level, msg) name =
   return $ printf "%s %s - %s" colorizedPriority colorizedName msg
-    where priorityColor = priorityToColor priority
+    where priorityColor = priorityToColor level
           colorizedPriority = colorize priorityColor
-                              ("[" <> show priority <> "]")
+                              ("[" <> show level <> "]")
           colorizedName = colorize Green name
 
+taffyLogHandler :: IO (GenericHandler Handle)
 taffyLogHandler = setFormatter <$> streamHandler stderr DEBUG
   where setFormatter h = h { formatter = taffyLogFormatter }

@@ -6,7 +6,6 @@ module System.Taffybar.Hooks
   , getChromeTabImageDataTable
   , getX11WindowToChromeTabId
   , refreshBatteriesOnPropChange
-  , setTaffyLogFormatter
   ) where
 
 import           BroadcastChan

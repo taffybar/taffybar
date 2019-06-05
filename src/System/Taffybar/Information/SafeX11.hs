@@ -33,12 +33,12 @@ import Graphics.X11.Xlib.Extras
                getWindowProperty16, getWindowProperty32,
                xGetWMHints, getWMHints, refreshKeyboardMapping)
 import Prelude
-import System.IO
 import System.IO.Unsafe
 import System.Log.Logger
 import System.Timeout
 import Text.Printf
 
+logHere :: Priority -> String -> IO ()
 logHere = logM "System.Taffybar.Information.SafeX11"
 
 foreign import ccall safe "XlibExtras.h XGetWMHints"

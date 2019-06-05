@@ -48,6 +48,7 @@ import           System.Posix.Files
 import           Text.Printf
 import           Text.Read (readMaybe)
 
+logHere :: Priority -> String -> IO ()
 logHere = logM "System.Taffybar.Information.XDG.DesktopEntry"
 
 data DesktopEntryType = Application | Link | Directory
@@ -206,8 +207,8 @@ sectionMain = "Desktop Entry"
 readDesktopEntry :: FilePath -> IO (Maybe DesktopEntry)
 readDesktopEntry filePath = doReadDesktopEntry >>= either logWarning (return . Just)
   where
-    logWarning error =
-      logHere  WARNING (printf "Failed to parse desktop entry at %s" filePath) >>
+    logWarning err =
+      logHere  WARNING (printf "Failed to parse desktop entry at %s: error: %s" filePath (show err)) >>
                return Nothing
     doReadDesktopEntry = runExceptT $ do
          result <- (join $ liftIO $ CF.readfile CF.emptyCP filePath) >>=
