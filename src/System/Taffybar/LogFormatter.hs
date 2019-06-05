@@ -16,6 +16,7 @@ import System.Log.Handler.Simple
 import System.Log.Logger
 import Text.Printf
 import System.IO
+import Data.Monoid
 
 setColor :: Color -> String
 setColor color = setSGRCode [SetColor Foreground Vivid color]

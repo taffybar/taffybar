@@ -1,14 +1,1 @@
-language: generic
-
-sudo: required
-
-services:
-  - docker
-
-matrix:
-  include:
-  # - env: STACK_YAML=stack-8.0.yaml
-  - env: STACK_YAML=stack-8.2.yaml
-
-script:
-- docker build --build-arg STACK_YAML="$STACK_YAML" .
+language: nix
