@@ -49,6 +49,8 @@ import           GI.Gtk
 import qualified GI.Pango as Pango
 import           System.Taffybar.Util
 
+import Prelude
+
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification
   { noteAppName :: Text
