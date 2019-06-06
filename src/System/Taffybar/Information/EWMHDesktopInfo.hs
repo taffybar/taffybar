@@ -22,51 +22,72 @@
 module System.Taffybar.Information.EWMHDesktopInfo
   ( EWMHIcon(..)
   , EWMHIconData
-  , WorkspaceIdx(..)
-  , X11Window      -- re-exported from X11DesktopInfo
+  , WorkspaceId(..)
+  , X11Window
   , X11WindowHandle
+  , allEWMHProperties
+  , ewmhActiveWindow
+  , ewmhClientList
+  , ewmhCurrentDesktop
+  , ewmhDesktopNames
+  , ewmhNumberOfDesktops
+  , ewmhStateHidden
+  , ewmhWMClass
+  , ewmhWMDesktop
+  , ewmhWMIcon
+  , ewmhWMName
+  , ewmhWMName2
+  , ewmhWMState
+  , ewmhWMStateHidden
   , focusWindow
   , getActiveWindow
   , getCurrentWorkspace
   , getVisibleWorkspaces
   , getWindowClass
   , getWindowIconsData
+  , getWindowMinimized
+  , getWindowState
+  , getWindowStateProperty
   , getWindowTitle
   , getWindows
   , getWorkspace
   , getWorkspaceNames
-  , isWindowUrgent -- re-exported from X11DesktopInfo
+  , isWindowUrgent
   , parseWindowClasses
   , switchOneWorkspace
   , switchToWorkspace
-  , withDefaultCtx -- re-exported from X11DesktopInfo
+  , withDefaultCtx
   , withEWMHIcons
   ) where
 
 import Control.Applicative
+import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
+import Data.List
 import Data.List.Split
 import Data.Maybe
 import Data.Tuple
 import Data.Word
-import Debug.Trace
 import Foreign.ForeignPtr
 import Foreign.Marshal.Array
 import Foreign.Ptr
 import Foreign.Storable
-import System.Taffybar.Information.SafeX11
+import System.Log.Logger
+import System.Taffybar.Information.SafeX11 hiding (logHere)
+import System.Taffybar.Information.X11DesktopInfo
 
 import Prelude
 
-import System.Taffybar.Information.X11DesktopInfo
+logHere :: MonadIO m => Priority -> String -> m ()
+logHere p = liftIO . logM "System.Taffybar.Information.EWMHDesktopInfo" p
 
 -- | Convenience alias for a pair of the form (props, window), where props is a
 -- tuple of the form (workspace index, window title, window class), and window
 -- is the internal ID of an open window.
-type X11WindowHandle = ((WorkspaceIdx, String, String), X11Window)
+type X11WindowHandle = ((WorkspaceId, String, String), X11Window)
 
-newtype WorkspaceIdx = WSIdx Int
-                     deriving (Show, Read, Ord, Eq)
+newtype WorkspaceId =
+  WorkspaceId Int deriving (Show, Read, Ord, Eq)
 
 -- A super annoying detail of the XGetWindowProperty interface is that: "If the
 -- returned format is 32, the returned data is represented as a long array and
@@ -77,6 +98,40 @@ newtype WorkspaceIdx = WSIdx Int
 -- appropriately.
 type PixelsWordType = Word64
 
+type EWMHProperty = String
+
+ewmhActiveWindow, ewmhClientList, ewmhCurrentDesktop, ewmhDesktopNames, ewmhNumberOfDesktops, ewmhStateHidden, ewmhWMDesktop, ewmhWMStateHidden, ewmhWMClass, ewmhWMState, ewmhWMIcon, ewmhWMName, ewmhWMName2 :: EWMHProperty
+ewmhActiveWindow = "_NET_ACTIVE_WINDOW"
+ewmhClientList = "_NET_CLIENT_LIST"
+ewmhCurrentDesktop = "_NET_CURRENT_DESKTOP"
+ewmhDesktopNames = "_NET_DESKTOP_NAMES"
+ewmhNumberOfDesktops = "_NET_NUMBER_OF_DESKTOPS"
+ewmhStateHidden = "_NET_WM_STATE_HIDDEN"
+ewmhWMClass = "WM_CLASS"
+ewmhWMDesktop = "_NET_WM_DESKTOP"
+ewmhWMIcon = "_NET_WM_ICON"
+ewmhWMName = "_NET_WM_NAME"
+ewmhWMName2 = "WM_NAME"
+ewmhWMState = "_NET_WM_STATE"
+ewmhWMStateHidden = "_NET_WM_STATE_HIDDEN"
+
+allEWMHProperties :: [EWMHProperty]
+allEWMHProperties =
+  [ ewmhActiveWindow
+  , ewmhClientList
+  , ewmhCurrentDesktop
+  , ewmhDesktopNames
+  , ewmhNumberOfDesktops
+  , ewmhStateHidden
+  , ewmhWMClass
+  , ewmhWMDesktop
+  , ewmhWMIcon
+  , ewmhWMName
+  , ewmhWMName2
+  , ewmhWMState
+  , ewmhWMStateHidden
+  ]
+
 type EWMHIconData = (ForeignPtr PixelsWordType, Int)
 
 data EWMHIcon = EWMHIcon
@@ -85,15 +140,33 @@ data EWMHIcon = EWMHIcon
   , ewmhPixelsARGB :: Ptr PixelsWordType
   } deriving (Show, Eq)
 
+getWindowStateProperty :: String -> X11Window -> X11Property Bool
+getWindowStateProperty property window =
+  not . null <$> getWindowState window [property]
 
--- | Retrieve the index of the current workspace in the desktop,
--- starting from 0.
-getCurrentWorkspace :: X11Property WorkspaceIdx
-getCurrentWorkspace = WSIdx <$> readAsInt Nothing "_NET_CURRENT_DESKTOP"
+getWindowState :: X11Window -> [String] -> X11Property [String]
+getWindowState window request = do
+  let getAsLong s = fromIntegral <$> getAtom s
+  integers <- mapM getAsLong request
+  properties <- fetch getWindowProperty32 (Just window) ewmhWMState
+  let integerToString = zip integers request
+      present = intersect integers $ fromMaybe [] properties
+      presentStrings = map (`lookup` integerToString) present
+  return $ catMaybes presentStrings
+
+-- | Get a bool reflecting whether window with provided X11Window is minimized
+-- or not.
+getWindowMinimized :: X11Window -> X11Property Bool
+getWindowMinimized = getWindowStateProperty ewmhStateHidden
+
+-- | Retrieve the index of the current workspace in the desktop, starting from
+-- 0.
+getCurrentWorkspace :: X11Property WorkspaceId
+getCurrentWorkspace = WorkspaceId <$> readAsInt Nothing ewmhCurrentDesktop
 
 -- | Retrieve the indexes of all currently visible workspaces
 -- with the active workspace at the head of the list.
-getVisibleWorkspaces :: X11Property [WorkspaceIdx]
+getVisibleWorkspaces :: X11Property [WorkspaceId]
 getVisibleWorkspaces = do
   vis <- getVisibleTags
   allNames <- map swap <$> getWorkspaceNames
@@ -102,15 +175,15 @@ getVisibleWorkspaces = do
 
 -- | Return a list with the names of all the workspaces currently
 -- available.
-getWorkspaceNames :: X11Property [(WorkspaceIdx, String)]
-getWorkspaceNames = go <$> readAsListOfString Nothing "_NET_DESKTOP_NAMES"
-  where go = zip [WSIdx i | i <- [0..]]
+getWorkspaceNames :: X11Property [(WorkspaceId, String)]
+getWorkspaceNames = go <$> readAsListOfString Nothing ewmhDesktopNames
+  where go = zip [WorkspaceId i | i <- [0..]]
 
 -- | Ask the window manager to switch to the workspace with the given
 -- index, starting from 0.
-switchToWorkspace :: WorkspaceIdx -> X11Property ()
-switchToWorkspace (WSIdx idx) = do
-  cmd <- getAtom "_NET_CURRENT_DESKTOP"
+switchToWorkspace :: WorkspaceId -> X11Property ()
+switchToWorkspace (WorkspaceId idx) = do
+  cmd <- getAtom ewmhCurrentDesktop
   sendCommandEvent cmd (fromIntegral idx)
 
 -- | Move one workspace up or down from the current workspace
@@ -120,29 +193,29 @@ switchOneWorkspace dir end = do
   switchToWorkspace $ if dir then getPrev cur end else getNext cur end
 
 -- | Check for corner case and switch one workspace up
-getPrev :: WorkspaceIdx -> Int -> WorkspaceIdx
-getPrev (WSIdx idx) end
-  | idx > 0 = WSIdx $ idx-1
-  | otherwise = WSIdx end
+getPrev :: WorkspaceId -> Int -> WorkspaceId
+getPrev (WorkspaceId idx) end
+  | idx > 0 = WorkspaceId $ idx-1
+  | otherwise = WorkspaceId end
 
 -- | Check for corner case and switch one workspace down
-getNext :: WorkspaceIdx -> Int -> WorkspaceIdx
-getNext (WSIdx idx) end
-  | idx < end = WSIdx $ idx+1
-  | otherwise = WSIdx 0
+getNext :: WorkspaceId -> Int -> WorkspaceId
+getNext (WorkspaceId idx) end
+  | idx < end = WorkspaceId $ idx+1
+  | otherwise = WorkspaceId 0
 
 -- | Get the title of the given X11 window.
 getWindowTitle :: X11Window -> X11Property String
 getWindowTitle window = do
   let w = Just window
-  prop <- readAsString w "_NET_WM_NAME"
+  prop <- readAsString w ewmhWMName
   case prop of
-    "" -> readAsString w "WM_NAME"
+    "" -> readAsString w ewmhWMName2
     _  -> return prop
 
 -- | Get the class of the given X11 window.
 getWindowClass :: X11Window -> X11Property String
-getWindowClass window = readAsString (Just window) "WM_CLASS"
+getWindowClass window = readAsString (Just window) ewmhWMClass
 
 parseWindowClasses :: String -> [String]
 parseWindowClasses = filter (not . null) . splitOn "\NUL"
@@ -151,7 +224,7 @@ parseWindowClasses = filter (not . null) . splitOn "\NUL"
 getWindowIconsData :: X11Window -> X11Property (Maybe EWMHIconData)
 getWindowIconsData window = do
   dpy <- getDisplay
-  atom <- getAtom "_NET_WM_ICON"
+  atom <- getAtom ewmhWMIcon
   lift $ rawGetWindowPropertyBytes 32 dpy atom window
 
 -- | Operate on the data contained in 'EWMHIconData' in the easier to interact
@@ -164,12 +237,11 @@ withEWMHIcons :: EWMHIconData -> ([EWMHIcon] -> IO a) -> IO a
 withEWMHIcons (fptr, size) action =
   withForeignPtr fptr ((>>= action) . parseIcons size)
 
--- | Split icon raw integer data into EWMHIcons.
--- Each icon raw data is an integer for width,
---   followed by height,
---   followed by exactly (width*height) ARGB pixels,
---   optionally followed by the next icon.
--- This function should not be made public, because its return value contains
+-- | Split icon raw integer data into EWMHIcons. Each icon raw data is an
+-- integer for width, followed by height, followed by exactly (width*height)
+-- ARGB pixels, optionally followed by the next icon.
+--
+-- XXX: This function should not be made public, because its return value contains
 -- (sub)pointers whose allocation we do not control.
 parseIcons :: Int -> Ptr PixelsWordType -> IO [EWMHIcon]
 parseIcons 0 _ = return []
@@ -186,26 +258,27 @@ parseIcons totalSize arr = do
         , ewmhPixelsARGB = pixelsPtr
         }
       getRes newSize
-        | newSize < 0 = trace "This should not happen parseIcons" return []
-        | otherwise = (thisIcon :) <$> parseIcons newSize newArr -- Keep going
+        | newSize < 0 =
+          logHere ERROR "Attempt to recurse on negative value in parseIcons"
+                    >> return []
+        | otherwise = (thisIcon :) <$> parseIcons newSize newArr
   getRes $ totalSize - fromIntegral (thisSize + 2)
 
--- Get the window that currently has focus if such a window exists
+-- | Get the window that currently has focus if such a window exists.
 getActiveWindow :: X11Property (Maybe X11Window)
-getActiveWindow =
-  listToMaybe . filter (> 0) <$> readAsListOfWindow Nothing "_NET_ACTIVE_WINDOW"
+getActiveWindow = listToMaybe . filter (> 0) <$> readAsListOfWindow Nothing ewmhActiveWindow
 
--- | Return a list of all windows
+-- | Return a list of all @X11Window@s.
 getWindows :: X11Property [X11Window]
-getWindows = readAsListOfWindow Nothing "_NET_CLIENT_LIST"
+getWindows = readAsListOfWindow Nothing ewmhClientList
 
 -- | Return the index (starting from 0) of the workspace on which the given
 -- window is being displayed.
-getWorkspace :: X11Window -> X11Property WorkspaceIdx
-getWorkspace window = WSIdx <$> readAsInt (Just window) "_NET_WM_DESKTOP"
+getWorkspace :: X11Window -> X11Property WorkspaceId
+getWorkspace window = WorkspaceId <$> readAsInt (Just window) ewmhWMDesktop
 
 -- | Ask the window manager to give focus to the given window.
 focusWindow :: X11Window -> X11Property ()
 focusWindow wh = do
-  cmd <- getAtom "_NET_ACTIVE_WINDOW"
+  cmd <- getAtom ewmhActiveWindow
   sendWindowEvent cmd (fromIntegral wh)

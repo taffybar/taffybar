@@ -16,7 +16,6 @@ data-files:
 extra-source-files:
   README.md
   CHANGELOG.md
-  taffybar.hs.example
   dbus-xml/org.freedesktop.UPower.Device.xml
   dbus-xml/org.freedesktop.UPower.xml
   dbus-xml/org.mpris.MediaPlayer2.Player.xml

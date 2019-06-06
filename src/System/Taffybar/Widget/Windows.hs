@@ -71,7 +71,9 @@ windowsNew config = do
   let setLabelTitle title = lift $ postGUIASync $ Gtk.labelSetMarkup label title
       activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
 
-  subscription <- subscribeToEvents ["_NET_ACTIVE_WINDOW"] activeWindowUpdatedCallback
+  subscription <-
+    subscribeToEvents [ewmhActiveWindow, ewmhWMName, ewmhWMClass]
+                      activeWindowUpdatedCallback
   _ <- liftReader (Gtk.onWidgetUnrealize label) (unsubscribe subscription)
 
   context <- ask

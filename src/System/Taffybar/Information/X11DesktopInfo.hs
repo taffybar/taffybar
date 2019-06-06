@@ -24,13 +24,12 @@ module System.Taffybar.Information.X11DesktopInfo
   , X11Window
   , doLowerWindow
   , eventLoop
+  , fetch
   , getAtom
   , getDefaultCtx
   , getDisplay
   , getPrimaryOutputNumber
   , getVisibleTags
-  , getWindowState
-  , getWindowStateProperty
   , isWindowUrgent
   , postX11RequestSyncProp
   , readAsInt
@@ -58,20 +57,22 @@ import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
   hiding (getWindowProperty8, getWindowProperty32, getWMHints)
 import Graphics.X11.Xrandr
-import Prelude
 import System.Taffybar.Information.SafeX11
+
+import Prelude
 
 data X11Context = X11Context
   { contextDisplay :: Display
   , _contextRoot :: Window
   , atomCache :: MV.MVar [(String, Atom)]
   }
+
 type X11Property a = ReaderT X11Context IO a
 type X11Window = Window
 type PropertyFetcher a = Display -> Atom -> Window -> IO (Maybe [a])
 
--- | Put the current display and root window objects inside a Reader
--- transformer for further computation.
+-- | Put the current display and root window objects inside a Reader transformer
+-- for further computation.
 withDefaultCtx :: X11Property a -> IO a
 withDefaultCtx fun = do
   ctx <- getDefaultCtx
@@ -79,12 +80,13 @@ withDefaultCtx fun = do
   closeDisplay (contextDisplay ctx)
   return res
 
+-- | An X11Property that returns the @Display@ object stored in the X11Context.
 getDisplay :: X11Property Display
 getDisplay = contextDisplay <$> ask
 
--- | Retrieve the property of the given window (or the root window,
--- if Nothing) with the given name as a value of type Int. If that
--- property hasn't been set, then return -1.
+-- | Retrieve the property of the given window (or the root window, if Nothing)
+-- with the given name as a value of type Int. If that property hasn't been set,
+-- then return -1.
 readAsInt :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
           -> String -- ^ name of the property to retrieve
           -> X11Property Int
@@ -94,9 +96,9 @@ readAsInt window name = do
     Just (x:_) -> return (fromIntegral x)
     _          -> return (-1)
 
--- | Retrieve the property of the given window (or the root window,
--- if Nothing) with the given name as a list of Ints. If that
--- property hasn't been set, then return an empty list.
+-- | Retrieve the property of the given window (or the root window, if Nothing)
+-- with the given name as a list of Ints. If that property hasn't been set, then
+-- return an empty list.
 readAsListOfInt :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
                 -> String          -- ^ name of the property to retrieve
                 -> X11Property [Int]
@@ -106,9 +108,9 @@ readAsListOfInt window name = do
     Just xs -> return (map fromIntegral xs)
     _       -> return []
 
--- | Retrieve the property of the given window (or the root window,
--- if Nothing) with the given name as a String. If the property
--- hasn't been set, then return an empty string.
+-- | Retrieve the property of the given window (or the root window, if Nothing)
+-- with the given name as a String. If the property hasn't been set, then return
+-- an empty string.
 readAsString :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
              -> String          -- ^ name of the property to retrieve
              -> X11Property String
@@ -118,9 +120,9 @@ readAsString window name = do
     Just xs -> return . UTF8.decode . map fromIntegral $ xs
     _       -> return []
 
--- | Retrieve the property of the given window (or the root window,
--- if Nothing) with the given name as a list of Strings. If the
--- property hasn't been set, then return an empty list.
+-- | Retrieve the property of the given window (or the root window, if Nothing)
+-- with the given name as a list of Strings. If the property hasn't been set,
+-- then return an empty list.
 readAsListOfString :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
                    -> String          -- ^ name of the property to retrieve
                    -> X11Property [String]
@@ -132,9 +134,9 @@ readAsListOfString window name = do
   where
     parse = endBy "\0" . UTF8.decode . map fromIntegral
 
--- | Retrieve the property of the given window (or the root window,
--- if Nothing) with the given name as a list of X11 Window IDs. If
--- the property hasn't been set, then return an empty list.
+-- | Retrieve the property of the given window (or the root window, if Nothing)
+-- with the given name as a list of X11 Window IDs. If the property hasn't been
+-- set, then return an empty list.
 readAsListOfWindow :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
                    -> String          -- ^ name of the property to retrieve
                    -> X11Property [X11Window]
@@ -144,15 +146,15 @@ readAsListOfWindow window name = do
     Just xs -> return $ map fromIntegral xs
     _       -> return []
 
--- | Determine whether the \"urgent\" flag is set in the WM_HINTS of
--- the given window.
+-- | Determine whether the \"urgent\" flag is set in the WM_HINTS of the given
+-- window.
 isWindowUrgent :: X11Window -> X11Property Bool
 isWindowUrgent window = do
   hints <- fetchWindowHints window
   return $ testBit (wmh_flags hints) urgencyHintBit
 
--- | Retrieve the value of the special _XMONAD_VISIBLE_WORKSPACES hint set
--- by the PagerHints hook provided by Taffybar (see module documentation for
+-- | Retrieve the value of the special _XMONAD_VISIBLE_WORKSPACES hint set by
+-- the PagerHints hook provided by Taffybar (see module documentation for
 -- instructions on how to do this), or an empty list of strings if the
 -- PagerHints hook is not available.
 getVisibleTags :: X11Property [String]
@@ -170,10 +172,9 @@ getAtom s = do
           return ((s, atom):currentCache, atom)
   maybe updateCacheAction return a
 
--- | Spawn a new thread and listen inside it to all incoming events,
--- invoking the given function to every event of type @MapNotifyEvent@ that
--- arrives, and subscribing to all events of this type emitted by newly
--- created windows.
+-- | Spawn a new thread and listen inside it to all incoming events, invoking
+-- the given function to every event of type @MapNotifyEvent@ that arrives, and
+-- subscribing to all events of this type emitted by newly created windows.
 eventLoop :: (Event -> IO ()) -> X11Property ()
 eventLoop dispatch = do
   (X11Context d w _) <- ask
@@ -187,9 +188,9 @@ eventLoop dispatch = do
         _ -> return ()
       dispatch event
 
--- | Emit a \"command\" event with one argument for the X server. This is
--- used to send events that can be received by event hooks in the XMonad
--- process and acted upon in that context.
+-- | Emit a \"command\" event with one argument for the X server. This is used
+-- to send events that can be received by event hooks in the XMonad process and
+-- acted upon in that context.
 sendCommandEvent :: Atom -> Atom -> X11Property ()
 sendCommandEvent cmd arg = do
   (X11Context dpy root _) <- ask
@@ -201,7 +202,7 @@ sendWindowEvent cmd win = do
   (X11Context dpy root _) <- ask
   sendCustomEvent dpy cmd cmd root win
 
--- | Build a new X11Context containing the current X11 display and its root
+-- | Build a new @X11Context@ containing the current X11 display and its root
 -- window.
 getDefaultCtx :: IO X11Context
 getDefaultCtx = do
@@ -209,19 +210,6 @@ getDefaultCtx = do
   w <- rootWindow d $ defaultScreen d
   cache <- MV.newMVar []
   return $ X11Context d w cache
-
-getWindowStateProperty :: X11Window -> String -> X11Property Bool
-getWindowStateProperty window property = not . null <$> getWindowState window [property]
-
-getWindowState :: X11Window -> [String] -> X11Property [String]
-getWindowState window request = do
-  let getAsLong s = fromIntegral <$> getAtom s
-  integers <- mapM getAsLong request
-  properties <- fetch getWindowProperty32 (Just window) "_NET_WM_STATE"
-  let integerToString = zip integers request
-      present = intersect integers $ fromMaybe [] properties
-      presentStrings = map (`lookup` integerToString) present
-  return $ catMaybes presentStrings
 
 -- | Apply the given function to the given window in order to obtain the X11
 -- property with the given name, or Nothing if no such property can be read.
@@ -241,8 +229,8 @@ fetchWindowHints window = do
   (X11Context d _ _) <- ask
   liftIO $ getWMHints d window
 
--- | Emit an event of type @ClientMessage@ that can be listened to and
--- consumed by XMonad event hooks.
+-- | Emit an event of type @ClientMessage@ that can be listened to and consumed
+-- by XMonad event hooks.
 sendCustomEvent :: Display
                 -> Atom
                 -> Atom
@@ -256,18 +244,23 @@ sendCustomEvent dpy cmd arg root win =
     sendEvent dpy root False structureNotifyMask e
     sync dpy False
 
+-- | Post the provided X11Property to taffybar's dedicated X11 thread, and wait
+-- for the result. The provided default value will be returned in the case of an
+-- error.
 postX11RequestSyncProp :: X11Property a -> a -> X11Property a
 postX11RequestSyncProp prop def = do
   c <- ask
   let action = runReaderT prop c
   lift $ postX11RequestSyncDef def action
 
+-- | X11Property which reflects whether or not the provided RROutput is active.
 isActiveOutput :: XRRScreenResources -> RROutput -> X11Property Bool
 isActiveOutput sres output = do
   (X11Context display _ _) <- ask
   maybeOutputInfo <- liftIO $ xrrGetOutputInfo display sres output
   return $ maybe 0 xrr_oi_crtc maybeOutputInfo /= 0
 
+-- | Return all the active RR outputs.
 getActiveOutputs :: X11Property [RROutput]
 getActiveOutputs = do
   (X11Context display rootw _) <- ask
@@ -283,6 +276,7 @@ getPrimaryOutputNumber = do
   outputs <- getActiveOutputs
   return $ primary `elemIndex` outputs
 
+-- | Move the X11Windows to the bottom of the X11 window stack.
 doLowerWindow :: X11Window -> X11Property ()
 doLowerWindow window =
   asks contextDisplay >>= lift . flip lowerWindow window

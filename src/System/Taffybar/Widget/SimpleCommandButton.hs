@@ -35,12 +35,13 @@ import qualified Data.Text as T
 -- Now you can use @cmdButton@ like any other Taffybar widget.
 
 -- | Creates a new simple command button.
-simpleCommandButtonNew :: MonadIO m =>
-                          T.Text -- ^ Contents of the button's label.
-                       -> T.Text -- ^ Command to execute. Should be in $PATH or an absolute path
-                       -> m Widget
+simpleCommandButtonNew
+  :: MonadIO m
+  => T.Text -- ^ Contents of the button's label.
+  -> T.Text -- ^ Command to execute. Should be in $PATH or an absolute path
+  -> m Widget
 simpleCommandButtonNew  txt cmd = do
-  but <- buttonNewWithLabel txt
-  _ <- onButtonClicked but $ spawnCommand (T.unpack cmd) >> return ()
-  toWidget but
+  button <- buttonNewWithLabel txt
+  _ <- onButtonClicked button $ spawnCommand (T.unpack cmd) >> return ()
+  toWidget button
 
