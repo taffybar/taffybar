@@ -1,15 +1,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
--- | This is a graph widget inspired by the widget of the same name in
--- Awesome (the window manager).  It plots a series of data points
--- similarly to a bar graph.  This version must be explicitly fed data
--- with 'graphAddSample'.  For a more automated version, see
--- 'PollingGraph'.
+-- | This is a graph widget inspired by the widget of the same name in Awesome
+-- (the window manager). It plots a series of data points similarly to a bar
+-- graph. This version must be explicitly fed data with 'graphAddSample'. For a
+-- more automated version, see 'PollingGraph'.
 --
--- Like Awesome, this graph can plot multiple data sets in one widget.
--- The data sets are plotted in the order provided by the caller.
+-- Like Awesome, this graph can plot multiple data sets in one widget. The data
+-- sets are plotted in the order provided by the caller.
 --
--- Note: all of the data fed to this widget should be in the range
--- [0,1].
+-- Note: all of the data fed to this widget should be in the range [0,1].
 module System.Taffybar.Widget.Generic.Graph (
   -- * Types
     GraphHandle
@@ -49,14 +47,14 @@ data GraphDirection = LEFT_TO_RIGHT | RIGHT_TO_LEFT deriving (Eq)
 
 type RGBA = (Double, Double, Double, Double)
 
--- | The style of the graph. Generally, you will want to draw all 'Area' graphs first, and then all 'Line' graphs.
+-- | The style of the graph. Generally, you will want to draw all 'Area' graphs
+-- first, and then all 'Line' graphs.
 data GraphStyle
     = Area -- ^ Thea area below the value is filled
     | Line -- ^ The values are connected by a line (one pixel wide)
 
--- | The configuration options for the graph.  The padding is the
--- number of pixels reserved as blank space around the widget in each
--- direction.
+-- | The configuration options for the graph. The padding is the number of
+-- pixels reserved as blank space around the widget in each direction.
 data GraphConfig = GraphConfig {
   -- | Number of pixels of padding on each side of the graph widget
     graphPadding :: Int
@@ -95,8 +93,8 @@ defaultGraphConfig =
   , graphDirection = LEFT_TO_RIGHT
   }
 
--- | Add a data point to the graph for each of the tracked data sets.
--- There should be as many values in the list as there are data sets.
+-- | Add a data point to the graph for each of the tracked data sets. There
+-- should be as many values in the list as there are data sets.
 graphAddSample :: GraphHandle -> [Double] -> IO ()
 graphAddSample (GH mv) rawData = do
   s <- readMVar mv
@@ -134,14 +132,14 @@ renderFrameAndBackground cfg w h = do
   C.rectangle fpad fpad (fw - 2 * fpad) (fh - 2 * fpad)
   C.fill
 
-  -- Draw a frame around the widget area
-  -- (unless equal to background color, which likely means the user does not
-  -- want a frame)
+  -- Draw a frame around the widget area (unless equal to background color,
+  -- which likely means the user does not want a frame)
   when (graphBorderWidth cfg > 0) $ do
     let p = fromIntegral (graphBorderWidth cfg)
     C.setLineWidth p
     C.setSourceRGBA frameR frameG frameB frameA
-    C.rectangle (fpad + (p / 2)) (fpad + (p / 2)) (fw - 2 * fpad - p) (fh - 2 * fpad - p)
+    C.rectangle (fpad + (p / 2)) (fpad + (p / 2))
+       (fw - 2 * fpad - p) (fh - 2 * fpad - p)
     C.stroke
 
 
@@ -154,16 +152,17 @@ renderGraph hists cfg w h xStep = do
   let pad = fromIntegral $ graphPadding cfg
   let framePad = fromIntegral $ graphBorderWidth cfg
 
-  -- Make the new origin be inside the frame and then scale the
-  -- drawing area so that all operations in terms of width and height
-  -- are inside the drawn frame.
+  -- Make the new origin be inside the frame and then scale the drawing area so
+  -- that all operations in terms of width and height are inside the drawn
+  -- frame.
   C.translate (pad + framePad) (pad + framePad)
   let xS = (fromIntegral w - 2 * pad - 2 * framePad) / fromIntegral w
       yS = (fromIntegral h - 2 * pad - 2 * framePad) / fromIntegral h
   C.scale xS yS
 
   -- If right-to-left direction is requested, apply an horizontal inversion
-  -- transformation with an offset to the right equal to the width of the widget.
+  -- transformation with an offset to the right equal to the width of the
+  -- widget.
   when (graphDirection cfg == RIGHT_TO_LEFT) $
       C.transform $ M.Matrix (-1) 0 0 1 (fromIntegral w) 0
 
@@ -190,7 +189,8 @@ renderGraph hists cfg w h xStep = do
               C.stroke
 
 
-  sequence_ $ zipWith3 renderDataSet hists (graphDataColors cfg) (graphDataStyles cfg)
+  sequence_ $ zipWith3 renderDataSet hists (graphDataColors cfg)
+            (graphDataStyles cfg)
 
 drawBorder :: MVar GraphState -> Gtk.DrawingArea -> C.Render ()
 drawBorder mv drawArea = do
@@ -227,7 +227,8 @@ graphNew cfg = liftIO $ do
                            }
 
   Gtk.widgetSetSizeRequest drawArea (fromIntegral $ graphWidth cfg) (-1)
-  _ <- Gtk.onWidgetDraw drawArea (\ctx -> renderWithContext (drawGraph mv drawArea) ctx >> return True)
+  _ <- Gtk.onWidgetDraw drawArea $ \ctx -> renderWithContext
+       (drawGraph mv drawArea) ctx >> return True
   box <- Gtk.boxNew Gtk.OrientationHorizontal 1
 
   case graphLabel cfg of
