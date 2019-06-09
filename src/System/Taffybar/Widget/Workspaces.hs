@@ -24,6 +24,7 @@ import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.RateLimit
 import qualified Data.Foldable as F
+import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
 import           Data.List (intersect, sortBy, (\\))
 import qualified Data.Map as M
@@ -280,10 +281,10 @@ addWidget controller = do
      -- widgets appear out of order, in the switcher, by acting as an empty
      -- place holder when the actual widget is hidden.
     hbox <- Gtk.boxNew Gtk.OrientationHorizontal 0
-    parent <- Gtk.widgetGetParent workspaceWidget
-    if isJust parent
-      then Gtk.widgetReparent workspaceWidget hbox
-      else Gtk.containerAdd hbox workspaceWidget
+    void $ Gtk.widgetGetParent workspaceWidget >>=
+         traverse (unsafeCastTo Gtk.Box) >>=
+         traverse (flip Gtk.containerRemove workspaceWidget)
+    Gtk.containerAdd hbox workspaceWidget
     Gtk.containerAdd cont hbox
 
 workspacesNew :: WorkspacesConfig -> TaffyIO Gtk.Widget

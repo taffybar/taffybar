@@ -122,10 +122,16 @@ themeLoadFlags =
   ]
 
 getImageForDesktopEntry :: Int32 -> DesktopEntry -> IO (Maybe GI.Pixbuf)
-getImageForDesktopEntry size entry = fmap join $ traverse run $ deIcon entry
-  where run iconName =
-          maybeTCombine (loadPixbufByName size $ T.pack iconName)
-                        (getPixbufFromFilePath iconName)
+getImageForDesktopEntry size de = getImageForMaybeIconName (T.pack <$> deIcon de) size
+
+getImageForMaybeIconName :: Maybe T.Text -> Int32 -> IO (Maybe GI.Pixbuf)
+getImageForMaybeIconName mIconName size =
+  join <$> (sequenceA $ flip getImageForIconName size <$> mIconName)
+
+getImageForIconName :: T.Text -> Int32 -> IO (Maybe GI.Pixbuf)
+getImageForIconName iconName size =
+  maybeTCombine (loadPixbufByName size $ iconName)
+                  (getPixbufFromFilePath $ T.unpack iconName)
 
 loadPixbufByName :: Int32 -> T.Text -> IO (Maybe GI.Pixbuf)
 loadPixbufByName size name = do

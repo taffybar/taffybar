@@ -125,8 +125,7 @@ a <|||> b = combineOptions
   where combineOptions v v1 = maybeTCombine (a v v1) (b v v1)
 
 catchGErrorsAsLeft :: IO a -> IO (Either GError a)
-catchGErrorsAsLeft action = catch (Right <$> action) mkLeft
-  where mkLeft err = return $ Left err
+catchGErrorsAsLeft action = catch (Right <$> action) (return . Left)
 
 safePixbufNewFromFile :: FilePath -> IO (Either GError Gdk.Pixbuf)
 safePixbufNewFromFile filepath =

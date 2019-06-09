@@ -26,12 +26,11 @@ where
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Text as T
-import           GI.GdkPixbuf
-import           GI.Gtk hiding (Menu)
-import           System.Directory
-import           System.FilePath.Posix
+import           GI.Gtk hiding (Menu, imageMenuItemNew)
 import           System.Log.Logger
 import           System.Process
+import           System.Taffybar.Widget.Generic.AutoSizeImage
+import           System.Taffybar.Widget.Util
 import           System.Taffybar.Widget.XDGMenu.Menu
 
 -- $usage
@@ -43,22 +42,22 @@ import           System.Taffybar.Widget.XDGMenu.Menu
 -- > main = do
 -- >   let menu = menuWidgetNew $ Just "PREFIX-"
 --
--- The menu will look for a file named "PREFIX-applications.menu" in
--- the (subdirectory "menus" of the) directories specified by the
--- environment variables XDG_CONFIG_HOME and XDG_CONFIG_DIRS.  (If
--- XDG_CONFIG_HOME is not set or empty then $HOME/.config is used, if
--- XDG_CONFIG_DIRS is not set or empty then "/etc/xdg" is used).  If
--- no prefix is given (i.e. if you pass Nothing) then the value of the
--- environment variable XDG_MENU_PREFIX is used, if it is set.  If
--- taffybar is running inside a desktop environment like Mate, Gnome,
--- XFCE etc. the environment variables XDG_CONFIG_DIRS and
--- XDG_MENU_PREFIX should be set and you may create the menu like
--- this:
+-- The menu will look for a file named "PREFIX-applications.menu" in the
+-- (subdirectory "menus" of the) directories specified by the environment
+-- variables XDG_CONFIG_HOME and XDG_CONFIG_DIRS. (If XDG_CONFIG_HOME is not set
+-- or empty then $HOME/.config is used, if XDG_CONFIG_DIRS is not set or empty
+-- then "/etc/xdg" is used). If no prefix is given (i.e. if you pass Nothing)
+-- then the value of the environment variable XDG_MENU_PREFIX is used, if it is
+-- set. If taffybar is running inside a desktop environment like Mate, Gnome,
+-- XFCE etc. the environment variables XDG_CONFIG_DIRS and XDG_MENU_PREFIX
+-- should be set and you may create the menu like this:
 --
 -- >   let menu = menuWidgetNew Nothing
 --
 -- Now you can use @menu@ as any other Taffybar widget.
 
+logHere :: Priority -> String -> IO ()
+logHere = logM "System.Taffybar.Widget.XDGMenu.MenuWidget"
 
 -- | Add a desktop entry to a gtk menu by appending a gtk menu item.
 addItem :: (IsMenuShell msc) =>
@@ -66,61 +65,39 @@ addItem :: (IsMenuShell msc) =>
         -> MenuEntry -- ^ Desktop entry
         -> IO ()
 addItem ms de = do
-  item <- imageMenuItemNewWithLabel (feName de)
+  item <- imageMenuItemNew (feName de) (getImageForMaybeIconName (feIcon de))
   setWidgetTooltipText item (feComment de)
-  setIcon item (T.unpack <$> feIcon de)
   menuShellAppend ms item
   _ <- onMenuItemActivate item $ do
     let cmd = feCommand de
-    logM "System.Taffybar.Widget.XDGMenu.MenuWidget" DEBUG $ "Launching '" ++ cmd ++ "'"
+    logHere DEBUG $ "Launching '" ++ cmd ++ "'"
     _ <- spawnCommand cmd
     return ()
   return ()
 
--- | Add an xdg menu to a gtk menu by appending gtk menu items and
--- submenus.
-addMenu :: (IsMenuShell msc) =>
-           msc -- ^ GTK menu
-        -> Menu -- ^ menu
-        -> IO ()
+-- | Add an xdg menu to a gtk menu by appending gtk menu items and submenus.
+addMenu
+  :: (IsMenuShell msc)
+  => msc -- ^ A GTK menu
+  -> Menu -- ^ A menu object
+  -> IO ()
 addMenu ms fm = do
   let subMenus = fmSubmenus fm
       items = fmEntries fm
   when (not (null items) || not (null subMenus)) $ do
-    item <- imageMenuItemNewWithLabel (T.pack $ fmName fm)
-    setIcon item (fmIcon fm)
+    item <- imageMenuItemNew (T.pack $ fmName fm)
+            (getImageForMaybeIconName (T.pack <$> fmIcon fm))
     menuShellAppend ms item
     subMenu <- menuNew
     menuItemSetSubmenu item (Just subMenu)
     mapM_ (addMenu subMenu) subMenus
     mapM_ (addItem subMenu) items
 
-setIcon :: ImageMenuItem -> Maybe String -> IO ()
-setIcon _ Nothing = return ()
-setIcon item (Just iconName) = do
-  iconTheme <- iconThemeGetDefault
-  hasIcon <- iconThemeHasIcon iconTheme (T.pack iconName)
-  mImg <- if hasIcon
-          then Just <$> imageNewFromIconName (Just $ T.pack iconName) (fromIntegral $ fromEnum IconSizeMenu)
-          else if isAbsolute iconName
-               then
-                 do
-                   ex <- doesFileExist iconName
-                   if ex
-                   then do let defaultSize = 24 -- FIXME should auto-adjust to font size
-                           pb <- pixbufNewFromFileAtScale iconName
-                               defaultSize defaultSize True
-                           Just <$> imageNewFromPixbuf (Just pb)
-                     else return Nothing
-               else return Nothing
-  case mImg of
-    Just img -> imageMenuItemSetImage item (Just img)
-    Nothing -> logM "System.Taffybar.Widget.XDGMenu.MenuWidget" WARNING $ "Icon not found: " ++ iconName
-
 -- | Create a new XDG Menu Widget.
-menuWidgetNew :: MonadIO m => Maybe String -- ^ menu name, must end with a dash,
-                              -- e.g. "mate-" or "gnome-"
-              -> m GI.Gtk.Widget
+menuWidgetNew
+  :: MonadIO m
+  => Maybe String -- ^ menu name, must end with a dash, e.g. "mate-" or "gnome-"
+  -> m GI.Gtk.Widget
 menuWidgetNew mMenuPrefix = liftIO $ do
   mb <- menuBarNew
   m <- buildMenu mMenuPrefix

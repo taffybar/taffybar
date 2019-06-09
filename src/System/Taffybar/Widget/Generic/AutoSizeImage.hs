@@ -6,6 +6,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Int
 import           Data.Maybe
+import qualified Data.Text as T
 import qualified GI.Gdk as Gdk
 import           GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
@@ -166,3 +167,18 @@ autoSizeImageNew getPixBuf orientation = do
          (\size -> Just <$> (getPixBuf size >>= scalePixbufToSize size orientation))
          orientation
   return image
+
+-- | Make a new "Gtk.MenuItem" that has both a label and an icon.
+imageMenuItemNew
+  :: MonadIO m
+  => T.Text -> (Int32 -> IO (Maybe Gdk.Pixbuf)) -> m Gtk.MenuItem
+imageMenuItemNew labelText pixbufGetter = do
+  box <- Gtk.boxNew Gtk.OrientationHorizontal 0
+  label <- Gtk.labelNew $ Just labelText
+  image <- Gtk.imageNew
+  void $ autoSizeImage image pixbufGetter Gtk.OrientationHorizontal
+  item <- Gtk.menuItemNew
+  Gtk.containerAdd box image
+  Gtk.containerAdd box label
+  Gtk.containerAdd item box
+  return item
