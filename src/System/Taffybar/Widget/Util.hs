@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.Util
--- Copyright   : (c) José A. Romero L.
+-- Copyright   : (c) Ivan Malison
 -- License     : BSD3-style (see LICENSE)
 --
--- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Maintainer  : Ivan Malison <IvanMalison@gmail.com>
 -- Stability   : unstable
 -- Portability : unportable
 --
@@ -20,10 +20,11 @@ import           Control.Monad.IO.Class
 import           Data.Functor ( ($>) )
 import           Data.Int
 import qualified Data.Text as T
+import qualified GI.Gdk as D
 import qualified GI.GdkPixbuf.Objects.Pixbuf as GI
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 import           GI.Gtk as Gtk
-import qualified GI.Gdk as D
+import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.FilePath.Posix
 import           System.Taffybar.Information.XDG.DesktopEntry
 import           System.Taffybar.Util
@@ -131,7 +132,8 @@ getImageForMaybeIconName mIconName size =
 getImageForIconName :: T.Text -> Int32 -> IO (Maybe GI.Pixbuf)
 getImageForIconName iconName size =
   maybeTCombine (loadPixbufByName size $ iconName)
-                  (getPixbufFromFilePath $ T.unpack iconName)
+                  (getPixbufFromFilePath (T.unpack iconName) >>=
+                   traverse (scalePixbufToSize size Gtk.OrientationHorizontal))
 
 loadPixbufByName :: Int32 -> T.Text -> IO (Maybe GI.Pixbuf)
 loadPixbufByName size name = do

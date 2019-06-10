@@ -181,4 +181,7 @@ imageMenuItemNew labelText pixbufGetter = do
   Gtk.containerAdd box image
   Gtk.containerAdd box label
   Gtk.containerAdd item box
+  Gtk.widgetSetHalign box Gtk.AlignStart
+  Gtk.widgetSetHalign image Gtk.AlignStart
+  Gtk.widgetSetValign box Gtk.AlignFill
   return item
