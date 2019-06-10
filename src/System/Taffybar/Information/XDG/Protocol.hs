@@ -18,12 +18,13 @@
 module System.Taffybar.Information.XDG.Protocol
   ( XDGMenu(..)
   , DesktopEntryCondition(..)
-  , readXDGMenu
-  , matchesCondition
-  , getXDGDesktop
-  , getDirectoryDirs
   , getApplicationEntries
+  , getDirectoryDirs
   , getPreferredLanguages
+  , getXDGDesktop
+  , getXDGMenuFilenames
+  , matchesCondition
+  , readXDGMenu
   ) where
 
 import           Control.Applicative
@@ -45,25 +46,6 @@ import           System.Taffybar.Util
 import           Text.XML.Light
 import           Text.XML.Light.Helpers
 
--- Environment Variables
-
--- | Produce a list of config locations to search, starting with
--- XDG_CONFIG_HOME (or $HOME/.config) and XDG_CONFIG_DIRS, with
--- fallback to /etc/xdg
-getXDGConfigDirs :: IO [String]
-getXDGConfigDirs = do
-  mXdgConfigHome <- fromMaybe "" <$>
-                    lookupEnv "XDG_CONFIG_HOME"
-  xdgConfigHome <- if null mXdgConfigHome 
-                   then getDefaultConfigHome
-                   else return mXdgConfigHome
-  xdgConfigDirs <- maybe [] splitSearchPath <$>
-                   lookupEnv "XDG_CONFIG_DIRS"
-  let xdgDirs = if null xdgConfigDirs
-                then ["/etc/xdg/"]
-                else xdgConfigDirs
-  existingDirs $ map normalise $ xdgConfigHome : xdgDirs
-
 getXDGMenuPrefix :: IO (Maybe String)
 getXDGMenuPrefix = lookupEnv "XDG_MENU_PREFIX"
 
@@ -74,7 +56,7 @@ getXDGMenuFilenames
                   -- 'Just "mate-"').
   -> IO [FilePath]
 getXDGMenuFilenames mMenuPrefix = do
-  configDirs <- getXDGConfigDirs
+  configDirs <- getXdgDirectoryList XdgConfigDirs
   maybePrefix <- (mMenuPrefix <|>) <$> getXDGMenuPrefix
   let maybeAddDash t = if last t == '-' then t else t ++ "-"
       dashedPrefix = maybe "" maybeAddDash maybePrefix

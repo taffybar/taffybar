@@ -25,7 +25,6 @@ module System.Taffybar.Information.XDG.DesktopEntry
   , deOnlyShowIn
   , existingDirs
   , getDefaultConfigHome
-  , getDefaultDataHome
   , getDirectoryEntriesDefault
   , getDirectoryEntry
   , getDirectoryEntryDefault
@@ -41,7 +40,6 @@ import qualified Data.ConfigFile as CF
 import           Data.List
 import           Data.Maybe
 import           System.Directory
-import           System.Environment
 import           System.FilePath.Posix
 import           System.Log.Logger
 import           System.Posix.Files
@@ -62,23 +60,8 @@ getDefaultConfigHome = do
   h <- getHomeDirectory
   return $ h </> ".config"
 
-getDefaultDataHome :: IO FilePath
-getDefaultDataHome = do
-  h <- getHomeDirectory
-  return $ h </> ".local" </> "share"
-
-
--- XXX: We really ought to use
--- https://hackage.haskell.org/package/directory-1.3.2.2/docs/System-Directory.html#v:getXdgDirectory
 getXDGDataDirs :: IO [FilePath]
-getXDGDataDirs = do
-  dataHome <- lookupEnv "XDG_DATA_HOME" >>= maybe getDefaultDataHome return
-  dataDirs <- map normalise . splitSearchPath . fromMaybe "" <$>
-              lookupEnv "XDG_DATA_DIRS"
-  nubBy equalFilePath <$>
-        existingDirs (  dataHome:dataDirs
-                     ++ ["/usr/local/share", "/usr/share"]
-                     )
+getXDGDataDirs = getXdgDirectoryList XdgDataDirs
 
 -- | Desktop Entry. All attributes (key-value-pairs) are stored in an
 -- association list.

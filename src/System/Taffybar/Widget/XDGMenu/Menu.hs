@@ -37,7 +37,7 @@ data Menu = Menu
   , fmSubmenus :: [Menu]
   , fmEntries :: [MenuEntry]
   , fmOnlyUnallocated :: Bool
-  } deriving (Show)
+  } deriving (Eq, Show)
 
 -- | Displayable menu entry
 data MenuEntry = MenuEntry
