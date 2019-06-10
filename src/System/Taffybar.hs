@@ -10,31 +10,32 @@
 -----------------------------------------------------------------------------
 module System.Taffybar
   (
-  -- * Detail
+  -- | Taffybar is a system status bar meant for use with window managers like
+  -- XMonad and i3wm. Taffybar is somewhat similar to xmobar, but it opts to use
+  -- more heavy weight GUI in the form of gtk+ rather than the mostly textual
+  -- approach favored by the latter. This allows it to provide features like an
+  -- SNI system tray, and a workspace widget with window icons.
   --
-  -- | This is a system status bar meant for use with window managers like
-  -- XMonad. It is similar to xmobar, but with more visual flare and a different
-  -- widget set. Contributed widgets are more than welcome. The bar is drawn
-  -- using gtk and cairo. It is actually the simplest possible thing that could
-  -- plausibly work: you give Taffybar a list of GTK widgets and it will render
-  -- them in a horizontal bar for you (taking care of ugly details like
-  -- reserving strut space so that window managers don't put windows over it).
-  --
-  -- This is the real main module. The default bar should be customized to taste
-  -- in the config file (~/.config/taffybar/taffybar.hs). Typically, this means
-  -- adding widgets to the default config. A default configuration file is
-  -- included in the distribution, but the essentials are covered here.
 
   -- * Config File
+  -- |
+  -- The interface that taffybar provides to the end user is roughly as follows:
+  -- you give Taffybar a list of ([Taffy]IO actions that build) gtk+ widgets and
+  -- it renders them in a horizontal bar for you (taking care of ugly details
+  -- like reserving strut space so that window managers don't put windows over
+  -- it).
   --
-  -- | The config file is just a Haskell source file that is compiled at startup
-  -- (if it has changed) to produce a custom executable with the desired set of
-  -- widgets. You will want to import this module along with the modules of any
-  -- widgets you want to add to the bar. Note, you can define any widgets that
-  -- you want in your config file or other libraries. Taffybar only cares that
-  -- you give it some GTK widgets to display.
+  -- | The config file in which you specify the gtk+ widgets to render is just a
+  -- Haskell source file which is used to produce a custom executable with the
+  -- desired set of widgets. This approach requires that taffybar be installed
+  -- as a haskell library (not merely as an executable), and that the ghc
+  -- compiler be available for recompiling the configuration. The upshot of this
+  -- approach is that taffybar's behavior and widget set are not limited to the
+  -- set of widgets provided by the library, because custom code and widgets can
+  -- be provided to taffybar for instantiation and execution.
   --
-  -- Below is a fairly typical example:
+  -- The following code snippet is a simple example of what a taffybar
+  -- configuration might look like (also see @src/System/Taffybar/Example.hs@):
   --
   -- > {-# LANGUAGE OverloadedStrings #-}
   -- > import System.Taffybar
@@ -52,7 +53,7 @@ module System.Taffybar
   -- >   let cpuCfg = defaultGraphConfig { graphDataColors = [ (0, 1, 0, 1), (1, 0, 1, 0.5)]
   -- >                                   , graphLabel = Just "cpu"
   -- >                                   }
-  -- >       clock = textClockNew Nothing "<span fgcolor='orange'>%a %b %_d %H:%M</span>" 1
+  -- >       clock = textClockNew defaultClockConfig
   -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
   -- >       workspaces = workspacesNew defaultWorkspacesConfig
   -- >       simpleConfig = defaultSimpleTaffyConfig
@@ -63,32 +64,32 @@ module System.Taffybar
   --
   -- This configuration creates a bar with four widgets. On the left is a widget
   -- that shows information about the workspace configuration. The rightmost
-  -- widget is the system tray, with a clock and then a CPU graph. The clock is
-  -- formatted using standard strftime-style format strings (see the clock
-  -- module). Note that the clock is colored using Pango markup (again, see the
-  -- clock module).
+  -- widget is the system tray, with a clock and then a CPU graph.
   --
   -- The CPU widget plots two graphs on the same widget: total CPU use in green
   -- and then system CPU use in a kind of semi-transparent purple on top of the
   -- green.
   --
   -- It is important to note that the widget lists are *not* [Widget]. They are
-  -- actually [TaffyIO Widget] since the bar needs to construct them after performing
-  -- some GTK initialization.
+  -- actually [TaffyIO Widget] since the bar needs to construct them after
+  -- performing some GTK initialization.
   --
-  -- ** A note about taffybar's dependency on DBus:
-  -- |
+  -- * Taffybar and DBus
+  --
+  -- | Taffybar has a strict dependency on dbus, so you must ensure that it is
+  -- started before starting taffybar.
+  --
   -- * If you start your window manager using a graphical login manager like gdm
-  --   or kdm, DBus should be started automatically for you.
+  -- or kdm, DBus should be started rautomatically for you.
   --
   -- * If you start xmonad with a different graphical login manager that does
-  --   not start DBus for you automatically, put the line @eval \`dbus-launch
-  --   --auto-syntax\`@ into your ~\/.xsession *before* xmonad and taffybar are
-  --   started. This command sets some environment variables that the two must
-  --   agree on.
+  -- not start DBus for you automatically, put the line @eval \`dbus-launch
+  -- --auto-syntax\`@ into your ~\/.xsession *before* xmonad and taffybar are
+  -- started. This command sets some environment variables that the two must
+  -- agree on.
   --
   -- * If you start xmonad via @startx@ or a similar command, add the
-  --   above command to ~\/.xinitrc
+  -- above command to ~\/.xinitrc
 
   -- * Colors
   --
