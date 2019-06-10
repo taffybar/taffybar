@@ -98,10 +98,11 @@ module System.Taffybar
   -- this theme by editing @~\/.config\/taffybar\/taffybar.css@ to your liking.
   -- For an idea of the customizations you can make, see
   -- <https://live.gnome.org/GnomeArt/Tutorials/GtkThemes>.
-    taffybarDyreParams
-  , dyreTaffybar
-  , startTaffybar
+    dyreTaffybar
   , dyreTaffybarMain
+  , getTaffyFile
+  , startTaffybar
+  , taffybarDyreParams
   ) where
 
 import qualified Config.Dyre as Dyre
@@ -151,8 +152,8 @@ dyreTaffybarMain cfg =
       IO.hPutStrLn IO.stderr ("Error: " ++ err)
       exitFailure
 
-getDefaultConfigFile :: String -> IO FilePath
-getDefaultConfigFile name = do
+getDataFile :: String -> IO FilePath
+getDataFile name = do
   dataDir <- getDataDir
   return (dataDir </> name)
 
@@ -174,9 +175,12 @@ startCSS cssPaths = do
   Gtk.styleContextAddProviderForScreen scr taffybarProvider 800
   return taffybarProvider
 
+getTaffyFile :: String -> IO FilePath
+getTaffyFile = getUserConfigFile "taffybar"
+
 getDefaultCSSPaths :: IO [FilePath]
 getDefaultCSSPaths = do
-  defaultUserConfig <- getUserConfigFile "taffybar" "taffybar.css"
+  defaultUserConfig <- getTaffyFile "taffybar.css"
   return [defaultUserConfig]
 
 -- | Start taffybar with the provided 'TaffybarConfig'. Because this function
@@ -193,9 +197,9 @@ startTaffybar config = do
   _ <- initThreads
   _ <- Gtk.init Nothing
   GIThreading.setCurrentThreadAsGUIThread
-  defaultConfig <- getDefaultConfigFile "taffybar.css"
+  defaultCSS <- getDataFile "taffybar.css"
   cssPaths <- maybe getDefaultCSSPaths (return . return) $ cssPath config
-  _ <- startCSS $ defaultConfig:cssPaths
+  _ <- startCSS $ defaultCSS:cssPaths
   _ <- buildContext config
 
   Gtk.main

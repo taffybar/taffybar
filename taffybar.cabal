@@ -22,7 +22,7 @@ extra-source-files:
   dbus-xml/org.mpris.MediaPlayer2.xml
 
 description:
-  Taffybar is a gtk+3 (through gtk2hs) based desktop information bar, intended
+  Taffybar is a gtk+3 (through gi-gtk) based desktop information bar, intended
   primarily for use with XMonad, though it can also function alongside other EWMH
   compliant window managers. It is similar in spirit to xmobar, but it differs in
   that it gives up some simplicity for a reasonable helping of eye candy.
@@ -107,6 +107,7 @@ library
                  , System.Taffybar.Context
                  , System.Taffybar.DBus
                  , System.Taffybar.DBus.Toggle
+                 , System.Taffybar.Example
                  , System.Taffybar.Hooks
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.CPU
@@ -174,6 +175,7 @@ library
 executable taffybar
   default-language: Haskell2010
   build-depends: base > 3 && < 5
+               , directory
                , hslogger
                , optparse-applicative
                , taffybar

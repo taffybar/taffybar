@@ -5,9 +5,11 @@ module Main ( main ) where
 import Data.Semigroup ((<>))
 import Data.Version
 import Options.Applicative
+import System.Directory
 import System.Log.Logger
 import System.Taffybar
 import System.Taffybar.Context
+import System.Taffybar.Example
 import Text.Printf
 
 import Paths_taffybar (version)
@@ -35,6 +37,19 @@ main = do
               (  fullDesc
               <> progDesc "Start taffybar, recompiling if necessary"
               )
+
   logger <- getLogger "System.Taffybar"
   saveGlobalLogger $ setLevel logLevel logger
-  dyreTaffybar defaultTaffybarConfig
+
+  taffyFilepath <- getTaffyFile "taffybar.hs"
+  configurationExists <- doesFileExist taffyFilepath
+
+  if configurationExists
+  -- XXX: The configuration record here does not get used, this just calls in to dyre.
+  then dyreTaffybar defaultTaffybarConfig
+  else do
+    logM "System.Taffybar" WARNING $
+           (  printf "No taffybar configuration file found at %s." taffyFilepath
+           ++ " Starting with example configuration."
+           )
+    startTaffybar exampleTaffybarConfig
