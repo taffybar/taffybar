@@ -101,17 +101,38 @@ defaultTaffybarConfig = TaffybarConfig
   , errorMsg = Nothing
   }
 
+-- | A "Context" value holds all of the state associated with a single running
+-- instance of taffybar. It is typically accessed from a widget constructor
+-- through the "TaffyIO" monad transformer stack.
 data Context = Context
-  { x11ContextVar :: MV.MVar X11Context
+  {
+  -- | The X11Context that will be used to service X11Property requests.
+    x11ContextVar :: MV.MVar X11Context
+  -- | The handlers which will be evaluated against incoming X11 events.
   , listeners :: MV.MVar SubscriptionList
+  -- | A collection of miscellaneous peices of state which are keyed by their
+  -- types. Most new peices of state should go here, rather than in a new field
+  -- in "Context". State stored here is typically accessed through
+  -- "getStateDefault".
   , contextState :: MV.MVar (M.Map TypeRep Value)
+  -- | Used to track the windows that taffybar is currently controlling, and
+  -- which "BarConfig" objects they are associated with.
   , existingWindows :: MV.MVar [(BarConfig, Gtk.Window)]
+  -- | The shared user session "DBus.Client".
   , sessionDBusClient :: DBus.Client
+  -- | The shared system session "DBus.Client".
   , systemDBusClient :: DBus.Client
+  -- | The action that will be evaluated to get the bar configs associated with
+  -- each active monitor taffybar should run on.
   , getBarConfigs :: BarConfigGetter
+  -- | Populated with the BarConfig that resulted in the creation of a given
+  -- widget, when its constructor is called. This lets widgets access thing like
+  -- who their neighbors are. Note that the value of "contextBarConfig" is
+  -- different for widgets belonging to bar windows on differnt monitors.
   , contextBarConfig :: Maybe BarConfig
   }
 
+-- | Build the "Context" for a taffybar process.
 buildContext :: TaffybarConfig -> IO Context
 buildContext TaffybarConfig
                { dbusClientParam = maybeDBus
@@ -204,6 +225,9 @@ buildBarWindow context barConfig = do
 
   return window
 
+-- | Use the "barConfigGetter" field of "Context" to get the set of taffybar
+-- windows that should active. Will avoid recreating windows if there is already
+-- a window with the appropriate geometry and "BarConfig".
 refreshTaffyWindows :: TaffyIO ()
 refreshTaffyWindows = liftReader postGUIASync $ do
   logT DEBUG "Refreshing windows"

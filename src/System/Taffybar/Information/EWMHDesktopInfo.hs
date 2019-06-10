@@ -24,7 +24,6 @@ module System.Taffybar.Information.EWMHDesktopInfo
   , EWMHIconData
   , WorkspaceId(..)
   , X11Window
-  , X11WindowHandle
   , allEWMHProperties
   , ewmhActiveWindow
   , ewmhClientList
@@ -81,13 +80,7 @@ import Prelude
 logHere :: MonadIO m => Priority -> String -> m ()
 logHere p = liftIO . logM "System.Taffybar.Information.EWMHDesktopInfo" p
 
--- | Convenience alias for a pair of the form (props, window), where props is a
--- tuple of the form (workspace index, window title, window class), and window
--- is the internal ID of an open window.
-type X11WindowHandle = ((WorkspaceId, String, String), X11Window)
-
-newtype WorkspaceId =
-  WorkspaceId Int deriving (Show, Read, Ord, Eq)
+newtype WorkspaceId = WorkspaceId Int deriving (Show, Read, Ord, Eq)
 
 -- A super annoying detail of the XGetWindowProperty interface is that: "If the
 -- returned format is 32, the returned data is represented as a long array and
