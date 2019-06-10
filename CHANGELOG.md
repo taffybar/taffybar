@@ -2,10 +2,13 @@
 
 ## Bug Fixes
 
- * The workspaces widget now listens on the additional properties that it needs
-   to in order to properly update things when the active window changes. This
-   problem likely only emerged recently because xmonad has recently become much
-   more conservative about emitting change events #454.
+ * The workspaces widget now listens on the additional EWMH properties that it
+   needs to in order to properly update things when the active window changes.
+   This problem likely only emerged recently because xmonad has recently become
+   much more conservative about emitting change events (#454).
+
+ * The workspaces widget listens for changes to window geometry (similar to
+   above) (#456).
 
 # 3.2.0
 
