@@ -80,7 +80,7 @@ layoutNew config = do
         markup <- formatLayout config (T.pack layout)
         lift $ Gtk.labelSetMarkup label markup
 
-  subscription <- subscribeToEvents [xLayoutProp] callback
+  subscription <- subscribeToPropertyEvents [xLayoutProp] callback
 
   do
     ebox <- Gtk.eventBoxNew

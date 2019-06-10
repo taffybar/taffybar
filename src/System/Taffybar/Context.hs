@@ -326,22 +326,28 @@ putState getValue = do
          (return . (contextStateMap,))
          (currentValue >>= fromValue)
 
+-- | A version of "forkIO" in "TaffyIO".
 taffyFork :: ReaderT r IO () -> ReaderT r IO ()
 taffyFork = void . liftReader forkIO
 
 startX11EventHandler :: Taffy IO ()
 startX11EventHandler = taffyFork $ do
   c <- ask
-  -- The event loop needs its own X11Context to separately handle communications
-  -- from the X server.
+  -- XXX: The event loop needs its own X11Context to separately handle
+  -- communications from the X server. We deliberately avoid using the context
+  -- from x11ContextVar here.
   lift $ withDefaultCtx $ eventLoop
          (\e -> runReaderT (handleX11Event e) c)
 
+-- | Remove the listener associated with the provided "Unique" from the
+-- collection of listeners.
 unsubscribe :: Unique -> Taffy IO ()
 unsubscribe identifier = do
   listenersVar <- asks listeners
   lift $ MV.modifyMVar_ listenersVar $ return . filter ((== identifier) . fst)
 
+-- | Subscribe to all incoming events on the X11 event loop. The returned
+-- "Unique" value can be used to unregister the listener using "unsuscribe".
 subscribeToAll :: Listener -> Taffy IO Unique
 subscribeToAll listener = do
   identifier <- lift newUnique
@@ -354,8 +360,10 @@ subscribeToAll listener = do
   lift $ MV.modifyMVar_ listenersVar (return . addListener)
   return identifier
 
-subscribeToEvents :: [String] -> Listener -> Taffy IO Unique
-subscribeToEvents eventNames listener = do
+-- | Subscribe to X11 "PropertyEvent"s where the property changed is in the
+-- provided list.
+subscribeToPropertyEvents :: [String] -> Listener -> Taffy IO Unique
+subscribeToPropertyEvents eventNames listener = do
   eventAtoms <- mapM (runX11 . getAtom) eventNames
   let filteredListener event@PropertyEvent { ev_atom = atom } =
         when (atom `elem` eventAtoms) $

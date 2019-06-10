@@ -72,7 +72,7 @@ windowsNew config = do
       activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
 
   subscription <-
-    subscribeToEvents [ewmhActiveWindow, ewmhWMName, ewmhWMClass]
+    subscribeToPropertyEvents [ewmhActiveWindow, ewmhWMName, ewmhWMClass]
                       activeWindowUpdatedCallback
   _ <- liftReader (Gtk.onWidgetUnrealize label) (unsubscribe subscription)
 

@@ -304,13 +304,21 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
   runReaderT updateAllWorkspaceWidgets context
   updateHandler <- onWorkspaceUpdate context
   iconHandler <- onIconsChanged context
-  (workspaceSubscription, iconSubscription) <-
+  let doUpdate = lift . updateHandler
+      handleConfigureEvents e@(ConfigureEvent {}) = doUpdate e
+      handleConfigureEvents _ = return ()
+  (workspaceSubscription, iconSubscription, geometrySubscription) <-
     flip runReaderT tContext $ sequenceT
-         ( subscribeToEvents (updateEvents cfg) $ lift . updateHandler
-         , subscribeToEvents [ewmhWMIcon] (lift . onIconChanged iconHandler)
+         ( subscribeToPropertyEvents (updateEvents cfg) $ doUpdate
+         , subscribeToPropertyEvents [ewmhWMIcon] (lift . onIconChanged iconHandler)
+         , subscribeToAll handleConfigureEvents
          )
   let doUnsubscribe = flip runReaderT tContext $
-        mapM_ unsubscribe [iconSubscription, workspaceSubscription]
+        mapM_ unsubscribe
+              [ iconSubscription
+              , workspaceSubscription
+              , geometrySubscription
+              ]
   _ <- Gtk.onWidgetUnrealize cont doUnsubscribe
   _ <- widgetSetClassGI cont "workspaces"
   Gtk.toWidget cont
