@@ -60,7 +60,7 @@ module System.Taffybar
   -- >                        { startWidgets = [ workspaces ]
   -- >                        , endWidgets = [ sniTrayNew, clock, cpu ]
   -- >                        }
-  -- >   simpleTaffybar simpleConfig
+  -- >   startTaffybar $ simpleTaffybar simpleConfig
   --
   -- This configuration creates a bar with four widgets. On the left is a widget
   -- that shows information about the workspace configuration. The rightmost
