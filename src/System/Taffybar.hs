@@ -158,6 +158,8 @@ getDataFile name = do
   dataDir <- getDataDir
   return (dataDir </> name)
 
+instance Gtk.IsStyleProvider Gtk.CssProvider
+
 startCSS :: [FilePath] -> IO Gtk.CssProvider
 startCSS cssPaths = do
   -- Override the default GTK theme path settings.  This causes the

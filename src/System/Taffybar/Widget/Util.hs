@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.Util
@@ -65,7 +66,7 @@ attachPopup widget title window = do
   where
     getWindow :: IO (Maybe Window)
     getWindow = do
-          windowGType <- gobjectType (undefined :: Window)
+          windowGType <- gobjectType @Window
           Just ancestor <- Gtk.widgetGetAncestor widget windowGType
           castTo Window ancestor
 

@@ -8,4 +8,4 @@ let
   };
   overlays = [ (import ./overlay.nix) ];
   pkgs = import nixpkgs { inherit overlays; };
-in pkgs.haskellPackages.taffybar
+in pkgs.haskellPackages.shellFor { packages = _: [pkgs.haskellPackages.taffybar]; }

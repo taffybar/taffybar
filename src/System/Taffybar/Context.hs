@@ -28,6 +28,8 @@ import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import qualified DBus.Client as DBus
 import           Data.Data
+import           Data.GI.Base.ManagedPtr (unsafeCastTo)
+import           Data.GI.Base.Overloading
 import           Data.Int
 import           Data.List
 import qualified Data.Map as M
@@ -36,6 +38,7 @@ import           Data.Tuple.Sequence
 import           Data.Unique
 import qualified GI.Gdk
 import qualified GI.GdkX11 as GdkX11
+import           GI.GdkX11.Objects.X11Window
 import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
 import           StatusNotifier.TransparentWindow
@@ -178,8 +181,6 @@ buildContext TaffybarConfig
 buildEmptyContext :: IO Context
 buildEmptyContext = buildContext defaultTaffybarConfig
 
-instance GdkX11.IsX11Window GI.Gdk.Window
-
 buildBarWindow :: Context -> BarConfig -> IO Gtk.Window
 buildBarWindow context barConfig = do
   let thisContext = context { contextBarConfig = Just barConfig }
@@ -220,7 +221,7 @@ buildBarWindow context barConfig = do
 
   runX11Context context () $ void $ runMaybeT $ do
     gdkWindow <- MaybeT $ Gtk.widgetGetWindow window
-    xid <- GdkX11.x11WindowGetXid gdkWindow
+    xid <- GdkX11.x11WindowGetXid =<< liftIO (unsafeCastTo X11Window gdkWindow)
     lift $ doLowerWindow (fromIntegral xid)
 
   return window

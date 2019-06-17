@@ -4,3 +4,4 @@
 cabal.sandbox.config
 /result
 *build-docs*
+.ghc.environment*
