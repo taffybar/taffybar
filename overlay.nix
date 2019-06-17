@@ -51,7 +51,11 @@ in {
         ver = "0.3.7.0";
         sha256 = "0h5959ayjvipj54z0f350bz23fic90xw9z06xw4wcvxvwkrsi2br";
       } { };
-      gi-gdkx11 = addGObjectIntrospection super.gi-gdkx11;
+      gi-gdkx11 = addGObjectIntrospection (self.callHackageDirect {
+        pkg = "gi-gdkx11";
+        ver = "3.0.8";
+        sha256 = "0fymsiz1087hwj3aljc53x301m0dasgnpwdhsr907vw7vdmw2pgq";
+      } {inherit (pkgs) gtk3;});
       gi-dbusmenu = addGObjectIntrospection (self.callHackageDirect {
         pkg = "gi-dbusmenu";
         ver = "0.4.6";
