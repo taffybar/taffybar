@@ -29,7 +29,6 @@ import           Control.Monad.Trans.Reader
 import qualified DBus.Client as DBus
 import           Data.Data
 import           Data.GI.Base.ManagedPtr (unsafeCastTo)
-import           Data.GI.Base.Overloading
 import           Data.Int
 import           Data.List
 import qualified Data.Map as M

@@ -1,3 +1,4 @@
+{-# LANGUAGE NoMonoLocalBinds #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Information.MPRIS2
