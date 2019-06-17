@@ -52,8 +52,8 @@ import           Unsafe.Coerce
 logIO :: System.Log.Logger.Priority -> String -> IO ()
 logIO = logM "System.Taffybar.Context"
 
-logT :: MonadTrans t => System.Log.Logger.Priority -> String -> t IO ()
-logT p m = lift $ logIO p m
+logC :: MonadIO m => System.Log.Logger.Priority -> String -> m ()
+logC p = liftIO . logIO p
 
 type Taffy m v = MonadIO m => ReaderT Context m v
 type TaffyIO v = ReaderT Context IO v
@@ -168,11 +168,11 @@ buildContext TaffybarConfig
                -- whatever it pleases.
                (runReaderT forceRefreshTaffyWindows context))
   flip runReaderT context $ do
-    logT DEBUG "Starting X11 Handler"
+    logC DEBUG "Starting X11 Handler"
     startX11EventHandler
-    logT DEBUG "Running startup hook"
+    logC DEBUG "Running startup hook"
     startup
-    logT DEBUG "Queing build windows command"
+    logC DEBUG "Queing build windows command"
     refreshTaffyWindows
   logIO DEBUG "Context build finished"
   return context
@@ -221,6 +221,7 @@ buildBarWindow context barConfig = do
   runX11Context context () $ void $ runMaybeT $ do
     gdkWindow <- MaybeT $ Gtk.widgetGetWindow window
     xid <- GdkX11.x11WindowGetXid =<< liftIO (unsafeCastTo X11Window gdkWindow)
+    logC DEBUG $ printf "Lowering X11 window %s" $ show xid
     lift $ doLowerWindow (fromIntegral xid)
 
   return window
@@ -230,7 +231,7 @@ buildBarWindow context barConfig = do
 -- a window with the appropriate geometry and "BarConfig".
 refreshTaffyWindows :: TaffyIO ()
 refreshTaffyWindows = liftReader postGUIASync $ do
-  logT DEBUG "Refreshing windows"
+  logC DEBUG "Refreshing windows"
   ctx <- ask
   windowsVar <- asks existingWindows
 
@@ -271,7 +272,7 @@ refreshTaffyWindows = liftReader postGUIASync $ do
           return $ newWindowPairs ++ remainingWindows
 
   lift $ MV.modifyMVar_ windowsVar rebuildWindows
-  logT DEBUG "Finished refreshing windows"
+  logC DEBUG "Finished refreshing windows"
   return ()
 
 forceRefreshTaffyWindows :: TaffyIO ()

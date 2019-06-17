@@ -13,7 +13,7 @@ import qualified GI.GLib as Gdk
 import qualified GI.GdkPixbuf as Gdk
 import           Prelude
 import           System.Log.Logger
-import           System.Taffybar.Context hiding (logIO, logT)
+import           System.Taffybar.Context hiding (logIO)
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.SafeX11
 import           Text.Read hiding (lift)

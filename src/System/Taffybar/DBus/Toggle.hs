@@ -19,6 +19,7 @@ import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import           Control.Exception
 import           Control.Monad
+import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
@@ -35,7 +36,7 @@ import           System.Directory
 import           System.Environment.XDG.BaseDir
 import           System.FilePath.Posix
 import           System.Log.Logger
-import           System.Taffybar.Context hiding (logIO, logT)
+import           System.Taffybar.Context hiding (logIO)
 import           Text.Printf
 import           Text.Read ( readMaybe )
 
@@ -54,8 +55,8 @@ import           Text.Read ( readMaybe )
 logIO :: System.Log.Logger.Priority -> String -> IO ()
 logIO = logM "System.Taffybar.DBus.Toggle"
 
-logT :: MonadTrans t => System.Log.Logger.Priority -> String -> t IO ()
-logT p m = lift $ logIO p m
+logT :: MonadIO m => System.Log.Logger.Priority -> String -> m ()
+logT p = liftIO . logIO p
 
 getActiveMonitorNumber :: MaybeT IO Int
 getActiveMonitorNumber = do

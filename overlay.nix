@@ -99,8 +99,8 @@ in {
       { inherit (pkgs) glib; };
       haskell-gi = self.callHackageDirect {
         pkg = "haskell-gi";
-        ver = "0.22.5";
-        sha256 = "14fh9hc14mlxgw1snn9iachby6xaxwzzqp9migyyg9751b9ny86q";
+        ver = "0.22.6";
+        sha256 = "0pizgz6846i19fi0avsqlqxal1f09ihpd9qlyyhci4j3fvgvrsl0";
       }
       { inherit (pkgs) glib gobject-introspection; };
     });
