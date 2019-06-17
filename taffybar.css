@@ -13,9 +13,9 @@
 
 .taffy-window * {
 	/*
-	   This removes any existing styling from UI elements. Taffybar will not cohere
-	   with your gtk theme.
-   */
+		This removes any existing styling from UI elements. Taffybar will not
+		cohere with your gtk theme.
+	*/
 	all: unset;
 
 	font-family: "Noto Sans", sans-serif;
@@ -82,7 +82,7 @@
 }
 
 .window-icon-container.inactive .window-icon {
-  padding: 0px;
+	padding: 0px;
 }
 
 .window-icon-container.minimized .window-icon {
