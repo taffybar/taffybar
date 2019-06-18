@@ -65,6 +65,13 @@ and not simply the haskellPackage for taffybar. If you need to add additional
 haskell packages to the environment that compiles your taffybar.hs you will need
 to invoke that module and use the packages parameter to allow this.
 
+##### Using the overlay.nix when taffybar is broken in nixpkgs
+The taffybar haskell package in nixpkgs has been broken in the unstable channel
+from time to time. To ameliorate this issue, this repository provides an overlay
+file which can be used to build taffybar. See [this
+comment](https://github.com/taffybar/taffybar/issues/464#issuecomment-503258726)
+for details on how to use the overlay.
+
 Installation From Hackage/Source
 --------------------------------
 
@@ -114,6 +121,10 @@ example](https://github.com/taffybar/taffybar/blob/master/example/stack.yaml)
 
 You will need to add default.nix file to your package. See [this
 example](https://github.com/taffybar/taffybar/blob/master/example/default.nix)
+
+You may also need to use the overlay provided by this repository. See [this
+comment](https://github.com/taffybar/taffybar/issues/464#issuecomment-503258726)
+for details.
 
 
 Configuration
