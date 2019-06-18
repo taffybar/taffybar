@@ -1,5 +1,5 @@
 name: taffybar
-version: 3.2.0
+version: 3.2.1
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD3
 license-file: LICENSE
@@ -43,7 +43,7 @@ library
                , HStringTemplate >= 0.8 && < 0.9
                , X11 >= 1.5.0.1
                , ansi-terminal
-               , broadcast-chan >= 0.2.0.0
+               , broadcast-chan >= 0.2.0.2
                , bytestring
                , containers
                , dbus >= 1.2.1 && < 2.0.0
@@ -65,8 +65,8 @@ library
                , gi-pango
                , gtk-sni-tray >= 0.1.5.0
                , gtk-strut >= 0.1.2.1
-               , haskell-gi >= 0.21.2
-               , haskell-gi-base >= 0.21.1
+               , haskell-gi >= 0.22.6
+               , haskell-gi-base >= 0.22.2
                , hslogger
                , http-client >= 0.5
                , http-client-tls
