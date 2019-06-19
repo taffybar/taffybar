@@ -2,40 +2,22 @@ packages:
 - '.'
 extra-deps:
 - ConfigFile-1.1.4
-- X11-1.8
-- X11-xft-0.3.1
 - broadcast-chan-0.2.0.2
-- containers-0.5.11.0
-- dbus-1.2.1
 - dbus-hslogger-0.1.0.1
-- gi-atk-2.0.20
 - gi-cairo-connector-0.0.1
 - gi-cairo-render-0.0.1
 - gi-dbusmenu-0.4.6
 - gi-dbusmenugtk3-0.4.7
-- gi-gdk-3.0.21
-- gi-gdkpixbuf-2.0.22
-- gi-gdkx11-3.0.4
-- gi-gio-2.0.24
-- gi-glib-2.0.22
-- gi-gobject-2.0.21
-- gi-gtk-3.0.31
-- gi-gtk-hs-0.3.7.0
-- gi-pango-1.0.21
-- gi-xlib-2.0.2
-- gio-0.13.4.1
+- gi-gdkx11-3.0.8
+- gi-xlib-2.0.7
 - gtk-sni-tray-0.1.6.0
 - gtk-strut-0.1.3.0
-- haskell-gi-0.22.5
-- haskell-gi-base-0.22.2
-- libxml-sax-0.7.5
+- haskell-gi-0.22.6
 - rate-limit-1.4.1
-- spool-0.1
-- status-notifier-item-0.3.0.1
+- status-notifier-item-0.3.0.3
 - time-units-1.0.0
 - xml-helpers-1.0.0
-- xmonad-0.15
-resolver: lts-13.2
+resolver: nightly-2019-06-19
 nix:
   packages:
     - cairo
