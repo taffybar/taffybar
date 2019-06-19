@@ -29,10 +29,10 @@ nix:
     - libdbusmenu-glib
     - libdbusmenu-gtk3
     - libxml2
-    - numix-icon-theme-circle
     - pkgconfig
     - x11
     - xorg.libX11
+    - xorg.libXScrnSaver
     - xorg.libXext
     - xorg.libXinerama
     - xorg.libXrandr
