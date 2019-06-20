@@ -39,6 +39,7 @@ import           Data.Char
 import qualified Data.ConfigFile as CF
 import           Data.List
 import           Data.Maybe
+import           Safe
 import           System.Directory
 import           System.FilePath.Posix
 import           System.Log.Logger
@@ -167,9 +168,7 @@ getDirectoryEntry :: [FilePath] -> String -> IO (Maybe DesktopEntry)
 getDirectoryEntry dirs name = do
   liftIO $ logHere DEBUG $ printf "Searching %s for %s" (show dirs) name
   exFiles <- filterM doesFileExist $ map ((</> name) . normalise) dirs
-  if null exFiles
-  then return Nothing
-  else readDesktopEntry $ head exFiles
+  join <$> traverse readDesktopEntry (headMay exFiles)
 
 getDirectoryEntryDefault :: String -> IO (Maybe DesktopEntry)
 getDirectoryEntryDefault entry =
