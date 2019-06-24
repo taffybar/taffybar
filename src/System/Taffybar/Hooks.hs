@@ -1,3 +1,14 @@
+-----------------------------------------------------------------------------
+-- |
+-- Module      : System.Taffybar.Hooks
+-- Copyright   : (c) Ivan A. Malison
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : Ivan A. Malison
+-- Stability   : unstable
+-- Portability : unportable
+-----------------------------------------------------------------------------
+
 module System.Taffybar.Hooks
   ( module System.Taffybar.DBus
   , module System.Taffybar.Hooks

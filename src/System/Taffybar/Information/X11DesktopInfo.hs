@@ -89,7 +89,7 @@ doRead :: Integral a => b -> ([a] -> b)
        -> PropertyFetcher a
        -> Maybe X11Window
        -> String
-       -> ReaderT X11Context IO b
+       -> X11Property b
 doRead def transform windowPropFn window name =
   (fromMaybe def) . (fmap transform) <$> fetch windowPropFn window name
 

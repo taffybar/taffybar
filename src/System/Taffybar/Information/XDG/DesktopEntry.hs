@@ -4,7 +4,7 @@
 -- Copyright   : 2017 Ulf Jasper
 -- License     : BSD3-style (see LICENSE)
 --
--- Maintainer  : Ulf Jasper <ulf.jasper@web.de>
+-- Maintainer  : Ivan A. Malison
 -- Stability   : unstable
 -- Portability : unportable
 --
