@@ -133,7 +133,7 @@ deComment :: [String] -- ^ Preferred languages
 deComment langs de = deLocalisedAtt langs de "Comment"
 
 -- | Return the command defined by the given desktop entry.
--- TODO: should check  the dbus thing.
+-- TODO: should check the dbus thing.
 -- TODO: are there "field codes", i.e. %<char> things, that
 deCommand :: DesktopEntry -> Maybe String
 deCommand de =
@@ -150,9 +150,7 @@ listDesktopEntries extension dir = do
   ex <- doesDirectoryExist normalizedDir
   if ex
   then do
-    files <-
-      map (normalizedDir </>) . filter (\v -> v /= "." && v /= "..") <$>
-      getDirectoryContents dir
+    files <- map (normalizedDir </>) <$> listDirectory dir
     entries <-
       (nub . catMaybes) <$>
       mapM readDesktopEntry (filter (extension `isSuffixOf`) files)
