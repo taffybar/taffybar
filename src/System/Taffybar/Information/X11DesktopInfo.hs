@@ -4,7 +4,7 @@
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
--- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
+-- Maintainer  : Ivan Malison <IvanMalison@gmail.com>
 -- Stability   : unstable
 -- Portability : unportable
 --
@@ -57,6 +57,7 @@ import Graphics.X11.Xlib
 import Graphics.X11.Xlib.Extras
   hiding (getWindowProperty8, getWindowProperty32, getWMHints)
 import Graphics.X11.Xrandr
+import Safe
 import System.Taffybar.Information.SafeX11
 
 import Prelude
@@ -84,17 +85,21 @@ withDefaultCtx fun = do
 getDisplay :: X11Property Display
 getDisplay = contextDisplay <$> ask
 
+doRead :: Integral a => b -> ([a] -> b)
+       -> PropertyFetcher a
+       -> Maybe X11Window
+       -> String
+       -> ReaderT X11Context IO b
+doRead def transform windowPropFn window name =
+  (fromMaybe def) . (fmap transform) <$> fetch windowPropFn window name
+
 -- | Retrieve the property of the given window (or the root window, if Nothing)
 -- with the given name as a value of type Int. If that property hasn't been set,
 -- then return -1.
 readAsInt :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
           -> String -- ^ name of the property to retrieve
           -> X11Property Int
-readAsInt window name = do
-  prop <- fetch getWindowProperty32 window name
-  case prop of
-    Just (x:_) -> return (fromIntegral x)
-    _          -> return (-1)
+readAsInt = doRead (-1) (maybe (-1) fromIntegral . headMay) getWindowProperty32
 
 -- | Retrieve the property of the given window (or the root window, if Nothing)
 -- with the given name as a list of Ints. If that property hasn't been set, then
@@ -102,11 +107,7 @@ readAsInt window name = do
 readAsListOfInt :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
                 -> String          -- ^ name of the property to retrieve
                 -> X11Property [Int]
-readAsListOfInt window name = do
-  prop <- fetch getWindowProperty32 window name
-  case prop of
-    Just xs -> return (map fromIntegral xs)
-    _       -> return []
+readAsListOfInt = doRead [] (map fromIntegral) getWindowProperty32
 
 -- | Retrieve the property of the given window (or the root window, if Nothing)
 -- with the given name as a String. If the property hasn't been set, then return
@@ -114,11 +115,7 @@ readAsListOfInt window name = do
 readAsString :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
              -> String          -- ^ name of the property to retrieve
              -> X11Property String
-readAsString window name = do
-  prop <- fetch getWindowProperty8 window name
-  case prop of
-    Just xs -> return . UTF8.decode . map fromIntegral $ xs
-    _       -> return []
+readAsString = doRead "" (UTF8.decode . map fromIntegral) getWindowProperty8
 
 -- | Retrieve the property of the given window (or the root window, if Nothing)
 -- with the given name as a list of Strings. If the property hasn't been set,
@@ -126,13 +123,8 @@ readAsString window name = do
 readAsListOfString :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
                    -> String          -- ^ name of the property to retrieve
                    -> X11Property [String]
-readAsListOfString window name = do
-  prop <- fetch getWindowProperty8 window name
-  case prop of
-    Just xs -> return (parse xs)
-    _       -> return []
-  where
-    parse = endBy "\0" . UTF8.decode . map fromIntegral
+readAsListOfString = doRead [] parse getWindowProperty8
+  where parse = endBy "\0" . UTF8.decode . map fromIntegral
 
 -- | Retrieve the property of the given window (or the root window, if Nothing)
 -- with the given name as a list of X11 Window IDs. If the property hasn't been
@@ -140,11 +132,7 @@ readAsListOfString window name = do
 readAsListOfWindow :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
                    -> String          -- ^ name of the property to retrieve
                    -> X11Property [X11Window]
-readAsListOfWindow window name = do
-  prop <- fetch getWindowProperty32 window name
-  case prop of
-    Just xs -> return $ map fromIntegral xs
-    _       -> return []
+readAsListOfWindow = doRead [] (map fromIntegral) getWindowProperty32
 
 -- | Determine whether the \"urgent\" flag is set in the WM_HINTS of the given
 -- window.
