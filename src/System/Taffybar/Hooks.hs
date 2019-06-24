@@ -9,7 +9,6 @@ module System.Taffybar.Hooks
   ) where
 
 import           BroadcastChan
-import           Control.Applicative
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans.Class
@@ -65,12 +64,10 @@ directoryEntriesByClassName
 directoryEntriesByClassName = foldl insertByClassName MM.empty
   where
     insertByClassName entriesMap entry =
-      MM.insert (getClassName entry) entry entriesMap
-    getFromFilename filepath =
-      let (_, filename) = splitFileName filepath
-          (_, noExtensions) = splitExtensions filename
-      in noExtensions
-    getClassName DesktopEntry {deAttributes = attributes, deFilename = filename} =
-      fromMaybe (getFromFilename filename) $
-                lookup "StartupWMClass" attributes <|>
-                lookup "Name" attributes
+      foldl insertForKey entriesMap $ getClassNames entry
+        where insertForKey innerMap key = MM.insert key entry innerMap
+
+getClassNames :: DesktopEntry -> [String]
+getClassNames DesktopEntry { deAttributes = attributes, deFilename = filepath } =
+  (snd $ splitExtensions $ snd $ splitFileName filepath) :
+  catMaybes [lookup "StartupWMClass" attributes, lookup "Name" attributes]

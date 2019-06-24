@@ -30,6 +30,7 @@ module System.Taffybar.Information.XDG.DesktopEntry
   , getDirectoryEntryDefault
   , getXDGDataDirs
   , listDesktopEntries
+  , readDesktopEntry
   ) where
 
 import           Control.Monad
