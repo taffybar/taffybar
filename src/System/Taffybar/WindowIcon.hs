@@ -121,6 +121,9 @@ getWindowIconFromDesktopEntryByClasses =
   where getWindowIconFromDesktopEntryByClass size klass =
           runMaybeT $ do
             entry <- MaybeT $ getDirectoryEntryByClass klass
+            lift $ logPrintF "System.Taffybar.WindowIcon" DEBUG
+                   "Using desktop entry for icon %s"
+                   (deFilename entry, klass)
             MaybeT $ lift $ getImageForDesktopEntry size entry
 
 getWindowIconFromClasses :: Int32 -> String -> IO (Maybe Gdk.Pixbuf)
