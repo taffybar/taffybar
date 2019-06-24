@@ -56,7 +56,9 @@ getXDGMenuFilenames
                   -- 'Just "mate-"').
   -> IO [FilePath]
 getXDGMenuFilenames mMenuPrefix = do
-  configDirs <- getXdgDirectoryList XdgConfigDirs
+  configDirs <-
+    liftA2 (:) (getXdgDirectory XdgConfig "")
+             (getXdgDirectoryList XdgConfigDirs)
   maybePrefix <- (mMenuPrefix <|>) <$> getXDGMenuPrefix
   let maybeAddDash t = if last t == '-' then t else t ++ "-"
       dashedPrefix = maybe "" maybeAddDash maybePrefix

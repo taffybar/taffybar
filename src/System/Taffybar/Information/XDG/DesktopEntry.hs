@@ -62,7 +62,8 @@ getDefaultConfigHome = do
   return $ h </> ".config"
 
 getXDGDataDirs :: IO [FilePath]
-getXDGDataDirs = getXdgDirectoryList XdgDataDirs
+getXDGDataDirs =
+  liftM2 (:) (getXdgDirectory XdgData "") (getXdgDirectoryList XdgDataDirs)
 
 -- | Desktop Entry. All attributes (key-value-pairs) are stored in an
 -- association list.
