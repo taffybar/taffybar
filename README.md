@@ -126,6 +126,17 @@ You may also need to use the overlay provided by this repository. See [this
 comment](https://github.com/taffybar/taffybar/issues/464#issuecomment-503258726)
 for details.
 
+#### Overlay
+
+The taffybar haskell package is currently broken in nixpkgs, because some of its
+dependencies are not compiling correctly/are not sufficiently new. The
+environment.nix file in this repository fixes these build issues with an
+overlay. The overlay.nix file extends the environment overlay so that it
+overrides the taffybar package's build description to build the nix taffybar
+package from the repository source directory. An example of how to set up
+nixpkgs to use the taffybar overlay can be found
+[here](https://github.com/ivanmalison/dotfiles/blob/a20b11a070472d182e09cf39f2b0149f39eac9ac/dotfiles/config/taffybar/base.nix#L1).
+
 
 Configuration
 -------------
