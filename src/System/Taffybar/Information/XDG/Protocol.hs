@@ -28,6 +28,7 @@ module System.Taffybar.Information.XDG.Protocol
   ) where
 
 import           Control.Applicative
+import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Data.Char (toLower)
@@ -39,9 +40,10 @@ import           Prelude
 import           Safe (headMay)
 import           System.Directory
 import           System.Environment
+import           System.Environment.XDG.DesktopEntry
 import           System.FilePath.Posix
 import           System.Log.Logger
-import           System.Taffybar.Information.XDG.DesktopEntry
+import           System.Posix.Files
 import           System.Taffybar.Util
 import           Text.XML.Light
 import           Text.XML.Light.Helpers
@@ -221,7 +223,7 @@ getXDGDesktop = do
 getDirectoryDirs :: IO [FilePath]
 getDirectoryDirs = do
   dataDirs <- getXDGDataDirs
-  existingDirs $ map (</> "desktop-directories") dataDirs
+  filterM (fileExist . (</> "desktop-directories")) dataDirs
 
 -- | Fetch menus and desktop entries and assemble the XDG menu.
 readXDGMenu :: Maybe String -> IO (Maybe (XDGMenu, [DesktopEntry]))

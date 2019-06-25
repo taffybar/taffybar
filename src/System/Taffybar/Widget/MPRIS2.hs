@@ -35,7 +35,7 @@ import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.DBus.Client.MPRIS2
 import           System.Taffybar.Information.MPRIS2
-import           System.Taffybar.Information.XDG.DesktopEntry
+import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Util

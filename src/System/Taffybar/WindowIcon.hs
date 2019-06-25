@@ -26,7 +26,7 @@ import           System.Taffybar.Hooks
 import           System.Taffybar.Information.Chrome
 import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.X11DesktopInfo
-import           System.Taffybar.Information.XDG.DesktopEntry
+import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 

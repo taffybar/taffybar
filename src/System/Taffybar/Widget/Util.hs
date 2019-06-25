@@ -27,7 +27,7 @@ import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 import           GI.Gtk as Gtk
 import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.FilePath.Posix
-import           System.Taffybar.Information.XDG.DesktopEntry
+import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           Text.Printf
 

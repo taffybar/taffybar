@@ -7,6 +7,11 @@ let
 in {
   haskellPackages = pkgs.haskellPackages.override (old: {
     overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: {})) (self: super: {
+      xdg-desktop-entry = self.callHackageDirect {
+        pkg = "xdg-desktop-entry";
+        ver = "0.1.0.0";
+        sha256 = "11y8749q69jx97v7wsdvdn63zr9anfj4d3jq3dq3nsi5hm2sr9vh";
+      } { };
       broadcast-chan = pkgs.haskell.lib.overrideCabal super.broadcast-chan (_: {
         version = "0.2.0.2";
         sha256 = "12ax37y9i3cs8wifz01lpq0awm9c235l5xkybf13ywvyk5svb0jv";

@@ -17,6 +17,7 @@ extra-deps:
 - status-notifier-item-0.3.0.3
 - time-units-1.0.0
 - xml-helpers-1.0.0
+- xdg-desktop-entry-0.1.0.0
 resolver: nightly-2019-06-19
 nix:
   packages:

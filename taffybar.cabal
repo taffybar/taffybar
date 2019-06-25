@@ -92,6 +92,7 @@ library
                , tuple >= 0.3.0.2
                , unix
                , utf8-string
+               , xdg-desktop-entry
                , xdg-basedir >= 0.2 && < 0.3
                , xml
                , xml-helpers
@@ -122,7 +123,6 @@ library
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.StreamInfo
                  , System.Taffybar.Information.X11DesktopInfo
-                 , System.Taffybar.Information.XDG.DesktopEntry
                  , System.Taffybar.Information.XDG.Protocol
                  , System.Taffybar.LogFormatter
                  , System.Taffybar.SimpleConfig

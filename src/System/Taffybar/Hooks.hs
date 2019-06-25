@@ -33,7 +33,7 @@ import           System.Taffybar.DBus
 import           System.Taffybar.Information.Battery
 import           System.Taffybar.Information.Chrome
 import           System.Taffybar.Information.Network
-import           System.Taffybar.Information.XDG.DesktopEntry
+import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.LogFormatter
 import           System.Taffybar.Util
 

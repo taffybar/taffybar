@@ -26,7 +26,7 @@ import Data.Char (toLower)
 import Data.List
 import Data.Maybe
 import qualified Data.Text as T
-import System.Taffybar.Information.XDG.DesktopEntry
+import System.Environment.XDG.DesktopEntry
 import System.Taffybar.Information.XDG.Protocol
 
 -- | Displayable menu
