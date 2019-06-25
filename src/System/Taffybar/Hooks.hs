@@ -67,18 +67,4 @@ updateDirectoryEntriesCache = ask >>= \ctx ->
 
 readDirectoryEntriesDefault :: TaffyIO (MM.MultiMap String DesktopEntry)
 readDirectoryEntriesDefault = lift $
-  directoryEntriesByClassName <$> getDirectoryEntriesDefault
-
-directoryEntriesByClassName
-  :: Foldable t
-  => t DesktopEntry -> MM.MultiMap String DesktopEntry
-directoryEntriesByClassName = foldl insertByClassName MM.empty
-  where
-    insertByClassName entriesMap entry =
-      foldl insertForKey entriesMap $ getClassNames entry
-        where insertForKey innerMap key = MM.insert key entry innerMap
-
-getClassNames :: DesktopEntry -> [String]
-getClassNames DesktopEntry { deAttributes = attributes, deFilename = filepath } =
-  (snd $ splitExtensions $ snd $ splitFileName filepath) :
-  catMaybes [lookup "StartupWMClass" attributes, lookup "Name" attributes]
+  indexDesktopEntriesByClassName <$> getDirectoryEntriesDefault

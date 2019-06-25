@@ -9,8 +9,8 @@ in {
     overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: {})) (self: super: {
       xdg-desktop-entry = self.callHackageDirect {
         pkg = "xdg-desktop-entry";
-        ver = "0.1.0.0";
-        sha256 = "11y8749q69jx97v7wsdvdn63zr9anfj4d3jq3dq3nsi5hm2sr9vh";
+        ver = "0.1.1.0";
+        sha256 = "0dbxa51c4ha0x5m6kiwk9bjkqhqq2qvsblqs6j1wx1v46z216b4i";
       } { };
       broadcast-chan = pkgs.haskell.lib.overrideCabal super.broadcast-chan (_: {
         version = "0.2.0.2";
