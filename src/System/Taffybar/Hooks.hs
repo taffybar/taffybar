@@ -24,9 +24,7 @@ import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
-import           Data.Maybe
 import qualified Data.MultiMap as MM
-import           System.FilePath
 import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.DBus
