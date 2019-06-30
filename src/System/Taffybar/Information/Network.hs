@@ -55,7 +55,7 @@ getDeviceUpDown s = do
   dev <- initSafe <$> s `atMay` 0
   down <- readDef (-1) <$> s `atMay` 1
   up <- readDef (-1) <$> s `atMay` out
-  return (dev, (down, up))
+  dev `seq` down `seq` up `seq` return (dev, (down, up))
   where
     out = length s - 8
 
