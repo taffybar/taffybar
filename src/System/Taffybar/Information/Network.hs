@@ -113,7 +113,8 @@ updateSamples currentSamples = do
   let getLast sample@TxSample { sampleDevice = device } =
         maybe sample fst $ lookup device currentSamples
       getSamplePair sample@TxSample { sampleDevice = device } =
-        (device, (sample, getLast sample))
+        let lastSample = getLast sample
+        in lastSample `seq` (device, (sample, lastSample))
   maybe currentSamples (map getSamplePair) <$> getDeviceSamples
 
 getSpeed :: TxSample -> TxSample -> (Rational, Rational)
