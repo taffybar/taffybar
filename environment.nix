@@ -7,6 +7,11 @@ let
 in {
   haskellPackages = pkgs.haskellPackages.override (old: {
     overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: {})) (self: super: {
+      status-notifier-item = self.callHackageDirect {
+        pkg = "status-notifier-item";
+        ver = "0.3.0.4";
+        sha256 = "1nmdvr7v5njn8g24j3m7iirsbfmdwlznrr0cxp62918in7vmb0n6";
+      } { };
       xdg-desktop-entry = self.callHackageDirect {
         pkg = "xdg-desktop-entry";
         ver = "0.1.1.0";
