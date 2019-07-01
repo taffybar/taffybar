@@ -1,3 +1,9 @@
+# 3.2.2
+
+## Bug Fixes
+
+ * Solve space leaks on `updateSamples` and `getDeviceUpDown` (#472).
+
 # 3.2.1
 
 ## Bug Fixes

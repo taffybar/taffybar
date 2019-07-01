@@ -55,7 +55,7 @@ getDeviceUpDown s = do
   dev <- initSafe <$> s `atMay` 0
   down <- readDef (-1) <$> s `atMay` 1
   up <- readDef (-1) <$> s `atMay` out
-  return (dev, (down, up))
+  dev `seq` down `seq` up `seq` return (dev, (down, up))
   where
     out = length s - 8
 
@@ -113,7 +113,8 @@ updateSamples currentSamples = do
   let getLast sample@TxSample { sampleDevice = device } =
         maybe sample fst $ lookup device currentSamples
       getSamplePair sample@TxSample { sampleDevice = device } =
-        (device, (sample, getLast sample))
+        let lastSample = getLast sample
+        in lastSample `seq` (device, (sample, lastSample))
   maybe currentSamples (map getSamplePair) <$> getDeviceSamples
 
 getSpeed :: TxSample -> TxSample -> (Rational, Rational)
