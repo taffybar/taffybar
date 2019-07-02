@@ -10,7 +10,7 @@ in {
       status-notifier-item = self.callHackageDirect {
         pkg = "status-notifier-item";
         ver = "0.3.0.4";
-        sha256 = "1nmdvr7v5njn8g24j3m7iirsbfmdwlznrr0cxp62918in7vmb0n6";
+        sha256 = "19w72k76ibaig617l0xvq2ira2pkli8ni1hsjpcnsl7awfqr7rw9";
       } { };
       xdg-desktop-entry = self.callHackageDirect {
         pkg = "xdg-desktop-entry";
