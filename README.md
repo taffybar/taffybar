@@ -12,11 +12,11 @@ helping of eye candy.
 Before Installing
 -----------------
 
-The installation method, and procedure that must be followed depends on whether
-or not you intend to setup a new haskell project and use `startTaffybar`, or if
-you want to use the `dyreTaffybar` approach. It is important for you to read
-this section so you can understand what all of that means before you decide how
-you want to install taffybar.
+Taffybar's installation procedure varies depending on whether or not you intend
+to setup a new haskell project and use `startTaffybar` or use the `dyreTaffybar`
+with a global haskell installation . It is important for you to read this
+section so you can understand what all of that means before you decide how you
+want to install taffybar.
 
 ### Taffybar is a library
 
@@ -65,10 +65,13 @@ and not simply the haskellPackage for taffybar. If you need to add additional
 haskell packages to the environment that compiles your taffybar.hs you will need
 to invoke that module and use the packages parameter to allow this.
 
+It is also possible to run/use taffybar on NixOS without using this module by
+using a standalone haskell project for the taffybar configuration.
+
 ##### Using the overlay.nix when taffybar is broken in nixpkgs
 The taffybar haskell package in nixpkgs has been broken in the unstable channel
-from time to time. To ameliorate this issue, this repository provides an overlay
-file which can be used to build taffybar. See [this
+from time to time. This repository provides a nix overlay file which can be used
+to build taffybar with current versions of nixpkgs. See [this
 comment](https://github.com/taffybar/taffybar/issues/464#issuecomment-503258726)
 for details on how to use the overlay.
 
