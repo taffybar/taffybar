@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : System.Taffybar.Hooks.PagerHints
+-- Module      : System.Taffybar.Support.PagerHints
 -- Copyright   : (c) José A. Romero L.
 -- License     : BSD3-style (see LICENSE)
 --
@@ -47,7 +47,7 @@ import qualified XMonad.StackSet as W
 --
 -- You can use this module with the following in your @xmonad.hs@ file:
 --
--- > import System.Taffybar.Hooks.PagerHints (pagerHints)
+-- > import System.Taffybar.Support.PagerHints (pagerHints)
 -- >
 -- > main = xmonad $ ewmh $ pagerHints $ defaultConfig
 -- > ...
