@@ -1,16 +1,17 @@
 module System.Taffybar.Widget.Text.MemoryMonitor (textMemoryMonitorNew) where
 
+import Control.Monad.IO.Class ( MonadIO )
 import qualified Text.StringTemplate as ST
-import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.Memory
 import System.Taffybar.Widget.Generic.PollingLabel ( pollingLabelNew )
 import qualified GI.Gtk
 
 -- | Creates a simple textual memory monitor. It updates once every polling
 -- period (in seconds).
-textMemoryMonitorNew :: String -- ^ Format. You can use variables: "used", "total", "free", "buffer", "cache", "rest", "used".
+textMemoryMonitorNew :: MonadIO m
+                     => String -- ^ Format. You can use variables: "used", "total", "free", "buffer", "cache", "rest", "used".
                      -> Double -- ^ Polling period in seconds.
-                     -> TaffyIO GI.Gtk.Widget
+                     -> m GI.Gtk.Widget
 textMemoryMonitorNew fmt period = do
     label <- pollingLabelNew period callback
     GI.Gtk.toWidget label
