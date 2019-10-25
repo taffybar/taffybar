@@ -3,6 +3,7 @@
 ## Bug Fixes
 
  * Solve space leaks on `updateSamples` and `getDeviceUpDown` (#472).
+ * Prevent crash when using mpris2New and librsvg is not available (#478).
 
 # 3.2.1
 
