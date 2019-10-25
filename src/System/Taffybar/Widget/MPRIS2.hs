@@ -39,6 +39,7 @@ import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Util
+import           System.Taffybar.WindowIcon
 import           Text.Printf
 
 mprisLog :: (MonadIO m, Show t) => Priority -> String -> t -> m ()
@@ -58,10 +59,15 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ do
     newPlayerWidget :: BusName -> IO MPRIS2PlayerWidget
     newPlayerWidget busName =
       do
-        let logErrorAndLoadDefault size err =
+        let loadDefault size = catchGErrorsAsLeft (loadIcon size "play.svg")
+                >>= either failure return
+              where failure err =
+                      mprisLog WARNING "Failed to load default image: %s" err >>
+                      pixBufFromColor size 0
+            logErrorAndLoadDefault size err =
               mprisLog WARNING "Failed to get MPRIS icon: %s" err >>
               mprisLog WARNING "MPRIS failure for: %s" busName >>
-                       loadIcon size "play.svg"
+              loadDefault size
             makeExcept ::
               String -> (a -> IO (Maybe b)) -> a -> ExceptT String IO b
             makeExcept errorString actionBuilder =
