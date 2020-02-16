@@ -19,7 +19,6 @@ extra-deps:
 - xml-helpers-1.0.0
 - xdg-desktop-entry-0.1.1.0
 - binary-0.10.0.0
-
 resolver: nightly-2019-06-19
 nix:
   packages:
