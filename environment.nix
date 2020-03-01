@@ -111,7 +111,6 @@ in {
         sha256 = "0pizgz6846i19fi0avsqlqxal1f09ihpd9qlyyhci4j3fvgvrsl0";
       }
       { inherit (pkgs) glib gobject-introspection; };
-      dbus = pkgs.haskell.lib.appendPatch super.dbus ./dbus.patch;
     });
   });
 }
