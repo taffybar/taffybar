@@ -27,10 +27,6 @@ description:
   compliant window managers. It is similar in spirit to xmobar, but it differs in
   that it gives up some simplicity for a reasonable helping of eye candy.
 
-flag network-uri
-  description: network hack
-  default: True           
-
 library
   default-extensions:
     TupleSections
@@ -80,7 +76,7 @@ library
                , safe >= 0.3 && < 1
                , scotty >= 0.11.0 && < 0.12.0
                , split >= 0.1.4.2
-               , status-notifier-item >= 0.3.0.4
+               , status-notifier-item >= 0.3.0.5
                , stm
                , template-haskell
                , text
@@ -98,10 +94,6 @@ library
                , xml-helpers
                , xmonad
 
-  if flag(network-uri)
-    build-depends: network-uri >= 2.6 && < 3, network >= 2.6 && < 3
-  else
-    build-depends: network-uri < 2.6, network < 2.6
   hs-source-dirs: src
   pkgconfig-depends: gtk+-3.0
   exposed-modules: System.Taffybar

@@ -22,13 +22,6 @@ import           GI.Gtk
 import           System.Taffybar.Widget.Generic.PollingLabel
 import           System.Taffybar.Widget.Util
 
-diffLocalTime :: LocalTime -> LocalTime -> Clock.NominalDiffTime
-diffLocalTime a b = Clock.diffUTCTime (localTimeToUTC utc a) (localTimeToUTC utc b)
-
--- | addLocalTime a b = a + b
-addLocalTime :: Clock.NominalDiffTime -> LocalTime -> LocalTime
-addLocalTime x = utcToLocalTime utc . Clock.addUTCTime x . localTimeToUTC utc
-
 -- | This module implements a very simple text-based clock widget. The widget
 -- also toggles a calendar widget when clicked. This calendar is not fancy at
 -- all and has no data backend.

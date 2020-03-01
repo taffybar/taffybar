@@ -1,4 +1,5 @@
 {-# LANGUAGE NoMonoLocalBinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Information.MPRIS2
