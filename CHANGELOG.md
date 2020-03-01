@@ -4,6 +4,7 @@
 
  * Solve space leaks on `updateSamples` and `getDeviceUpDown` (#472).
  * Prevent crash when using mpris2New and librsvg is not available (#478).
+ * Fixed compilation issues that appear when using ghc 8.8.
 
 # 3.2.1
 
