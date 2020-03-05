@@ -80,7 +80,7 @@ library
                , stm
                , template-haskell
                , text
-               , time >= 1.8 && < 2.0
+               , time >= 1.9 && < 2.0
                , time-locale-compat >= 0.1 && < 0.2
                , time-units >= 1.0.0
                , transformers >= 0.3.0.0
