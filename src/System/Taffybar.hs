@@ -53,14 +53,14 @@ module System.Taffybar
   -- >   let cpuCfg = defaultGraphConfig { graphDataColors = [ (0, 1, 0, 1), (1, 0, 1, 0.5)]
   -- >                                   , graphLabel = Just "cpu"
   -- >                                   }
-  -- >       clock = textClockNew defaultClockConfig
+  -- >       clock = textClockNewWith defaultClockConfig
   -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
   -- >       workspaces = workspacesNew defaultWorkspacesConfig
   -- >       simpleConfig = defaultSimpleTaffyConfig
   -- >                        { startWidgets = [ workspaces ]
   -- >                        , endWidgets = [ sniTrayNew, clock, cpu ]
   -- >                        }
-  -- >   startTaffybar $ simpleTaffybar simpleConfig
+  -- >   simpleTaffybar simpleConfig
   --
   -- This configuration creates a bar with four widgets. On the left is a widget
   -- that shows information about the workspace configuration. The rightmost
