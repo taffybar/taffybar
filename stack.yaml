@@ -1,17 +1,12 @@
 packages:
 - '.'
 extra-deps:
-- network-3.1.1.1
 - ConfigFile-1.1.4
-- broadcast-chan-0.2.1
-- hslogger-1.3.1.0
 - MissingH-1.4.3.0
-- network-bsd-2.8.1.0
-- xml-conduit-1.9.0.0
+- broadcast-chan-0.2.1
 - dbus-hslogger-0.1.0.1
 - gi-cairo-connector-0.0.1
 - gi-cairo-render-0.0.1
-- gi-gdkx11-3.0.9
 - gtk-sni-tray-0.1.6.0
 - gtk-strut-0.1.3.0
 - rate-limit-1.4.2
@@ -19,19 +14,8 @@ extra-deps:
 - time-units-1.0.0
 - xdg-desktop-entry-0.1.1.1
 - xml-helpers-1.0.0
-- dbus-1.2.13
-- gi-gdk-3.0.22
-- time-1.9.3
-- byte-order-0.1.2.0
-- gi-dbusmenugtk3-0.4.8
-- gi-xlib-2.0.8
-- directory-1.3.6.1
-- gi-dbusmenu-0.4.7
-- primitive-unaligned-0.1.1.1
-- process-1.6.8.2
-- unix-2.7.2.2
 
-resolver: lts-14.27
+resolver: lts-15.10
 
 nix:
   packages:
