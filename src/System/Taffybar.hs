@@ -25,7 +25,7 @@ module System.Taffybar
   -- like reserving strut space so that window managers don't put windows over
   -- it).
   --
-  -- | The config file in which you specify the gtk+ widgets to render is just a
+  -- The config file in which you specify the gtk+ widgets to render is just a
   -- Haskell source file which is used to produce a custom executable with the
   -- desired set of widgets. This approach requires that taffybar be installed
   -- as a haskell library (not merely as an executable), and that the ghc
@@ -35,7 +35,7 @@ module System.Taffybar
   -- be provided to taffybar for instantiation and execution.
   --
   -- The following code snippet is a simple example of what a taffybar
-  -- configuration might look like (also see @src/System/Taffybar/Example.hs@):
+  -- configuration might look like (also see "System.Taffybar.Example"):
   --
   -- > {-# LANGUAGE OverloadedStrings #-}
   -- > import System.Taffybar
