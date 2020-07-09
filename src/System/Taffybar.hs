@@ -90,6 +90,13 @@ module System.Taffybar
   --
   -- * If you start xmonad via @startx@ or a similar command, add the
   -- above command to ~\/.xinitrc
+  --
+  -- * System tray compatability
+  --
+  -- | "System.Taffybar.Widget.SNITray" only supports the newer StatusNotifierIcon (SNI) protocol; older xembed applets will not work. AppIndicator is also a valid implementation of SNI.
+  --
+  -- Additionally, this module does not handle recognising new tray applets. Instead it is necessary to run status-notifier-watcher from the [status-notifier-icon](https://github.com/taffybar/status-notifier-icon) package early on system startup.
+  -- In case this is not possible, the alternative widget sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt is available, but this may not necessarily be able to pick up everything.
 
   -- * Colors
   --
