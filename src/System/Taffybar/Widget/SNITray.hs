@@ -9,6 +9,21 @@
 -- Stability   : unstable
 -- Portability : unportable
 -----------------------------------------------------------------------------
+
+-- | A widget to display the system tray.
+--
+-- This widget only supports the newer StatusNotifierItem (SNI) protocol;
+-- older xembed applets will not be visible. AppIndicator is also a valid
+-- implementation of SNI.
+--
+-- Additionally, it does not handle recognising new tray applets. Instead it is
+-- necessary to run status-notifier-watcher from the
+-- [status-notifier-item](https://github.com/taffybar/status-notifier-item)
+-- package early on system startup.
+-- In case this is not possiblle,
+-- 'sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt is available, but
+-- this may not necessarily be able to pick up everything.
+
 module System.Taffybar.Widget.SNITray where
 
 import           Control.Monad.Trans.Class
@@ -55,9 +70,13 @@ sniTrayNewFromHost host = do
     GI.Gtk.widgetShowAll tray
     GI.Gtk.toWidget tray
 
+-- | The simplest way to build a new StatusNotifierItem tray
 sniTrayNew :: TaffyIO GI.Gtk.Widget
 sniTrayNew = getHost False >>= sniTrayNewFromHost
 
+-- | Build a new StatusNotifierItem tray that also starts its own watcher,
+-- without depending on status-notifier-icon. This will not register applets
+-- started before the watcher is started.
 sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt :: TaffyIO GI.Gtk.Widget
 sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt =
   getHost True >>= sniTrayNewFromHost
