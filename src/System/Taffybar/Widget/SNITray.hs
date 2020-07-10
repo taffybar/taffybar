@@ -9,8 +9,8 @@
 -- Stability   : unstable
 -- Portability : unportable
 -----------------------------------------------------------------------------
-
--- | A widget to display the system tray.
+--
+-- A widget to display the system tray.
 --
 -- This widget only supports the newer StatusNotifierItem (SNI) protocol;
 -- older xembed applets will not be visible. AppIndicator is also a valid
