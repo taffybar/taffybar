@@ -66,7 +66,7 @@ attachPopup widget title window = do
   where
     getWindow :: IO (Maybe Window)
     getWindow = do
-          windowGType <- gobjectType @Window
+          windowGType <- glibType @Window
           Just ancestor <- Gtk.widgetGetAncestor widget windowGType
           castTo Window ancestor
 
