@@ -51,17 +51,10 @@ pollingIconImageWidgetNew
   -> Double -- ^ Update interval (in seconds)
   -> IO FilePath -- ^ Command to run to get the input filepath
   -> m Widget
-pollingIconImageWidgetNew path interval cmd = liftIO $ do
-  icon <- imageNewFromFile path
-  _ <- onWidgetRealize icon $ do
-    _ <- forkIO $ forever $ do
-      let tryUpdate = do
-            str <- cmd
-            postGUIASync $ imageSetFromFile icon (Just str)
-      E.catch tryUpdate ignoreIOException
-      threadDelay $ floor (interval * 1000000)
-    return ()
-  putInBox icon
+pollingIconImageWidgetNew path interval cmd =
+  pollingIcon interval cmd
+    (imageNewFromFile path)
+    (\image path' -> imageSetFromFile image (Just path'))
 
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
@@ -80,19 +73,31 @@ pollingIconImageWidgetNewFromName
   -> Double    -- ^ Update interval (in seconds)
   -> IO T.Text -- ^ Command to run update the icon name
   -> m Widget
-pollingIconImageWidgetNewFromName name interval cmd = liftIO $ do
-  icon <- imageNewFromIconName (Just name) (fromIntegral $ fromEnum IconSizeMenu)
-  _ <- onWidgetRealize icon $ do
+pollingIconImageWidgetNewFromName name interval cmd = 
+  pollingIcon interval cmd
+    (imageNewFromIconName (Just name) (fromIntegral $ fromEnum IconSizeMenu))
+    (\image name' -> imageSetFromIconName image (Just name') $ fromIntegral $ fromEnum IconSizeMenu)
+
+-- | Creates a polling icon. 
+pollingIcon 
+  :: MonadIO m
+  => Double   -- ^ Update Interval (in seconds)
+  -> IO name  -- ^ IO action that updates image's icon-name/filepath 
+  -> IO Image -- ^ MonadIO action that creates the initial image.
+  -> (Image -> name -> IO b)
+              -- ^ MonadIO action that updates the image.
+  -> m Widget -- ^ Polling Icon
+pollingIcon interval doUpdateName doInitImage doSetImage = liftIO $ do
+  image <- doInitImage
+  _ <- onWidgetRealize image $ do
     _ <- forkIO $ forever $ do
-      let tryUpdate = do
-            name' <- cmd
-            postGUIASync $
-              imageSetFromIconName icon (Just name') $
-                fromIntegral $ fromEnum IconSizeMenu
+      let tryUpdate = liftIO $ do
+            name' <- doUpdateName
+            postGUIASync $ doSetImage image name' >> return ()
       E.catch tryUpdate ignoreIOException
       threadDelay $ floor (interval * 1000000)
     return ()
-  putInBox icon
+  putInBox image
 
 putInBox :: IsWidget child => child -> IO Widget
 putInBox icon = do
