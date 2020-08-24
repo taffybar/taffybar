@@ -6,6 +6,7 @@ module System.Taffybar.Widget.Generic.Icon
   ) where
 
 import Control.Concurrent ( forkIO, threadDelay )
+import qualified Data.Text as T
 import Control.Exception as E
 import Control.Monad ( forever )
 import Control.Monad.IO.Class
@@ -19,6 +20,16 @@ import System.Taffybar.Util
 -- returns a widget with icon at @path@.
 iconImageWidgetNew :: MonadIO m => FilePath -> m Widget
 iconImageWidgetNew path = liftIO $ imageNewFromFile path >>= putInBox
+
+-- | Create a new widget that displays a static image
+--
+-- > iconWidgetNewFromName name
+--
+-- returns a widget with the icon named @name@. Icon
+-- names are sourced from the current GTK theme. 
+iconImageWidgetNewFromName :: MonadIO m => T.Text -> m Widget
+iconImageWidgetNewFromName name = liftIO $ 
+  imageNewFromIconName (Just name) (fromIntegral $ fromEnum IconSizeMenu) >>= putInBox
 
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
