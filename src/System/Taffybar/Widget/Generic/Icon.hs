@@ -29,7 +29,8 @@ iconImageWidgetNew path = liftIO $ imageNewFromFile path >>= putInBox
 -- names are sourced from the current GTK theme. 
 iconImageWidgetNewFromName :: MonadIO m => T.Text -> m Widget
 iconImageWidgetNewFromName name = liftIO $ 
-  imageNewFromIconName (Just name) (fromIntegral $ fromEnum IconSizeMenu) >>= putInBox
+  imageNewFromIconName (Just name) (fromIntegral $ fromEnum IconSizeMenu) 
+  >>= putInBox
 
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
@@ -55,6 +56,37 @@ pollingIconImageWidgetNew path interval cmd = liftIO $ do
       let tryUpdate = do
             str <- cmd
             postGUIASync $ imageSetFromFile icon (Just str)
+      E.catch tryUpdate ignoreIOException
+      threadDelay $ floor (interval * 1000000)
+    return ()
+  putInBox icon
+
+-- | Create a new widget that updates itself at regular intervals.  The
+-- function
+--
+-- > pollingIconImageWidgetNewFromName name interval cmd
+--
+-- returns a widget with initial icon whose name is @name@.  The widget
+-- forks a thread to update its contents every @interval@ seconds.
+-- The command should return the name of a valid icon.
+--
+-- If the IO action throws an exception, it will be swallowed and the
+-- label will not update until the update interval expires.
+pollingIconImageWidgetNewFromName
+  :: MonadIO m
+  => T.Text    -- ^ Icon Name
+  -> Double    -- ^ Update interval (in seconds)
+  -> IO T.Text -- ^ Command to run update the icon name
+  -> m Widget
+pollingIconImageWidgetNewFromName name interval cmd = liftIO $ do
+  icon <- imageNewFromIconName (Just name) (fromIntegral $ fromEnum IconSizeMenu)
+  _ <- onWidgetRealize icon $ do
+    _ <- forkIO $ forever $ do
+      let tryUpdate = do
+            name' <- cmd
+            postGUIASync $
+              imageSetFromIconName icon (Just name') $
+                fromIntegral $ fromEnum IconSizeMenu
       E.catch tryUpdate ignoreIOException
       threadDelay $ floor (interval * 1000000)
     return ()
