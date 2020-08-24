@@ -2,7 +2,9 @@
 -- updates its contents by calling a callback at a set interval.
 module System.Taffybar.Widget.Generic.Icon
   ( iconImageWidgetNew
+  , iconImageWidgetNewFromName
   , pollingIconImageWidgetNew
+  , pollingIconImageWidgetNewFromName
   ) where
 
 import Control.Concurrent ( forkIO, threadDelay )
