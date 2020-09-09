@@ -13,9 +13,9 @@ import Control.Monad.IO.Class
 import GI.Gtk
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import Data.ByteString.Lazy (pack, toStrict)
+import Data.ByteString.Lazy (toStrict)
 import Data.ByteString (ByteString)
-import Network.HTTP.Conduit
+import Network.HTTP.Client
 import System.Taffybar.Widget.Generic.PollingLabel
 
 -- | Creates a GTK Label widget that polls
@@ -43,7 +43,9 @@ callWttr url = do
        case T.stripPrefix "Unknown location; please try" rsp of
          Nothing          -> False
          Just strippedRsp -> T.length strippedRsp < T.length rsp
- response <- decodeUtf8 <$> E.catch (toStrict <$> simpleHttp url) logException
+ manager <- newManager defaultManagerSettings
+ request <- parseRequest url
+ response <- decodeUtf8 <$> E.catch (toStrict . responseBody <$> httpLbs request manager) logException
  if unknownLocation response
  then return $ "✨"
  else return $ response
