@@ -14,11 +14,12 @@ import Control.Monad.IO.Class
 import GI.Gtk
 import qualified Data.Text as T
 import Data.Maybe (isJust)
-import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+import Data.Text.Encoding (decodeUtf8)
 import Data.ByteString.Lazy (toStrict)
 import Data.ByteString (ByteString)
 import Text.Regex
 import Network.HTTP.Client
+import Network.HTTP.Types.Status (statusIsSuccessful)
 import System.Taffybar.Widget.Generic.PollingLabel
 
 -- | Creates a GTK Label widget that polls the requested wttr.in url for weather
@@ -45,19 +46,21 @@ callWttr url = do
           Nothing          -> False
           Just strippedRsp -> T.length strippedRsp < T.length rsp
       isImage = isJust . (matchRegex $ mkRegex ".png")
-      getBody = toStrict . responseBody
+      getResponseData r = ( statusIsSuccessful $ responseStatus r
+                          , toStrict $ responseBody r)
+      catchAndLog = flip E.catch logException
   manager <- newManager defaultManagerSettings
   request <- parseRequest url
-  byteResponse <- E.catch (getBody <$> httpLbs request manager) logException
-  let response = decodeUtf8 byteResponse
-  if isImage url || unknownLocation response
+  (isOk, response) <- catchAndLog (getResponseData <$> httpLbs request manager) 
+  let body = decodeUtf8 response
+  if not isOk || isImage url || unknownLocation body
   then return $ "✨"
-  else return $ response
+  else return $ body
 
 -- Logs an Http Exception and returns wttr.in's weather unknown label.
-logException :: HttpException -> IO ByteString
+logException :: HttpException -> IO (Bool, ByteString)
 logException e = do
   let errmsg = show e
-      log msg = logM "System.Taffybar.Widget.WttrIn" msg ERROR
-  log ("Warning: Couldn't call wttr.in. \n" ++ errmsg)
-  return $ encodeUtf8 "✨"
+  logM "System.Taffybar.Widget.WttrIn" ERROR $
+    ("Warning: Couldn't call wttr.in. \n" ++ errmsg)
+  return $ (False, "✨")
