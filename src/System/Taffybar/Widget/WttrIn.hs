@@ -41,14 +41,14 @@ textWttrNew url interval = pollingLabelNew interval (callWttr url)
 -- | IO Action that calls wttr.in as per the user's request. 
 callWttr :: String -> IO T.Text
 callWttr url = do
-  let unknownLocation rsp =
+  let unknownLocation rsp = -- checks for a common wttr.in bug
         case T.stripPrefix "Unknown location; please try" rsp of
           Nothing          -> False
           Just strippedRsp -> T.length strippedRsp < T.length rsp
       isImage = isJust . (matchRegex $ mkRegex ".png")
       getResponseData r = ( statusIsSuccessful $ responseStatus r
                           , toStrict $ responseBody r)
-      catchAndLog = flip E.catch logException
+      catchAndLog = flip E.catch $ logException
   manager <- newManager defaultManagerSettings
   request <- parseRequest url
   (isOk, response) <- catchAndLog (getResponseData <$> httpLbs request manager) 
