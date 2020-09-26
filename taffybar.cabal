@@ -149,6 +149,7 @@ library
                  , System.Taffybar.Widget.Text.NetworkMonitor
                  , System.Taffybar.Widget.Util
                  , System.Taffybar.Widget.Weather
+                 , System.Taffybar.Widget.WttrIn
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
                  , System.Taffybar.Widget.XDGMenu.Menu
