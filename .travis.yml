@@ -3,5 +3,4 @@ env:
 - NIXPKGS_ALLOW_BROKEN=1
 script:
 - nix-env -iA cachix -f https://cachix.org/api/v1/install
-- cachix use taffybar
 - nix-build -j2
