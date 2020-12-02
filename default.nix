@@ -1,4 +1,7 @@
+{
+  nixpkgs ? import <nixpkgs>
+}:
 let
   overlays = [ (import ./overlay.nix) ];
-  pkgs = (import ./nixpkgs.nix) { inherit overlays; };
+  pkgs = nixpkgs { inherit overlays; };
 in pkgs.haskellPackages.taffybar

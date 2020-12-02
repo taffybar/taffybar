@@ -2,5 +2,4 @@ language: nix
 env:
 - NIXPKGS_ALLOW_BROKEN=1
 script:
-- nix-env -iA cachix -f https://cachix.org/api/v1/install
-- nix-build -j2
+- nix-build ci.nix -j2

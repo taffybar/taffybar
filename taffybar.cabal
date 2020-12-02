@@ -53,16 +53,16 @@ library
                , gi-cairo-connector
                , gi-cairo-render
                , gi-gdk
-               , gi-gdkpixbuf >= 2.0.18
+               , gi-gdkpixbuf
                , gi-gdkx11
-               , gi-glib >= 2.0.17
+               , gi-glib
                , gi-gtk
                , gi-gtk-hs
                , gi-pango
                , gtk-sni-tray >= 0.1.5.0
                , gtk-strut >= 0.1.2.1
-               , haskell-gi >= 0.22.6
-               , haskell-gi-base >= 0.22.2
+               , haskell-gi >= 0.24
+               , haskell-gi-base >= 0.24
                , hslogger
                , http-client >= 0.5
                , http-client-tls
