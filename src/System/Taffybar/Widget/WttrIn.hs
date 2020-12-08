@@ -5,7 +5,7 @@
 -- Useful if NOAA data doesn't cover your needs, or if you just like wttr.in
 -- better. 
 --
--- For more information on how to use wttr.in, use:
+-- For more information on how to use wttr.in, see <https://wttr.in/:help>.
 
 module System.Taffybar.Widget.WttrIn ( textWttrNew ) where
 import System.Log.Logger
