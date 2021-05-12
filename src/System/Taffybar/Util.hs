@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Util
@@ -21,6 +22,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
+import           Data.Maybe
 import           Data.Either.Combinators
 import           Data.GI.Base.GError
 import qualified Data.GI.Gtk.Threading as Gtk
@@ -127,17 +129,26 @@ a <|||> b = combineOptions
 catchGErrorsAsLeft :: IO a -> IO (Either GError a)
 catchGErrorsAsLeft action = catch (Right <$> action) (return . Left)
 
-safePixbufNewFromFile :: FilePath -> IO (Either GError Gdk.Pixbuf)
-safePixbufNewFromFile filepath =
-  catchGErrorsAsLeft (Gdk.pixbufNewFromFile filepath)
+catchGErrorsAsNothing :: IO a -> IO (Maybe a)
+catchGErrorsAsNothing = fmap rightToMaybe . catchGErrorsAsLeft
+
+safePixbufNewFromFile :: FilePath -> IO (Maybe Gdk.Pixbuf)
+safePixbufNewFromFile =
+  handleResult . catchGErrorsAsNothing . Gdk.pixbufNewFromFile
+  where
+#if MIN_VERSION_gi_gdkpixbuf(2,0,26)
+    handleResult = fmap join
+#else
+    handleResult = id
+#endif
 
 getPixbufFromFilePath :: FilePath -> IO (Maybe Gdk.Pixbuf)
 getPixbufFromFilePath filepath = do
   result <- safePixbufNewFromFile filepath
-  when (isLeft result) $
+  when (isNothing result) $
        logM "System.Taffybar.WindowIcon" WARNING $
             printf "Failed to load icon from filepath %s" filepath
-  return $ rightToMaybe result
+  return result
 
 postGUIASync :: IO () -> IO ()
 postGUIASync = Gtk.postGUIASync

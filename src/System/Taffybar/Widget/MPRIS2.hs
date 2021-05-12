@@ -59,7 +59,7 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ do
     newPlayerWidget :: BusName -> IO MPRIS2PlayerWidget
     newPlayerWidget busName =
       do
-        let loadDefault size = catchGErrorsAsLeft (loadIcon size "play.svg")
+        let loadDefault size = loadIcon size "play.svg"
                 >>= either failure return
               where failure err =
                       mprisLog WARNING "Failed to load default image: %s" err >>

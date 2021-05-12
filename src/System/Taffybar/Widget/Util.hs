@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE CPP #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.Util
@@ -18,6 +19,7 @@ module System.Taffybar.Widget.Util where
 import           Control.Concurrent ( forkIO )
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Data.Bifunctor ( first )
 import           Data.Functor ( ($>) )
 import           Data.Int
 import qualified Data.Text as T
@@ -155,11 +157,18 @@ vFillCenter widget =
   Gtk.setWidgetValign widget Gtk.AlignFill >>
   Gtk.setWidgetHalign widget Gtk.AlignCenter
 
-pixbufNewFromFileAtScaleByHeight :: Int32 -> String -> IO PB.Pixbuf
+pixbufNewFromFileAtScaleByHeight :: Int32 -> String -> IO (Either String PB.Pixbuf)
 pixbufNewFromFileAtScaleByHeight height name =
+  fmap (handleResult . first show) $ catchGErrorsAsLeft $
   PB.pixbufNewFromFileAtScale name (-1) height True
+  where
+#if MIN_VERSION_gi_gdkpixbuf(2,0,26)
+    handleResult = join . fmap (maybe (Left "gdk function returned NULL") Right)
+#else
+    handleResult = id
+#endif
 
-loadIcon :: Int32 -> String -> IO PB.Pixbuf
+loadIcon :: Int32 -> String -> IO (Either String PB.Pixbuf)
 loadIcon height name =
   ((</> "icons" </> name) <$> getDataDir) >>=
   pixbufNewFromFileAtScaleByHeight height
