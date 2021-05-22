@@ -141,7 +141,6 @@ import           Paths_taffybar ( getDataDir )
 
 -- | The parameters that are passed to Dyre when taffybar is invoked with
 -- 'dyreTaffybar'.
-taffybarDyreParams :: Dyre.Params TaffybarConfig
 taffybarDyreParams =
   Dyre.defaultParams
   { Dyre.projectName = "taffybar"
