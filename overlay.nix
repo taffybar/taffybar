@@ -1,14 +1,13 @@
 self: super:
 
 let
-  sourceTransformer = if builtins.getEnv "CI" == "" then builtins.fetchGit else (x: x);
   taffybarOverlay = _: pkgs: {
     haskellPackages = pkgs.haskellPackages.override (old: {
       overrides =
         pkgs.lib.composeExtensions (old.overrides or (_: _: {}))
         (self: super: {
           taffybar =
-            self.callCabal2nix "taffybar" (sourceTransformer ./.)
+            self.callCabal2nix "taffybar" ./.
             { inherit (pkgs) gtk3; };
         });
     });

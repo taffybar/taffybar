@@ -1,8 +1,8 @@
 {
-  inputs.gitIgnoreSource = {
+  inputs.gitIgnoreNix = {
     url = github:IvanMalison/gitignore.nix/master;
   };
-  outputs = { self, nixpkgs, gitIgnoreSource }: {
+  outputs = { self, nixpkgs, gitIgnoreNix }: {
     defaultPackage.x86_64-linux = (import nixpkgs {
         system = "x86_64-linux";
         overlays = [ self.overlay ];
@@ -11,7 +11,7 @@
       haskellPackages = prev.haskellPackages.override (old: {
         overrides = prev.lib.composeExtensions (old.overrides or (_: _: {})) (s: super: {
           taffybar =
-            s.callCabal2nix "taffybar" self
+            s.callCabal2nix "taffybar" (gitIgnoreNix.gitIgnoreSource ./.)
             { inherit (prev) gtk3; };
           gtk-sni-tray = s.callHackageDirect {
             pkg = "gtk-sni-tray";
