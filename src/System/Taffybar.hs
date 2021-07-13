@@ -80,7 +80,7 @@ module System.Taffybar
   -- started before starting taffybar.
   --
   -- * If you start your window manager using a graphical login manager like gdm
-  -- or kdm, DBus should be started rautomatically for you.
+  -- or kdm, DBus should be started automatically for you.
   --
   -- * If you start xmonad with a different graphical login manager that does
   -- not start DBus for you automatically, put the line @eval \`dbus-launch
