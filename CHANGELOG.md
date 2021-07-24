@@ -1,3 +1,16 @@
+# 3.3.0
+
+## Bug Fixes
+
+* Compatibility with newer versions of GHC.
+
+## New Features
+
+ * A wttr.in widget was added.
+ * Make memoryAvailable action available inside the Text MemoryMonitor widget.
+ * The SNI Tray supports triggering Activate and SecondaryActivate on icons.
+ * Better formatting for Text MemoryMonitor Widget
+
 # 3.2.2
 
 ## Bug Fixes
