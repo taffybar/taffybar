@@ -28,9 +28,7 @@ module System.Taffybar.Widget.SNITray where
 
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
-import           Data.Ratio
 import qualified GI.Gtk
-import           Graphics.UI.GIGtkStrut
 import qualified StatusNotifier.Host.Service as H
 import           StatusNotifier.Tray
 import           System.Posix.Process
@@ -49,35 +47,28 @@ getHost startWatcher = getStateDefault $ do
      }
   return host
 
--- | Build a new StatusNotifierItem tray that will share a host with any other
--- trays that are constructed automatically
-sniTrayNewFromHost :: H.Host -> TaffyIO GI.Gtk.Widget
-sniTrayNewFromHost host = do
+-- | Build a new StatusNotifierItem tray from the provided parameters
+sniTrayNewFromParams :: TrayParams -> TaffyIO GI.Gtk.Widget
+sniTrayNewFromParams params = getHost False >>= sniTrayNewFromHostParams params
+
+sniTrayNewFromHostParams :: TrayParams -> H.Host -> TaffyIO GI.Gtk.Widget
+sniTrayNewFromHostParams params host = do
   client <- asks sessionDBusClient
   lift $ do
-    tray <-
-      buildTray
-        TrayParams
-        { trayHost = host
-        , trayClient = client
-        , trayOrientation = GI.Gtk.OrientationHorizontal
-        , trayImageSize = Expand
-        , trayIconExpand = False
-        , trayAlignment = End
-        , trayOverlayScale = 3 % 5
-        }
+    tray <- buildTray host client params
     _ <- widgetSetClassGI tray "sni-tray"
     GI.Gtk.widgetShowAll tray
     GI.Gtk.toWidget tray
 
--- | The simplest way to build a new StatusNotifierItem tray
+-- | Build a new StatusNotifierItem tray that will share a host with any other
+-- trays that are constructed automatically
 sniTrayNew :: TaffyIO GI.Gtk.Widget
-sniTrayNew = getHost False >>= sniTrayNewFromHost
+sniTrayNew = sniTrayNewFromParams defaultTrayParams
 
 -- | Build a new StatusNotifierItem tray that also starts its own watcher,
 -- without depending on status-notifier-icon. This will not register applets
 -- started before the watcher is started.
 sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt :: TaffyIO GI.Gtk.Widget
 sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt =
-  getHost True >>= sniTrayNewFromHost
+  getHost True >>= sniTrayNewFromHostParams defaultTrayParams
 

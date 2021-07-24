@@ -1,24 +1,20 @@
 {
-  inputs.gitIgnoreNix = {
-    url = github:IvanMalison/gitignore.nix/master;
+  inputs = {
+    flake-utils.url = github:numtide/flake-utils;
+    git-ignore-nix.url = github:IvanMalison/gitignore.nix/master;
+    gtk-sni-tray.url = github:taffybar/gtk-sni-tray/master;
   };
-  outputs = { self, nixpkgs, gitIgnoreNix }: {
-    defaultPackage.x86_64-linux = (import nixpkgs {
-        system = "x86_64-linux";
-        overlays = [ self.overlay ];
-      }).haskellPackages.taffybar;
+  outputs = { self, flake-utils, nixpkgs, git-ignore-nix, gtk-sni-tray }:
+  let
     overlay = final: prev: {
       haskellPackages = prev.haskellPackages.override (old: {
-        overrides = prev.lib.composeExtensions (old.overrides or (_: _: {})) (s: super: {
+        overrides = prev.lib.composeExtensions (old.overrides or (_: _: {}))
+        (hself: hsuper: {
           taffybar =
-            s.callCabal2nix "taffybar" (gitIgnoreNix.gitIgnoreSource ./.)
-            { inherit (prev) gtk3; };
-          gtk-sni-tray = s.callHackageDirect {
-            pkg = "gtk-sni-tray";
-            ver = "0.1.6.2";
-            sha256 = "13m6klwx0nc58h7fjss2jwcmk2y8kakcrrc741vbfnnap83achv5";
-          } { inherit (prev) gtk3; };
-          dyre = prev.haskell.lib.dontCheck (s.callHackageDirect {
+            hself.callCabal2nix "taffybar"
+            (git-ignore-nix.gitIgnoreSource ./.)
+            { inherit (final) gtk3;  };
+          dyre = prev.haskell.lib.dontCheck (hself.callHackageDirect {
             pkg = "dyre";
             ver = "0.9.1";
             sha256 = "sha256-3ClPPbNm5wQI+QHaR0Rtiye2taSTF3IlWgfanud6wLg=";
@@ -26,5 +22,14 @@
         });
       });
     };
-  };
+    overlays = gtk-sni-tray.overlays ++ [ overlay ];
+  in flake-utils.lib.eachDefaultSystem (system:
+  let pkgs = import nixpkgs { inherit system overlays; config.allowBroken = true; };
+  in
+  rec {
+    devShell = pkgs.haskellPackages.shellFor {
+      packages = p: [ p.taffybar ];
+    };
+    defaultPackage = pkgs.haskellPackages.taffybar;
+  }) // { inherit overlay overlays; } ;
 }
