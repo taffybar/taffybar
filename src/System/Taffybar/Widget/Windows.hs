@@ -44,7 +44,8 @@ defaultGetMenuLabel window = do
 
 defaultGetActiveLabel :: TaffyIO T.Text
 defaultGetActiveLabel = do
-  label <- fromMaybe "" <$> (runX11Def Nothing getActiveWindow >>= traverse defaultGetMenuLabel)
+  label <- fromMaybe "" <$> (runX11Def Nothing getActiveWindow >>=
+                                       traverse defaultGetMenuLabel)
   markupEscapeText label (-1)
 
 truncatedGetActiveLabel :: Int -> TaffyIO T.Text
@@ -94,7 +95,8 @@ fillMenu config menu = ask >>= \context ->
     forM_ windowIds $ \windowId ->
       lift $ do
         labelText <- runReaderT (getMenuLabel config windowId) context
-        let focusCallback = runReaderT (runX11 $ focusWindow windowId) context >> return True
+        let focusCallback = runReaderT (runX11 $ focusWindow windowId) context >>
+                            return True
         item <- Gtk.menuItemNewWithLabel labelText
         _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
         Gtk.menuShellAppend menu item
