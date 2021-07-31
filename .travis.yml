@@ -1,5 +1,0 @@
-language: nix
-env:
-- NIXPKGS_ALLOW_BROKEN=1
-script:
-- nix-build ci.nix -j2
