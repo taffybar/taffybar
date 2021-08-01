@@ -92,7 +92,7 @@ mpris2New = asks sessionDBusClient >>= \client -> lift $ do
         Gtk.containerAdd grid playerBox
         Gtk.widgetSetVexpand playerBox True
         Gtk.widgetHide playerBox
-        return MPRIS2PlayerWidget {playerLabel = label, playerGrid = playerBox}
+        return MPRIS2PlayerWidget { playerLabel = label, playerGrid = playerBox }
 
     updatePlayerWidget
       children
