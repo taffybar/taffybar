@@ -26,7 +26,9 @@ defaultNetworkGraphConfig = NetworkGraphConfig
   }
 
 networkGraphNew :: GraphConfig -> Maybe [String] -> TaffyIO GI.Gtk.Widget
-networkGraphNew config = networkGraphNewWith defaultNetworkGraphConfig { networkGraphGraphConfig = config }
+networkGraphNew config =
+  networkGraphNewWith defaultNetworkGraphConfig
+                        { networkGraphGraphConfig = config }
 
 networkGraphNewWith :: NetworkGraphConfig -> Maybe [String] -> TaffyIO GI.Gtk.Widget
 networkGraphNewWith config interfaces = do
