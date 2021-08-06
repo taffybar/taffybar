@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | This is a simple weather widget that polls wttr.in to retrieve the weather,
--- instead of relying on noaa data. 
+-- instead of relying on noaa data.
 --
 -- Useful if NOAA data doesn't cover your needs, or if you just like wttr.in
--- better. 
+-- better.
 --
 -- For more information on how to use wttr.in, see <https://wttr.in/:help>.
 
@@ -23,22 +23,22 @@ import Network.HTTP.Types.Status (statusIsSuccessful)
 import System.Taffybar.Widget.Generic.PollingLabel
 
 -- | Creates a GTK Label widget that polls the requested wttr.in url for weather
--- information. 
+-- information.
 --
 -- Not compatible with image endpoints and binary data, such as the %.png%
--- endpoints. 
+-- endpoints.
 --
 -- > -- Yields a label with the text "London: ⛅️  +72°F". Updates every 60
 -- > -- seconds.
 -- > textWttrNew "http://wttr.in/London?format=3" 60
-textWttrNew 
- :: MonadIO m 
+textWttrNew
+ :: MonadIO m
  => String -- ^ URL. All non-alphanumeric characters must be properly %-encoded.
  -> Double -- ^ Update Interval (in seconds)
  -> m Widget
 textWttrNew url interval = pollingLabelNew interval (callWttr url)
 
--- | IO Action that calls wttr.in as per the user's request. 
+-- | IO Action that calls wttr.in as per the user's request.
 callWttr :: String -> IO T.Text
 callWttr url = do
   let unknownLocation rsp = -- checks for a common wttr.in bug
@@ -51,7 +51,7 @@ callWttr url = do
       catchAndLog = flip E.catch $ logException
   manager <- newManager defaultManagerSettings
   request <- parseRequest url
-  (isOk, response) <- catchAndLog (getResponseData <$> httpLbs request manager) 
+  (isOk, response) <- catchAndLog (getResponseData <$> httpLbs request manager)
   let body = decodeUtf8 response
   if not isOk || isImage url || unknownLocation body
   then return $ "✨"
