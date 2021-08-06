@@ -1,8 +1,15 @@
+# Unreleased
+
+## Changes
+
+ * Graph labels are now overlayed on top of the graph instead of placed beside
+   them.
+
 # 3.3.0
 
 ## Bug Fixes
 
-* Compatibility with newer versions of GHC.
+ * Compatibility with newer versions of GHC.
 
 ## New Features
 

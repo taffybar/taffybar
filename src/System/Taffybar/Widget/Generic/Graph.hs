@@ -231,16 +231,21 @@ graphNew cfg = liftIO $ do
        (drawGraph mv drawArea) ctx >> return True
   box <- Gtk.boxNew Gtk.OrientationHorizontal 1
 
-  case graphLabel cfg of
-    Nothing  -> return ()
-    Just lbl -> do
-      l <- Gtk.labelNew (Nothing :: Maybe T.Text)
-      Gtk.labelSetMarkup l lbl
-      Gtk.boxPackStart box l False False 0
 
   Gtk.widgetSetVexpand drawArea True
   Gtk.widgetSetVexpand box True
   Gtk.boxPackStart box drawArea True True 0
-  Gtk.widgetShowAll box
-  giBox <- Gtk.toWidget box
-  return (giBox, GH mv)
+
+  widget <- case graphLabel cfg of
+    Nothing  -> Gtk.toWidget box
+    Just labelText -> do
+      overlay <- Gtk.overlayNew
+      label <- Gtk.labelNew Nothing
+      Gtk.labelSetMarkup label labelText
+      Gtk.containerAdd overlay box
+      Gtk.overlayAddOverlay overlay label
+      Gtk.toWidget overlay
+
+  Gtk.widgetShowAll widget
+
+  return (widget, GH mv)
