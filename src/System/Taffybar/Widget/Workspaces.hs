@@ -457,6 +457,24 @@ onIconsChanged context = rateLimitFn context onIconsChanged' combineRequests
              wLog DEBUG (printf "Updating %s icons." $ show idx) >>
              updateWidget c (IconUpdate $ Set.toList wids))
 
+initializeWWC ::
+  WorkspaceWidgetController a => a -> Workspace -> ReaderT WorkspacesContext IO WWC
+initializeWWC controller ws =
+  WWC <$> updateWidget controller (WorkspaceUpdate ws)
+
+-- | A WrappingController can be used to wrap some child widget with another
+-- abitrary widget.
+data WrappingController = WrappingController
+  { wrappedWidget :: Gtk.Widget
+  , wrappedController :: WWC
+  }
+
+instance WorkspaceWidgetController WrappingController where
+  getWidget = lift . Gtk.toWidget . wrappedWidget
+  updateWidget wc update = do
+    updated <- updateWidget (wrappedController wc) update
+    return wc { wrappedController = updated }
+
 data WorkspaceContentsController = WorkspaceContentsController
   { containerWidget :: Gtk.Widget
   , contentsControllers :: [WWC]
@@ -477,19 +495,37 @@ buildContentsController constructors ws = do
       { containerWidget = widget
       , contentsControllers = controllers
       }
-  WWC <$> updateWidget tempController (WorkspaceUpdate ws)
+  initializeWWC tempController ws
 
 defaultBuildContentsController :: ControllerConstructor
 defaultBuildContentsController =
   buildContentsController [buildLabelController, buildIconController]
 
+bottomLeftAlignedBoxWrapper :: T.Text -> ControllerConstructor -> ControllerConstructor
+bottomLeftAlignedBoxWrapper boxClass constructor ws = do
+  controller <- constructor ws
+  widget <- getWidget controller
+  ebox <- Gtk.eventBoxNew
+  _ <- widgetSetClassGI ebox boxClass
+  Gtk.widgetSetHalign ebox Gtk.AlignStart
+  Gtk.widgetSetValign ebox Gtk.AlignEnd
+  Gtk.containerAdd ebox widget
+  wrapped <- Gtk.toWidget ebox
+  let wrappingController = WrappingController
+                           { wrappedWidget = wrapped
+                           , wrappedController = controller
+                           }
+  initializeWWC wrappingController ws
+
 buildLabelOverlayController :: ControllerConstructor
 buildLabelOverlayController =
-  buildOverlayController [buildIconController] [buildLabelController]
+  buildOverlayContentsController
+  [buildIconController]
+  [bottomLeftAlignedBoxWrapper "overlay-box" buildLabelController]
 
-buildOverlayController ::
+buildOverlayContentsController ::
   [ControllerConstructor] -> [ControllerConstructor] -> ControllerConstructor
-buildOverlayController mainConstructors overlayConstructors ws = do
+buildOverlayContentsController mainConstructors overlayConstructors ws = do
   controllers <- mapM ($ ws) mainConstructors
   overlayControllers <- mapM ($ ws) overlayConstructors
   ctx <- ask
@@ -501,19 +537,16 @@ buildOverlayController mainConstructors overlayConstructors ws = do
     _ <- widgetSetClassGI mainContents "contents"
     overlay <- Gtk.overlayNew
     Gtk.containerAdd overlay outerBox
-    overlayWidgets <- mapM (flip runReaderT ctx . getWidget) overlayControllers
-    mapM_ (\widget -> do
-            ebox <- Gtk.eventBoxNew
-            _ <- widgetSetClassGI ebox "overlay-box"
-            Gtk.containerAdd ebox widget
-            Gtk.overlayAddOverlay overlay ebox) overlayWidgets
+    mapM_ (flip runReaderT ctx . getWidget >=>
+                Gtk.overlayAddOverlay overlay) overlayControllers
+
     widget <- Gtk.toWidget overlay
     return
       WorkspaceContentsController
       { containerWidget = widget
       , contentsControllers = controllers ++ overlayControllers
       }
-  WWC <$> updateWidget tempController (WorkspaceUpdate ws)
+  initializeWWC tempController ws
 
 instance WorkspaceWidgetController WorkspaceContentsController where
   getWidget = return . containerWidget
@@ -537,7 +570,7 @@ buildLabelController ws = do
     lbl <- Gtk.labelNew Nothing
     _ <- widgetSetClassGI lbl "workspace-label"
     return LabelController { label = lbl }
-  WWC <$> updateWidget tempController (WorkspaceUpdate ws)
+  initializeWWC tempController ws
 
 instance WorkspaceWidgetController LabelController where
   getWidget = lift . Gtk.toWidget . label
@@ -618,7 +651,7 @@ buildIconController ws = do
       return
         IconController
         {iconsContainer = hbox, iconImages = [], iconWorkspace = ws}
-  WWC <$> updateWidget tempController (WorkspaceUpdate ws)
+  initializeWWC tempController ws
 
 instance WorkspaceWidgetController IconController where
   getWidget = lift . Gtk.toWidget . iconsContainer
