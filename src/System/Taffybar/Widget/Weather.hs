@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
--- | This module defines a simple textual weather widget that polls 
--- NOAA for weather data.  To find your weather station, you can use 
+-- | This module defines a simple textual weather widget that polls
+-- NOAA for weather data.  To find your weather station, you can use
 -- either of the following:
--- 
--- <https://www.weather.gov/tg/siteloc> 
+--
+-- <https://www.weather.gov/tg/siteloc>
 -- <https://cnrfc.noaa.gov/metar.php>
 --
 -- For example, Madison, WI is KMSN.
