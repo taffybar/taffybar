@@ -1,5 +1,10 @@
 # Unreleased
 
+## New Features
+
+ * New workspace widget builder `buildLabelOverlayController` that overlays the
+   workspace label on top of the the workspace icons.
+
 ## Changes
 
  * Graph labels are now overlayed on top of the graph instead of placed beside
