@@ -483,6 +483,38 @@ defaultBuildContentsController :: ControllerConstructor
 defaultBuildContentsController =
   buildContentsController [buildLabelController, buildIconController]
 
+buildLabelOverlayController :: ControllerConstructor
+buildLabelOverlayController =
+  buildOverlayController [buildIconController] [buildLabelController]
+
+buildOverlayController ::
+  [ControllerConstructor] -> [ControllerConstructor] -> ControllerConstructor
+buildOverlayController mainConstructors overlayConstructors ws = do
+  controllers <- mapM ($ ws) mainConstructors
+  overlayControllers <- mapM ($ ws) overlayConstructors
+  ctx <- ask
+  tempController <- lift $ do
+    mainContents <- Gtk.boxNew Gtk.OrientationHorizontal 0
+    mapM_ (flip runReaderT ctx . getWidget >=> Gtk.containerAdd mainContents)
+        controllers
+    outerBox <- Gtk.toWidget mainContents >>= buildPadBox
+    _ <- widgetSetClassGI mainContents "contents"
+    overlay <- Gtk.overlayNew
+    Gtk.containerAdd overlay outerBox
+    overlayWidgets <- mapM (flip runReaderT ctx . getWidget) overlayControllers
+    mapM_ (\widget -> do
+            ebox <- Gtk.eventBoxNew
+            _ <- widgetSetClassGI ebox "overlay-box"
+            Gtk.containerAdd ebox widget
+            Gtk.overlayAddOverlay overlay ebox) overlayWidgets
+    widget <- Gtk.toWidget overlay
+    return
+      WorkspaceContentsController
+      { containerWidget = widget
+      , contentsControllers = controllers ++ overlayControllers
+      }
+  WWC <$> updateWidget tempController (WorkspaceUpdate ws)
+
 instance WorkspaceWidgetController WorkspaceContentsController where
   getWidget = return . containerWidget
   updateWidget cc update = do
@@ -791,7 +823,7 @@ buildButtonController contentsBuilder workspace = do
     return $
       WWC
         WorkspaceButtonController
-        {button = ebox, buttonWorkspace = workspace, contentsController = cc}
+        { button = ebox, buttonWorkspace = workspace, contentsController = cc }
 
 switch :: (MonadIO m) => WorkspacesContext -> WorkspaceId -> m Bool
 switch ctx idx = do
