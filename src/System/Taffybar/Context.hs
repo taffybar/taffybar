@@ -191,7 +191,9 @@ buildBarWindow context barConfig = do
   window <- Gtk.windowNew Gtk.WindowTypeToplevel
   box <- Gtk.boxNew Gtk.OrientationHorizontal $ fromIntegral $ widgetSpacing barConfig
   _ <- widgetSetClassGI box "taffy-box"
-  centerBox <- Gtk.boxNew Gtk.OrientationHorizontal $ fromIntegral $ widgetSpacing barConfig
+  centerBox <- Gtk.boxNew Gtk.OrientationHorizontal $
+               fromIntegral $ widgetSpacing barConfig
+  alignCenter centerBox
   Gtk.boxSetCenterWidget box (Just centerBox)
 
   setupStrutWindow (strutConfig barConfig) window
@@ -203,7 +205,9 @@ buildBarWindow context barConfig = do
         runReaderT buildWidget thisContext >>= widgetAdd
       addToStart widget = Gtk.boxPackStart box widget False False 0
       addToEnd widget = Gtk.boxPackEnd box widget False False 0
-      addToCenter widget = Gtk.boxPackStart centerBox widget False False 0
+      addToCenter widget =
+        alignCenter widget >>
+        Gtk.boxPackStart centerBox widget False False 0
 
   logIO DEBUG "Building start widgets"
   mapM_ (addWidgetWith addToStart) (startWidgets barConfig)
