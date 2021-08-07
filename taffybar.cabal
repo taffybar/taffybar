@@ -32,11 +32,13 @@ library
                , ConfigFile
                , HStringTemplate >= 0.8 && < 0.9
                , X11 >= 1.5.0.1
+               , aeson
                , ansi-terminal
                , broadcast-chan >= 0.2.0.2
                , bytestring
                , conduit
                , containers
+               , coinbase-pro >= 0.9.2.2 && < 1.0.0.0
                , dbus >= 1.2.11 && < 2.0.0
                , dbus-hslogger >= 0.1.0.1 && < 0.2.0.0
                , directory
@@ -103,6 +105,7 @@ library
                  , System.Taffybar.Information.CPU
                  , System.Taffybar.Information.CPU2
                  , System.Taffybar.Information.Chrome
+                 , System.Taffybar.Information.Crypto
                  , System.Taffybar.Information.DiskIO
                  , System.Taffybar.Information.EWMHDesktopInfo
                  , System.Taffybar.Information.MPRIS2
@@ -120,6 +123,7 @@ library
                  , System.Taffybar.Widget.Battery
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
+                 , System.Taffybar.Widget.Crypto
                  , System.Taffybar.Widget.Decorators
                  , System.Taffybar.Widget.DiskIOMonitor
                  , System.Taffybar.Widget.FSMonitor

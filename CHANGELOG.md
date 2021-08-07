@@ -1,6 +1,8 @@
 # Unreleased
 
 ## New Features
+ * A new module System.Taffybar.Widget.Crypto that contains widgets that display
+   the prices of crypto assets with pretty icons was added.
 
  * `textBatteryNewLabelAction` provides a version of the text battery widget to
    which a custom label updater function can be provided.

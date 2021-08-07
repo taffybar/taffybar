@@ -12,15 +12,24 @@
       haskellPackages = prev.haskellPackages.override (old: {
         overrides = prev.lib.composeExtensions (old.overrides or (_: _: {}))
         (hself: hsuper: {
+
           taffybar =
             hself.callCabal2nix "taffybar"
             (git-ignore-nix.gitIgnoreSource ./.)
             { inherit (final) gtk3;  };
+
+          coinbase-pro = hself.callHackageDirect {
+              pkg = "coinbase-pro";
+              ver = "0.9.2.2";
+              sha256 = "sha256-ZFEcq9aO+72JSVBg0xWi188mz5WK1NTgs6ZGYHtO0OE=";
+          } { };
+
           dyre = prev.haskell.lib.dontCheck (hself.callHackageDirect {
             pkg = "dyre";
             ver = "0.9.1";
             sha256 = "sha256-3ClPPbNm5wQI+QHaR0Rtiye2taSTF3IlWgfanud6wLg=";
           } { });
+
         });
       });
     };
