@@ -201,7 +201,8 @@ registerForUPowerPropertyChanges properties signalHandler = do
 
 -- | Monitor the DisplayDevice for changes, writing a new "BatteryInfo" object
 -- to returned "MVar" and "Chan" objects
-monitorDisplayBattery :: [String] -> TaffyIO (BroadcastChan In BatteryInfo, MVar BatteryInfo)
+monitorDisplayBattery ::
+  [String] -> TaffyIO (BroadcastChan In BatteryInfo, MVar BatteryInfo)
 monitorDisplayBattery propertiesToMonitor = do
   lift $ batteryLog DEBUG "Starting Battery Monitor"
   client <- asks systemDBusClient
