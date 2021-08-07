@@ -33,10 +33,10 @@ import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
 import           Prelude
 import           System.Directory
-import           System.Environment.XDG.BaseDir
 import           System.FilePath.Posix
 import           System.Log.Logger
 import           System.Taffybar.Context hiding (logIO)
+import           System.Taffybar.Util
 import           Text.Printf
 import           Text.Read ( readMaybe )
 
@@ -90,11 +90,8 @@ taffybarTogglePath = "/taffybar/toggle"
 taffybarToggleInterface :: InterfaceName
 taffybarToggleInterface = "taffybar.toggle"
 
-taffyDir :: IO FilePath
-taffyDir = getUserDataDir "taffybar"
-
 toggleStateFile :: IO FilePath
-toggleStateFile = (</> "toggle_state.dat") <$> taffyDir
+toggleStateFile = (</> "toggle_state.dat") <$> taffyStateDir
 
 newtype TogglesMVar = TogglesMVar (MV.MVar (M.Map Int Bool))
 
@@ -115,7 +112,7 @@ exportTogglesInterface :: TaffyIO ()
 exportTogglesInterface = do
   TogglesMVar enabledVar <- getTogglesVar
   ctx <- ask
-  lift $ taffyDir >>= createDirectoryIfMissing True
+  lift $ taffyStateDir >>= createDirectoryIfMissing True
   stateFile <- lift toggleStateFile
   let toggleTaffyOnMon fn mon = flip runReaderT ctx $ do
         lift $ MV.modifyMVar_ enabledVar $ \numToEnabled -> do
