@@ -1,6 +1,7 @@
-module System.Taffybar.Widget.Text.MemoryMonitor (textMemoryMonitorNew) where
+module System.Taffybar.Widget.Text.MemoryMonitor (textMemoryMonitorNew, showMemoryInfo) where
 
 import Control.Monad.IO.Class ( MonadIO )
+import qualified Data.Text as T
 import qualified Text.StringTemplate as ST
 import System.Taffybar.Information.Memory
 import System.Taffybar.Widget.Generic.PollingLabel ( pollingLabelNew )
@@ -14,18 +15,18 @@ textMemoryMonitorNew :: MonadIO m
                      -> Double -- ^ Polling period in seconds.
                      -> m GI.Gtk.Widget
 textMemoryMonitorNew fmt period = do
-    label <- pollingLabelNew period callback
+    label <- pollingLabelNew period (showMemoryInfo fmt 3 <$> parseMeminfo)
     GI.Gtk.toWidget label
-    where
-      callback = do
-        info <- parseMeminfo
-        let template = ST.newSTMP fmt
-        let labels = ["used", "total", "free", "buffer", "cache", "rest", "available"]
-        let actions = [memoryUsed, memoryTotal, memoryFree, memoryBuffer, memoryCache, memoryRest, memoryAvailable]
-            actions' = map ((toAuto 3).) actions
-        let stats = [f info | f <- actions']
-        let template' = ST.setManyAttrib (zip labels stats) template
-        return $ ST.render template'
+
+showMemoryInfo :: String -> Int -> MemoryInfo -> T.Text
+showMemoryInfo fmt prec info =
+  let template = ST.newSTMP fmt
+      labels = ["used", "total", "free", "buffer", "cache", "rest", "available"]
+      actions = [memoryUsed, memoryTotal, memoryFree, memoryBuffer, memoryCache, memoryRest, memoryAvailable]
+      actions' = map (toAuto prec .) actions
+      stats = [f info | f <- actions']
+      template' = ST.setManyAttrib (zip labels stats) template
+  in ST.render template'
 
 toAuto :: Int -> Double -> String
 toAuto prec value = printf "%.*f%s" p v unit
