@@ -150,8 +150,6 @@ data WorkspacesConfig =
   WorkspacesConfig
   { widgetBuilder :: ControllerConstructor
   , widgetGap :: Int
-  , underlineHeight :: Int
-  , underlinePadding :: Int
   , maxIcons :: Maybe Int
   , minIcons :: Int
   , getWindowIconPixbuf :: WindowIconPixbufGetter
@@ -169,8 +167,6 @@ defaultWorkspacesConfig =
   WorkspacesConfig
   { widgetBuilder = buildButtonController defaultBuildContentsController
   , widgetGap = 0
-  , underlineHeight = 4
-  , underlinePadding = 1
   , maxIcons = Nothing
   , minIcons = 0
   , getWindowIconPixbuf = defaultGetWindowIconPixbuf
