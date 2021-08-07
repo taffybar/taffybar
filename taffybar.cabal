@@ -41,6 +41,7 @@ library
                , ansi-terminal
                , broadcast-chan >= 0.2.0.2
                , bytestring
+               , conduit
                , containers
                , dbus >= 1.2.11 && < 2.0.0
                , dbus-hslogger >= 0.1.0.1 && < 0.2.0.0
@@ -64,6 +65,7 @@ library
                , haskell-gi >= 0.24
                , haskell-gi-base >= 0.24
                , hslogger
+               , http-conduit
                , http-client >= 0.5
                , http-client-tls
                , http-types

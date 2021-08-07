@@ -13,26 +13,33 @@
 
 module System.Taffybar.Util where
 
+import           Conduit
 import           Control.Applicative
 import           Control.Arrow ((&&&))
 import           Control.Concurrent
 import           Control.Exception.Base
 import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
-import           Data.Maybe
 import           Data.Either.Combinators
 import           Data.GI.Base.GError
 import qualified Data.GI.Gtk.Threading as Gtk
+import           Data.Maybe
 import qualified Data.Text as T
 import           Data.Tuple.Sequence
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
+import           Network.HTTP.Simple
+import           System.Directory
+import           System.Environment.XDG.BaseDir
 import           System.Exit (ExitCode (..))
+import           System.FilePath.Posix
 import           System.Log.Logger
 import qualified System.Process as P
 import           Text.Printf
+
+
+taffyStateDir :: IO FilePath
+taffyStateDir = getUserDataDir "taffybar"
 
 liftReader ::
   Monad m => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b
@@ -87,12 +94,15 @@ runCommand cmd args = liftIO $ do
     ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) stderr
 
 -- | Execute the provided IO action at the provided interval.
-foreverWithDelay :: RealFrac d => d -> IO a -> IO ThreadId
+foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO a -> m ThreadId
 foreverWithDelay delay action =
   foreverWithVariableDelay $ action >> return delay
 
-foreverWithVariableDelay :: RealFrac d => IO d -> IO ThreadId
-foreverWithVariableDelay action = forkIO $ action >>= delayThenAction
+-- | Execute the provided IO action, and use the value it returns to decide how
+-- long to wait until executing it again. The value returned by the action is
+-- interpreted as a number of seconds.
+foreverWithVariableDelay :: (MonadIO m, RealFrac d) => IO d -> m ThreadId
+foreverWithVariableDelay action = liftIO $ forkIO $ action >>= delayThenAction
   where delayThenAction delay =
           threadDelay (floor $ delay * 1000000) >> action >>= delayThenAction
 
@@ -149,6 +159,12 @@ getPixbufFromFilePath filepath = do
        logM "System.Taffybar.WindowIcon" WARNING $
             printf "Failed to load icon from filepath %s" filepath
   return result
+
+downloadURIToPath :: Request -> FilePath -> IO ()
+downloadURIToPath uri filepath =
+  createDirectoryIfMissing True directory >>
+  (runConduitRes $ httpSource uri getResponseBody .| sinkFile filepath)
+  where (directory, _) = splitFileName filepath
 
 postGUIASync :: IO () -> IO ()
 postGUIASync = Gtk.postGUIASync
