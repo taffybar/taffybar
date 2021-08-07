@@ -6,9 +6,10 @@ import qualified GI.Gtk as Gtk
 import           System.Taffybar.Widget.Util
 
 -- | Wrap a widget with two container boxes. The inner box will have the class
--- "InnerPad", and the outer box will have the class "OuterPad". These boxes can
--- be used to add padding between the outline of the widget and its contents, or
--- for the purpose of displaying a different background behind the widget.
+-- "inner-pad", and the outer box will have the class "outer-pad". These boxes
+-- can be used to add padding between the outline of the widget and its
+-- contents, or for the purpose of displaying a different background behind the
+-- widget.
 buildPadBox :: MonadIO m => Gtk.Widget -> m Gtk.Widget
 buildPadBox contents = liftIO $ do
   innerBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
