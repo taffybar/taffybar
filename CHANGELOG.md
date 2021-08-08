@@ -5,10 +5,18 @@
  * New workspace widget builder `buildLabelOverlayController` that overlays the
    workspace label on top of the the workspace icons.
 
+ * It is now possible to customize the player widgets of the MPRIS2 Widget by
+   using the new function `mpris2NewWithConfig`.
+
+ * Classeses are added to the MPRIS2 Widget to indicate whether or not it has
+   visible player children.
+
 ## Changes
 
  * Graph labels are now overlayed on top of the graph instead of placed beside
    them.
+
+ * MPRIS2 Widgets will remain visible when their players are in the paused state.
 
 # 3.3.0
 

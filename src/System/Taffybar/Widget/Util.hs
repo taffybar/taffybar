@@ -21,6 +21,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Bifunctor ( first )
 import           Data.Functor ( ($>) )
+import           Data.GI.Base.Overloading (IsDescendantOf)
 import           Data.Int
 import qualified Data.Text as T
 import qualified GI.Gdk as D
@@ -28,8 +29,8 @@ import qualified GI.GdkPixbuf.Objects.Pixbuf as GI
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 import           GI.Gtk as Gtk
 import           StatusNotifier.Tray (scalePixbufToSize)
-import           System.FilePath.Posix
 import           System.Environment.XDG.DesktopEntry
+import           System.FilePath.Posix
 import           System.Taffybar.Util
 import           Text.Printf
 
@@ -177,3 +178,17 @@ setMinWidth :: (Gtk.IsWidget w, MonadIO m) => Int -> w -> m w
 setMinWidth width widget = liftIO $ do
   Gtk.widgetSetSizeRequest widget (fromIntegral width) (-1)
   return widget
+
+addClassIfMissing ::
+  (IsDescendantOf Widget a, MonadIO m, GObject a) => T.Text -> a -> m ()
+addClassIfMissing klass widget = do
+  context <- Gtk.widgetGetStyleContext widget
+  Gtk.styleContextHasClass context klass >>=
+       (`when` Gtk.styleContextAddClass context klass) . not
+
+removeClassIfPresent ::
+  (IsDescendantOf Widget a, MonadIO m, GObject a) => T.Text -> a -> m ()
+removeClassIfPresent klass widget = do
+  context <- Gtk.widgetGetStyleContext widget
+  Gtk.styleContextHasClass context klass >>=
+       (`when` Gtk.styleContextRemoveClass context klass)

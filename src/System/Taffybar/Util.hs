@@ -171,3 +171,11 @@ postGUIASync = Gtk.postGUIASync
 
 postGUISync :: IO () -> IO ()
 postGUISync = Gtk.postGUISync
+
+anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
+anyM _ []       = return False
+anyM p (x:xs)   = do
+        q <- p x
+        if q
+                then return True
+                else anyM p xs
