@@ -1,6 +1,6 @@
 module System.Taffybar.Widget.NetworkGraph where
 
-import Data.Foldable (traverse_)
+import Data.Foldable (for_)
 import qualified GI.Gtk
 import GI.Gtk.Objects.Widget (widgetSetTooltipMarkup)
 import System.Taffybar.Context
@@ -16,6 +16,7 @@ data NetworkGraphConfig = NetworkGraphConfig
   { networkGraphGraphConfig :: GraphConfig
   , networkGraphTooltipFormat :: Maybe (String, Int)
   , networkGraphScale :: Double -> Double
+  , interfacesFilter :: String -> Bool
   }
 
 defaultNetworkGraphConfig :: NetworkGraphConfig
@@ -23,22 +24,24 @@ defaultNetworkGraphConfig = NetworkGraphConfig
   { networkGraphGraphConfig = defaultGraphConfig
   , networkGraphTooltipFormat = Just (defaultNetFormat, 3)
   , networkGraphScale = logBase $ 2 ** 32
+  , interfacesFilter = const True
   }
 
 networkGraphNew :: GraphConfig -> Maybe [String] -> TaffyIO GI.Gtk.Widget
-networkGraphNew config =
+networkGraphNew config interfaces =
   networkGraphNewWith defaultNetworkGraphConfig
-                        { networkGraphGraphConfig = config }
+                        { networkGraphGraphConfig = config
+                        , interfacesFilter = maybe (const True) (flip elem) interfaces
+                        }
 
-networkGraphNewWith :: NetworkGraphConfig -> Maybe [String] -> TaffyIO GI.Gtk.Widget
-networkGraphNewWith config interfaces = do
+networkGraphNewWith :: NetworkGraphConfig -> TaffyIO GI.Gtk.Widget
+networkGraphNewWith config = do
   NetworkInfoChan chan <- getNetworkChan
-  let filterFn = maybe (const True) (flip elem) interfaces
-      getUpDown = sumSpeeds . map snd . filter (filterFn . fst)
+  let getUpDown = sumSpeeds . map snd . filter (interfacesFilter config . fst)
       toSample (up, down) = map (networkGraphScale config . fromRational) [up, down]
       sampleBuilder = return . toSample . getUpDown
   widget <- channelGraphNew (networkGraphGraphConfig config) chan sampleBuilder
-  flip traverse_ (networkGraphTooltipFormat config) $ \(format, precision) ->
+  for_ (networkGraphTooltipFormat config) $ \(format, precision) ->
     channelWidgetNew widget chan $ \speedInfo ->
       let (up, down) = sumSpeeds $ map snd speedInfo
           tooltip = showInfo format precision (fromRational down, fromRational up)
