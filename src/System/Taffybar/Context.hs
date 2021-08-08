@@ -205,14 +205,14 @@ buildBarWindow context barConfig = do
   let addWidgetWith widgetAdd (count, buildWidget) =
         runReaderT buildWidget thisContext >>= widgetAdd count
       addToStart count widget = do
-        _ <- widgetSetClassGI box $ T.pack $ printf "left-%s" (count :: Int)
+        _ <- widgetSetClassGI box $ T.pack $ printf "left-%d" (count :: Int)
         Gtk.boxPackStart box widget False False 0
       addToEnd count widget = do
-        _ <- widgetSetClassGI box $ T.pack $ printf "right-%s" (count :: Int)
+        _ <- widgetSetClassGI box $ T.pack $ printf "right-%d" (count :: Int)
         Gtk.boxPackEnd box widget False False 0
       addToCenter count widget = do
         alignCenter widget
-        _ <- widgetSetClassGI box $ T.pack $ printf "center-%s" (count :: Int)
+        _ <- widgetSetClassGI box $ T.pack $ printf "center-%d" (count :: Int)
         Gtk.boxPackStart centerBox widget False False 0
 
   logIO DEBUG "Building start widgets"
