@@ -13,7 +13,7 @@ import           System.Taffybar.Widget.Util
 buildPadBox :: MonadIO m => Gtk.Widget -> m Gtk.Widget
 buildPadBox contents = liftIO $ do
   innerBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
-  outerBox <- Gtk.eventBoxNew
+  outerBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
   Gtk.containerAdd innerBox contents
   Gtk.containerAdd outerBox innerBox
   _ <- widgetSetClassGI innerBox "inner-pad"
