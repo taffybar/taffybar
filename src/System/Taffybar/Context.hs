@@ -33,6 +33,7 @@ import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
 import           Data.List
 import qualified Data.Map as M
+import qualified Data.Text as T
 import           Data.Tuple.Select
 import           Data.Tuple.Sequence
 import           Data.Unique
@@ -201,20 +202,25 @@ buildBarWindow context barConfig = do
 
   _ <- widgetSetClassGI window "taffy-window"
 
-  let addWidgetWith widgetAdd buildWidget =
-        runReaderT buildWidget thisContext >>= widgetAdd
-      addToStart widget = Gtk.boxPackStart box widget False False 0
-      addToEnd widget = Gtk.boxPackEnd box widget False False 0
-      addToCenter widget =
-        alignCenter widget >>
+  let addWidgetWith widgetAdd (count, buildWidget) =
+        runReaderT buildWidget thisContext >>= widgetAdd count
+      addToStart count widget = do
+        _ <- widgetSetClassGI box $ T.pack $ printf "left-%s" (count :: Int)
+        Gtk.boxPackStart box widget False False 0
+      addToEnd count widget = do
+        _ <- widgetSetClassGI box $ T.pack $ printf "right-%s" (count :: Int)
+        Gtk.boxPackEnd box widget False False 0
+      addToCenter count widget = do
+        alignCenter widget
+        _ <- widgetSetClassGI box $ T.pack $ printf "center-%s" (count :: Int)
         Gtk.boxPackStart centerBox widget False False 0
 
   logIO DEBUG "Building start widgets"
-  mapM_ (addWidgetWith addToStart) (startWidgets barConfig)
+  mapM_ (addWidgetWith addToStart) $ zip [1..] (startWidgets barConfig)
   logIO DEBUG "Building center widgets"
-  mapM_ (addWidgetWith addToCenter) (centerWidgets barConfig)
+  mapM_ (addWidgetWith addToCenter) $ zip [1..] (centerWidgets barConfig)
   logIO DEBUG "Building end widgets"
-  mapM_ (addWidgetWith addToEnd) (endWidgets barConfig)
+  mapM_ (addWidgetWith addToEnd) $ zip [1..] (endWidgets barConfig)
 
   makeWindowTransparent window
 
