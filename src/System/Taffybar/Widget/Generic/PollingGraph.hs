@@ -8,6 +8,7 @@ module System.Taffybar.Widget.Generic.PollingGraph (
   GraphStyle(..),
   -- * Constructors and accessors
   pollingGraphNew,
+  pollingGraphNewWithTooltip,
   defaultGraphConfig
   ) where
 
@@ -15,14 +16,15 @@ import           Control.Concurrent
 import qualified Control.Exception.Enclosed as E
 import           Control.Monad
 import           Control.Monad.IO.Class
+import qualified Data.Text as T
 import           GI.Gtk
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.Graph
 
-pollingGraphNew
+pollingGraphNewWithTooltip
   :: MonadIO m
-  => GraphConfig -> Double -> IO [Double] -> m GI.Gtk.Widget
-pollingGraphNew cfg pollSeconds action = liftIO $ do
+  => GraphConfig -> Double -> IO ([Double], Maybe T.Text) -> m GI.Gtk.Widget
+pollingGraphNewWithTooltip cfg pollSeconds action = liftIO $ do
   (graphWidget, graphHandle) <- graphNew cfg
 
   _ <- onWidgetRealize graphWidget $ do
@@ -30,7 +32,15 @@ pollingGraphNew cfg pollSeconds action = liftIO $ do
          esample <- E.tryAny action
          case esample of
            Left _ -> return ()
-           Right sample -> graphAddSample graphHandle sample
+           Right (sample, tooltipStr) -> do
+             graphAddSample graphHandle sample
+             widgetSetTooltipMarkup graphWidget tooltipStr
        void $ onWidgetUnrealize graphWidget $ killThread sampleThread
 
   return graphWidget
+
+pollingGraphNew
+  :: MonadIO m
+  => GraphConfig -> Double -> IO [Double] -> m GI.Gtk.Widget
+pollingGraphNew cfg pollSeconds action =
+  pollingGraphNewWithTooltip cfg pollSeconds $ fmap (, Nothing) action
