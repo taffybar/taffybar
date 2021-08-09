@@ -14,6 +14,8 @@ buildPadBox :: MonadIO m => Gtk.Widget -> m Gtk.Widget
 buildPadBox contents = liftIO $ do
   innerBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
   outerBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
+  Gtk.setWidgetValign innerBox Gtk.AlignFill
+  Gtk.setWidgetValign outerBox Gtk.AlignFill
   Gtk.containerAdd innerBox contents
   Gtk.containerAdd outerBox innerBox
   _ <- widgetSetClassGI innerBox "inner-pad"

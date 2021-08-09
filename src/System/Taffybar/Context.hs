@@ -196,8 +196,10 @@ buildBarWindow context barConfig = do
   centerBox <- Gtk.boxNew Gtk.OrientationHorizontal $
                fromIntegral $ widgetSpacing barConfig
 
+  _ <- widgetSetClassGI centerBox "center-box"
   Gtk.widgetSetVexpand centerBox True
-  alignCenter centerBox
+  Gtk.setWidgetValign centerBox Gtk.AlignFill
+  Gtk.setWidgetHalign centerBox Gtk.AlignCenter
   Gtk.boxSetCenterWidget box (Just centerBox)
 
   setupStrutWindow (strutConfig barConfig) window
@@ -214,7 +216,6 @@ buildBarWindow context barConfig = do
         _ <- widgetSetClassGI widget $ T.pack $ printf "right-%d" (count :: Int)
         Gtk.boxPackEnd box widget False False 0
       addToCenter count widget = do
-        alignCenter widget
         _ <- widgetSetClassGI widget $ T.pack $ printf "center-%d" (count :: Int)
         Gtk.boxPackStart centerBox widget False False 0
 
