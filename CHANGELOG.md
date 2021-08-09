@@ -2,6 +2,12 @@
 
 ## New Features
 
+ * `textBatteryNewLabelAction` provides a version of the text battery widget to
+   which a custom label updater function can be provided.
+
+ * The textual battery widget now applies classes according to its charge level
+   that can be used to style the battery text with css.
+
  * New workspace widget builder `buildLabelOverlayController` that overlays the
    workspace label on top of the the workspace icons.
 

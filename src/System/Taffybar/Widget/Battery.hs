@@ -27,6 +27,7 @@ import           Control.Monad.Trans.Reader
 import           Data.Int (Int64)
 import qualified Data.Text as T
 import           GI.Gtk
+import           GI.Gtk as Gtk
 import           Prelude
 import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Taffybar.Context
@@ -34,6 +35,7 @@ import           System.Taffybar.Information.Battery
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.ChannelWidget
+import           System.Taffybar.Widget.Util hiding (themeLoadFlags)
 import           Text.Printf
 import           Text.StringTemplate
 
@@ -85,19 +87,60 @@ formatBattInfo info fmt =
 -- string where $percentage$ is replaced with the percentage of battery
 -- remaining and $time$ is replaced with the time until the battery is fully
 -- charged/discharged.
-textBatteryNew
-  :: String -- ^ Display format
-  -> TaffyIO Widget
-textBatteryNew format = do
+textBatteryNew :: String -> TaffyIO Widget
+textBatteryNew format = textBatteryNewLabelAction labelSetter
+  where labelSetter label info = do
+          setBatteryStateClasses defaultBatteryClassesConfig label info
+          labelSetMarkup label $
+                         formatBattInfo (getBatteryWidgetInfo info) format
+
+data BatteryClassesConfig = BatteryClassesConfig
+  { batteryHighThreshold :: Double
+  , batteryLowThreshold :: Double
+  , batteryCriticalThreshold :: Double
+  }
+
+defaultBatteryClassesConfig :: BatteryClassesConfig
+defaultBatteryClassesConfig =
+  BatteryClassesConfig
+  { batteryHighThreshold = 80
+  , batteryLowThreshold = 20
+  , batteryCriticalThreshold = 5
+  }
+
+setBatteryStateClasses ::
+  MonadIO m => BatteryClassesConfig -> Gtk.Label -> BatteryInfo -> m ()
+setBatteryStateClasses config label info = do
+  case batteryState info of
+    BatteryStateCharging -> addClassIfMissing "charging" label >>
+                            removeClassIfPresent "discharging" label
+    BatteryStateDischarging -> addClassIfMissing "discharging" label >>
+                               removeClassIfPresent "charging" label
+    _ -> removeClassIfPresent "charging" label >>
+         removeClassIfPresent "discharging" label
+
+  classIf "high" $ percentage >= batteryHighThreshold config
+  classIf "low" $ percentage <= batteryLowThreshold config
+  classIf "critical" $ percentage <= batteryCriticalThreshold config
+  where percentage = batteryPercentage info
+        classIf klass condition =
+          if condition
+          then addClassIfMissing klass label
+          else removeClassIfPresent klass label
+
+-- | Like `textBatteryNew` but provides a more general way to update the label
+-- widget.
+textBatteryNewLabelAction ::
+  (Gtk.Label -> BatteryInfo -> TaffyIO ()) -> TaffyIO Widget
+textBatteryNewLabelAction labelSetter = do
   chan <- getDisplayBatteryChan
   ctx <- ask
-  let getLabelText info = formatBattInfo (getBatteryWidgetInfo info) format
-      getBatteryInfoIO = runReaderT getDisplayBatteryInfo ctx
   liftIO $ do
-    label <- getLabelText <$> getBatteryInfoIO >>= labelNew . Just
-    let setMarkup text = postGUIASync $ labelSetMarkup label text
-        updateWidget = setMarkup . getLabelText
-    void $ onWidgetRealize label $ getLabelText <$> getBatteryInfoIO >>= setMarkup
+    label <- labelNew Nothing
+    let updateWidget =
+          postGUIASync . flip runReaderT ctx . labelSetter label
+    void $ onWidgetRealize label $
+         runReaderT getDisplayBatteryInfo ctx >>= updateWidget
     toWidget =<< channelWidgetNew label chan updateWidget
 
 themeLoadFlags :: [IconLookupFlags]
