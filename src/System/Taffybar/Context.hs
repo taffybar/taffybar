@@ -195,6 +195,8 @@ buildBarWindow context barConfig = do
   _ <- widgetSetClassGI box "taffy-box"
   centerBox <- Gtk.boxNew Gtk.OrientationHorizontal $
                fromIntegral $ widgetSpacing barConfig
+
+  Gtk.widgetSetVexpand centerBox True
   alignCenter centerBox
   Gtk.boxSetCenterWidget box (Just centerBox)
 

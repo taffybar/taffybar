@@ -18,6 +18,10 @@
 
  * MPRIS2 Widgets will remain visible when their players are in the paused state.
 
+## Bug Fixes
+
+ * Center widgets will now properly expand vertically.
+
 # 3.3.0
 
 ## Bug Fixes
