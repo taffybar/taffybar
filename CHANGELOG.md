@@ -17,6 +17,9 @@
  * Classeses are added to the MPRIS2 Widget to indicate whether or not it has
    visible player children.
 
+ * The default MPRIS2 player widget now sends the play pause message to the
+   relevant player when clicked.
+
 ## Changes
 
  * Graph labels are now overlayed on top of the graph instead of placed beside

@@ -88,7 +88,7 @@ defaultMPRIS2Config =
 
 data MPRIS2PlayerWidget = MPRIS2PlayerWidget
   { playerLabel :: Gtk.Label
-  , playerGrid :: Gtk.Grid
+  , playerWidget :: Gtk.Widget
   }
 
 data SimpleMPRIS2PlayerConfig = SimpleMPRIS2PlayerConfig
@@ -134,9 +134,9 @@ simplePlayerWidget ::
   SimpleMPRIS2PlayerConfig -> UpdateMPRIS2PlayerWidget MPRIS2PlayerWidget
 
 simplePlayerWidget _ _
-                     (Just p@MPRIS2PlayerWidget { playerGrid = grid })
+                     (Just p@MPRIS2PlayerWidget { playerWidget = widget })
                      Nothing =
-                       lift $ (Gtk.widgetHide grid >> return p)
+                       lift $ (Gtk.widgetHide widget >> return p)
 
 simplePlayerWidget c addToParent Nothing
                      np@(Just NowPlaying { npBusName = busName }) = do
@@ -147,29 +147,35 @@ simplePlayerWidget c addToParent Nothing
     image <- autoSizeImageNew (loadIconAtSize client busName) Gtk.OrientationHorizontal
     playerBox <- Gtk.gridNew
     label <- Gtk.labelNew Nothing
+    ebox <- Gtk.eventBoxNew
+    _ <- Gtk.onWidgetButtonPressEvent ebox $
+         const $ playPause client busName >> return True
     Gtk.containerAdd playerBox image
     Gtk.containerAdd playerBox label
+    Gtk.containerAdd ebox playerBox
     vFillCenter playerBox
-    addToParent playerBox
+    addToParent ebox
     Gtk.widgetSetVexpand playerBox True
     Gtk.widgetSetName playerBox $ T.pack $ formatBusName busName
-    Gtk.widgetHide playerBox
+    Gtk.widgetShowAll ebox
+    Gtk.widgetHide ebox
+    widget <- Gtk.toWidget ebox
     let widgetData =
-          MPRIS2PlayerWidget { playerLabel = label, playerGrid = playerBox }
+          MPRIS2PlayerWidget { playerLabel = label, playerWidget = widget }
     flip runReaderT ctx $
          simplePlayerWidget c addToParent (Just widgetData) np
 
 simplePlayerWidget config _
                      (Just w@MPRIS2PlayerWidget
                              { playerLabel = label
-                             , playerGrid = playerBox
+                             , playerWidget = widget
                              }) (Just nowPlaying) = lift $ do
   mprisLog DEBUG "Setting state %s" nowPlaying
   Gtk.labelSetMarkup label =<< setNowPlayingLabel config nowPlaying
   shouldShow <- showPlayerWidgetFn config nowPlaying
   if shouldShow
-  then Gtk.widgetShowAll playerBox
-  else Gtk.widgetHide playerBox
+  then Gtk.widgetShowAll widget
+  else Gtk.widgetHide widget
   return w
 
 simplePlayerWidget _ _ _ _ =
