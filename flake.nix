@@ -30,6 +30,7 @@
     devShell = pkgs.haskellPackages.shellFor {
       packages = p: [ p.taffybar ];
     };
+    buildInputs = [ pkgs.haskellPackages.cabal-install ];
     defaultPackage = pkgs.haskellPackages.taffybar;
   }) // { inherit overlay overlays; } ;
 }
