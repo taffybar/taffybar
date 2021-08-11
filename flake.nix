@@ -4,7 +4,9 @@
     git-ignore-nix.url = github:IvanMalison/gitignore.nix/master;
     gtk-sni-tray.url = github:taffybar/gtk-sni-tray/master;
   };
-  outputs = { self, flake-utils, nixpkgs, git-ignore-nix, gtk-sni-tray }:
+  outputs = {
+    self, flake-utils, nixpkgs, git-ignore-nix, gtk-sni-tray,
+  }:
   let
     overlay = final: prev: {
       haskellPackages = prev.haskellPackages.override (old: {
@@ -29,6 +31,9 @@
   rec {
     devShell = pkgs.haskellPackages.shellFor {
       packages = p: [ p.taffybar ];
+      nativeBuildInputs = with pkgs.haskellPackages; [
+        cabal-install hlint ghcid ormolu implicit-hie haskell-language-server
+      ];
     };
     buildInputs = [ pkgs.haskellPackages.cabal-install ];
     defaultPackage = pkgs.haskellPackages.taffybar;
