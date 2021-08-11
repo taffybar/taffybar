@@ -1,6 +1,11 @@
 name: taffybar
 version: 3.3.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
+description:
+  Taffybar is a gtk+3 (through gi-gtk) based desktop information bar, intended
+  primarily for use with XMonad, though it can also function alongside other EWMH
+  compliant window managers. It is similar in spirit to xmobar, but it differs in
+  that it gives up some simplicity for a reasonable helping of eye candy.
 license: BSD3
 license-file: LICENSE
 author: Ivan Malison
@@ -20,12 +25,6 @@ extra-source-files:
   dbus-xml/org.freedesktop.UPower.xml
   dbus-xml/org.mpris.MediaPlayer2.Player.xml
   dbus-xml/org.mpris.MediaPlayer2.xml
-
-description:
-  Taffybar is a gtk+3 (through gi-gtk) based desktop information bar, intended
-  primarily for use with XMonad, though it can also function alongside other EWMH
-  compliant window managers. It is similar in spirit to xmobar, but it differs in
-  that it gives up some simplicity for a reasonable helping of eye candy.
 
 library
   default-extensions:
