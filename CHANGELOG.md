@@ -20,12 +20,24 @@
  * The default MPRIS2 player widget now sends the play pause message to the
    relevant player when clicked.
 
+ * New `pollingGraphNewWithTooltip` that allows to specify a tooltip.
+
+ * New `networkGraphNewWith` that allows to configure a tooltip format, scaling
+   and network interfaces via function.
+
+ * New `showMemoryInfo` exposed from `MemoryMonitor` that can be used to format
+   tooltips.
+
 ## Changes
 
  * Graph labels are now overlayed on top of the graph instead of placed beside
    them.
 
  * MPRIS2 Widgets will remain visible when their players are in the paused state.
+
+ * Network graph will have a tooltip by default.
+
+ * The SNI Tray will respect `ItemIsMenu` property to handle mouse left click.
 
 ## Bug Fixes
 
