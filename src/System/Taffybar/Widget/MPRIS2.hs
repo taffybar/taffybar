@@ -38,7 +38,7 @@ import           GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import           System.Environment.XDG.DesktopEntry
 import           System.Log.Logger
 import           System.Taffybar.Context
-import           System.Taffybar.DBus.Client.MPRIS2
+import qualified System.Taffybar.DBus.Client.MPRIS2 as MPRIS2DBus
 import           System.Taffybar.Information.MPRIS2
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage
@@ -122,7 +122,7 @@ loadIconAtSize client busName size =
       loadDefault
   in
     either logErrorAndLoadDefault return =<<
-    runExceptT (ExceptT (left show <$> getDesktopEntry client busName)
+    runExceptT (ExceptT (left show <$> MPRIS2DBus.getDesktopEntry client busName)
                           >>= makeExcept "Failed to get desktop entry"
                               getDirectoryEntryDefault
                           >>= makeExcept "Failed to get image"
@@ -136,7 +136,7 @@ simplePlayerWidget ::
 simplePlayerWidget _ _
                      (Just p@MPRIS2PlayerWidget { playerWidget = widget })
                      Nothing =
-                       lift $ (Gtk.widgetHide widget >> return p)
+                       lift $ Gtk.widgetHide widget >> return p
 
 simplePlayerWidget c addToParent Nothing
                      np@(Just NowPlaying { npBusName = busName }) = do
@@ -149,7 +149,7 @@ simplePlayerWidget c addToParent Nothing
     label <- Gtk.labelNew Nothing
     ebox <- Gtk.eventBoxNew
     _ <- Gtk.onWidgetButtonPressEvent ebox $
-         const $ playPause client busName >> return True
+         const $ MPRIS2DBus.playPause client busName >> return True
     Gtk.containerAdd playerBox image
     Gtk.containerAdd playerBox label
     Gtk.containerAdd ebox playerBox
@@ -179,7 +179,7 @@ simplePlayerWidget config _
   return w
 
 simplePlayerWidget _ _ _ _ =
-  mprisLog WARNING ("widget update called with no widget or %s")
+  mprisLog WARNING "widget update called with no widget or %s"
              ("nowplaying" :: String) >> return undefined
 
 -- | Construct a new MPRIS2 widget using the `simplePlayerWidget` constructor.
