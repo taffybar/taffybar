@@ -27,6 +27,8 @@
 
  * New `showMemoryInfo` exposed from `MemoryMonitor` that can be used to format
    tooltips.
+   
+ * Swap variables are added to `MemoryMonitor`.
 
 ## Changes
 
