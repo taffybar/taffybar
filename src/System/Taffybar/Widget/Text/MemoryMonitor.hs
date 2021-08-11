@@ -11,7 +11,8 @@ import Text.Printf ( printf )
 -- | Creates a simple textual memory monitor. It updates once every polling
 -- period (in seconds).
 textMemoryMonitorNew :: MonadIO m
-                     => String -- ^ Format. You can use variables: "used", "total", "free", "buffer", "cache", "rest", "available".
+                     => String -- ^ Format. You can use variables: "used", "total", "free", "buffer",
+                               -- "cache", "rest", "available", "swapUsed", "swapTotal", "swapFree".
                      -> Double -- ^ Polling period in seconds.
                      -> m GI.Gtk.Widget
 textMemoryMonitorNew fmt period = do
@@ -21,8 +22,28 @@ textMemoryMonitorNew fmt period = do
 showMemoryInfo :: String -> Int -> MemoryInfo -> T.Text
 showMemoryInfo fmt prec info =
   let template = ST.newSTMP fmt
-      labels = ["used", "total", "free", "buffer", "cache", "rest", "available"]
-      actions = [memoryUsed, memoryTotal, memoryFree, memoryBuffer, memoryCache, memoryRest, memoryAvailable]
+      labels = [ "used"
+               , "total"
+               , "free"
+               , "buffer"
+               , "cache"
+               , "rest"
+               , "available"
+               , "swapUsed"
+               , "swapTotal"
+               , "swapFree"
+               ]
+      actions = [ memoryUsed
+                , memoryTotal
+                , memoryFree
+                , memoryBuffer
+                , memoryCache
+                , memoryRest
+                , memoryAvailable
+                , memorySwapUsed
+                , memorySwapTotal
+                , memorySwapFree
+                ]
       actions' = map (toAuto prec .) actions
       stats = [f info | f <- actions']
       template' = ST.setManyAttrib (zip labels stats) template
