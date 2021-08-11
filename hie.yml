@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "./src"
+      component: "lib:taffybar"
+
+    - path: "./app/Main.hs"
+      component: "taffybar:exe:taffybar"
+
+    - path: "./app/Paths_taffybar.hs"
+      component: "taffybar:exe:taffybar"
