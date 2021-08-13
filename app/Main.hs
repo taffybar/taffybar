@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}
 -- | This is just a stub executable that uses dyre to read the config file and
 -- recompile itself.
 module Main ( main ) where

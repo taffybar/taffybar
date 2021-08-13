@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar
@@ -142,11 +143,8 @@ import           Paths_taffybar ( getDataDir )
 -- | The parameters that are passed to Dyre when taffybar is invoked with
 -- 'dyreTaffybar'.
 taffybarDyreParams =
-  Dyre.defaultParams
-  { Dyre.projectName = "taffybar"
-  , Dyre.realMain = dyreTaffybarMain
-  , Dyre.showError = showError
-  , Dyre.ghcOpts = ["-threaded", "-rtsopts"]
+  (Dyre.newParams "taffybar" dyreTaffybarMain showError)
+  { Dyre.ghcOpts = ["-threaded", "-rtsopts"]
   , Dyre.rtsOptsHandling = Dyre.RTSAppend ["-I0", "-V0"]
   }
 
@@ -205,7 +203,7 @@ getDefaultCSSPaths = do
 -- perfectly fine to use this function.
 startTaffybar :: TaffybarConfig -> IO ()
 startTaffybar config = do
-  updateGlobalLogger "" $ removeHandler
+  updateGlobalLogger "" removeHandler
   setTaffyLogFormatter "System.Taffybar"
   setTaffyLogFormatter "StatusNotifier"
   _ <- initThreads
