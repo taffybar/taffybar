@@ -14,6 +14,7 @@
 
 module System.Taffybar.Information.MPRIS2 where
 
+import           Control.Applicative
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
@@ -68,6 +69,6 @@ getNowPlayingInfo client =
 getSongInfo :: M.Map String DBus.Variant -> Maybe (String, [String])
 getSongInfo songData = do
   let lookupVariant k = M.lookup k songData >>= DBus.fromVariant
-  artists <- lookupVariant "xesam:artist"
+  artists <- lookupVariant "xesam:artist" <|> pure []
   title <- lookupVariant "xesam:title"
   return (title, artists)

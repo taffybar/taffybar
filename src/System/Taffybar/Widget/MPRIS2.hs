@@ -260,7 +260,10 @@ mpris2NewWithConfig config = ask >>= \ctx -> asks sessionDBusClient >>= \client 
 playingText :: MonadIO m => Int -> Int -> NowPlaying -> m T.Text
 playingText artistMax songMax NowPlaying {npArtists = artists, npTitle = title} =
   G.markupEscapeText formattedText (-1)
-  where formattedText = T.pack $ printf
+  where truncatedTitle = truncateString songMax title
+        formattedText = T.pack $ if null artists
+          then truncatedTitle
+          else printf
            "%s - %s"
            (truncateString artistMax $ intercalate "," artists)
-           (truncateString songMax title)
+           truncatedTitle
