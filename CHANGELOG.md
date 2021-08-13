@@ -1,8 +1,9 @@
 # Unreleased
 
 ## New Features
- * A new module System.Taffybar.Widget.Crypto that contains widgets that display
-   the prices of crypto assets with pretty icons was added.
+
+ * A new module `System.Taffybar.Widget.Crypto` that contains widgets that display
+   the prices of crypto assets with icons was added.
 
  * `textBatteryNewLabelAction` provides a version of the text battery widget to
    which a custom label updater function can be provided.
@@ -10,13 +11,16 @@
  * The textual battery widget now applies classes according to its charge level
    that can be used to style the battery text with css.
 
+ * A generalized interface to the text battery widget that accepts an arbitrary
+   update function is available at `textBatteryNewLabelAction`.
+
  * New workspace widget builder `buildLabelOverlayController` that overlays the
    workspace label on top of the the workspace icons.
 
  * It is now possible to customize the player widgets of the MPRIS2 Widget by
    using the new function `mpris2NewWithConfig`.
 
- * Classeses are added to the MPRIS2 Widget to indicate whether or not it has
+ * Classes are added to the MPRIS2 Widget to indicate whether or not it has
    visible player children.
 
  * The default MPRIS2 player widget now sends the play pause message to the
@@ -29,7 +33,7 @@
 
  * New `showMemoryInfo` exposed from `MemoryMonitor` that can be used to format
    tooltips.
-   
+
  * Swap variables are added to `MemoryMonitor`.
 
 ## Changes
@@ -60,8 +64,11 @@
 ## New Features
 
  * A wttr.in widget was added.
+
  * Make memoryAvailable action available inside the Text MemoryMonitor widget.
+
  * The SNI Tray supports triggering Activate and SecondaryActivate on icons.
+
  * Better formatting for Text MemoryMonitor Widget
 
 # 3.2.2
@@ -69,7 +76,9 @@
 ## Bug Fixes
 
  * Solve space leaks on `updateSamples` and `getDeviceUpDown` (#472).
+
  * Prevent crash when using mpris2New and librsvg is not available (#478).
+
  * Fixed compilation issues that appear when using ghc 8.8.
 
 # 3.2.1

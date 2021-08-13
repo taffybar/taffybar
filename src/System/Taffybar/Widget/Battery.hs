@@ -18,7 +18,11 @@
 -- hotplugging is not supported. These more advanced features could be supported
 -- if there is interest.
 -----------------------------------------------------------------------------
-module System.Taffybar.Widget.Battery ( textBatteryNew, batteryIconNew ) where
+module System.Taffybar.Widget.Battery
+  ( batteryIconNew
+  , textBatteryNew
+  , textBatteryNewWithLabelAction
+  ) where
 
 import           Control.Applicative
 import           Control.Monad
@@ -26,7 +30,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
 import           Data.Int (Int64)
 import qualified Data.Text as T
-import           GI.Gtk
 import           GI.Gtk as Gtk
 import           Prelude
 import           StatusNotifier.Tray (scalePixbufToSize)
@@ -88,7 +91,7 @@ formatBattInfo info fmt =
 -- remaining and $time$ is replaced with the time until the battery is fully
 -- charged/discharged.
 textBatteryNew :: String -> TaffyIO Widget
-textBatteryNew format = textBatteryNewLabelAction labelSetter
+textBatteryNew format = textBatteryNewWithLabelAction labelSetter
   where labelSetter label info = do
           setBatteryStateClasses defaultBatteryClassesConfig label info
           labelSetMarkup label $
@@ -130,9 +133,9 @@ setBatteryStateClasses config label info = do
 
 -- | Like `textBatteryNew` but provides a more general way to update the label
 -- widget.
-textBatteryNewLabelAction ::
+textBatteryNewWithLabelAction ::
   (Gtk.Label -> BatteryInfo -> TaffyIO ()) -> TaffyIO Widget
-textBatteryNewLabelAction labelSetter = do
+textBatteryNewWithLabelAction labelSetter = do
   chan <- getDisplayBatteryChan
   ctx <- ask
   liftIO $ do
