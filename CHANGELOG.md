@@ -37,6 +37,10 @@
 
  * MPRIS2 Widgets will remain visible when their players are in the paused state.
 
+ * `getSongInfo` now doesn't automatically return `Nothing` when `xesam:artist`
+   is missing. This makes the MPRIS2 Widget display in more situations than
+   before.
+
  * Network graph will have a tooltip by default.
 
  * The SNI Tray will respect `ItemIsMenu` property to handle mouse left click.
