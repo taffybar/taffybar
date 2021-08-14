@@ -316,7 +316,7 @@ runX11Context context def prop =
 getState :: forall t. Typeable t => Taffy IO (Maybe t)
 getState = do
   stateMap <- asksContextVar contextState
-  let maybeValue = M.lookup (typeOf (undefined :: t)) stateMap
+  let maybeValue = M.lookup (typeRep (Proxy :: Proxy t)) stateMap
   return $ maybeValue >>= fromValue
 
 -- | Like "putState", but avoids aquiring a lock if the value is already in the
@@ -333,7 +333,7 @@ putState getValue = do
   contextVar <- asks contextState
   ctx <- ask
   lift $ MV.modifyMVar contextVar $ \contextStateMap ->
-    let theType = typeOf (undefined :: t)
+    let theType = typeRep (Proxy :: Proxy t)
         currentValue = M.lookup theType contextStateMap
         insertAndReturn value =
           (M.insert theType (Value value) contextStateMap, value)

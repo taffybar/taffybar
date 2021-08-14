@@ -35,7 +35,8 @@ import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.LogFormatter
 import           System.Taffybar.Util
 
-newtype NetworkInfoChan = NetworkInfoChan (BroadcastChan In [(String, (Rational, Rational))])
+newtype NetworkInfoChan =
+  NetworkInfoChan (BroadcastChan In [(String, (Rational, Rational))])
 
 buildInfoChan :: Double -> IO NetworkInfoChan
 buildInfoChan interval = do
