@@ -51,9 +51,10 @@ module System.Taffybar
   -- >   return [ totalLoad, systemLoad ]
   -- >
   -- > main = do
-  -- >   let cpuCfg = defaultGraphConfig { graphDataColors = [ (0, 1, 0, 1), (1, 0, 1, 0.5)]
-  -- >                                   , graphLabel = Just "cpu"
-  -- >                                   }
+  -- >   let cpuCfg = defaultGraphConfig
+  -- >                  { graphDataColors = [ (0, 1, 0, 1), (1, 0, 1, 0.5)]
+  -- >                  , graphLabel = Just "cpu"
+  -- >                  }
   -- >       clock = textClockNewWith defaultClockConfig
   -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
   -- >       workspaces = workspacesNew defaultWorkspacesConfig
@@ -156,6 +157,7 @@ dyreTaffybar = Dyre.wrapMain taffybarDyreParams
 showError :: TaffybarConfig -> String -> TaffybarConfig
 showError cfg msg = cfg { errorMsg = Just msg }
 
+-- | The main function that should be run by dyre given a TaffybarConfig.
 dyreTaffybarMain :: TaffybarConfig -> IO ()
 dyreTaffybarMain cfg =
   case errorMsg cfg of
@@ -195,12 +197,12 @@ getDefaultCSSPaths = do
   defaultUserConfig <- getTaffyFile "taffybar.css"
   return [defaultUserConfig]
 
--- | Start taffybar with the provided 'TaffybarConfig'. Because this function
--- will not handle recompiling taffybar automatically when taffybar.hs is
--- updated, it is generally recommended that end users use 'dyreTaffybar'
--- instead. If automatic recompilation is handled by another mechanism such as
--- stack or a custom user script or not desired for some reason, it is
--- perfectly fine to use this function.
+-- | Start taffybar with the provided 'TaffybarConfig'. This function will not
+-- handle recompiling taffybar automatically when taffybar.hs is updated. If you
+-- would like this feature, use 'dyreTaffybar' instead. If automatic
+-- recompilation is handled by another mechanism such as stack or a custom user
+-- script or not desired for some reason, it is perfectly fine (and probably
+-- better) to use this function.
 startTaffybar :: TaffybarConfig -> IO ()
 startTaffybar config = do
   updateGlobalLogger "" removeHandler
