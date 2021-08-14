@@ -1,5 +1,14 @@
 # Unreleased
 
+## Breaking Changes
+
+ * `simpleTaffybar` now starts taffybar using `startTaffybar` instead of
+   `dyreTaffybar`. Use `simpleDyreTaffybar` to start taffybar with
+   `dyreTaffybar` as before.
+
+ * The `cssPath` fields in 'SimpleTaffyConfig' and 'TaffybarConfig' have been
+   renamed to `cssPaths` and have type `[FilePath]` instead of `Maybe Filepath`.
+
 ## New Features
 
  * A new module `System.Taffybar.Widget.Crypto` that contains widgets that display

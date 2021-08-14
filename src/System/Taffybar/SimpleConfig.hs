@@ -12,6 +12,7 @@ module System.Taffybar.SimpleConfig
   ( SimpleTaffyConfig(..)
   , Position(..)
   , defaultSimpleTaffyConfig
+  , simpleDyreTaffybar
   , simpleTaffybar
   , toTaffyConfig
   , useAllMonitors
@@ -41,7 +42,7 @@ data Position = Top | Bottom deriving (Show, Eq)
 -- advanced interface, you should stick to this one.
 data SimpleTaffyConfig = SimpleTaffyConfig
   {
-  -- | The xinerama/xrandr monitor number to put the bar on (default: PrimaryMonitor)
+  -- | The monitor number to put the bar on (default: PrimaryMonitor)
     monitorsAction :: TaffyIO [Int]
   -- | Number of pixels to reserve for the bar
   , barHeight :: Int
@@ -57,9 +58,8 @@ data SimpleTaffyConfig = SimpleTaffyConfig
   , centerWidgets :: [TaffyIO Gtk.Widget]
   -- | Widget constructors whose output are placed at the end of the bar
   , endWidgets :: [TaffyIO Gtk.Widget]
-  -- | Optional path to CSS stylesheet (loaded in addition to stylesheet found
-  -- in XDG data directory).
-  , cssPath :: Maybe FilePath
+  -- | List of paths to CSS stylesheets that should be loaded at startup.
+  , cssPaths :: [FilePath]
   -- | Hook to run at taffybar startup.
   , startupHook :: TaffyIO ()
   }
@@ -77,10 +77,12 @@ defaultSimpleTaffyConfig = SimpleTaffyConfig
   , startWidgets = []
   , centerWidgets = []
   , endWidgets = []
-  , cssPath = Nothing
+  , cssPaths = []
   , startupHook = return ()
   }
 
+-- | Convert a 'SimpleTaffyConfig' into a 'StrutConfig' that can be used with
+-- gtk-strut.
 toStrutConfig :: SimpleTaffyConfig -> Int -> StrutConfig
 toStrutConfig SimpleTaffyConfig { barHeight = size
                                 , barPadding = padding
@@ -114,11 +116,13 @@ toBarConfig config monitor = do
 
 newtype SimpleBarConfigs = SimpleBarConfigs (MV.MVar [(Int, BC.BarConfig)])
 
+-- | Convert a 'SimpleTaffyConfig' into a 'BC.TaffybarConfig' that can be used
+-- with 'startTaffybar' or 'dyreTaffybar'.
 toTaffyConfig :: SimpleTaffyConfig -> BC.TaffybarConfig
 toTaffyConfig conf =
     defaultTaffybarConfig
     { BC.getBarConfigsParam = configGetter
-    , BC.cssPath = cssPath conf
+    , BC.cssPaths = cssPaths conf
     , BC.startupHook = startupHook conf
     }
   where
@@ -144,13 +148,18 @@ toTaffyConfig conf =
 
       lift $ MV.modifyMVar configsVar lookupAndUpdate
 
--- | Start taffybar using 'SimpleTaffybarConfig'.
+-- | Start taffybar using dyre with a 'SimpleTaffybarConfig'.
+simpleDyreTaffybar :: SimpleTaffyConfig -> IO ()
+simpleDyreTaffybar conf = dyreTaffybar $ toTaffyConfig conf
+
+-- | Start taffybar with a 'SimpleTaffybarConfig'.
 simpleTaffybar :: SimpleTaffyConfig -> IO ()
-simpleTaffybar conf = dyreTaffybar $ toTaffyConfig conf
+simpleTaffybar conf = startTaffybar $ toTaffyConfig conf
 
 getMonitorCount :: IO Int
 getMonitorCount =
-  fromIntegral <$> (screenGetDefault >>= maybe (return 0) (screenGetDisplay >=> displayGetNMonitors))
+  fromIntegral <$> (screenGetDefault >>= maybe (return 0)
+                    (screenGetDisplay >=> displayGetNMonitors))
 
 -- | Display a taffybar window on all monitors.
 useAllMonitors :: TaffyIO [Int]

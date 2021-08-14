@@ -170,7 +170,7 @@ getDataFile name = do
   return (dataDir </> name)
 
 startCSS :: [FilePath] -> IO Gtk.CssProvider
-startCSS cssPaths = do
+startCSS cssFilePaths = do
   -- Override the default GTK theme path settings.  This causes the
   -- bar (by design) to ignore the real GTK theme and just use the
   -- provided minimal theme to set the background and text colors.
@@ -181,7 +181,7 @@ startCSS cssPaths = do
         doesFileExist filePath >>=
         flip when (Gtk.cssProviderLoadFromPath taffybarProvider (T.pack filePath))
 
-  mapM_ loadIfExists cssPaths
+  mapM_ loadIfExists cssFilePaths
 
   Just scr <- Gdk.screenGetDefault
   Gtk.styleContextAddProviderForScreen scr taffybarProvider 800
@@ -210,8 +210,11 @@ startTaffybar config = do
   _ <- Gtk.init Nothing
   GIThreading.setCurrentThreadAsGUIThread
   defaultCSS <- getDataFile "taffybar.css"
-  cssPaths <- maybe getDefaultCSSPaths (return . return) $ cssPath config
-  _ <- startCSS $ defaultCSS:cssPaths
+  cssPathsToLoad <-
+    if null $ cssPaths config
+    then getDefaultCSSPaths
+    else return $ cssPaths config
+  _ <- startCSS $ defaultCSS:cssPathsToLoad
   _ <- buildContext config
 
   Gtk.main
