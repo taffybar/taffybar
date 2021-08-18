@@ -14,9 +14,7 @@
 -- readers to receive 'BatteryState' updates without duplicating requests.
 -----------------------------------------------------------------------------
 module System.Taffybar.Information.Battery
-  (
-  -- * Types
-    BatteryInfo(..)
+  ( BatteryInfo(..)
   , BatteryState(..)
   , BatteryTechnology(..)
   , BatteryType(..)
