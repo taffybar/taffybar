@@ -10,13 +10,11 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- This module provides battery widgets using the UPower system
--- service.
---
--- Currently it reports only the first battery it finds. If it does not find a
--- battery, it just returns an obnoxious widget with warning text in it. Battery
--- hotplugging is not supported. These more advanced features could be supported
--- if there is interest.
+-- This module provides battery widgets that are queried using the UPower dbus
+-- service. To avoid duplicating all information requests for each battery
+-- widget displayed (if using a multi-head configuration or multiple battery
+-- widgets), these widgets use the "BroadcastChan" based system for receiving
+-- updates defined in "System.Taffybar.Information.Battery".
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.Battery
   ( batteryIconNew
@@ -132,7 +130,8 @@ setBatteryStateClasses config label info = do
           else removeClassIfPresent klass label
 
 -- | Like `textBatteryNew` but provides a more general way to update the label
--- widget.
+-- widget. The argument provided is an action that is used to update the text
+-- label given a 'BatteryInfo' object describing the state of the battery.
 textBatteryNewWithLabelAction ::
   (Gtk.Label -> BatteryInfo -> TaffyIO ()) -> TaffyIO Widget
 textBatteryNewWithLabelAction labelSetter = do

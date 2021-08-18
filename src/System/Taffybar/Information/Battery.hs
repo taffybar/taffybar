@@ -1,6 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
--- | This is a simple library to query the Linux UPower daemon (via DBus) for
--- battery information.
+-----------------------------------------------------------------------------
+-- |
+-- Module      : System.Taffybar.Information.Battery
+-- Copyright   : (c) Ivan A. Malison
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : Ivan A. Malison
+-- Stability   : unstable
+-- Portability : unportable
+--
+-- This module provides functions for querying battery information using the
+-- UPower dbus, as well as a "BroadcastChan" system for allowing multiple
+-- readers to receive 'BatteryState' updates without duplicating requests.
+-----------------------------------------------------------------------------
 module System.Taffybar.Information.Battery
   (
   -- * Types
