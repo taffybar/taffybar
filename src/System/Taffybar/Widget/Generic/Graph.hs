@@ -2,7 +2,7 @@
 -- | This is a graph widget inspired by the widget of the same name in Awesome
 -- (the window manager). It plots a series of data points similarly to a bar
 -- graph. This version must be explicitly fed data with 'graphAddSample'. For a
--- more automated version, see 'PollingGraph'.
+-- more automated version, see "System.Taffybar.Widgets.Generic.PollingGraph".
 --
 -- Like Awesome, this graph can plot multiple data sets in one widget. The data
 -- sets are plotted in the order provided by the caller.
@@ -45,6 +45,7 @@ data GraphState =
 
 data GraphDirection = LEFT_TO_RIGHT | RIGHT_TO_LEFT deriving (Eq)
 
+-- 'RGBA' represents a color with a transparency.
 type RGBA = (Double, Double, Double, Double)
 
 -- | The style of the graph. Generally, you will want to draw all 'Area' graphs
