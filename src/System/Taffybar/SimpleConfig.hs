@@ -7,6 +7,9 @@
 -- Maintainer  : Ivan A. Malison
 -- Stability   : unstable
 -- Portability : unportable
+--
+-- This module defines a simpler, but less flexible config system than the one
+-- offered in 'System.Taffybar.Context'
 -----------------------------------------------------------------------------
 module System.Taffybar.SimpleConfig
   ( SimpleTaffyConfig(..)
@@ -34,23 +37,24 @@ import qualified System.Taffybar.Context as BC (BarConfig(..), TaffybarConfig(..
 import           System.Taffybar.Context hiding (TaffybarConfig(..), BarConfig(..))
 import           System.Taffybar.Util
 
--- | The side of the monitor at which taffybar should be displayed.
+-- | An ADT representing the edge of the monitor along which taffybar should be
+-- displayed.
 data Position = Top | Bottom deriving (Show, Eq)
 
 -- | A configuration object whose interface is simpler than that of
 -- 'TaffybarConfig'. Unless you have a good reason to use taffybar's more
--- advanced interface, you should stick to this one.
+-- advanced interface, you should stick to using this one.
 data SimpleTaffyConfig = SimpleTaffyConfig
   {
-  -- | The monitor number to put the bar on (default: PrimaryMonitor)
+  -- | The monitor number to put the bar on (default: 'usePrimaryMonitor')
     monitorsAction :: TaffyIO [Int]
-  -- | Number of pixels to reserve for the bar
+  -- | Number of pixels to reserve for the bar (default: 30)
   , barHeight :: Int
   -- | Number of additional pixels to reserve for the bar strut (default: 0)
   , barPadding :: Int
-  -- | The position of the bar on the screen (default: Top)
+  -- | The position of the bar on the screen (default: 'Top')
   , barPosition :: Position
-  -- | The number of pixels between widgets
+  -- | The number of pixels between widgets (default: 5)
   , widgetSpacing :: Int
   -- | Widget constructors whose output are placed at the beginning of the bar
   , startWidgets :: [TaffyIO Gtk.Widget]
@@ -161,13 +165,15 @@ getMonitorCount =
   fromIntegral <$> (screenGetDefault >>= maybe (return 0)
                     (screenGetDisplay >=> displayGetNMonitors))
 
--- | Display a taffybar window on all monitors.
+-- | Supply this value for 'monitorsAction' to display the taffybar window on
+-- all monitors.
 useAllMonitors :: TaffyIO [Int]
 useAllMonitors = lift $ do
   count <- getMonitorCount
   return [0..count-1]
 
--- | Display the taffybar window on the primary monitor.
+-- | Supply this value for 'monitorsAction' to display the taffybar window only
+-- on the primary monitor.
 usePrimaryMonitor :: TaffyIO [Int]
 usePrimaryMonitor =
   return . fromMaybe 0 <$> lift (withDefaultCtx getPrimaryOutputNumber)
