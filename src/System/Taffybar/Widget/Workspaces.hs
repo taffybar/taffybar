@@ -17,6 +17,7 @@ import           Control.Applicative
 import           Control.Arrow ((&&&))
 import           Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
+import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -678,16 +679,22 @@ constantScaleWindowIconPixbufGetter ::
 constantScaleWindowIconPixbufGetter constantSize getter =
   const $ scaledWindowIconPixbufGetter getter constantSize
 
+handleIconGetterException :: WindowIconPixbufGetter -> WindowIconPixbufGetter
+handleIconGetterException getter =
+  \size windowData -> catchAny (getter size windowData) $ \e -> do
+    wLog WARNING $ printf "Failed to get window icon for %s: %s" (show windowData) (show e)
+    return Nothing
+
 getWindowIconPixbufFromEWMH :: WindowIconPixbufGetter
-getWindowIconPixbufFromEWMH size windowData =
+getWindowIconPixbufFromEWMH = handleIconGetterException $ \size windowData ->
   runX11Def Nothing (getIconPixBufFromEWMH size $ windowId windowData)
 
 getWindowIconPixbufFromClass :: WindowIconPixbufGetter
-getWindowIconPixbufFromClass size windowData =
+getWindowIconPixbufFromClass = handleIconGetterException $ \size windowData ->
   lift $ getWindowIconFromClasses size (windowClass windowData)
 
 getWindowIconPixbufFromDesktopEntry :: WindowIconPixbufGetter
-getWindowIconPixbufFromDesktopEntry size windowData =
+getWindowIconPixbufFromDesktopEntry = handleIconGetterException $ \size windowData ->
   getWindowIconFromDesktopEntryByClasses size (windowClass windowData)
 
 getWindowIconPixbufFromChrome :: WindowIconPixbufGetter
