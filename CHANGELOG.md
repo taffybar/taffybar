@@ -64,6 +64,8 @@
 
  * Center widgets will now properly expand vertically.
 
+ * Fix crash when window requires icon that is not found in icon theme.
+
 # 3.3.0
 
 ## Bug Fixes
