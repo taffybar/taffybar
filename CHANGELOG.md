@@ -64,7 +64,8 @@
 
  * Center widgets will now properly expand vertically.
 
- * Fix crash when window requires icon that is not found in icon theme.
+ * Errors, including icon missing from theme errors, in workspace pixbuf getters
+   are now handled gracefully.
 
 # 3.3.0
 
