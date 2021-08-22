@@ -92,6 +92,8 @@ data TaffybarConfig = TaffybarConfig
   , errorMsg :: Maybe String
   }
 
+-- | Append the provided 'TaffyIO' hook to the 'startupHook' of the given
+-- 'TaffybarConfig'.
 appendHook :: TaffyIO () -> TaffybarConfig -> TaffybarConfig
 appendHook hook config = config
   { startupHook = startupHook config >> hook }
