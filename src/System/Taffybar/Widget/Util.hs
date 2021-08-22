@@ -132,11 +132,11 @@ getImageForDesktopEntry size de = getImageForMaybeIconName (T.pack <$> deIcon de
 
 getImageForMaybeIconName :: Maybe T.Text -> Int32 -> IO (Maybe GI.Pixbuf)
 getImageForMaybeIconName mIconName size =
-  join <$> (sequenceA $ flip getImageForIconName size <$> mIconName)
+  join <$> sequenceA (flip getImageForIconName size <$> mIconName)
 
 getImageForIconName :: T.Text -> Int32 -> IO (Maybe GI.Pixbuf)
 getImageForIconName iconName size =
-  maybeTCombine (loadPixbufByName size $ iconName)
+  maybeTCombine (loadPixbufByName size iconName)
                   (getPixbufFromFilePath (T.unpack iconName) >>=
                    traverse (scalePixbufToSize size Gtk.OrientationHorizontal))
 
@@ -164,16 +164,12 @@ pixbufNewFromFileAtScaleByHeight height name =
   fmap (handleResult . first show) $ catchGErrorsAsLeft $
   PB.pixbufNewFromFileAtScale name (-1) height True
   where
-
-    handleResult = join . fmap (maybe (Left "gdk function returned NULL") Right)
-
-
-
+    handleResult = (maybe (Left "gdk function returned NULL") Right =<<)
 
 loadIcon :: Int32 -> String -> IO (Either String PB.Pixbuf)
 loadIcon height name =
-  ((</> "icons" </> name) <$> getDataDir) >>=
-  pixbufNewFromFileAtScaleByHeight height
+  getDataDir >>=
+  pixbufNewFromFileAtScaleByHeight height . (</> "icons" </> name)
 
 setMinWidth :: (Gtk.IsWidget w, MonadIO m) => Int -> w -> m w
 setMinWidth width widget = liftIO $ do
