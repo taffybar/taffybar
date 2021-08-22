@@ -4,12 +4,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | This widget listens on DBus for freedesktop notifications
 -- (<http://developer.gnome.org/notification-spec/>).  Currently it is
--- somewhat ugly, but the format is somewhat configurable.  A visual
--- overhaul of the widget is coming.
+-- somewhat ugly, but the format is somewhat configurable.
 --
 -- The widget only displays one notification at a time and
 -- notifications are cancellable.
-
+--
 -- The notificationDaemon thread handles new notifications
 -- and cancellation requests, adding or removing the notification
 -- to or from the queue. It additionally starts a timeout thread

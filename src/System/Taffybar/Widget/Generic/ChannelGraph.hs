@@ -8,6 +8,9 @@ import Data.Foldable (traverse_)
 import GI.Gtk
 import System.Taffybar.Widget.Generic.Graph
 
+-- | Given a 'BroadcastChan' and an action to consume that broadcast chan and
+-- turn it into graphable values, build a graph that will update as values are
+-- broadcast over the channel.
 channelGraphNew
   :: MonadIO m
   => GraphConfig -> BroadcastChan In a -> (a -> IO [Double]) -> m GI.Gtk.Widget
