@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 -----------------------------------------------------------------------------
 -- |
@@ -104,7 +105,7 @@ colorize :: String -- ^ Foreground color.
          -> String -- ^ Background color.
          -> String -- ^ Contents.
          -> String
-colorize fg bg = printf "<span%s%s>%s</span>" (attr "fg" fg) (attr "bg" bg)
+colorize fg bg = printf "<span%s%s>%s</span>" (attr ("fg" :: String) fg :: String) (attr ("bg" :: String) bg :: String)
   where attr name value
           | null value = ""
           | otherwise  = printf " %scolor=\"%s\"" name value
@@ -163,11 +164,11 @@ pixbufNewFromFileAtScaleByHeight height name =
   fmap (handleResult . first show) $ catchGErrorsAsLeft $
   PB.pixbufNewFromFileAtScale name (-1) height True
   where
-#if MIN_VERSION_gi_gdkpixbuf(2,0,26)
+
     handleResult = join . fmap (maybe (Left "gdk function returned NULL") Right)
-#else
-    handleResult = id
-#endif
+
+
+
 
 loadIcon :: Int32 -> String -> IO (Either String PB.Pixbuf)
 loadIcon height name =
@@ -192,3 +193,30 @@ removeClassIfPresent klass widget = do
   context <- Gtk.widgetGetStyleContext widget
   Gtk.styleContextHasClass context klass >>=
        (`when` Gtk.styleContextRemoveClass context klass)
+
+-- | Wrap a widget with two container boxes. The inner box will have the class
+-- "inner-pad", and the outer box will have the class "outer-pad". These boxes
+-- can be used to add padding between the outline of the widget and its
+-- contents, or for the purpose of displaying a different background behind the
+-- widget.
+buildPadBox :: MonadIO m => Gtk.Widget -> m Gtk.Widget
+buildPadBox contents = liftIO $ do
+  innerBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
+  outerBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
+  Gtk.setWidgetValign innerBox Gtk.AlignFill
+  Gtk.setWidgetValign outerBox Gtk.AlignFill
+  Gtk.containerAdd innerBox contents
+  Gtk.containerAdd outerBox innerBox
+  _ <- widgetSetClassGI innerBox "inner-pad"
+  _ <- widgetSetClassGI outerBox "outer-pad"
+  Gtk.widgetShow outerBox
+  Gtk.widgetShow innerBox
+  Gtk.toWidget outerBox
+
+buildContentsBox :: MonadIO m => Gtk.Widget -> m Gtk.Widget
+buildContentsBox widget = liftIO $ do
+  contents <- Gtk.boxNew Gtk.OrientationHorizontal 0
+  Gtk.containerAdd contents widget
+  _ <- widgetSetClassGI contents "contents"
+  Gtk.widgetShowAll contents
+  Gtk.toWidget contents >>= buildPadBox

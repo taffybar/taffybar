@@ -49,7 +49,6 @@ import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Decorators
 import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
 import           System.Taffybar.Widget.Util
 import           System.Taffybar.WindowIcon

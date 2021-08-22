@@ -9,6 +9,10 @@
  * The `cssPath` fields in 'SimpleTaffyConfig' and 'TaffybarConfig' have been
    renamed to `cssPaths` and have type `[FilePath]` instead of `Maybe Filepath`.
 
+ * The module `System.Taffybar.Widget.Decorators` has been removed. The
+   functions that were in that module can now be found in
+   `System.Taffybar.Widget.Util`.
+
 ## New Features
 
  * A new module `System.Taffybar.Widget.Crypto` that contains widgets that display
