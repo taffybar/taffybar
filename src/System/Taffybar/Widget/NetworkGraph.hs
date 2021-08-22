@@ -1,3 +1,16 @@
+-----------------------------------------------------------------------------
+-- |
+-- Module      : System.Taffybar.Widget.NetworkGraph
+-- Copyright   : (c) Ivan A. Malison
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : Ivan A. Malison
+-- Stability   : unstable
+-- Portability : unportable
+--
+-- This module provides a channel based network graph widget.
+-----------------------------------------------------------------------------
+
 module System.Taffybar.Widget.NetworkGraph where
 
 import Data.Foldable (for_)
@@ -12,13 +25,21 @@ import System.Taffybar.Widget.Generic.ChannelWidget
 import System.Taffybar.Widget.Generic.Graph
 import System.Taffybar.Widget.Text.NetworkMonitor
 
+-- | 'NetworkGraphConfig' configures the network graph widget.
 data NetworkGraphConfig = NetworkGraphConfig
-  { networkGraphGraphConfig :: GraphConfig
+  { networkGraphGraphConfig :: GraphConfig -- ^ The configuration of the graph itself.
+  -- | A tooltip format string, together with the precision that should be used
+  -- for numbers in the string.
   , networkGraphTooltipFormat :: Maybe (String, Int)
+  -- | A function to scale the y axis of the network config. The default is
+  -- `logBase $ 2 ** 32`.
   , networkGraphScale :: Double -> Double
+  -- | A filter function that determines whether a given interface will be
+  -- included in the network stats.
   , interfacesFilter :: String -> Bool
   }
 
+-- | Default configuration paramters for the network graph.
 defaultNetworkGraphConfig :: NetworkGraphConfig
 defaultNetworkGraphConfig = NetworkGraphConfig
   { networkGraphGraphConfig = defaultGraphConfig
@@ -27,6 +48,8 @@ defaultNetworkGraphConfig = NetworkGraphConfig
   , interfacesFilter = const True
   }
 
+-- | 'networkGraphNew' instantiates a network graph widget from a 'GraphConfig'
+-- and a list of interfaces.
 networkGraphNew :: GraphConfig -> Maybe [String] -> TaffyIO GI.Gtk.Widget
 networkGraphNew config interfaces =
   networkGraphNewWith defaultNetworkGraphConfig
@@ -34,6 +57,8 @@ networkGraphNew config interfaces =
                         , interfacesFilter = maybe (const True) (flip elem) interfaces
                         }
 
+-- | 'networkGraphNewWith' instantiates a network graph widget from a
+-- 'NetworkGraphConfig'.
 networkGraphNewWith :: NetworkGraphConfig -> TaffyIO GI.Gtk.Widget
 networkGraphNewWith config = do
   NetworkInfoChan chan <- getNetworkChan
