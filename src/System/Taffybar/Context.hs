@@ -14,6 +14,12 @@
 -- Maintainer  : Ivan A. Malison
 -- Stability   : unstable
 -- Portability : unportable
+--
+-- The "System.Taffybar.Context" provides the core functionality of the taffybar
+-- library. It gets its name from the 'Context' record, which stores runtime
+-- information and objects, which are used by many of the widgets that taffybar
+-- provides. 'Context' is typically accessed through the 'Reader' interface of
+-- 'TaffyIO'.
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Context where
@@ -57,8 +63,13 @@ logIO = logM "System.Taffybar.Context"
 logC :: MonadIO m => System.Log.Logger.Priority -> String -> m ()
 logC p = liftIO . logIO p
 
+-- | 'Taffy' is a monad transformer that provides 'Reader' for 'Context'.
 type Taffy m v = MonadIO m => ReaderT Context m v
+
+-- | 'TaffyIO' is 'IO' wrapped with a 'ReaderT' providing 'Context'. This is the
+-- type of most widgets and callback in taffybar.
 type TaffyIO v = ReaderT Context IO v
+
 type Listener = Event -> Taffy IO ()
 type SubscriptionList = [(Unique, Listener)]
 data Value = forall t. Typeable t => Value t
@@ -70,12 +81,18 @@ fromValue (Value v) =
   else
     Nothing
 
+-- | 'BarConfig' specifies the configuration for a single taffybar window.
 data BarConfig = BarConfig
-  { strutConfig :: StrutConfig
+  { strutConfig :: StrutConfig -- ^ The strut configuration to use for the bar
+  -- | The amount of spacing in pixels between bar widgets
   , widgetSpacing :: Int32
+  -- | Constructors for widgets that should be placed at the beginning of the bar.
   , startWidgets :: [TaffyIO Gtk.Widget]
+  -- | Constructors for widgets that should be placed in the center of the bar.
   , centerWidgets :: [TaffyIO Gtk.Widget]
+  -- | Constructors for widgets that should be placed at the end of the bar.
   , endWidgets :: [TaffyIO Gtk.Widget]
+  -- | A unique identifier for the bar, that can be used e.g. when toggling.
   , barId :: Unique
   }
 
@@ -84,13 +101,24 @@ instance Eq BarConfig where
 
 type BarConfigGetter = TaffyIO [BarConfig]
 
+-- | 'TaffybarConfig' provides an advanced interface for configuring taffybar.
+-- Through the 'getBarConfigsParam', it is possible to specify different
+-- taffybar configurations depending on the number of monitors present, and even
+-- to specify different taffybar configurations for each monitor.
 data TaffybarConfig = TaffybarConfig
-  { dbusClientParam :: Maybe DBus.Client
+  { dbusClientParam :: Maybe DBus.Client -- ^ An optional dbus client to use.
+  -- | Hooks that should be executed at taffybar startup.
   , startupHook :: TaffyIO ()
+  -- | A 'TaffyIO' action that returns a list of 'BarConfig' where each element
+  -- describes a taffybar window that should be spawned.
   , getBarConfigsParam :: BarConfigGetter
+  -- | A list of 'FilePath' each of which should be loaded as css files at
+  -- startup.
   , cssPaths :: [FilePath]
+  -- | A field used (only) by dyre to provide an error message.
   , errorMsg :: Maybe String
   }
+
 
 -- | Append the provided 'TaffyIO' hook to the 'startupHook' of the given
 -- 'TaffybarConfig'.
@@ -98,6 +126,8 @@ appendHook :: TaffyIO () -> TaffybarConfig -> TaffybarConfig
 appendHook hook config = config
   { startupHook = startupHook config >> hook }
 
+-- | Default values for a 'TaffybarConfig'. Not usuable without at least
+-- properly setting 'getBarConfigsParam'.
 defaultTaffybarConfig :: TaffybarConfig
 defaultTaffybarConfig = TaffybarConfig
   { dbusClientParam = Nothing
@@ -116,25 +146,25 @@ data Context = Context
     x11ContextVar :: MV.MVar X11Context
   -- | The handlers which will be evaluated against incoming X11 events.
   , listeners :: MV.MVar SubscriptionList
-  -- | A collection of miscellaneous peices of state which are keyed by their
-  -- types. Most new peices of state should go here, rather than in a new field
-  -- in "Context". State stored here is typically accessed through
-  -- "getStateDefault".
+  -- | A collection of miscellaneous pieces of state which are keyed by their
+  -- types. Most new pieces of state should go here, rather than in a new field
+  -- in 'Context'. State stored here is typically accessed through
+  -- 'getStateDefault'.
   , contextState :: MV.MVar (M.Map TypeRep Value)
   -- | Used to track the windows that taffybar is currently controlling, and
-  -- which "BarConfig" objects they are associated with.
+  -- which 'BarConfig' objects they are associated with.
   , existingWindows :: MV.MVar [(BarConfig, Gtk.Window)]
-  -- | The shared user session "DBus.Client".
+  -- | The shared user session 'DBus.Client'.
   , sessionDBusClient :: DBus.Client
-  -- | The shared system session "DBus.Client".
+  -- | The shared system session 'DBus.Client'.
   , systemDBusClient :: DBus.Client
   -- | The action that will be evaluated to get the bar configs associated with
   -- each active monitor taffybar should run on.
   , getBarConfigs :: BarConfigGetter
   -- | Populated with the BarConfig that resulted in the creation of a given
   -- widget, when its constructor is called. This lets widgets access thing like
-  -- who their neighbors are. Note that the value of "contextBarConfig" is
-  -- different for widgets belonging to bar windows on differnt monitors.
+  -- who their neighbors are. Note that the value of 'contextBarConfig' is
+  -- different for widgets belonging to bar windows on different monitors.
   , contextBarConfig :: Maybe BarConfig
   }
 
