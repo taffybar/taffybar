@@ -22,7 +22,29 @@
 -- interface of 'TaffyIO'.
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Context where
+module System.Taffybar.Context
+  ( Context(..)
+  , TaffybarConfig(..)
+  , Taffy
+  , TaffyIO
+  , BarConfig(..)
+  , BarConfigGetter
+  , appendHook
+  , buildContext
+  , buildEmptyContext
+  , defaultTaffybarConfig
+  , getState
+  , getStateDefault
+  , putState
+  , forceRefreshTaffyWindows
+  , refreshTaffyWindows
+  , runX11
+  , runX11Def
+  , subscribeToAll
+  , subscribeToPropertyEvents
+  , taffyFork
+  , unsubscribe
+  ) where
 
 import           Control.Arrow ((&&&))
 import           Control.Concurrent (forkIO)
@@ -83,7 +105,9 @@ fromValue (Value v) =
 
 -- | 'BarConfig' specifies the configuration for a single taffybar window.
 data BarConfig = BarConfig
-  { strutConfig :: StrutConfig -- ^ The strut configuration to use for the bar
+  {
+  -- | The strut configuration to use for the bar
+    strutConfig :: StrutConfig
   -- | The amount of spacing in pixels between bar widgets
   , widgetSpacing :: Int32
   -- | Constructors for widgets that should be placed at the beginning of the bar.
@@ -106,7 +130,9 @@ type BarConfigGetter = TaffyIO [BarConfig]
 -- taffybar configurations depending on the number of monitors present, and even
 -- to specify different taffybar configurations for each monitor.
 data TaffybarConfig = TaffybarConfig
-  { dbusClientParam :: Maybe DBus.Client -- ^ An optional dbus client to use.
+  {
+  -- | An optional dbus client to use.
+    dbusClientParam :: Maybe DBus.Client
   -- | Hooks that should be executed at taffybar startup.
   , startupHook :: TaffyIO ()
   -- | A 'TaffyIO' action that returns a list of 'BarConfig' where each element
@@ -211,6 +237,9 @@ buildContext TaffybarConfig
   logIO DEBUG "Context build finished"
   return context
 
+-- | Build an empty taffybar context. This function is mostly useful for
+-- invoking functions that yield 'TaffyIO' values in a testing setting (e.g. in
+-- a repl).
 buildEmptyContext :: IO Context
 buildEmptyContext = buildContext defaultTaffybarConfig
 
@@ -322,6 +351,8 @@ refreshTaffyWindows = liftReader postGUIASync $ do
   logC DEBUG "Finished refreshing windows"
   return ()
 
+-- | Forcibly refresh taffybar windows, even if there are existing windows that
+-- correspond to the uniques in the bar configs yielded by 'barConfigGetter'.
 forceRefreshTaffyWindows :: TaffyIO ()
 forceRefreshTaffyWindows =
   asks existingWindows >>= lift . flip MV.modifyMVar_ deleteWindows >>
@@ -334,10 +365,14 @@ forceRefreshTaffyWindows =
 asksContextVar :: (r -> MV.MVar b) -> ReaderT r IO b
 asksContextVar getter = asks getter >>= lift . MV.readMVar
 
+-- | Run a function needing an X11 connection in 'TaffyIO'.
 runX11 :: X11Property a -> TaffyIO a
 runX11 action =
   asksContextVar x11ContextVar >>= lift . runReaderT action
 
+-- | Use 'runX11' together with 'postX11RequestSyncProp' on the provided
+-- property. Return the provided default if 'Nothing' is returned
+-- 'postX11RequestSyncProp'.
 runX11Def :: a -> X11Property a -> TaffyIO a
 runX11Def def prop = runX11 $ postX11RequestSyncProp prop def
 
@@ -345,6 +380,7 @@ runX11Context :: MonadIO m => Context -> a -> X11Property a -> m a
 runX11Context context def prop =
   liftIO $ runReaderT (runX11Def def prop) context
 
+-- | Get a state value by type from the 'contextState' field of 'Context'.
 getState :: forall t. Typeable t => Taffy IO (Maybe t)
 getState = do
   stateMap <- asksContextVar contextState
