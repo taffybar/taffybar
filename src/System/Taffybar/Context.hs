@@ -15,11 +15,11 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- The "System.Taffybar.Context" provides the core functionality of the taffybar
--- library. It gets its name from the 'Context' record, which stores runtime
--- information and objects, which are used by many of the widgets that taffybar
--- provides. 'Context' is typically accessed through the 'Reader' interface of
--- 'TaffyIO'.
+-- The "System.Taffybar.Context" module provides the core functionality of the
+-- taffybar library. It gets its name from the 'Context' record, which stores
+-- runtime information and objects, which are used by many of the widgets that
+-- taffybar provides. 'Context' is typically accessed through the 'Reader'
+-- interface of 'TaffyIO'.
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Context where
