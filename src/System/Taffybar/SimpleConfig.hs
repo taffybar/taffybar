@@ -9,7 +9,7 @@
 -- Portability : unportable
 --
 -- This module defines a simpler, but less flexible config system than the one
--- offered in 'System.Taffybar.Context'
+-- offered in "System.Taffybar.Context".
 -----------------------------------------------------------------------------
 module System.Taffybar.SimpleConfig
   ( SimpleTaffyConfig(..)
