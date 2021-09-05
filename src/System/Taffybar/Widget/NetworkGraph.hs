@@ -13,6 +13,7 @@
 
 module System.Taffybar.Widget.NetworkGraph where
 
+import Data.Default (Default(def))
 import Data.Foldable (for_)
 import qualified GI.Gtk
 import GI.Gtk.Objects.Widget (widgetSetTooltipMarkup)
@@ -48,11 +49,14 @@ defaultNetworkGraphConfig = NetworkGraphConfig
   , interfacesFilter = const True
   }
 
+instance Default NetworkGraphConfig where
+  def = defaultNetworkGraphConfig
+
 -- | 'networkGraphNew' instantiates a network graph widget from a 'GraphConfig'
 -- and a list of interfaces.
 networkGraphNew :: GraphConfig -> Maybe [String] -> TaffyIO GI.Gtk.Widget
 networkGraphNew config interfaces =
-  networkGraphNewWith defaultNetworkGraphConfig
+  networkGraphNewWith def
                         { networkGraphGraphConfig = config
                         , interfacesFilter = maybe (const True) (flip elem) interfaces
                         }
