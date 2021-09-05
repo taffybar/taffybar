@@ -13,7 +13,7 @@
 
 module System.Taffybar.Widget.NetworkGraph where
 
-import Data.Default (Default(def))
+import Data.Default (Default(..))
 import Data.Foldable (for_)
 import qualified GI.Gtk
 import GI.Gtk.Objects.Widget (widgetSetTooltipMarkup)

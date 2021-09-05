@@ -25,7 +25,7 @@ module System.Taffybar.SimpleConfig
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.Trans.Class
-import           Data.Default (Default(def))
+import           Data.Default (Default(..))
 import           Data.List
 import           Data.Maybe
 import           Data.Unique

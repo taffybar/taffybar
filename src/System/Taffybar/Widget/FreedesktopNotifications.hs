@@ -34,7 +34,7 @@ import           Control.Monad ( forever, void )
 import           Control.Monad.IO.Class
 import           DBus
 import           DBus.Client
-import           Data.Default ( Default(def) )
+import           Data.Default ( Default(..) )
 import           Data.Foldable
 import           Data.Int ( Int32 )
 import           Data.Map ( Map )

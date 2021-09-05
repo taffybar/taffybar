@@ -24,7 +24,7 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.RateLimit
-import           Data.Default (Default(def))
+import           Data.Default (Default(..))
 import qualified Data.Foldable as F
 import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int

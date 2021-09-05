@@ -57,7 +57,7 @@ import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import qualified DBus.Client as DBus
 import           Data.Data
-import           Data.Default (Default(def))
+import           Data.Default (Default(..))
 import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
 import           Data.List

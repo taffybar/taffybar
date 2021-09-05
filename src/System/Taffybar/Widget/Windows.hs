@@ -19,7 +19,7 @@ module System.Taffybar.Widget.Windows where
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
-import           Data.Default (Default(def))
+import           Data.Default (Default(..))
 import           Data.Maybe
 import qualified Data.Text as T
 import           GI.GLib (markupEscapeText)

@@ -28,7 +28,7 @@ import           Control.Monad.Trans.Reader
 import           DBus
 import           DBus.Client
 import qualified DBus.TH as DBus
-import           Data.Default (Default(def))
+import           Data.Default (Default(..))
 import           Data.GI.Base.Overloading (IsDescendantOf)
 import           Data.List
 import qualified Data.Map as M

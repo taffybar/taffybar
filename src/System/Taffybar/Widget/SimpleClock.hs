@@ -10,7 +10,7 @@ module System.Taffybar.Widget.SimpleClock
   ) where
 
 import           Control.Monad.IO.Class
-import           Data.Default ( Default(def) )
+import           Data.Default ( Default(..) )
 import           Data.Maybe
 import qualified Data.Text as T
 import           Data.Time.Calendar ( toGregorian )

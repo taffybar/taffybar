@@ -26,7 +26,7 @@ module System.Taffybar.Widget.Layout
 
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
-import           Data.Default (Default(def))
+import           Data.Default (Default(..))
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import           GI.Gdk

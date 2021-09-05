@@ -23,7 +23,7 @@ module System.Taffybar.Widget.Generic.Graph (
 import           Control.Concurrent
 import           Control.Monad ( when )
 import           Control.Monad.IO.Class
-import           Data.Default ( Default(def) )
+import           Data.Default ( Default(..) )
 import           Data.Foldable ( mapM_ )
 import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import qualified Data.Sequence as S
