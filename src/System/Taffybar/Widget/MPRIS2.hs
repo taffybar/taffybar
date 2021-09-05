@@ -28,6 +28,7 @@ import           Control.Monad.Trans.Reader
 import           DBus
 import           DBus.Client
 import qualified DBus.TH as DBus
+import           Data.Default (Default(def))
 import           Data.GI.Base.Overloading (IsDescendantOf)
 import           Data.List
 import qualified Data.Map as M
@@ -83,7 +84,7 @@ defaultMPRIS2Config :: MPRIS2Config MPRIS2PlayerWidget
 defaultMPRIS2Config =
   MPRIS2Config
   { mprisWidgetWrapper = return
-  , updatePlayerWidget = simplePlayerWidget defaultPlayerConfig
+  , updatePlayerWidget = simplePlayerWidget def
   }
 
 data MPRIS2PlayerWidget = MPRIS2PlayerWidget
@@ -102,6 +103,9 @@ defaultPlayerConfig = SimpleMPRIS2PlayerConfig
   , showPlayerWidgetFn =
     \NowPlaying { npStatus = status } -> return $ status /= "Stopped"
   }
+
+instance Default SimpleMPRIS2PlayerConfig where
+  def = defaultPlayerConfig
 
 makeExcept :: String -> (a -> IO (Maybe b)) -> a -> ExceptT String IO b
 makeExcept errorString actionBuilder =
