@@ -43,7 +43,7 @@ data NetworkGraphConfig = NetworkGraphConfig
 -- | Default configuration paramters for the network graph.
 defaultNetworkGraphConfig :: NetworkGraphConfig
 defaultNetworkGraphConfig = NetworkGraphConfig
-  { networkGraphGraphConfig = defaultGraphConfig
+  { networkGraphGraphConfig = def
   , networkGraphTooltipFormat = Just (defaultNetFormat, 3)
   , networkGraphScale = logBase $ 2 ** 32
   , interfacesFilter = const True

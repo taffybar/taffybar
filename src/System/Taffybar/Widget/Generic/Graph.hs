@@ -23,6 +23,7 @@ module System.Taffybar.Widget.Generic.Graph (
 import           Control.Concurrent
 import           Control.Monad ( when )
 import           Control.Monad.IO.Class
+import           Data.Default ( Default(def) )
 import           Data.Foldable ( mapM_ )
 import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
 import qualified Data.Sequence as S
@@ -93,6 +94,9 @@ defaultGraphConfig =
   , graphWidth = 50
   , graphDirection = LEFT_TO_RIGHT
   }
+
+instance Default GraphConfig where
+  def = defaultGraphConfig
 
 -- | Add a data point to the graph for each of the tracked data sets. There
 -- should be as many values in the list as there are data sets.
