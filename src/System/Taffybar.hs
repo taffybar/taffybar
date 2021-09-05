@@ -39,6 +39,7 @@ module System.Taffybar
   -- configuration might look like (also see "System.Taffybar.Example"):
   --
   -- > {-# LANGUAGE OverloadedStrings #-}
+  -- > import Data.Default (def)
   -- > import System.Taffybar
   -- > import System.Taffybar.Information.CPU
   -- > import System.Taffybar.SimpleConfig
@@ -51,14 +52,14 @@ module System.Taffybar
   -- >   return [ totalLoad, systemLoad ]
   -- >
   -- > main = do
-  -- >   let cpuCfg = defaultGraphConfig
+  -- >   let cpuCfg = def
   -- >                  { graphDataColors = [ (0, 1, 0, 1), (1, 0, 1, 0.5)]
   -- >                  , graphLabel = Just "cpu"
   -- >                  }
-  -- >       clock = textClockNewWith defaultClockConfig
+  -- >       clock = textClockNewWith def
   -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
-  -- >       workspaces = workspacesNew defaultWorkspacesConfig
-  -- >       simpleConfig = defaultSimpleTaffyConfig
+  -- >       workspaces = workspacesNew def
+  -- >       simpleConfig = def
   -- >                        { startWidgets = [ workspaces ]
   -- >                        , endWidgets = [ sniTrayNew, clock, cpu ]
   -- >                        }
