@@ -101,7 +101,7 @@ liftContext :: TaffyIO a -> WorkspacesIO a
 liftContext action = asks taffyContext >>= lift . runReaderT action
 
 liftX11Def :: a -> X11Property a -> WorkspacesIO a
-liftX11Def def prop = liftContext $ runX11Def def prop
+liftX11Def dflt prop = liftContext $ runX11Def dflt prop
 
 setWorkspaceWidgetStatusClass ::
      (MonadIO m, Gtk.IsWidget a) => Workspace -> a -> m ()
