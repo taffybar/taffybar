@@ -48,6 +48,8 @@
    tooltips.
 
  * Swap variables are added to `MemoryMonitor`.
+ 
+ * Many types have `Default` instances.
 
 ## Changes
 
