@@ -378,11 +378,11 @@ runX11 action =
 -- property. Return the provided default if 'Nothing' is returned
 -- 'postX11RequestSyncProp'.
 runX11Def :: a -> X11Property a -> TaffyIO a
-runX11Def def prop = runX11 $ postX11RequestSyncProp prop def
+runX11Def dflt prop = runX11 $ postX11RequestSyncProp prop dflt
 
 runX11Context :: MonadIO m => Context -> a -> X11Property a -> m a
-runX11Context context def prop =
-  liftIO $ runReaderT (runX11Def def prop) context
+runX11Context context dflt prop =
+  liftIO $ runReaderT (runX11Def dflt prop) context
 
 -- | Get a state value by type from the 'contextState' field of 'Context'.
 getState :: forall t. Typeable t => Taffy IO (Maybe t)
