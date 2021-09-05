@@ -128,7 +128,7 @@ newtype SimpleBarConfigs = SimpleBarConfigs (MV.MVar [(Int, BC.BarConfig)])
 -- with 'startTaffybar' or 'dyreTaffybar'.
 toTaffyConfig :: SimpleTaffyConfig -> BC.TaffybarConfig
 toTaffyConfig conf =
-    defaultTaffybarConfig
+    def
     { BC.getBarConfigsParam = configGetter
     , BC.cssPaths = cssPaths conf
     , BC.startupHook = startupHook conf
