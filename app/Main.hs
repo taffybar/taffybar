@@ -3,6 +3,7 @@
 -- recompile itself.
 module Main ( main ) where
 
+import Data.Default (def)
 import Data.Semigroup ((<>))
 import Data.Version
 import Options.Applicative
@@ -47,7 +48,7 @@ main = do
 
   if configurationExists
   -- XXX: The configuration record here does not get used, this just calls in to dyre.
-  then dyreTaffybar defaultTaffybarConfig
+  then dyreTaffybar def
   else do
     logM "System.Taffybar" WARNING $
            (  printf "No taffybar configuration file found at %s." taffyFilepath
