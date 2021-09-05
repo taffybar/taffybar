@@ -24,6 +24,7 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.RateLimit
+import           Data.Default (Default(def))
 import qualified Data.Foldable as F
 import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
@@ -178,6 +179,9 @@ defaultWorkspacesConfig =
   , updateRateLimitMicroseconds = 100000
   , urgentWorkspaceState = False
   }
+
+instance Default WorkspacesConfig where
+  def = defaultWorkspacesConfig
 
 hideEmpty :: Workspace -> Bool
 hideEmpty Workspace { workspaceState = Empty } = False
