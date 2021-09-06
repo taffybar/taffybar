@@ -820,9 +820,11 @@ updateIconWidget _ IconWidget
                    , iconForceUpdate = updateIcon
                    } windowData = do
   let statusString = maybe "inactive" getWindowStatusString windowData :: T.Text
+      title = T.pack . windowTitle <$> windowData
       setIconWidgetProperties =
         updateWidgetClasses iconButton [statusString] possibleStatusStrings
   void $ updateVar windowRef $ const $ return windowData
+  Gtk.widgetSetTooltipText iconButton title
   lift $ updateIcon >> setIconWidgetProperties
 
 data WorkspaceButtonController = WorkspaceButtonController

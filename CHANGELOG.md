@@ -50,6 +50,8 @@
  * Swap variables are added to `MemoryMonitor`.
  
  * Many types have `Default` instances.
+ 
+ * Window titles are shown on hover.
 
 ## Changes
 
