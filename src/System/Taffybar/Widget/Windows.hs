@@ -19,6 +19,7 @@ module System.Taffybar.Widget.Windows where
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
+import           Data.Default (Default(..))
 import           Data.Maybe
 import qualified Data.Text as T
 import           GI.GLib (markupEscapeText)
@@ -62,6 +63,9 @@ defaultWindowsConfig =
   { getMenuLabel = truncatedGetMenuLabel 35
   , getActiveLabel = truncatedGetActiveLabel 35
   }
+
+instance Default WindowsConfig where
+  def = defaultWindowsConfig
 
 -- | Create a new Windows widget that will use the given Pager as
 -- its source of events.

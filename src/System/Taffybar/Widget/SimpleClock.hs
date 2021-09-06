@@ -10,6 +10,7 @@ module System.Taffybar.Widget.SimpleClock
   ) where
 
 import           Control.Monad.IO.Class
+import           Data.Default ( Default(..) )
 import           Data.Maybe
 import qualified Data.Text as T
 import           Data.Time.Calendar ( toGregorian )
@@ -62,10 +63,10 @@ textClockNew ::
 textClockNew userLocale format interval =
   textClockNewWith cfg
   where
-    cfg = defaultClockConfig { clockTimeLocale = userLocale
-                             , clockFormatString = format
-                             , clockUpdateStrategy = ConstantInterval interval
-                             }
+    cfg = def { clockTimeLocale = userLocale
+              , clockFormatString = format
+              , clockUpdateStrategy = ConstantInterval interval
+              }
 
 data ClockUpdateStrategy
   = ConstantInterval Double
@@ -87,6 +88,9 @@ defaultClockConfig = ClockConfig
   , clockFormatString = "%a %b %_d %r"
   , clockUpdateStrategy = RoundedTargetInterval 5 0.0
   }
+
+instance Default ClockConfig where
+  def = defaultClockConfig
 
 systemGetTZ :: IO TimeZone
 systemGetTZ = setTZ >> getCurrentTimeZone

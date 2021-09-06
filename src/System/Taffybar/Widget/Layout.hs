@@ -26,6 +26,7 @@ module System.Taffybar.Widget.Layout
 
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
+import           Data.Default (Default(..))
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import           GI.Gdk
@@ -49,7 +50,7 @@ import           System.Taffybar.Widget.Util
 --
 -- > import System.Taffybar.Widget.Layout
 -- > main = do
--- >   let los = layoutSwitcherNew defaultLayoutConfig
+-- >   let los = layoutSwitcherNew def
 --
 -- now you can use @los@ as any other Taffybar widget.
 
@@ -59,6 +60,9 @@ newtype LayoutConfig = LayoutConfig
 
 defaultLayoutConfig :: LayoutConfig
 defaultLayoutConfig = LayoutConfig return
+
+instance Default LayoutConfig where
+  def = defaultLayoutConfig
 
 -- | Name of the X11 events to subscribe, and of the hint to look for for
 -- the name of the current layout.

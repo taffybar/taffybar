@@ -17,6 +17,7 @@ module System.Taffybar.Example where
 --
 -- > main = dyreTaffybar exampleTaffybarConfig
 
+import Data.Default (def)
 import System.Taffybar.Context (TaffybarConfig(..))
 import System.Taffybar.Hooks
 import System.Taffybar.Information.CPU
@@ -36,7 +37,7 @@ taffyBlue = (0.129, 0.588, 0.953, 1)
 
 myGraphConfig, netCfg, memCfg, cpuCfg :: GraphConfig
 myGraphConfig =
-  defaultGraphConfig
+  def
   { graphPadding = 0
   , graphBorderWidth = 0
   , graphWidth = 75
@@ -71,7 +72,7 @@ cpuCallback = do
 exampleTaffybarConfig :: TaffybarConfig
 exampleTaffybarConfig =
   let myWorkspacesConfig =
-        defaultWorkspacesConfig
+        def
         { minIcons = 1
         , widgetGap = 0
         , showWorkspaceFn = hideEmpty
@@ -80,13 +81,13 @@ exampleTaffybarConfig =
       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
       mem = pollingGraphNew memCfg 1 memCallback
       net = networkGraphNew netCfg Nothing
-      clock = textClockNewWith defaultClockConfig
-      layout = layoutNew defaultLayoutConfig
-      windowsW = windowsNew defaultWindowsConfig
+      clock = textClockNewWith def
+      layout = layoutNew def
+      windowsW = windowsNew def
       -- See https://github.com/taffybar/gtk-sni-tray#statusnotifierwatcher
       -- for a better way to set up the sni tray
       tray = sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt
-      myConfig = defaultSimpleTaffyConfig
+      myConfig = def
         { startWidgets =
             workspaces : map (>>= buildContentsBox) [ layout, windowsW ]
         , endWidgets = map (>>= buildContentsBox)

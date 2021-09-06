@@ -26,6 +26,7 @@ import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
+import           Data.Default (Default(..))
 import           Data.Int (Int64)
 import qualified Data.Text as T
 import           GI.Gtk as Gtk
@@ -91,7 +92,7 @@ formatBattInfo info fmt =
 textBatteryNew :: String -> TaffyIO Widget
 textBatteryNew format = textBatteryNewWithLabelAction labelSetter
   where labelSetter label info = do
-          setBatteryStateClasses defaultBatteryClassesConfig label info
+          setBatteryStateClasses def label info
           labelSetMarkup label $
                          formatBattInfo (getBatteryWidgetInfo info) format
 
@@ -108,6 +109,9 @@ defaultBatteryClassesConfig =
   , batteryLowThreshold = 20
   , batteryCriticalThreshold = 5
   }
+
+instance Default BatteryClassesConfig where
+  def = defaultBatteryClassesConfig
 
 setBatteryStateClasses ::
   MonadIO m => BatteryClassesConfig -> Gtk.Label -> BatteryInfo -> m ()

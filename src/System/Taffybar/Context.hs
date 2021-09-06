@@ -57,6 +57,7 @@ import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import qualified DBus.Client as DBus
 import           Data.Data
+import           Data.Default (Default(..))
 import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
 import           Data.List
@@ -163,6 +164,9 @@ defaultTaffybarConfig = TaffybarConfig
   , errorMsg = Nothing
   }
 
+instance Default TaffybarConfig where
+  def = defaultTaffybarConfig
+
 -- | A "Context" value holds all of the state associated with a single running
 -- instance of taffybar. It is typically accessed from a widget constructor
 -- through the "TaffyIO" monad transformer stack.
@@ -241,7 +245,7 @@ buildContext TaffybarConfig
 -- invoking functions that yield 'TaffyIO' values in a testing setting (e.g. in
 -- a repl).
 buildEmptyContext :: IO Context
-buildEmptyContext = buildContext defaultTaffybarConfig
+buildEmptyContext = buildContext def
 
 buildBarWindow :: Context -> BarConfig -> IO Gtk.Window
 buildBarWindow context barConfig = do
@@ -374,11 +378,11 @@ runX11 action =
 -- property. Return the provided default if 'Nothing' is returned
 -- 'postX11RequestSyncProp'.
 runX11Def :: a -> X11Property a -> TaffyIO a
-runX11Def def prop = runX11 $ postX11RequestSyncProp prop def
+runX11Def dflt prop = runX11 $ postX11RequestSyncProp prop dflt
 
 runX11Context :: MonadIO m => Context -> a -> X11Property a -> m a
-runX11Context context def prop =
-  liftIO $ runReaderT (runX11Def def prop) context
+runX11Context context dflt prop =
+  liftIO $ runReaderT (runX11Def dflt prop) context
 
 -- | Get a state value by type from the 'contextState' field of 'Context'.
 getState :: forall t. Typeable t => Taffy IO (Maybe t)

@@ -25,6 +25,7 @@ module System.Taffybar.SimpleConfig
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.Trans.Class
+import           Data.Default (Default(..))
 import           Data.List
 import           Data.Maybe
 import           Data.Unique
@@ -85,6 +86,9 @@ defaultSimpleTaffyConfig = SimpleTaffyConfig
   , startupHook = return ()
   }
 
+instance Default SimpleTaffyConfig where
+  def = defaultSimpleTaffyConfig
+
 -- | Convert a 'SimpleTaffyConfig' into a 'StrutConfig' that can be used with
 -- gtk-strut.
 toStrutConfig :: SimpleTaffyConfig -> Int -> StrutConfig
@@ -124,7 +128,7 @@ newtype SimpleBarConfigs = SimpleBarConfigs (MV.MVar [(Int, BC.BarConfig)])
 -- with 'startTaffybar' or 'dyreTaffybar'.
 toTaffyConfig :: SimpleTaffyConfig -> BC.TaffybarConfig
 toTaffyConfig conf =
-    defaultTaffybarConfig
+    def
     { BC.getBarConfigsParam = configGetter
     , BC.cssPaths = cssPaths conf
     , BC.startupHook = startupHook conf

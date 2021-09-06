@@ -34,6 +34,7 @@ import           Control.Monad ( forever, void )
 import           Control.Monad.IO.Class
 import           DBus
 import           DBus.Client
+import           Data.Default ( Default(..) )
 import           Data.Foldable
 import           Data.Int ( Int32 )
 import           Data.Map ( Map )
@@ -233,6 +234,9 @@ defaultNotificationConfig =
                      , notificationMaxLength = 100
                      , notificationFormatter = defaultFormatter
                      }
+
+instance Default NotificationConfig where
+  def = defaultNotificationConfig
 
 -- | Create a new notification area with the given configuration.
 notifyAreaNew :: MonadIO m => NotificationConfig -> m Widget

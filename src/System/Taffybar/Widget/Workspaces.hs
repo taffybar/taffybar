@@ -24,6 +24,7 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.RateLimit
+import           Data.Default (Default(..))
 import qualified Data.Foldable as F
 import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
@@ -100,7 +101,7 @@ liftContext :: TaffyIO a -> WorkspacesIO a
 liftContext action = asks taffyContext >>= lift . runReaderT action
 
 liftX11Def :: a -> X11Property a -> WorkspacesIO a
-liftX11Def def prop = liftContext $ runX11Def def prop
+liftX11Def dflt prop = liftContext $ runX11Def dflt prop
 
 setWorkspaceWidgetStatusClass ::
      (MonadIO m, Gtk.IsWidget a) => Workspace -> a -> m ()
@@ -178,6 +179,9 @@ defaultWorkspacesConfig =
   , updateRateLimitMicroseconds = 100000
   , urgentWorkspaceState = False
   }
+
+instance Default WorkspacesConfig where
+  def = defaultWorkspacesConfig
 
 hideEmpty :: Workspace -> Bool
 hideEmpty Workspace { workspaceState = Empty } = False
