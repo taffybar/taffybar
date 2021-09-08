@@ -23,6 +23,7 @@ import qualified CoinbasePro.Headers as CB
 import qualified CoinbasePro.Request as CB
 import qualified CoinbasePro.Types as CB
 import qualified CoinbasePro.Unauthenticated.API as CB
+import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.ByteString.Lazy as LBS
 import           Data.ByteString.UTF8 as BS
@@ -48,7 +49,7 @@ buildCryptoPriceChannel ::
 buildCryptoPriceChannel delay = do
   chan <- newBroadcastChan
   let symbol = Data.Text.pack $ symbolVal (Proxy :: Proxy a)
-  _ <- foreverWithDelay delay $ liftIO $
+  _ <- foreverWithDelay delay $ liftIO $ void $
     getLatestPrice symbol >>= writeBChan chan
   return $ CryptoPriceChannel chan
 

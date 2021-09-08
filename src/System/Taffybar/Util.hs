@@ -23,6 +23,7 @@ import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Data.Either.Combinators
 import           Data.GI.Base.GError
+import           Control.Exception.Enclosed (catchAny)
 import qualified Data.GI.Gtk.Threading as Gtk
 import           Data.Maybe
 import qualified Data.Text as T
@@ -94,9 +95,12 @@ runCommand cmd args = liftIO $ do
     ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) stderr
 
 -- | Execute the provided IO action at the provided interval.
-foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO a -> m ThreadId
+foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO () -> m ThreadId
 foreverWithDelay delay action =
-  foreverWithVariableDelay $ action >> return delay
+  foreverWithVariableDelay $ safeAction >> return delay
+  where safeAction =
+          catchAny action $ \e ->
+            logPrintF "System.Taffybar.Util" WARNING "Error in foreverWithDelay %s" e
 
 -- | Execute the provided IO action, and use the value it returns to decide how
 -- long to wait until executing it again. The value returned by the action is

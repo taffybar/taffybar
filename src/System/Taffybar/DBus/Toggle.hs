@@ -35,7 +35,7 @@ import           Prelude
 import           System.Directory
 import           System.FilePath.Posix
 import           System.Log.Logger
-import           System.Taffybar.Context hiding (logIO)
+import           System.Taffybar.Context
 import           System.Taffybar.Util
 import           Text.Printf
 import           Text.Read ( readMaybe )

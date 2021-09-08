@@ -72,7 +72,7 @@ getDirectoryEntriesByClassName =
 updateDirectoryEntriesCache :: TaffyIO ()
 updateDirectoryEntriesCache = ask >>= \ctx ->
   void $ lift $ foreverWithDelay (60 :: Double) $ flip runReaderT ctx $
-       putState readDirectoryEntriesDefault
+       void $ putState readDirectoryEntriesDefault
 
 -- | Read 'DesktopEntry' values into a 'MM.Multimap', where they are indexed by
 -- the class name specified in the 'DesktopEntry'.
