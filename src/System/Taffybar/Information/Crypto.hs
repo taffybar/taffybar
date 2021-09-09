@@ -23,6 +23,7 @@ import qualified CoinbasePro.Headers as CB
 import qualified CoinbasePro.Request as CB
 import qualified CoinbasePro.Types as CB
 import qualified CoinbasePro.Unauthenticated.API as CB
+import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.ByteString.Lazy as LBS
@@ -39,7 +40,7 @@ import           Text.Printf
 newtype CryptoPriceInfo = CryptoPriceInfo { lastPrice :: Double }
 
 newtype CryptoPriceChannel (a :: Symbol) =
-  CryptoPriceChannel (BroadcastChan In CryptoPriceInfo)
+  CryptoPriceChannel (BroadcastChan In CryptoPriceInfo, MVar CryptoPriceInfo)
 
 getCryptoPriceChannel :: KnownSymbol a => TaffyIO (CryptoPriceChannel a)
 getCryptoPriceChannel = getStateDefault $ buildCryptoPriceChannel (60.0 :: Double)
@@ -48,10 +49,13 @@ buildCryptoPriceChannel ::
   forall a m d. (KnownSymbol a, MonadIO m, RealFrac d) => d -> m (CryptoPriceChannel a)
 buildCryptoPriceChannel delay = do
   chan <- newBroadcastChan
+  var <- liftIO $ newMVar $ CryptoPriceInfo 0.0
+  let doWrites info =
+          swapMVar var info >> writeBChan chan info
   let symbol = Data.Text.pack $ symbolVal (Proxy :: Proxy a)
-  _ <- foreverWithDelay delay $ liftIO $ void $
-    getLatestPrice symbol >>= writeBChan chan
-  return $ CryptoPriceChannel chan
+  _ <- foreverWithDelay delay $
+       liftIO $ void $ getLatestPrice symbol >>= doWrites
+  return $ CryptoPriceChannel (chan, var)
 
 getLatestPrice :: MonadIO m => Data.Text.Text -> m CryptoPriceInfo
 getLatestPrice productString =

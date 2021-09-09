@@ -18,6 +18,7 @@
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.Crypto where
 
+import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -93,11 +94,13 @@ cryptoPriceLabel :: forall a. KnownSymbol a => TaffyIO Gtk.Widget
 cryptoPriceLabel = getCryptoPriceChannel @a >>= cryptoPriceLabel'
 
 cryptoPriceLabel' :: CryptoPriceChannel a -> TaffyIO Gtk.Widget
-cryptoPriceLabel' (CryptoPriceChannel chan) = do
+cryptoPriceLabel' (CryptoPriceChannel (chan, var)) = do
   label <- Gtk.labelNew Nothing
   let updateWidget CryptoPriceInfo { lastPrice = cryptoPrice } =
         postGUIASync $ Gtk.labelSetMarkup label $
                      Data.Text.pack $ show cryptoPrice
+  void $ Gtk.onWidgetRealize label $
+       readMVar var >>= updateWidget
   Gtk.toWidget =<< channelWidgetNew label chan updateWidget
 
 cryptoIconsDir :: IO FilePath
