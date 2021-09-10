@@ -20,6 +20,7 @@ module System.Taffybar.SimpleConfig
   , toTaffyConfig
   , useAllMonitors
   , usePrimaryMonitor
+  , StrutSize(..)
   ) where
 
 import qualified Control.Concurrent.MVar as MV
@@ -50,7 +51,7 @@ data SimpleTaffyConfig = SimpleTaffyConfig
   -- | The monitor number to put the bar on (default: 'usePrimaryMonitor')
     monitorsAction :: TaffyIO [Int]
   -- | Number of pixels to reserve for the bar (default: 30)
-  , barHeight :: Int
+  , barHeight :: StrutSize
   -- | Number of additional pixels to reserve for the bar strut (default: 0)
   , barPadding :: Int
   -- | The position of the bar on the screen (default: 'Top')
@@ -75,7 +76,7 @@ data SimpleTaffyConfig = SimpleTaffyConfig
 defaultSimpleTaffyConfig :: SimpleTaffyConfig
 defaultSimpleTaffyConfig = SimpleTaffyConfig
   { monitorsAction = useAllMonitors
-  , barHeight = 30
+  , barHeight = ScreenRatio $ (1 / 27)
   , barPadding = 0
   , barPosition = Top
   , widgetSpacing = 5
@@ -92,12 +93,12 @@ instance Default SimpleTaffyConfig where
 -- | Convert a 'SimpleTaffyConfig' into a 'StrutConfig' that can be used with
 -- gtk-strut.
 toStrutConfig :: SimpleTaffyConfig -> Int -> StrutConfig
-toStrutConfig SimpleTaffyConfig { barHeight = size
+toStrutConfig SimpleTaffyConfig { barHeight = height
                                 , barPadding = padding
                                 , barPosition = pos
                                 } monitor =
   defaultStrutConfig
-  { strutHeight = ExactSize $ fromIntegral size
+  { strutHeight = height
   , strutYPadding = fromIntegral padding
   , strutXPadding = fromIntegral padding
   , strutAlignment = Center

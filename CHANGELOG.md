@@ -13,6 +13,11 @@
    functions that were in that module can now be found in
    `System.Taffybar.Widget.Util`.
 
+ * The `barHeight` property of `SimpleTaffyConfig` is now a `StrutSize`. This
+   means that in addition to specifying an exact pixel count for the height of
+   taffybar, it is also possible to specify a fraction of the screen that it
+   should occupy. See the docs for `StrutSize` for more details.
+
 ## New Features
 
  * A new module `System.Taffybar.Widget.Crypto` that contains widgets that display

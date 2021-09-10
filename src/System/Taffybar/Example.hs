@@ -101,7 +101,7 @@ exampleTaffybarConfig =
           ]
         , barPosition = Top
         , barPadding = 10
-        , barHeight = 50
+        , barHeight = ExactSize 50
         , widgetSpacing = 0
         }
   in withBatteryRefresh $ withLogServer $
