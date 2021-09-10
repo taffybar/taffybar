@@ -3,9 +3,10 @@
     flake-utils.url = github:numtide/flake-utils;
     git-ignore-nix.url = github:IvanMalison/gitignore.nix/master;
     gtk-sni-tray.url = github:taffybar/gtk-sni-tray/master;
+    gtk-strut.url = github:taffybar/gtk-strut/master;
   };
   outputs = {
-    self, flake-utils, nixpkgs, git-ignore-nix, gtk-sni-tray,
+    self, flake-utils, nixpkgs, git-ignore-nix, gtk-sni-tray, gtk-strut
   }:
   let
     overlay = final: prev: {
@@ -33,7 +34,7 @@
         });
       });
     };
-    overlays = gtk-sni-tray.overlays ++ [ overlay ];
+    overlays = gtk-strut.overlays ++ gtk-sni-tray.overlays ++ [ overlay ];
   in flake-utils.lib.eachDefaultSystem (system:
   let pkgs = import nixpkgs { inherit system overlays; config.allowBroken = true; };
   in
