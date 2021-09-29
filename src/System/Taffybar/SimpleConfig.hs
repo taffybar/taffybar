@@ -58,11 +58,11 @@ data SimpleTaffyConfig = SimpleTaffyConfig
   , barPosition :: Position
   -- | The number of pixels between widgets (default: 5)
   , widgetSpacing :: Int
-  -- | Widget constructors whose output are placed at the beginning of the bar
+  -- | Widget constructors whose outputs are placed at the beginning of the bar
   , startWidgets :: [TaffyIO Gtk.Widget]
-  -- | Widget constructors whose output are placed in the center of the bar
+  -- | Widget constructors whose outputs are placed in the center of the bar
   , centerWidgets :: [TaffyIO Gtk.Widget]
-  -- | Widget constructors whose output are placed at the end of the bar
+  -- | Widget constructors whose outputs are placed at the end of the bar
   , endWidgets :: [TaffyIO Gtk.Widget]
   -- | List of paths to CSS stylesheets that should be loaded at startup.
   , cssPaths :: [FilePath]
@@ -76,7 +76,7 @@ data SimpleTaffyConfig = SimpleTaffyConfig
 defaultSimpleTaffyConfig :: SimpleTaffyConfig
 defaultSimpleTaffyConfig = SimpleTaffyConfig
   { monitorsAction = useAllMonitors
-  , barHeight = ScreenRatio $ (1 / 27)
+  , barHeight = ScreenRatio $ 1 / 27
   , barPadding = 0
   , barPosition = Top
   , widgetSpacing = 5
