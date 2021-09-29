@@ -12,7 +12,7 @@
 
 [![Help Wanted](https://img.shields.io/github/issues/taffybar/taffybar/help%20wanted.svg)](https://github.com/taffybar/taffybar/labels/help%20wanted)
 
-[![Matrix Chat](https://matrix.to/#/#taffybar:matrix.org)](https://img.shields.io/matrix/taffybar_Lobby:gitter.im)
+[![Matrix Chat](https://matrix.to/#/#taffybar:matrix.org)](https://img.shields.io/matrix/taffybar:matrix.org)
 
 [![Gitter Chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/taffybar/Lobby)
 
