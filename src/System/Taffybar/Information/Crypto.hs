@@ -24,7 +24,6 @@ import qualified CoinbasePro.Request as CB
 import qualified CoinbasePro.Types as CB
 import qualified CoinbasePro.Unauthenticated.API as CB
 import           Control.Concurrent
-import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.ByteString.Lazy as LBS
 import           Data.ByteString.UTF8 as BS
@@ -34,8 +33,10 @@ import           Data.Time
 import           GHC.TypeLits
 import           Network.HTTP.Simple hiding (Proxy)
 import           System.Taffybar.Context
+import           Control.Exception.Enclosed (catchAny)
 import           System.Taffybar.Util
 import           Text.Printf
+import System.Log.Logger
 
 newtype CryptoPriceInfo = CryptoPriceInfo { lastPrice :: Double }
 
@@ -45,16 +46,29 @@ newtype CryptoPriceChannel (a :: Symbol) =
 getCryptoPriceChannel :: KnownSymbol a => TaffyIO (CryptoPriceChannel a)
 getCryptoPriceChannel = getStateDefault $ buildCryptoPriceChannel (60.0 :: Double)
 
+initialBackoff :: RealFrac d => d
+initialBackoff = 2.0
+
 buildCryptoPriceChannel ::
   forall a m d. (KnownSymbol a, MonadIO m, RealFrac d) => d -> m (CryptoPriceChannel a)
 buildCryptoPriceChannel delay = do
   chan <- newBroadcastChan
   var <- liftIO $ newMVar $ CryptoPriceInfo 0.0
-  let doWrites info =
-          swapMVar var info >> writeBChan chan info
+  backoffVar <- liftIO $ newMVar initialBackoff
+
+  let doWrites info = do
+        _ <- swapMVar var info
+        _ <- writeBChan chan info
+        putMVar backoffVar initialBackoff
+
   let symbol = Data.Text.pack $ symbolVal (Proxy :: Proxy a)
-  _ <- foreverWithDelay delay $
-       liftIO $ void $ getLatestPrice symbol >>= doWrites
+  _ <- foreverWithVariableDelay $
+       catchAny (liftIO $ getLatestPrice symbol >>= doWrites >> return delay) $
+                  \e -> do
+                    logPrintF "System.Taffybar.Information.Crypto"
+                              WARNING "Error when fetching crypto price: %s" e
+                    modifyMVar backoffVar $ \current ->
+                      return (min (current * 2) delay, current)
   return $ CryptoPriceChannel (chan, var)
 
 getLatestPrice :: MonadIO m => Data.Text.Text -> m CryptoPriceInfo
