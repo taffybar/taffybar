@@ -59,7 +59,8 @@ buildCryptoPriceChannel delay = do
   let doWrites info = do
         _ <- swapMVar var info
         _ <- writeBChan chan info
-        swapMVar backoffVar initialBackoff
+        _ <- swapMVar backoffVar initialBackoff
+        return ()
 
   let symbol = Data.Text.pack $ symbolVal (Proxy :: Proxy a)
   _ <- foreverWithVariableDelay $
@@ -69,6 +70,7 @@ buildCryptoPriceChannel delay = do
                               WARNING "Error when fetching crypto price: %s" e
                     modifyMVar backoffVar $ \current ->
                       return (min (current * 2) delay, current)
+
   return $ CryptoPriceChannel (chan, var)
 
 getLatestPrice :: MonadIO m => Data.Text.Text -> m CryptoPriceInfo
