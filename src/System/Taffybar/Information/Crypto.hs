@@ -59,7 +59,7 @@ buildCryptoPriceChannel delay = do
   let doWrites info = do
         _ <- swapMVar var info
         _ <- writeBChan chan info
-        putMVar backoffVar initialBackoff
+        swapMVar backoffVar initialBackoff
 
   let symbol = Data.Text.pack $ symbolVal (Proxy :: Proxy a)
   _ <- foreverWithVariableDelay $
