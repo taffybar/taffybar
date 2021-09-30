@@ -53,9 +53,9 @@
    tooltips.
 
  * Swap variables are added to `MemoryMonitor`.
- 
+
  * Many types have `Default` instances.
- 
+
  * Window titles are shown on hover.
 
 ## Changes
@@ -79,6 +79,8 @@
 
  * Errors, including icon missing from theme errors, in workspace pixbuf getters
    are now handled gracefully.
+
+ * A workaround to properly display the chrome icon in MPRIS was added.
 
 # 3.3.0
 

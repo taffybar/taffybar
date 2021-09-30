@@ -23,19 +23,19 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
-import           Data.Int
 import           Control.Monad.Trans.Reader
 import           DBus
 import           DBus.Client
 import qualified DBus.TH as DBus
 import           Data.Default (Default(..))
 import           Data.GI.Base.Overloading (IsDescendantOf)
+import           Data.Int
 import           Data.List
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified GI.GLib as G
-import qualified GI.Gtk as Gtk
 import           GI.GdkPixbuf.Objects.Pixbuf as Gdk
+import qualified GI.Gtk as Gtk
 import           System.Environment.XDG.DesktopEntry
 import           System.Log.Logger
 import           System.Taffybar.Context
@@ -124,9 +124,13 @@ loadIconAtSize client busName size =
       mprisLog WARNING "Failed to get MPRIS icon: %s" err >>
       mprisLog WARNING "MPRIS failure for: %s" busName >>
       loadDefault
+    chromeSpecialCase l@(Left _) =
+      if "chrom" `isInfixOf` formatBusName busName
+      then Right "google-chrome" else l
+    chromeSpecialCase x = x
   in
     either logErrorAndLoadDefault return =<<
-    runExceptT (ExceptT (left show <$> MPRIS2DBus.getDesktopEntry client busName)
+    runExceptT (ExceptT (left show . chromeSpecialCase <$> MPRIS2DBus.getDesktopEntry client busName)
                           >>= makeExcept "Failed to get desktop entry"
                               getDirectoryEntryDefault
                           >>= makeExcept "Failed to get image"
