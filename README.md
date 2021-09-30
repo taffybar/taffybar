@@ -1,24 +1,6 @@
 # Taffybar
 
-![Build Status](https://github.com/taffybar/taffybar/actions/workflows/nix.yml/badge.svg)
-
-[![Hackage](https://img.shields.io/hackage/v/taffybar.svg?logo=haskell&label=taffybar)](https://hackage.haskell.org/package/taffybar)
-
-[![Commits](https://img.shields.io/github/commits-since/taffybar/taffybar/latest-release.svg?label=unreleased%20commits)](https://github.com/taffybar/taffybar/compare/latest-release...master)
-
-[![Stackage LTS](http://stackage.org/package/taffybar/badge/lts)](http://stackage.org/lts/package/taffybar)
-
-[![Stackage Nightly](http://stackage.org/package/taffybar/badge/nightly)](http://stackage.org/nightly/package/taffybar)
-
-[![Help Wanted](https://img.shields.io/github/issues/taffybar/taffybar/help%20wanted.svg)](https://github.com/taffybar/taffybar/labels/help%20wanted)
-
-[![Matrix Chat](https://img.shields.io/matrix/taffybar:matrix.org)](https://matrix.to/#/#taffybar:matrix.org)
-
-[![Gitter Chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/taffybar/Lobby)
-
-[![License BSD3](https://img.shields.io/badge/license-BSD3-green.svg?dummy)](https://github.com/taffybar/taffybar/blob/master/LICENSE)
-
-![https://github.com/taffybar/taffybar/blob/master/doc/screenshot.png](https://raw.githubusercontent.com/taffybar/taffybar/master/doc/screenshot.png)
+![Build Status](https://github.com/taffybar/taffybar/actions/workflows/nix.yml/badge.svg) [![Hackage](https://img.shields.io/hackage/v/taffybar.svg?logo=haskell&label=taffybar)](https://hackage.haskell.org/package/taffybar) [![Commits](https://img.shields.io/github/commits-since/taffybar/taffybar/latest-release.svg?label=unreleased%20commits)](https://github.com/taffybar/taffybar/compare/latest-release...master) [![Stackage LTS](http://stackage.org/package/taffybar/badge/lts)](http://stackage.org/lts/package/taffybar) [![Stackage Nightly](http://stackage.org/package/taffybar/badge/nightly)](http://stackage.org/nightly/package/taffybar) [![Help Wanted](https://img.shields.io/github/issues/taffybar/taffybar/help%20wanted.svg)](https://github.com/taffybar/taffybar/labels/help%20wanted) [![Matrix Chat](https://img.shields.io/matrix/taffybar:matrix.org)](https://matrix.to/#/#taffybar:matrix.org) [![Gitter Chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/taffybar/Lobby) [![License BSD3](https://img.shields.io/badge/license-BSD3-green.svg?dummy)](https://github.com/taffybar/taffybar/blob/master/LICENSE) ![https://github.com/taffybar/taffybar/blob/master/doc/screenshot.png](https://raw.githubusercontent.com/taffybar/taffybar/master/doc/screenshot.png)
 
 Taffybar is a gtk+3 [(through
 gi-gtk)](https://github.com/taffybar/taffybar/issues/256) based desktop
