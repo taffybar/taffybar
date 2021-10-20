@@ -55,6 +55,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
+import           Control.RateLimit
 import qualified DBus.Client as DBus
 import           Data.Data
 import           Data.Default (Default(..))
@@ -62,7 +63,9 @@ import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
 import           Data.List
 import qualified Data.Map as M
+import           Data.Maybe
 import qualified Data.Text as T
+import           Data.Time.Units
 import           Data.Tuple.Select
 import           Data.Tuple.Sequence
 import           Data.Unique
@@ -73,11 +76,13 @@ import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
 import           StatusNotifier.TransparentWindow
 import           System.Log.Logger
+import           System.Taffybar.Information.EWMHDesktopInfo (ewmhCurrentDesktop)
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
+import           Text.Read (readMaybe)
 import           Unsafe.Coerce
 
 logIO :: System.Log.Logger.Priority -> String -> IO ()
@@ -272,6 +277,15 @@ buildBarWindow context barConfig = do
 
   _ <- widgetSetClassGI window "taffy-window"
 
+  logIO DEBUG "Subscribing to ewmhCurrentDesktop changes"
+  updateHandler <- onCurrentDesktopUpdate window thisContext
+  let doUpdate = lift . updateHandler
+  currentDesktopSubscription <- flip runReaderT thisContext $
+    subscribeToPropertyEvents [ewmhCurrentDesktop] $ doUpdate
+  let doUnsubscribe = flip runReaderT thisContext $
+        unsubscribe currentDesktopSubscription
+  _ <- Gtk.onWidgetUnrealize window doUnsubscribe
+
   let addWidgetWith widgetAdd (count, buildWidget) =
         runReaderT buildWidget thisContext >>= widgetAdd count
       addToStart count widget = do
@@ -365,6 +379,80 @@ forceRefreshTaffyWindows =
             do
               mapM_ (Gtk.widgetDestroy . sel2) windows
               return []
+
+rateLimitFn
+  :: forall req resp.
+     Context
+  -> (req -> IO resp)
+  -> ResultsCombiner req resp
+  -> IO (req -> IO resp)
+rateLimitFn context =
+  let limit = 100000
+      -- TODO: make configurable, not hardcoded
+      -- something like: (updateRateLimitMicroseconds $ workspacesConfig context)
+      rate = fromMicroseconds limit :: Microsecond in
+  generateRateLimitedFunction $ PerInvocation rate
+
+onCurrentDesktopUpdate :: Gtk.Window -> Context -> IO (Event -> IO ())
+onCurrentDesktopUpdate window context = do
+  rateLimited <- rateLimitFn context doUpdate combineRequests
+  let withLog event = do
+        case event of
+          PropertyEvent _ _ _ _ _ atom _ _ ->
+            logIO DEBUG $ printf "Event %s" $ show atom
+          _ -> return ()
+        void $ forkIO $ rateLimited event
+  return withLog
+  where
+    combineRequests _ b = Just (b, const ((), ()))
+    doUpdate _ = postGUIASync $ flip runReaderT context $ updateTaffyWindowStatus window
+
+updateTaffyWindowStatus :: Gtk.Window -> TaffyIO ()
+updateTaffyWindowStatus window = do
+    ctx <- ask
+    runX11Context ctx () $ void $ do 
+        barXY <- Gtk.windowGetPosition window
+        let barX = fromIntegral $ fst barXY
+            barY = fromIntegral $ snd barXY
+        logC DEBUG $ printf "taffybar window position: %d %d" barX barY
+
+        fmRectList <- getFocusedMonitorRect
+        let fmRectStr = case fmRectList of (x:xs) -> x
+                                           []     -> "0 0 1 1" -- default: top left pixel
+            fmRectWords = words fmRectStr
+            readMaybeInt s = readMaybe s :: Maybe Int
+            [monX, monY, monW, monH]
+                | (length fmRectWords) == 4 = map ((fromMaybe 0) . readMaybeInt) fmRectWords
+                | otherwise                 = [0, 0, 1, 1] -- default: top left pixel
+
+        logC DEBUG $ printf "_XMONAD_FOCUSED_MONITOR_GEOMETRY: %d %d %d %d" monX monY monW monH
+
+        let monFocusStatus
+                | (monX < barX) && (barX < monX + monW) &&
+                  (monY < barY) && (barY < monY + monH)     = "focused-monitor"
+                | otherwise                                 = "unfocused-monitor"
+ 
+        updateWidgetClasses window 
+                            [monFocusStatus]
+                            ["focused-monitor", "unfocused-monitor"]
+
+    return ()
+
+updateWidgetClasses ::
+  (Foldable t1, Foldable t, Gtk.IsWidget a, MonadIO m)
+  => a
+  -> t1 T.Text
+  -> t T.Text
+  -> m ()
+updateWidgetClasses widget toAdd toRemove = do
+  context <- Gtk.widgetGetStyleContext widget
+  let hasClass = Gtk.styleContextHasClass context
+      addIfMissing klass =
+        hasClass klass >>= (`when` Gtk.styleContextAddClass context klass) . not
+      removeIfPresent klass = unless (klass `elem` toAdd) $
+        hasClass klass >>= (`when` Gtk.styleContextRemoveClass context klass)
+  mapM_ removeIfPresent toRemove
+  mapM_ addIfMissing toAdd
 
 asksContextVar :: (r -> MV.MVar b) -> ReaderT r IO b
 asksContextVar getter = asks getter >>= lift . MV.readMVar
