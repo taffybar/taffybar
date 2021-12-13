@@ -87,7 +87,7 @@ logC :: MonadIO m => System.Log.Logger.Priority -> String -> m ()
 logC p = liftIO . logIO p
 
 -- | 'Taffy' is a monad transformer that provides 'Reader' for 'Context'.
-type Taffy m v = MonadIO m => ReaderT Context m v
+type Taffy m v = ReaderT Context m v
 
 -- | 'TaffyIO' is 'IO' wrapped with a 'ReaderT' providing 'Context'. This is the
 -- type of most widgets and callback in taffybar.
@@ -226,7 +226,7 @@ buildContext TaffybarConfig
                 }
   _ <- runMaybeT $ MaybeT GI.Gdk.displayGetDefault >>=
               (lift . GI.Gdk.displayGetDefaultScreen) >>=
-              (lift . flip GI.Gdk.afterScreenMonitorsChanged
+              (lift . (\x y -> GI.Gdk.afterScreenMonitorsChanged y x)
                -- XXX: We have to do a force refresh here because there is no
                -- way to reliably move windows, since the window manager can do
                -- whatever it pleases.
