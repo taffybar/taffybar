@@ -30,6 +30,7 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.List.Split
 import           Data.Maybe
 import           Data.Proxy
+import           Data.String (fromString)
 import qualified Data.Text
 import           GHC.TypeLits
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
@@ -139,6 +140,6 @@ getCryptoIconFromCMC' cmcAPIKey symbol = do
 getIconURIFromJSON :: String -> LBS.ByteString -> Maybe Data.Text.Text
 getIconURIFromJSON symbol jsonText =
   decode jsonText >>= parseMaybe
-           ((.: "data") >=> (.: Data.Text.pack symbol) >=> (.: "logo"))
+           ((.: "data") >=> (.: fromString symbol) >=> (.: "logo"))
 
 

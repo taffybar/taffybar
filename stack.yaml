@@ -1,8 +1,12 @@
+resolver: nightly-2022-04-26
 packages:
 - '.'
 extra-deps:
+- coinbase-pro-0.9.3.0
+- rate-limit-1.4.2
+- unagi-streams-0.2.7
 
-resolver: nightly-2020-04-30
+allow-newer: true
 
 nix:
   packages:

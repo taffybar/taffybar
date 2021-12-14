@@ -3,10 +3,31 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: coinbase-pro-0.9.3.0@sha256:5bba082c06035b4611a6ef4961052ce5c11aa5d9b2f614b394eef718b9786a60,6750
+    pantry-tree:
+      size: 3879
+      sha256: e362e849632cf946111fc059020aac07e6b1f20f747bdfd62d1e181811f63a33
+  original:
+    hackage: coinbase-pro-0.9.3.0
+- completed:
+    hackage: rate-limit-1.4.2@sha256:78b935d96fe82b4d059908557e2c904925e99fcd465e2b4dfd65b8d2930163a2,930
+    pantry-tree:
+      size: 168
+      sha256: 930207a8350478df4e8dcf6957af8e3ac952282002f204eea3aac6baa0e9b975
+  original:
+    hackage: rate-limit-1.4.2
+- completed:
+    hackage: unagi-streams-0.2.7@sha256:4aa0290e5e92145686ba54ab5a53972c0f9fd22b9e06492d769ae61c8423aa22,1142
+    pantry-tree:
+      size: 329
+      sha256: fe3eb224bf3771c039081e6097e9199095354be78770ab1215688f9316f692d6
+  original:
+    hackage: unagi-streams-0.2.7
 snapshots:
 - completed:
-    size: 520328
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2020/4/30.yaml
-    sha256: c3da7e1ed406532c76e4c5251f5d4d1de2d1c97a35dde0858da4f24b6ebe46df
-  original: nightly-2020-04-30
+    size: 554662
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2022/4/26.yaml
+    sha256: 8ac56433d2f176cd2bc4cb231bf967633b051aec1b7c4ebdb7da2466dbf46af3
+  original: nightly-2022-04-26
