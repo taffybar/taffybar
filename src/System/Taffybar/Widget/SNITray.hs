@@ -13,7 +13,7 @@
 -- StatusNotifierItem/AppIndicator tray widgets, supplied by the
 -- "StatusNotifier.Tray" module from the gtk-sni-tray library. These widgets do
 -- not support the older XEMBED protocol, although bridges like
--- xembed-sni-proxy, do allow sni trays to provide limited support for XEMBED
+-- xembed-sni-proxy do allow sni trays to provide limited support for XEMBED
 -- tray icons.
 --
 -- Unless 'sniTrayThatStartsWatcherEvenThoughThisIsABadWayToDoIt' is used it is
