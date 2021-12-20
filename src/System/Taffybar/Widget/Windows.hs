@@ -79,7 +79,7 @@ windowsNew config = do
   subscription <-
     subscribeToPropertyEvents [ewmhActiveWindow, ewmhWMName, ewmhWMClass]
                       activeWindowUpdatedCallback
-  _ <- liftReader (Gtk.onWidgetUnrealize label) (unsubscribe subscription)
+  _ <- liftReader (\x -> Gtk.onWidgetUnrealize label x) (unsubscribe subscription)
 
   context <- ask
 
