@@ -1,7 +1,7 @@
 {
   inputs = {
     flake-utils.url = github:numtide/flake-utils;
-    git-ignore-nix.url = github:IvanMalison/gitignore.nix/master;
+    git-ignore-nix.url = github:hercules-ci/gitignore.nix/master;
     gtk-sni-tray.url = github:taffybar/gtk-sni-tray/master;
     gtk-strut.url = github:taffybar/gtk-strut/master;
   };
@@ -16,7 +16,7 @@
 
           taffybar =
             hself.callCabal2nix "taffybar"
-            (git-ignore-nix.gitIgnoreSource ./.)
+            (git-ignore-nix.lib.gitignoreSource ./.)
             { inherit (final) gtk3;  };
 
           coinbase-pro = hself.callHackageDirect {
