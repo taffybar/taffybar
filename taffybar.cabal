@@ -43,7 +43,7 @@ library
                , dbus >= 1.2.11 && < 2.0.0
                , dbus-hslogger >= 0.1.0.1 && < 0.2.0.0
                , directory
-               , dyre >= 0.8.6 && < 0.10
+               , dyre >= 0.9.0 && < 0.10
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
                , filepath
