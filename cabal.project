@@ -1,1 +1,3 @@
 packages: ./
+
+allow-newer: coinbase-pro:memory
