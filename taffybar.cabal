@@ -155,13 +155,6 @@ library
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
                  , System.Taffybar.WindowIcon
-
-  if flag(cryptocurrency)
-    build-depends: coinbase-pro >= 0.9.2.2 && < 1.0.0.0
-                 , aeson
-    exposed-modules: System.Taffybar.Information.Crypto
-                   , System.Taffybar.Widget.Crypto
-    cpp-options: -DWIDGET_CRYPTO
                    
   other-modules: Paths_taffybar
                , System.Taffybar.DBus.Client.MPRIS2
