@@ -108,6 +108,7 @@ library
                  , System.Taffybar.Information.CPU
                  , System.Taffybar.Information.CPU2
                  , System.Taffybar.Information.Chrome
+                 , System.Taffybar.Information.Crypto
                  , System.Taffybar.Information.DiskIO
                  , System.Taffybar.Information.EWMHDesktopInfo
                  , System.Taffybar.Information.MPRIS2
@@ -125,6 +126,7 @@ library
                  , System.Taffybar.Widget.Battery
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
+                 , System.Taffybar.Widget.Crypto
                  , System.Taffybar.Widget.DiskIOMonitor
                  , System.Taffybar.Widget.FSMonitor
                  , System.Taffybar.Widget.FreedesktopNotifications
@@ -149,9 +151,9 @@ library
                  , System.Taffybar.Widget.Text.NetworkMonitor
                  , System.Taffybar.Widget.Util
                  , System.Taffybar.Widget.Weather
-                 , System.Taffybar.Widget.WttrIn
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
+                 , System.Taffybar.Widget.WttrIn
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
                  , System.Taffybar.WindowIcon

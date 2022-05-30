@@ -139,5 +139,3 @@ getIconURIFromJSON :: String -> LBS.ByteString -> Maybe Data.Text.Text
 getIconURIFromJSON symbol jsonText =
   decode jsonText >>= parseMaybe
            ((.: "data") >=> (.: Data.Text.pack symbol) >=> (.: "logo"))
-
-
