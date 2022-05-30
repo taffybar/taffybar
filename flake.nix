@@ -19,12 +19,6 @@
             (git-ignore-nix.lib.gitignoreSource ./.)
             { inherit (final) gtk3;  };
 
-          coinbase-pro = hself.callHackageDirect {
-              pkg = "coinbase-pro";
-              ver = "0.9.2.2";
-              sha256 = "sha256-ZFEcq9aO+72JSVBg0xWi188mz5WK1NTgs6ZGYHtO0OE=";
-          } { };
-
           dyre = prev.haskell.lib.dontCheck (hself.callHackageDirect {
             pkg = "dyre";
             ver = "0.9.1";

@@ -26,6 +26,7 @@ import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Data.Aeson
 import           Data.Aeson.Types
+import qualified Data.Aeson.Key as Key
 import qualified Data.ByteString.Lazy as LBS
 import           Data.List.Split
 import           Data.Maybe
@@ -138,4 +139,4 @@ getCryptoIconFromCMC' cmcAPIKey symbol = do
 getIconURIFromJSON :: String -> LBS.ByteString -> Maybe Data.Text.Text
 getIconURIFromJSON symbol jsonText =
   decode jsonText >>= parseMaybe
-           ((.: "data") >=> (.: Data.Text.pack symbol) >=> (.: "logo"))
+           ((.: "data") >=> (.: Key.fromString symbol) >=> (.: "logo"))

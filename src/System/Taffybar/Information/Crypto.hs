@@ -24,6 +24,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Types (parseMaybe)
+import qualified Data.Aeson.Key as Key
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.Map as M
@@ -107,7 +108,7 @@ getLatestPrice tokenId inCurrency = do
             tokenId inCurrency
       request = parseRequest_ uri
   bodyText <- getResponseBody <$> httpLBS request
-  return $ decode bodyText >>= parseMaybe ((.: tokenId) >=> (.: inCurrency))
+  return $ decode bodyText >>= parseMaybe ((.: Key.fromText tokenId) >=> (.: Key.fromText inCurrency))
 
 getCryptoMeta :: MonadIO m => String -> String -> m LBS.ByteString
 getCryptoMeta cmcAPIKey symbolName = do
