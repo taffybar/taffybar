@@ -3,11 +3,13 @@
 -- recompile itself.
 module Main ( main ) where
 
+import qualified Config.Dyre as Dyre
 import Data.Default (def)
 import Data.Semigroup ((<>))
 import Data.Version
 import Options.Applicative
 import System.Directory
+import System.Environment.XDG.BaseDir
 import System.Log.Logger
 import System.Taffybar
 import System.Taffybar.Context
@@ -26,6 +28,16 @@ logP =
   <> value WARNING
   )
 
+projectNameP :: Parser String
+projectNameP =
+  option str
+  (  long "project-name"
+  <> short 'p'
+  <> help "Set taffybar configuration project name"
+  <> metavar "NAME"
+  <> value "taffybar"
+  )
+
 versionOption :: Parser (a -> a)
 versionOption = infoOption
                 (printf "taffybar %s" $ showVersion version)
@@ -35,7 +47,8 @@ versionOption = infoOption
 
 main :: IO ()
 main = do
-  logLevel <- execParser $ info (helper <*> versionOption <*> logP)
+  (logLevel, projectName) <-
+    execParser $ info (helper <*> versionOption <*> ((,) <$> logP <*> projectNameP))
               (  fullDesc
               <> progDesc "Start taffybar, recompiling if necessary"
               )
@@ -43,12 +56,12 @@ main = do
   logger <- getLogger "System.Taffybar"
   saveGlobalLogger $ setLevel logLevel logger
 
-  taffyFilepath <- getTaffyFile "taffybar.hs"
+  taffyFilepath <- getUserConfigFile projectName $ projectName <> ".hs"
   configurationExists <- doesFileExist taffyFilepath
 
   if configurationExists
   -- XXX: The configuration record here does not get used, this just calls in to dyre.
-  then dyreTaffybar def
+  then Dyre.wrapMain (taffybarDyreParams {Dyre.projectName = projectName}) def
   else do
     logM "System.Taffybar" WARNING $
            (  printf "No taffybar configuration file found at %s." taffyFilepath
