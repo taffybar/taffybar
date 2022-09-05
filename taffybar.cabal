@@ -158,7 +158,7 @@ library
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
                  , System.Taffybar.WindowIcon
-                   
+
   other-modules: Paths_taffybar
                , System.Taffybar.DBus.Client.MPRIS2
                , System.Taffybar.DBus.Client.Params
@@ -176,6 +176,8 @@ executable taffybar
                , directory
                , hslogger
                , optparse-applicative
+               , dyre
+               , xdg-basedir
                , taffybar
 
   other-modules: Paths_taffybar
