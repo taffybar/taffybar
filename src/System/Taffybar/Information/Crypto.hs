@@ -73,7 +73,7 @@ instance FromJSON CoinGeckoInfo where
   parseJSON = withObject "CoinGeckoInfo" (\v -> CoinGeckoInfo <$> v .: "id" <*> v .: "symbol")
 
 buildCryptoPriceChannel ::
-  forall a d. (KnownSymbol a, RealFrac d) => d -> SymbolToCoinGeckoId ->  TaffyIO (CryptoPriceChannel a)
+  forall a. KnownSymbol a => Double -> SymbolToCoinGeckoId ->  TaffyIO (CryptoPriceChannel a)
 buildCryptoPriceChannel delay (SymbolToCoinGeckoId symbolToId) = do
   chan <- newBroadcastChan
   var <- liftIO $ newMVar $ CryptoPriceInfo 0.0
