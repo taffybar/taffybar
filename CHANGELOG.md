@@ -58,6 +58,8 @@
 
  * Window titles are shown on hover.
 
+ * Allow sorting workspace window icons by _NET_CLIENT_LIST_STACKING.
+
 ## Changes
 
  * Graph labels are now overlayed on top of the graph instead of placed beside
