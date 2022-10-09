@@ -27,6 +27,7 @@ module System.Taffybar.Information.EWMHDesktopInfo
   , allEWMHProperties
   , ewmhActiveWindow
   , ewmhClientList
+  , ewmhClientListStacking
   , ewmhCurrentDesktop
   , ewmhDesktopNames
   , ewmhNumberOfDesktops
@@ -49,6 +50,7 @@ module System.Taffybar.Information.EWMHDesktopInfo
   , getWindowStateProperty
   , getWindowTitle
   , getWindows
+  , getWindowsStacking
   , getWorkspace
   , getWorkspaceNames
   , isWindowUrgent
@@ -93,9 +95,10 @@ type PixelsWordType = Word64
 
 type EWMHProperty = String
 
-ewmhActiveWindow, ewmhClientList, ewmhCurrentDesktop, ewmhDesktopNames, ewmhNumberOfDesktops, ewmhStateHidden, ewmhWMDesktop, ewmhWMStateHidden, ewmhWMClass, ewmhWMState, ewmhWMIcon, ewmhWMName, ewmhWMName2 :: EWMHProperty
+ewmhActiveWindow, ewmhClientList, ewmhClientListStacking, ewmhCurrentDesktop, ewmhDesktopNames, ewmhNumberOfDesktops, ewmhStateHidden, ewmhWMDesktop, ewmhWMStateHidden, ewmhWMClass, ewmhWMState, ewmhWMIcon, ewmhWMName, ewmhWMName2 :: EWMHProperty
 ewmhActiveWindow = "_NET_ACTIVE_WINDOW"
 ewmhClientList = "_NET_CLIENT_LIST"
+ewmhClientListStacking = "_NET_CLIENT_LIST_STACKING"
 ewmhCurrentDesktop = "_NET_CURRENT_DESKTOP"
 ewmhDesktopNames = "_NET_DESKTOP_NAMES"
 ewmhNumberOfDesktops = "_NET_NUMBER_OF_DESKTOPS"
@@ -112,6 +115,7 @@ allEWMHProperties :: [EWMHProperty]
 allEWMHProperties =
   [ ewmhActiveWindow
   , ewmhClientList
+  , ewmhClientListStacking
   , ewmhCurrentDesktop
   , ewmhDesktopNames
   , ewmhNumberOfDesktops
@@ -261,9 +265,13 @@ parseIcons totalSize arr = do
 getActiveWindow :: X11Property (Maybe X11Window)
 getActiveWindow = listToMaybe . filter (> 0) <$> readAsListOfWindow Nothing ewmhActiveWindow
 
--- | Return a list of all @X11Window@s.
+-- | Return a list of all @X11Window@s, sorted by initial mapping order, oldest to newest.
 getWindows :: X11Property [X11Window]
 getWindows = readAsListOfWindow Nothing ewmhClientList
+
+-- | Return a list of all @X11Window@s, sorted in stacking order, bottom-to-top.
+getWindowsStacking :: X11Property [X11Window]
+getWindowsStacking = readAsListOfWindow Nothing ewmhClientListStacking
 
 -- | Return the index (starting from 0) of the workspace on which the given
 -- window is being displayed.
