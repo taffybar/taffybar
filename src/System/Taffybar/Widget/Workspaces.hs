@@ -28,7 +28,7 @@ import           Data.Default (Default(..))
 import qualified Data.Foldable as F
 import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
-import           Data.List (intersect, sortBy, (\\))
+import           Data.List (elemIndex, intersect, sortBy, (\\))
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.MultiMap as MM
@@ -738,6 +738,7 @@ addCustomIconsAndFallback getCustomIconPath fallback defaultGetter =
       lift $
       maybe (return Nothing) getPixbufFromFilePath $ getCustomIconPath wdata
 
+-- | Sort windows by top-left corner position.
 sortWindowsByPosition :: [WindowData] -> WorkspacesIO [WindowData]
 sortWindowsByPosition wins = do
   let getGeometryWorkspaces w = getDisplay >>= liftIO . (`safeGetGeometry` w)
@@ -753,6 +754,16 @@ sortWindowsByPosition wins = do
         compare
           (windowMinimized a, getLeftPos a)
           (windowMinimized b, getLeftPos b)
+  return $ sortBy compareWindowData wins
+
+-- | Sort windows in reverse _NET_CLIENT_LIST_STACKING order.
+-- Starting in xmonad-contrib 0.17.0, this is effectively focus history, active first.
+-- Previous versions erroneously stored focus-sort-order in _NET_CLIENT_LIST.
+sortWindowsByStackIndex :: [WindowData] -> WorkspacesIO [WindowData]
+sortWindowsByStackIndex wins = do
+  stackingWindows <- liftX11Def [] getWindowsStacking
+  let getStackIdx wd = fromMaybe (-1) $ elemIndex (windowId wd) stackingWindows
+      compareWindowData a b = compare (getStackIdx b) (getStackIdx a)
   return $ sortBy compareWindowData wins
 
 updateImages :: IconController -> Workspace -> WorkspacesIO [IconWidget]
