@@ -42,7 +42,10 @@ getSymbolToCoinGeckoId :: MonadIO m => m (M.Map T.Text T.Text)
 getSymbolToCoinGeckoId = do
     let uri = "https://api.coingecko.com/api/v3/coins/list?include_platform=false"
         request = parseRequest_ uri
-    bodyText <- getResponseBody <$> httpLBS request
+    bodyText <- liftIO $ catchAny (getResponseBody <$> httpLBS request) $ \e -> do
+                           liftIO $ logM "System.Taffybar.Information.Crypto" WARNING $
+                                  printf "Error fetching coins list from coin gecko %s" $ show e
+                           return ""
     let coinInfos :: [CoinGeckoInfo]
         coinInfos = fromMaybe [] $ decode bodyText
 
@@ -62,9 +65,6 @@ getCryptoPriceChannel = do
   symbolToId <- getStateDefault $ SymbolToCoinGeckoId <$> getSymbolToCoinGeckoId
   getStateDefault $ buildCryptoPriceChannel (60.0 :: Double) symbolToId
 
-initialBackoff :: RealFrac d => d
-initialBackoff = 2.0
-
 data CoinGeckoInfo =
   CoinGeckoInfo { identifier :: T.Text, symbol :: T.Text }
   deriving (Show)
@@ -75,6 +75,7 @@ instance FromJSON CoinGeckoInfo where
 buildCryptoPriceChannel ::
   forall a. KnownSymbol a => Double -> SymbolToCoinGeckoId ->  TaffyIO (CryptoPriceChannel a)
 buildCryptoPriceChannel delay (SymbolToCoinGeckoId symbolToId) = do
+  let initialBackoff = delay
   chan <- newBroadcastChan
   var <- liftIO $ newMVar $ CryptoPriceInfo 0.0
   backoffVar <- liftIO $ newMVar initialBackoff
@@ -90,7 +91,7 @@ buildCryptoPriceChannel delay (SymbolToCoinGeckoId symbolToId) = do
 
   case M.lookup (T.toLower symbolName) symbolToId of
     Nothing -> liftIO $ logM "System.Taffybar.Information.Crypto"
-               WARNING "Symbol not found in coin gecko list"
+               WARNING $ printf "Symbol %s not found in coin gecko list" symbolName
     Just cgIdentifier ->
       void $ foreverWithVariableDelay $
            catchAny (liftIO $ getLatestPrice cgIdentifier (T.toLower inCurrency) >>=
