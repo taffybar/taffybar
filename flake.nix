@@ -38,6 +38,11 @@
       nativeBuildInputs = with pkgs.haskellPackages; [
         cabal-install hlint ghcid ormolu implicit-hie haskell-language-server
       ];
+
+      buildInputs = with pkgs; [ pcre.dev util-linux.dev libselinux.dev
+        libsepol.dev libthai.dev libdatrie.dev xorg.libXdmcp.dev
+        libxkbcommon.dev libepoxy.dev dbus.dev at-spi2-core.dev xorg.libXtst ];
+
     };
     buildInputs = [ pkgs.haskellPackages.cabal-install ];
     defaultPackage = pkgs.haskellPackages.taffybar;
