@@ -21,10 +21,6 @@ extra-source-files:
   dbus-xml/org.mpris.MediaPlayer2.Player.xml
   dbus-xml/org.mpris.MediaPlayer2.xml
 
-flag cryptocurrency
-    description: Enable crypto assets widget.
-    default: True
-
 library
   default-extensions:
     TupleSections
