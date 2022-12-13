@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
+{-# LANGUAGE ApplicativeDo #-}
 -- | This is just a stub executable that uses dyre to read the config file and
 -- recompile itself.
 module Main ( main ) where
@@ -33,9 +34,28 @@ versionOption = infoOption
                 <> help "Show the version number of taffybar"
                 )
 
+configurationFilePathOption :: FilePath -> Parser FilePath
+configurationFilePathOption defaultFilePath =
+  option auto
+  (  long "config-file"
+  <> short 'c'
+  <> help "Set the path that should be used to load taffybar"
+  <> metavar "CONFIGURATION-FILEPATH"
+  <> value defaultFilePath
+  )
+
+makeParser :: FilePath -> Parser (FilePath, Priority)
+makeParser defaultFilePath = do
+  filepath <- configurationFilePathOption defaultFilePath
+  logLevel <- logP
+  return (filepath, logLevel)
+
+
 main :: IO ()
 main = do
-  logLevel <- execParser $ info (helper <*> versionOption <*> logP)
+  defaultFilePath <- getTaffyFile "taffybar.hs"
+  (configFilePath, logLevel) <-
+    execParser $ info (helper <*> versionOption <*> makeParser defaultFilePath)
               (  fullDesc
               <> progDesc "Start taffybar, recompiling if necessary"
               )
@@ -43,15 +63,14 @@ main = do
   logger <- getLogger "System.Taffybar"
   saveGlobalLogger $ setLevel logLevel logger
 
-  taffyFilepath <- getTaffyFile "taffybar.hs"
-  configurationExists <- doesFileExist taffyFilepath
+  configurationExists <- doesFileExist configFilePath
 
   if configurationExists
   -- XXX: The configuration record here does not get used, this just calls in to dyre.
   then dyreTaffybar def
   else do
     logM "System.Taffybar" WARNING $
-           (  printf "No taffybar configuration file found at %s." taffyFilepath
+           (  printf "No taffybar configuration file found at %s." configFilePath
            ++ " Starting with example configuration."
            )
     startTaffybar exampleTaffybarConfig
