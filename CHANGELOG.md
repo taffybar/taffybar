@@ -1,3 +1,10 @@
+# Unreleased
+
+## Bug Fixes
+
+ * Gtk.widgetShowAll is run on the widget created by `cryptoPriceLabelWithIcon`,
+   so that it shows up by default.
+
 # 4.0.0
 
 ## Breaking Changes

@@ -48,11 +48,12 @@ import           Text.Printf
 -- | Extends 'cryptoPriceLabel' with an icon corresponding to the symbol of the
 -- purchase crypto that will appear to the left of the price label. See the
 -- docstring for 'getCryptoPixbuf' for details about how this icon is retrieved.
--- As with 'cryptoPriceLabel', this function must be invoked with a type
--- application with the type string that expresses the symbol of the relevant
--- token and the underlying currency its price should be expressed in. See the
--- docstring of 'cryptoPriceLabel' for details about the exact format that this
--- string should take.
+-- Note that automatic icon retrieval requires a coinmarketcap api key to be set
+-- at taffybar startup. As with 'cryptoPriceLabel', this function must be
+-- invoked with a type application with the type string that expresses the
+-- symbol of the relevant token and the underlying currency in which its price
+-- should be expressed. See the docstring of 'cryptoPriceLabel' for details
+-- about the exact format that this string should take.
 cryptoPriceLabelWithIcon :: forall a. KnownSymbol a => TaffyIO Gtk.Widget
 cryptoPriceLabelWithIcon = do
   label <- cryptoPriceLabel @a
@@ -68,6 +69,8 @@ cryptoPriceLabelWithIcon = do
 
   Gtk.containerAdd hbox image
   Gtk.containerAdd hbox label
+
+  Gtk.widgetShowAll hbox
 
   Gtk.toWidget hbox
 
