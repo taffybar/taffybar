@@ -30,6 +30,52 @@
           ver = "0.9.1";
           sha256 = "sha256-3ClPPbNm5wQI+QHaR0Rtiye2taSTF3IlWgfanud6wLg=";
         } { });
+
+        haskell-gi-base = let haskell-gi-base =
+            prev.haskell.lib.addPkgconfigDepend hsuper.haskell-gi-base final.pcre2;
+          in prev.haskell.lib.addExtraLibraries haskell-gi-base [
+            final.util-linux
+            final.libselinux
+            final.libsepol
+            final.pcre
+          ];
+
+        gi-gio =
+          let gi-gio-t =
+            prev.haskell.lib.addPkgconfigDepend hsuper.gi-gio final.pcre2;
+          in prev.haskell.lib.addExtraLibraries gi-gio-t [
+            final.util-linux
+            final.libselinux
+            final.libsepol
+            final.pcre
+          ];
+
+        glib = let glib =
+            prev.haskell.lib.addPkgconfigDepend hsuper.glib final.pcre2;
+          in prev.haskell.lib.addExtraLibraries glib [
+            final.util-linux
+            final.libselinux
+            final.libsepol
+            final.pcre
+          ];
+
+        gi-gobject = let gi-gobject =
+            prev.haskell.lib.addPkgconfigDepend hsuper.gi-gobject final.pcre2;
+          in prev.haskell.lib.addExtraLibraries gi-gobject [
+            final.util-linux
+            final.libselinux
+            final.libsepol
+            final.pcre
+          ];
+
+        gi-glib = let gi-glib =
+            prev.haskell.lib.addPkgconfigDepend hsuper.gi-glib final.pcre2;
+          in prev.haskell.lib.addExtraLibraries gi-glib [
+            final.util-linux
+            final.libselinux
+            final.libsepol
+            final.pcre
+          ];
     };
     overlay = xmonad.lib.fromHOL hoverlay defComp;
     overlays = gtk-strut.overlays ++ gtk-sni-tray.overlays ++ [ overlay ];
