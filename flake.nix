@@ -13,13 +13,7 @@
     defComp = if builtins.pathExists ./comp.nix
       then import ./comp.nix
       else { };
-    hpath = { prefix ? null, compiler ? null }:
-      (if prefix == null then [] else [ prefix ]) ++
-      (if compiler == null
-       then [ "haskellPackages" ]
-       else [ "haskell" "packages" compiler ]
-      );
-      hoverlay = final: prev: hself: hsuper: let addPcre2 = package: (
+    hoverlay = final: prev: hself: hsuper: let addPcre2 = package: (
         prev.haskell.lib.addExtraLibraries (prev.haskell.lib.addPkgconfigDepend package final.pcre2) [
             final.pcre2
             final.pcre
@@ -27,7 +21,7 @@
         ]
       );
       in {
-      taffybar = prev.haskell.lib.addPkgconfigDepends (
+        taffybar = prev.haskell.lib.addPkgconfigDepends (
         hself.callCabal2nix "taffybar"
         (git-ignore-nix.lib.gitignoreSource ./.)
         { inherit (final) gtk3; }) [
@@ -219,9 +213,10 @@
     overlays = gtk-strut.overlays ++ gtk-sni-tray.overlays ++ [ overlay ];
   in flake-utils.lib.eachDefaultSystem (system:
   let pkgs = import nixpkgs { inherit system overlays; config.allowBroken = true; };
-      hpkg = pkgs.lib.attrsets.getAttrFromPath (hpath defComp) pkgs;
+      hpkg = pkgs.lib.attrsets.getAttrFromPath (xmonad.lib.hpath defComp) pkgs;
   in
   rec {
+    inherit defComp hoverlay;
     devShell = hpkg.shellFor {
       packages = p: [ p.taffybar ];
       nativeBuildInputs = with hpkg; [
