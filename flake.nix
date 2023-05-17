@@ -27,10 +27,24 @@
         ]
       );
       in {
-      taffybar =
+      taffybar = prev.haskell.lib.addPkgconfigDepends (
         hself.callCabal2nix "taffybar"
         (git-ignore-nix.lib.gitignoreSource ./.)
-        { inherit (final) gtk3;  };
+        { inherit (final) gtk3; }) [
+          final.util-linux.dev
+          final.pcre2
+          final.pcre
+          final.libselinux.dev
+          final.libsepol.dev
+          final.fribidi.out
+          final.fribidi.dev
+          final.libthai.dev
+          final.libdatrie.dev
+          final.xorg.libXdmcp.dev
+          final.libxkbcommon.dev
+          final.libepoxy.dev
+          final.xorg.libXtst.out
+        ];
 
         dyre = prev.haskell.lib.dontCheck (hself.callHackageDirect {
           pkg = "dyre";
