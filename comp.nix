@@ -1,0 +1,1 @@
+{ compiler = "ghc94"; }
