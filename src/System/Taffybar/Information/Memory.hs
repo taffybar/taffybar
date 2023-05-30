@@ -26,16 +26,18 @@ emptyMemoryInfo = MemoryInfo 0 0 0 0 0 0 0 0 0 0 0 0
 
 parseLines :: [String] -> MemoryInfo -> MemoryInfo
 parseLines (line:rest) memInfo = parseLines rest newMemInfo
-  where (label:size:_) = words line
-        newMemInfo = case label of
-                       "MemTotal:"     -> memInfo { memoryTotal = toMB size }
-                       "MemFree:"      -> memInfo { memoryFree = toMB size }
-                       "MemAvailable:" -> memInfo { memoryAvailable = toMB size }
-                       "Buffers:"      -> memInfo { memoryBuffer = toMB size }
-                       "Cached:"       -> memInfo { memoryCache = toMB size }
-                       "SwapTotal:"    -> memInfo { memorySwapTotal = toMB size }
-                       "SwapFree:"     -> memInfo { memorySwapFree = toMB size }
-                       _               -> memInfo
+  where newMemInfo = case words line of
+                       (label:size:_) ->
+                         case label of
+                           "MemTotal:"     -> memInfo { memoryTotal = toMB size }
+                           "MemFree:"      -> memInfo { memoryFree = toMB size }
+                           "MemAvailable:" -> memInfo { memoryAvailable = toMB size }
+                           "Buffers:"      -> memInfo { memoryBuffer = toMB size }
+                           "Cached:"       -> memInfo { memoryCache = toMB size }
+                           "SwapTotal:"    -> memInfo { memorySwapTotal = toMB size }
+                           "SwapFree:"     -> memInfo { memorySwapFree = toMB size }
+                           _               -> memInfo
+                       _ -> memInfo
 parseLines _ memInfo = memInfo
 
 parseMeminfo :: IO MemoryInfo
