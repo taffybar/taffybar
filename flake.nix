@@ -72,10 +72,10 @@
               testPkgconfigDepends = propagatedPlainBuildInputs old.testPkgconfigDepends or [ ];
             });
         in {
-          taffybar = prev.haskell.lib.addPkgconfigDepends (
+          taffybar = cabalEagerPkgConfigWorkaround (prev.haskell.lib.addPkgconfigDepends (
             hself.callCabal2nix "taffybar"
             (git-ignore-nix.lib.gitignoreSource ./.)
-            { inherit (final) gtk3; }) [ ];
+            { inherit (final) gtk3; }) [ ]);
 
             dyre = prev.haskell.lib.dontCheck (hself.callHackageDirect {
               pkg = "dyre";
