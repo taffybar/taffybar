@@ -226,7 +226,7 @@ buildContext TaffybarConfig
                 }
   _ <- runMaybeT $ MaybeT GI.Gdk.displayGetDefault >>=
               (lift . GI.Gdk.displayGetDefaultScreen) >>=
-              (lift . (\x y -> GI.Gdk.afterScreenMonitorsChanged y x)
+              (lift . flip GI.Gdk.afterScreenMonitorsChanged
                -- XXX: We have to do a force refresh here because there is no
                -- way to reliably move windows, since the window manager can do
                -- whatever it pleases.
