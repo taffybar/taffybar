@@ -132,7 +132,7 @@
     devShell = hpkg.shellFor {
       packages = p: [ p.taffybar ];
       nativeBuildInputs = with hpkg; [
-        cabal-install # hlint ormolu implicit-hie haskell-language-server
+        cabal-install hlint ormolu implicit-hie haskell-language-server
       ];
 
       buildInputs = with pkgs; [
