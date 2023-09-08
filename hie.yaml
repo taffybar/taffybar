@@ -1,5 +1,5 @@
 cradle:
-  cabal:
+    cabal:
     - path: "./src"
       component: "lib:taffybar"
 

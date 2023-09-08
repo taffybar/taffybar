@@ -33,14 +33,17 @@
     nixpkgs = {
       url = github:NixOS/nixpkgs/nixos-unstable;
     };
+    haskell-language-server = {
+      url = github:colonelpanic8/haskell-language-server/goto-dependency-definition-2;
+    };
   };
   outputs = {
-    self, flake-utils, nixpkgs, git-ignore-nix, gtk-sni-tray, gtk-strut, xmonad, ...
+    self, flake-utils, nixpkgs, git-ignore-nix, gtk-sni-tray, gtk-strut, xmonad, haskell-language-server, ...
   }:
   let
     defComp = if builtins.pathExists ./comp.nix
       then import ./comp.nix
-      else { };
+      else { compiler = "ghc94"; };
       hoverlay = final: prev: hself: hsuper:
         let
           cabalEagerPkgConfigWorkaround =
@@ -127,21 +130,29 @@
   let pkgs = import nixpkgs { inherit system overlays; config.allowBroken = true; };
       hpkg = pkgs.lib.attrsets.getAttrFromPath (xmonad.lib.hpath defComp) pkgs;
   in
-  rec {
+  {
     inherit defComp hoverlay;
     devShell = hpkg.shellFor {
       packages = p: [ p.taffybar ];
       nativeBuildInputs = with hpkg; [
-        cabal-install hlint ormolu implicit-hie haskell-language-server
+        cabal-install hlint ormolu implicit-hie
+        haskell-language-server.packages.${system}.haskell-language-server-94
       ];
 
       buildInputs = with pkgs; [
         pcre.dev pcre2.dev util-linux.dev libselinux.dev
         libsepol.dev libthai.dev libdatrie.dev xorg.libXdmcp.dev
         libxkbcommon.dev libepoxy.dev dbus.dev at-spi2-core.dev xorg.libXtst
-        hpkg.haskell-language-server
       ];
     };
     defaultPackage = hpkg.taffybar;
   }) // { inherit overlay overlays; } ;
+  nixConfig = {
+    extra-substituters = [
+      "https://haskell-language-server.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "haskell-language-server.cachix.org-1:juFfHrwkOxqIOZShtC4YC1uT1bBcq2RSvC7OMKx0Nz8="
+    ];
+  };
 }
