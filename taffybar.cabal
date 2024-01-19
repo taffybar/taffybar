@@ -72,7 +72,7 @@ library
                , rate-limit >= 1.1.1
                , regex-compat
                , safe >= 0.3 && < 1
-               , scotty >= 0.11 && < 0.21
+               , scotty >= 0.11 && < 0.22
                , split >= 0.1.4.2
                , status-notifier-item >= 0.3.1.0
                , stm
