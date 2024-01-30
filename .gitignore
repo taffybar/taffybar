@@ -1,5 +1,6 @@
 /dist/
-.stack-work
+/dist-newstyle/
+/.stack-work/
 .cabal-sandbox
 cabal.sandbox.config
 /result
