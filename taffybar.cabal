@@ -29,7 +29,6 @@ library
 
   default-language: Haskell2010
   build-depends: base > 3 && < 5
-               , ConfigFile
                , HStringTemplate >= 0.8 && < 0.9
                , X11 >= 1.5.0.1
                , aeson
@@ -154,7 +153,7 @@ library
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
                  , System.Taffybar.WindowIcon
-                   
+
   other-modules: Paths_taffybar
                , System.Taffybar.DBus.Client.MPRIS2
                , System.Taffybar.DBus.Client.Params
