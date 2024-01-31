@@ -40,6 +40,7 @@ import Codec.Binary.UTF8.String (encode)
 import Control.Monad
 import Data.Monoid
 import Foreign.C.Types (CInt)
+import Text.Printf
 import XMonad
 import qualified XMonad.StackSet as W
 
@@ -60,6 +61,10 @@ xLayoutProp = getAtom "_XMONAD_CURRENT_LAYOUT"
 xVisibleProp :: X Atom
 xVisibleProp = getAtom "_XMONAD_VISIBLE_WORKSPACES"
 
+-- | The \"Focused Monitor\" custom hint.
+xMonitorsProp :: X Atom
+xMonitorsProp = getAtom "_XMONAD_FOCUSED_MONITOR_GEOMETRY"
+
 -- | Add support for the \"Current Layout\" and \"Visible Workspaces\" custom
 -- hints to the given config.
 pagerHints :: XConfig a -> XConfig a
@@ -74,6 +79,8 @@ pagerHintsLogHook = do
     (setCurrentLayout . description . W.layout . W.workspace . W.current)
   withWindowSet
     (setVisibleWorkspaces . map (W.tag . W.workspace) . W.visible)
+  withWindowSet
+    (setFocusedMonitor . screenRect . W.screenDetail . W.current)
 
 -- | Set the value of the \"Current Layout\" custom hint to the one given.
 setCurrentLayout :: String -> X ()
@@ -92,6 +99,18 @@ setVisibleWorkspaces vis = withDisplay $ \dpy -> do
   c  <- getAtom "UTF8_STRING"
   let vis' = map fromIntegral $ concatMap ((++[0]) . encode) vis
   io $ changeProperty8 dpy r a c propModeReplace vis'
+
+setFocusedMonitor :: Rectangle -> X ()
+setFocusedMonitor sd = withDisplay $ \dpy -> do
+  r  <- asks theRoot
+  a  <- xMonitorsProp
+  c  <- getAtom "UTF8_STRING"
+  let sdstring = printf "%d %d %d %d" (rect_x sd)
+                                      (rect_y sd)
+                                      (rect_width sd)
+                                      (rect_height sd)
+  let sdstring' = map fromIntegral (encode sdstring)
+  io $ changeProperty8 dpy r a c propModeReplace sdstring'
 
 -- | Handle all \"Current Layout\" events received from pager widgets, and
 -- set the current layout accordingly.
