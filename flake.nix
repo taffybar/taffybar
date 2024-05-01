@@ -43,8 +43,8 @@
   let
     defComp = if builtins.pathExists ./comp.nix
       then import ./comp.nix
-      else { compiler = "ghc94"; };
-      hoverlay = final: prev: hself: hsuper:
+      else { compiler = "ghc96"; };
+    hoverlay = final: prev: hself: hsuper:
         let
           cabalEagerPkgConfigWorkaround =
             let
@@ -98,11 +98,11 @@
               sha256 = "sha256-eT/dVq44WhRAMY6bj1cqmvSXdPM+SHEDo0Sr+ue0kcI=";
             } { };
 
-            ConfigFile = hself.callHackageDirect {
-              pkg = "ConfigFile";
-              ver = "1.1.4";
-              sha256 = "sha256-DxW9S8IBUc+f3Y/EbNrcZ6Zo0qhAqV7D5nnuB51E1dc=";
-            } { };
+            xdg-desktop-entry = prev.haskell.lib.dontCheck (hself.callHackageDirect {
+              pkg = "xdg-desktop-entry";
+              ver = "0.1.1.2";
+              sha256 = "sha256-ie0SUvfW/RmsCHs8gcaHDmMNpj2G/GVt5/C24SaCMfA=";
+            } { });
 
             gi-atk = cabalEagerPkgConfigWorkaround hsuper.gi-atk;
             gi-cairo = cabalEagerPkgConfigWorkaround hsuper.gi-cairo;
@@ -136,7 +136,6 @@
       packages = p: [ p.taffybar ];
       nativeBuildInputs = with hpkg; [
         cabal-install hlint ormolu implicit-hie
-        haskell-language-server.packages.${system}.haskell-language-server-94
       ];
 
       buildInputs = with pkgs; [
