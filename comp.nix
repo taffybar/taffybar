@@ -1,1 +1,1 @@
-{ compiler = "ghc94"; }
+{ compiler = "ghc96"; }
