@@ -68,13 +68,6 @@ to invoke that module and use the packages parameter to allow this.
 It is also possible to run/use taffybar on NixOS without using this module by
 using a standalone haskell project for the taffybar configuration.
 
-##### Using the overlay.nix when taffybar is broken in nixpkgs
-The taffybar haskell package in nixpkgs has been broken in the unstable channel
-from time to time. This repository provides a nix overlay file which can be used
-to build taffybar with current versions of nixpkgs. See [this
-comment](https://github.com/taffybar/taffybar/issues/464#issuecomment-503258726)
-for details on how to use the overlay.
-
 Installation From Hackage/Source
 --------------------------------
 
@@ -122,23 +115,8 @@ example](https://github.com/taffybar/taffybar/blob/master/example/stack.yaml)
 
 ### Nix
 
-You will need to add default.nix file to your package. See [this
+You will need to add `default.nix` file to your package. See [this
 example](https://github.com/taffybar/taffybar/blob/master/example/default.nix)
-
-You may also need to use the overlay provided by this repository. See [this
-comment](https://github.com/taffybar/taffybar/issues/464#issuecomment-503258726)
-for details.
-
-#### Overlay
-
-The taffybar haskell package is currently broken in nixpkgs, because some of its
-dependencies are not compiling correctly/are not sufficiently new. The
-environment.nix file in this repository fixes these build issues with an
-overlay. The overlay.nix file extends the environment overlay so that it
-overrides the taffybar package's build description to build the nix taffybar
-package from the repository source directory. An example of how to set up
-nixpkgs to use the taffybar overlay can be found
-[here](https://github.com/ivanmalison/dotfiles/blob/a20b11a070472d182e09cf39f2b0149f39eac9ac/dotfiles/config/taffybar/base.nix#L1).
 
 
 Configuration
