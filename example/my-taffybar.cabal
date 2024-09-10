@@ -10,10 +10,5 @@ executable my-taffybar
   main-is:             taffybar.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
-                     , containers
-                     , directory
-                     , filepath
-                     , gtk3
                      , taffybar
-                     , X11>=1.8
   default-language:    Haskell2010
