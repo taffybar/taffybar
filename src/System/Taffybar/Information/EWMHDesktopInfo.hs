@@ -62,6 +62,7 @@ module System.Taffybar.Information.EWMHDesktopInfo
   ) where
 
 import Control.Applicative
+import Control.Monad ((>=>))
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Data.List
@@ -232,7 +233,7 @@ getWindowIconsData window = do
 -- point will not be executed, after the call to 'withEWMHIcons' completes.
 withEWMHIcons :: EWMHIconData -> ([EWMHIcon] -> IO a) -> IO a
 withEWMHIcons (fptr, size) action =
-  withForeignPtr fptr ((>>= action) . parseIcons size)
+  withForeignPtr fptr (parseIcons size >=> action)
 
 -- | Split icon raw integer data into EWMHIcons. Each icon raw data is an
 -- integer for width, followed by height, followed by exactly (width*height)
@@ -263,7 +264,7 @@ parseIcons totalSize arr = do
 
 -- | Get the window that currently has focus if such a window exists.
 getActiveWindow :: X11Property (Maybe X11Window)
-getActiveWindow = listToMaybe . filter (> 0) <$> readAsListOfWindow Nothing ewmhActiveWindow
+getActiveWindow = find (> 0) <$> readAsListOfWindow Nothing ewmhActiveWindow
 
 -- | Return a list of all @X11Window@s, sorted by initial mapping order, oldest to newest.
 getWindows :: X11Property [X11Window]

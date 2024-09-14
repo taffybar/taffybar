@@ -283,7 +283,7 @@ addWidget controller = do
     hbox <- Gtk.boxNew Gtk.OrientationHorizontal 0
     void $ Gtk.widgetGetParent workspaceWidget >>=
          traverse (unsafeCastTo Gtk.Box) >>=
-         traverse (flip Gtk.containerRemove workspaceWidget)
+         traverse (`Gtk.containerRemove` workspaceWidget)
     Gtk.containerAdd hbox workspaceWidget
     Gtk.containerAdd cont hbox
 
@@ -309,7 +309,7 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
       handleConfigureEvents _ = return ()
   (workspaceSubscription, iconSubscription, geometrySubscription) <-
     flip runReaderT tContext $ sequenceT
-         ( subscribeToPropertyEvents (updateEvents cfg) $ doUpdate
+         ( subscribeToPropertyEvents (updateEvents cfg) doUpdate
          , subscribeToPropertyEvents [ewmhWMIcon] (lift . onIconChanged iconHandler)
          , subscribeToAll handleConfigureEvents
          )
@@ -683,8 +683,8 @@ constantScaleWindowIconPixbufGetter constantSize getter =
   const $ scaledWindowIconPixbufGetter getter constantSize
 
 handleIconGetterException :: WindowIconPixbufGetter -> WindowIconPixbufGetter
-handleIconGetterException getter =
-  \size windowData -> catchAny (getter size windowData) $ \e -> do
+handleIconGetterException getter size windowData =
+  catchAny (getter size windowData) $ \e -> do
     wLog WARNING $ printf "Failed to get window icon for %s: %s" (show windowData) (show e)
     return Nothing
 
@@ -744,7 +744,7 @@ sortWindowsByPosition wins = do
   let getGeometryWorkspaces w = getDisplay >>= liftIO . (`safeGetGeometry` w)
       getGeometries = mapM
                       (forkM return
-                               ((((sel2 &&& sel3) <$>) .) getGeometryWorkspaces) .
+                               (((sel2 &&& sel3) <$>) . getGeometryWorkspaces) .
                                windowId)
                       wins
   windowGeometries <- liftX11Def [] getGeometries

@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 module System.Taffybar.DBus.Client.Params where
 
