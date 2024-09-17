@@ -26,15 +26,17 @@ import           Data.GI.Base.GError
 import           Control.Exception.Enclosed (catchAny)
 import qualified Data.GI.Gtk.Threading as Gtk
 import           Data.Maybe
+import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import           Data.Tuple.Sequence
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import           Network.HTTP.Simple
 import           System.Directory
 import           System.Environment.XDG.BaseDir
-import           System.Exit (ExitCode (..))
+import           System.Exit (ExitCode (..), exitWith)
 import           System.FilePath.Posix
 import           System.Log.Logger
+import           System.Posix.Signals (Handler(..), installHandler, sigINT)
 import qualified System.Process as P
 import           Text.Printf
 
@@ -183,3 +185,32 @@ anyM p (x:xs) = do
   if q
   then return True
   else anyM p xs
+
+-- | Installs a useful posix signal handler for 'sigINT' (i.e. Ctrl-C)
+-- for cases when the 'Control.Exception.UserInterrupt' exception gets
+-- swallowed within a main loop, preventing the program from exiting.
+--
+-- The given callback should be a command which causes the main loop
+-- action to exit. For example:
+--
+-- > Gtk.main `onSigINT` Gtk.mainQuit
+--
+-- If the signal handler was invoked, the program will exit with
+-- status 130 after the main loop action returns.
+onSigINT
+  :: IO a -- ^ The main loop 'IO' action
+  -> IO () -- ^ Callback for @SIGINT@
+  -> IO a
+onSigINT action callback = do
+  exitStatus <- newIORef Nothing
+  let intHandler = do
+        writeIORef exitStatus (Just (ExitFailure 130))
+        callback
+
+  void $ installHandler sigINT (CatchOnce intHandler) Nothing
+
+  res <- action
+
+  readIORef exitStatus >>= mapM_ exitWith
+
+  pure res

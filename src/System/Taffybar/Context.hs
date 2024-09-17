@@ -38,6 +38,8 @@ module System.Taffybar.Context
   , putState
   , forceRefreshTaffyWindows
   , refreshTaffyWindows
+  , removeTaffyWindows
+  , exitTaffybar
   , runX11
   , runX11Def
   , subscribeToAll
@@ -46,7 +48,7 @@ module System.Taffybar.Context
   , unsubscribe
   ) where
 
-import           Control.Arrow ((&&&))
+import           Control.Arrow ((&&&), (***))
 import           Control.Concurrent (forkIO)
 import qualified Control.Concurrent.MVar as MV
 import           Control.Exception.Enclosed (catchAny)
@@ -247,14 +249,26 @@ buildContext TaffybarConfig
 buildEmptyContext :: IO Context
 buildEmptyContext = buildContext def
 
+-- | Format the 'barId' as a numeric string.
+showBarId :: BarConfig -> String
+showBarId = show . hashUnique . barId
+
 buildBarWindow :: Context -> BarConfig -> IO Gtk.Window
 buildBarWindow context barConfig = do
   let thisContext = context { contextBarConfig = Just barConfig }
-  logIO DEBUG $
-      printf "Building bar window with StrutConfig: %s" $
-      show $ strutConfig barConfig
+  logC INFO $
+      printf "Building window for Taffybar(id=%s) with %s"
+      (showBarId barConfig)
+      (show $ strutConfig barConfig)
 
   window <- Gtk.windowNew Gtk.WindowTypeToplevel
+
+  void $ Gtk.onWidgetDestroy window $ do
+    let bId = showBarId barConfig
+    logC INFO $ printf "Window for Taffybar(id=%s) destroyed" bId
+    MV.modifyMVar_ (existingWindows context) (pure . filter ((/=) window . sel2))
+    logC DEBUG $ printf "Window for Taffybar(id=%s) unregistered" bId
+
   box <- Gtk.boxNew Gtk.OrientationHorizontal $ fromIntegral $
          widgetSpacing barConfig
   _ <- widgetSetClassGI box "taffy-box"
@@ -355,16 +369,33 @@ refreshTaffyWindows = liftReader postGUIASync $ do
   logC DEBUG "Finished refreshing windows"
   return ()
 
+-- | Unconditionally delete all existing Taffybar top-level windows.
+removeTaffyWindows :: TaffyIO ()
+removeTaffyWindows = asks existingWindows >>= liftIO . MV.readMVar >>= deleteWindows
+  where
+    deleteWindows = mapM_ (sequenceT . (msg *** del))
+
+    msg :: BarConfig -> TaffyIO ()
+    msg barConfig = logC INFO $
+      printf "Destroying window for Taffybar(id=%s)" (showBarId barConfig)
+
+    del :: Gtk.Window -> TaffyIO ()
+    del = Gtk.widgetDestroy
+
 -- | Forcibly refresh taffybar windows, even if there are existing windows that
 -- correspond to the uniques in the bar configs yielded by 'barConfigGetter'.
 forceRefreshTaffyWindows :: TaffyIO ()
-forceRefreshTaffyWindows =
-  asks existingWindows >>= lift . flip MV.modifyMVar_ deleteWindows >>
-       refreshTaffyWindows
-    where deleteWindows windows =
-            do
-              mapM_ (Gtk.widgetDestroy . sel2) windows
-              return []
+forceRefreshTaffyWindows = removeTaffyWindows >> refreshTaffyWindows
+
+-- | Destroys all top-level windows belonging to Taffybar, then
+-- requests the GTK main loop to exit.
+--
+-- This ensures that the windows disappear promptly. For GTK windows
+-- to be destroyed, the main loop still needs to be running.
+exitTaffybar :: Context -> IO ()
+exitTaffybar ctx = do
+  postGUIASync $ runReaderT removeTaffyWindows ctx
+  Gtk.mainQuit
 
 asksContextVar :: (r -> MV.MVar b) -> ReaderT r IO b
 asksContextVar getter = asks getter >>= lift . MV.readMVar

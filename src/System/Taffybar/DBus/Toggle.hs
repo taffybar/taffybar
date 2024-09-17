@@ -142,7 +142,7 @@ exportTogglesInterface = do
           , autoMethod "showOnMonitor" $
             takeInt $ toggleTaffyOnMon (const True)
           , autoMethod "refresh" $ runReaderT refreshTaffyWindows ctx
-          , autoMethod "exit" (Gtk.mainQuit :: IO ())
+          , autoMethod "exit" $ exitTaffybar ctx
           ]
         }
   lift $ do
