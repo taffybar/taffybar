@@ -58,8 +58,13 @@ setTaffyLogFormatter loggerName = do
   handler <- taffyLogHandler
   updateGlobalLogger loggerName $ setHandlers [handler]
 
--- | Add 'refreshrefreshBatteriesOnPropChange' to the 'startupHook' of the
--- provided 'TaffybarConfig'.
+-- | Add 'refreshBatteriesOnPropChange' to the 'startupHook' of the
+-- provided 'TaffybarConfig'. Use this if your system has issues with
+-- the battery widget not updating or reporting the incorrect state.
+--
+-- This function 'withBatteryRefresh' is __not normally needed__
+-- because the battery widget already subscribes to updates from
+-- UPower, and UPower usually works correctly.
 withBatteryRefresh :: TaffybarConfig -> TaffybarConfig
 withBatteryRefresh = appendHook refreshBatteriesOnPropChange
 
