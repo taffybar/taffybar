@@ -59,10 +59,14 @@ batteryLogF
   => Priority -> String -> t -> m ()
 batteryLogF = logPrintF batteryLogPath
 
+-- | The DBus path prefix where UPower enumerates its objects.
+uPowerDevicesPath :: ObjectPath
+uPowerDevicesPath = objectPath_ (formatObjectPath uPowerBaseObjectPath ++ "/devices")
+
 -- | The prefix of name of battery devices path. UPower generates the object
 -- path as "battery" + "_" + basename of the sysfs object.
 batteryPrefix :: String
-batteryPrefix = formatObjectPath uPowerBaseObjectPath ++ "/devices/battery_"
+batteryPrefix = formatObjectPath uPowerDevicesPath ++ "/battery_"
 
 -- | Determine if a power source is a battery.
 isBattery :: ObjectPath -> Bool
@@ -202,10 +206,11 @@ registerForUPowerPropertyChanges properties signalHandler = do
   client <- asks systemDBusClient
   lift $ DBus.registerForPropertiesChanged
       client
-      matchAny { matchInterface = Just uPowerDeviceInterfaceName }
+      matchAny { matchInterface = Just uPowerDeviceInterfaceName
+               , matchPathNamespace = Just uPowerDevicesPath }
       handleIfPropertyMatches
   where handleIfPropertyMatches rawSignal n propertiesMap l =
-          let propertyPresent prop = isJust $ M.lookup prop propertiesMap
+          let propertyPresent prop = M.member prop propertiesMap
           in when (any propertyPresent properties || null properties) $
              signalHandler rawSignal n propertiesMap l
 
@@ -232,7 +237,7 @@ monitorDisplayBattery propertiesToMonitor = do
             runReaderT doUpdate ctx
     _ <- registerForUPowerPropertyChanges propertiesToMonitor signalCallback
     doUpdate
-    return ()
+
   return (chan, infoVar)
 
 -- | Call "refreshAllBatteries" whenever the BatteryInfo for the DisplayDevice
@@ -256,7 +261,12 @@ refreshAllBatteries = do
   let doRefresh path =
         batteryLogF DEBUG "Refreshing battery: %s" path >> refresh client path
   eerror <- runExceptT $ ExceptT getBatteryPaths >>= liftIO . mapM doRefresh
-  let logRefreshError = batteryLogF ERROR "Failed to refresh battery: %s"
+
+  -- NB. The Refresh() method is only available if the UPower daemon
+  -- was started in debug mode. So ignore any errors about the method
+  -- not being implemented.
+  let logRefreshError e = unless (methodErrorName e == errorUnknownMethod) $
+        batteryLogF ERROR "Failed to refresh battery: %s" e
       logGetPathsError = batteryLogF ERROR "Failed to get battery paths %s"
 
   void $ either logGetPathsError (mapM_ $ either logRefreshError return) eerror
