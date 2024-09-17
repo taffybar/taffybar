@@ -125,12 +125,13 @@ module System.Taffybar
 
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
+import           Control.Exception ( finally )
 import           Control.Monad
 import qualified Data.GI.Gtk.Threading as GIThreading
 import qualified Data.Text as T
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
-import           Graphics.X11.Xlib.Misc
+import           Graphics.X11.Xlib.Misc ( initThreads )
 import           System.Directory
 import           System.Environment.XDG.BaseDir ( getUserConfigFile )
 import           System.Exit ( exitFailure )
@@ -139,6 +140,7 @@ import qualified System.IO as IO
 import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
+import           System.Taffybar.Util ( onSigINT )
 
 import           Paths_taffybar ( getDataDir )
 
@@ -199,7 +201,7 @@ getDefaultCSSPaths = do
   return [defaultUserConfig]
 
 -- | Start taffybar with the provided 'TaffybarConfig'. This function will not
--- handle recompiling taffybar automatically when taffybar.hs is updated. If you
+-- handle recompiling taffybar automatically when @taffybar.hs@ is updated. If you
 -- would like this feature, use 'dyreTaffybar' instead. If automatic
 -- recompilation is handled by another mechanism such as stack or a custom user
 -- script or not desired for some reason, it is perfectly fine (and probably
@@ -218,7 +220,15 @@ startTaffybar config = do
     then getDefaultCSSPaths
     else return $ cssPaths config
   _ <- startCSS $ defaultCSS:cssPathsToLoad
-  _ <- buildContext config
+  context <- buildContext config
 
   Gtk.main
-  return ()
+    `finally` logTaffy DEBUG "Finished main loop"
+    `onSigINT` do
+      logTaffy INFO "Interrupted"
+      exitTaffybar context
+
+  logTaffy DEBUG "Exited normally"
+
+logTaffy :: Priority -> String -> IO ()
+logTaffy = logM "System.Taffybar"
