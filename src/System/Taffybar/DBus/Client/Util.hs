@@ -15,33 +15,20 @@ import           Data.Maybe
 import           Language.Haskell.TH
 import           StatusNotifier.Util (getIntrospectionObjectFromFile)
 
-#if __GLASGOW_HASKELL__ >= 802
 deriveShowAndEQ :: [DerivClause]
 deriveShowAndEQ =
   [DerivClause Nothing [ConT ''Eq, ConT ''Show]]
-#endif
 
 buildDataFromNameTypePairs :: Name -> [(Name, Type)] -> Dec
 buildDataFromNameTypePairs name pairs =
   DataD [] name [] Nothing [RecC name (map mkVarBangType pairs)]
-#if __GLASGOW_HASKELL__ >= 802
         deriveShowAndEQ
-#else
-        []
-#endif
   where mkVarBangType (fieldName, fieldType) =
           (fieldName, Bang NoSourceUnpackedness NoSourceStrictness, fieldType)
 
 
 standaloneDeriveEqShow :: Name -> [Dec]
-#if __GLASGOW_HASKELL__ < 802
-standaloneDeriveEqShow name =
-  [ StandaloneDerivD [] (ConT ''Eq `AppT` ConT name)
-  , StandaloneDerivD [] (ConT ''Show `AppT` ConT name)
-  ]
-#else
 standaloneDeriveEqShow _ = []
-#endif
 
 type GetTypeForName = String -> T.Type -> Maybe Type
 
