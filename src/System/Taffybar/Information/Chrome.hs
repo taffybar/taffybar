@@ -56,7 +56,7 @@ listenForChromeFaviconUpdates port = do
   outChan <- newBChanListener inChan
   _ <- lift $ forkIO $ scotty port $
     post "/setTabImageData/:tabID" $ do
-      tabID <- param "tabID"
+      tabID <- queryParam "tabID"
       imageData <- LBS.toStrict <$> body
       when (BS.length imageData > 0) $ lift $ do
         loader <- Gdk.pixbufLoaderNew
