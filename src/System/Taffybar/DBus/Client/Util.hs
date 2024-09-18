@@ -3,7 +3,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 module System.Taffybar.DBus.Client.Util where
 
-import           Control.Applicative
+#if !MIN_VERSION_base(4,18,0)
+import           Control.Applicative (liftA2)
+#endif
 import           DBus.Generation
 import qualified DBus.Internal.Types as T
 import qualified DBus.Introspection as I
