@@ -57,6 +57,7 @@
         })
         (self: super: {
           # Add further customization of haskellPackages here
+          taffybar = self.generateOptparseApplicativeCompletions [ "taffybar" ] super.taffybar;
         });
 
     # Make a nixpkgs overlay using the above haskellPackages overlay.
