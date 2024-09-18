@@ -30,6 +30,7 @@ import qualified Data.ByteString.UTF8 as BS
 import qualified Data.Map as M
 import           Data.Maybe
 import           Data.Proxy
+import           Data.Text (Text)
 import qualified Data.Text as T
 import           GHC.TypeLits
 import           Network.HTTP.Simple hiding (Proxy)
@@ -38,7 +39,7 @@ import           System.Taffybar.Context
 import           System.Taffybar.Util
 import           Text.Printf
 
-getSymbolToCoinGeckoId :: MonadIO m => m (M.Map T.Text T.Text)
+getSymbolToCoinGeckoId :: MonadIO m => m (M.Map Text Text)
 getSymbolToCoinGeckoId = do
     let uri = "https://api.coingecko.com/api/v3/coins/list?include_platform=false"
         request = parseRequest_ uri
@@ -52,7 +53,7 @@ getSymbolToCoinGeckoId = do
     return $ M.fromList $ map (\CoinGeckoInfo { identifier = theId, symbol = theSymbol } ->
                         (theSymbol, theId)) coinInfos
 
-newtype SymbolToCoinGeckoId = SymbolToCoinGeckoId (M.Map T.Text T.Text)
+newtype SymbolToCoinGeckoId = SymbolToCoinGeckoId (M.Map Text Text)
 
 newtype CryptoPriceInfo = CryptoPriceInfo { lastPrice :: Double }
 
@@ -66,15 +67,35 @@ getCryptoPriceChannel = do
   getStateDefault $ buildCryptoPriceChannel (60.0 :: Double) symbolToId
 
 data CoinGeckoInfo =
-  CoinGeckoInfo { identifier :: T.Text, symbol :: T.Text }
+  CoinGeckoInfo { identifier :: Text, symbol :: Text }
   deriving (Show)
 
 instance FromJSON CoinGeckoInfo where
   parseJSON = withObject "CoinGeckoInfo" (\v -> CoinGeckoInfo <$> v .: "id" <*> v .: "symbol")
 
+logCrypto :: MonadIO m => Priority -> String -> m ()
+logCrypto p = liftIO . logM "System.Taffybar.Information.Crypto" p
+
+resolveSymbolPair :: KnownSymbol a => Proxy a -> SymbolToCoinGeckoId -> Either String (Text, Text)
+resolveSymbolPair sym symbolToId = do
+  (symbolName, inCurrency) <- parseSymbolPair (symbolVal sym)
+  cgIdentifier <- lookupSymbolCoinGeckoId symbolToId symbolName
+  pure (cgIdentifier, inCurrency)
+
+  where
+    parseSymbolPair :: String -> Either String (Text, Text)
+    parseSymbolPair symbolPair = case T.splitOn "-" (T.toLower $ T.pack symbolPair) of
+      [symbolName, inCurrency] | not (T.null inCurrency) -> Right (symbolName, inCurrency)
+      _ -> Left $ printf "Type parameter \"%s\" does not match the form \"ASSET-CURRENCY\"" symbolPair
+
+    lookupSymbolCoinGeckoId :: SymbolToCoinGeckoId -> Text -> Either String Text
+    lookupSymbolCoinGeckoId (SymbolToCoinGeckoId m) symbolName = maybeToEither
+      (printf "Symbol \"%s\" not found in coin gecko list" (T.unpack symbolName))
+      (M.lookup symbolName m)
+
 buildCryptoPriceChannel ::
-  forall a. KnownSymbol a => Double -> SymbolToCoinGeckoId ->  TaffyIO (CryptoPriceChannel a)
-buildCryptoPriceChannel delay (SymbolToCoinGeckoId symbolToId) = do
+  forall a. KnownSymbol a => Double -> SymbolToCoinGeckoId -> TaffyIO (CryptoPriceChannel a)
+buildCryptoPriceChannel delay symbolToId = do
   let initialBackoff = delay
   chan <- newBroadcastChan
   var <- liftIO $ newMVar $ CryptoPriceInfo 0.0
@@ -86,24 +107,19 @@ buildCryptoPriceChannel delay (SymbolToCoinGeckoId symbolToId) = do
         _ <- swapMVar backoffVar initialBackoff
         return ()
 
-  let symbolPair = T.pack $ symbolVal (Proxy :: Proxy a)
-      (symbolName:inCurrency:_) = T.splitOn "-" symbolPair
-
-  case M.lookup (T.toLower symbolName) symbolToId of
-    Nothing -> liftIO $ logM "System.Taffybar.Information.Crypto"
-               WARNING $ printf "Symbol %s not found in coin gecko list" symbolName
-    Just cgIdentifier ->
+  case resolveSymbolPair (Proxy :: Proxy a) symbolToId of
+    Left err -> logCrypto WARNING err
+    Right (cgIdentifier, inCurrency) ->
       void $ foreverWithVariableDelay $
-           catchAny (liftIO $ getLatestPrice cgIdentifier (T.toLower inCurrency) >>=
+           catchAny (liftIO $ getLatestPrice cgIdentifier inCurrency >>=
                             maybe (return ()) (doWrites . CryptoPriceInfo) >> return delay) $ \e -> do
-                                     logPrintF "System.Taffybar.Information.Crypto"
-                                               WARNING "Error when fetching crypto price: %s" e
+                                     logCrypto WARNING $ printf "Error when fetching crypto price: %s" (show e)
                                      modifyMVar backoffVar $ \current ->
                                        return (min (current * 2) delay, current)
 
   return $ CryptoPriceChannel (chan, var)
 
-getLatestPrice :: MonadIO m => T.Text -> T.Text -> m (Maybe Double)
+getLatestPrice :: MonadIO m => Text -> Text -> m (Maybe Double)
 getLatestPrice tokenId inCurrency = do
   let uri = printf "https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=%s"
             tokenId inCurrency
