@@ -10,7 +10,7 @@ pkgs.haskellPackages.shellFor {
     pkgs.cabal-install
     pkgs.haskell-language-server
   ] ++ (with pkgs.haskellPackages; [
-    hlint ormolu implicit-hie hie-bios
+    hlint ormolu weeder implicit-hie hie-bios
   ]);
 
   inherit (pkgs.haskellPackages.taffybar.env) shellHook;
