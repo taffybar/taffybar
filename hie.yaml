@@ -11,3 +11,6 @@ cradle:
 
     - path: "./app/Paths_taffybar.hs"
       component: "taffybar:exe:taffybar"
+
+    - path: "./test"
+      component: "taffybar:test:unit"

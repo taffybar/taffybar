@@ -9,3 +9,4 @@ cabal.sandbox.config
 *build-docs*
 .ghc.environment*
 .direnv
+/.golden/*/actual
