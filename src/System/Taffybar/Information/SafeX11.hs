@@ -1,5 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, StandaloneDeriving, FlexibleInstances,
   InterruptibleFFI, ExistentialQuantification, DeriveDataTypeable #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Information.SafeX11
