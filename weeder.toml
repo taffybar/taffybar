@@ -1,0 +1,7 @@
+roots = ["Main.main","^Paths_.*"]
+
+type-class-roots = false
+
+root-instances = [{ class = "\\.IsString$" },{ class = "\\.IsList$" }]
+
+unused-types = false
