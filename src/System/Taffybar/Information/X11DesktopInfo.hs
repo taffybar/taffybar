@@ -9,10 +9,11 @@
 -- Portability : unportable
 --
 -- Low-level functions to access data provided by the X11 desktop via window
--- properties. One of them ('getVisibleTags') depends on the PagerHints hook
+-- properties. One of them ('getVisibleTags') depends on the
+-- 'XMonad.Hooks.TaffybarPagerHints.pagerHints' hook
 -- being installed in your @~\/.xmonad\/xmonad.hs@ configuration:
 --
--- > import System.Taffybar.Support.PagerHints (pagerHints)
+-- > import XMonad.Hooks.TaffybarPagerHints (pagerHints)
 -- >
 -- > main = xmonad $ ewmh $ pagerHints $ ...
 --
@@ -141,10 +142,11 @@ isWindowUrgent window = do
   hints <- fetchWindowHints window
   return $ testBit (wmh_flags hints) urgencyHintBit
 
--- | Retrieve the value of the special _XMONAD_VISIBLE_WORKSPACES hint set by
--- the PagerHints hook provided by Taffybar (see module documentation for
--- instructions on how to do this), or an empty list of strings if the
--- PagerHints hook is not available.
+-- | Retrieve the value of the special @_XMONAD_VISIBLE_WORKSPACES@
+-- hint set by the 'XMonad.Hooks.TaffybarPagerHints.pagerHints' hook
+-- provided by [xmonad-contrib]("XMonad.Hooks.TaffybarPagerHints")
+-- (see module documentation for instructions on how to do this), or
+-- an empty list of strings if the @pagerHints@ hook is not available.
 getVisibleTags :: X11Property [String]
 getVisibleTags = readAsListOfString Nothing "_XMONAD_VISIBLE_WORKSPACES"
 
