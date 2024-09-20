@@ -11,7 +11,7 @@ fieldRegex = mkRegexWithOpts "^(.*?): *(.*?)$" True True
 
 passGet :: MonadIO m => String -> m (Either String (String, [(String, String)]))
 passGet credentialName = (>>= getPassComponents . lines) <$> runPassShow
-  where runPassShow = runCommandFromPath ["pass", "show", credentialName]
+  where runPassShow = runCommand "pass" ["show", credentialName]
 
         getPassComponents [] = Left "pass show command produced no output"
         getPassComponents (key:rest) = Right (key, buildEntries rest)
