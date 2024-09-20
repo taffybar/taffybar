@@ -1,9 +1,10 @@
 module Main where
 
+import           Data.Default                    (def)
 import           XMonad
-import           XMonad.Hooks.EwmhDesktops        (ewmh)
+import           XMonad.Hooks.EwmhDesktops       (ewmh)
 import           XMonad.Hooks.ManageDocks
-import           System.Taffybar.Support.PagerHints (pagerHints)
+import           XMonad.Hooks.TaffybarPagerHints (pagerHints)
 
 main = xmonad $
        -- docks allows xmonad to handle taffybar
@@ -12,4 +13,5 @@ main = xmonad $
        ewmh $
        -- pagerHints supplies additional state that is not supplied by ewmh
        pagerHints
-       defaultConfig
+       -- Apply these to the default XMonad config
+       def
