@@ -21,6 +21,9 @@ extra-source-files:
   dbus-xml/org.mpris.MediaPlayer2.Player.xml
   dbus-xml/org.mpris.MediaPlayer2.xml
 
+flag DeprecatedPagerHints
+  description: Enables the deprecated System.Taffybar.Support.PagerHints module, which has been moved to xmonad-contrib.
+
 library
   default-extensions:
     TupleSections
@@ -89,7 +92,6 @@ library
                , xdg-basedir >= 0.2 && < 0.3
                , xml
                , xml-helpers
-               , xmonad
 
   hs-source-dirs: src
   pkgconfig-depends: gtk+-3.0
@@ -116,7 +118,6 @@ library
                  , System.Taffybar.Information.XDG.Protocol
                  , System.Taffybar.LogFormatter
                  , System.Taffybar.SimpleConfig
-                 , System.Taffybar.Support.PagerHints
                  , System.Taffybar.Util
                  , System.Taffybar.Widget
                  , System.Taffybar.Widget.Battery
@@ -153,6 +154,10 @@ library
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
                  , System.Taffybar.WindowIcon
+
+  if flag(DeprecatedPagerHints)
+    build-depends: xmonad
+    exposed-modules: System.Taffybar.Support.PagerHints
 
   other-modules: Paths_taffybar
                , System.Taffybar.DBus.Client.MPRIS2
