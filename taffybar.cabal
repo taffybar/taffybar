@@ -74,7 +74,7 @@ library
                , rate-limit >= 1.1.1
                , regex-compat
                , safe >= 0.3 && < 1
-               , scotty >= 0.11 && < 0.23
+               , scotty >= 0.20 && < 0.23
                , split >= 0.1.4.2
                , status-notifier-item >= 0.3.1.0
                , stm
@@ -183,6 +183,23 @@ executable taffybar
   hs-source-dirs: app
   main-is: Main.hs
   pkgconfig-depends: gtk+-3.0
+  ghc-options: -Wall -rtsopts -threaded
+
+test-suite unit
+  hs-source-dirs: test
+  main-is: Spec.hs
+  other-modules: System.Taffybar.AuthSpec
+               , System.Taffybar.SpecUtil
+  default-language: Haskell2010
+  build-depends: base
+               , directory
+               , filepath
+               , hspec
+               , hspec-api
+               , hspec-golden
+               , taffybar
+               , temporary
+  build-tool-depends: hspec-discover:hspec-discover == 2.*
   ghc-options: -Wall -rtsopts -threaded
 
 source-repository head

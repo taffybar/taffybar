@@ -83,10 +83,10 @@ truncateText n incoming
   | T.length incoming <= n = incoming
   | otherwise = T.append (T.take n incoming) "…"
 
-runCommandFromPath :: MonadIO m => [String] -> m (Either String String)
-runCommandFromPath = runCommand "/usr/bin/env"
-
 -- | Run the provided command with the provided arguments.
+--
+-- If the command filename does not contain a slash, then the @PATH@
+-- environment variable is searched for the executable.
 runCommand :: MonadIO m => FilePath -> [String] -> m (Either String String)
 runCommand cmd args = liftIO $ do
   (ecode, stdout, stderr) <- P.readProcessWithExitCode cmd args ""

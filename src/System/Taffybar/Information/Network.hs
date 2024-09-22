@@ -103,7 +103,7 @@ monitorNetworkInterfaces interval onUpdate = void $ do
         let speedInfo = map sampleToSpeeds samples
         onUpdate speedInfo
         return samples
-      doUpdate = MV.modifyMVar_ samplesVar ((>>= doOnUpdate) . updateSamples)
+      doUpdate = MV.modifyMVar_ samplesVar (updateSamples >=> doOnUpdate)
   foreverWithDelay interval doUpdate
 
 updateSamples ::

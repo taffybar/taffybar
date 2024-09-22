@@ -92,7 +92,7 @@ doRead :: Integral a => b -> ([a] -> b)
        -> String
        -> X11Property b
 doRead def transform windowPropFn window name =
-  (fromMaybe def) . (fmap transform) <$> fetch windowPropFn window name
+  maybe def transform <$> fetch windowPropFn window name
 
 -- | Retrieve the property of the given window (or the root window, if Nothing)
 -- with the given name as a value of type Int. If that property hasn't been set,

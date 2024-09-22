@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 --------------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.SimpleCommandButton
@@ -18,6 +17,7 @@ module System.Taffybar.Widget.SimpleCommandButton (
   simpleCommandButtonNew)
 where
 
+import           Control.Monad (void)
 import           Control.Monad.IO.Class
 import           GI.Gtk
 import           System.Process
@@ -42,6 +42,5 @@ simpleCommandButtonNew
   -> m Widget
 simpleCommandButtonNew  txt cmd = do
   button <- buttonNewWithLabel txt
-  _ <- onButtonClicked button $ spawnCommand (T.unpack cmd) >> return ()
+  void $ onButtonClicked button $ void $ spawnCommand $ T.unpack cmd
   toWidget button
-
