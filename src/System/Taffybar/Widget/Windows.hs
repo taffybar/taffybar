@@ -17,7 +17,9 @@
 module System.Taffybar.Widget.Windows where
 
 import           Control.Monad
+import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Data.Default (Default(..))
 import           Data.Maybe
@@ -26,9 +28,13 @@ import           GI.GLib (markupEscapeText)
 import qualified GI.Gtk as Gtk
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
-import           System.Taffybar.Util
+import           System.Taffybar.Information.SafeX11
+import           System.Taffybar.Information.X11DesktopInfo
+import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.DynamicMenu
 import           System.Taffybar.Widget.Util
+import           System.Taffybar.Widget.Workspaces
+import           System.Taffybar.Util
 
 data WindowsConfig = WindowsConfig
   { getMenuLabel :: X11Window -> TaffyIO T.Text
@@ -36,6 +42,8 @@ data WindowsConfig = WindowsConfig
   -- the window menu.
   , getActiveLabel :: TaffyIO T.Text
   -- ^ Action to build the label text for the active window.
+  , showActiveIcon :: Bool
+  , getActiveWindowIconPixbuf :: WindowIconPixbufGetter
   }
 
 defaultGetMenuLabel :: X11Window -> TaffyIO T.Text
@@ -62,6 +70,8 @@ defaultWindowsConfig =
   WindowsConfig
   { getMenuLabel = truncatedGetMenuLabel 35
   , getActiveLabel = truncatedGetActiveLabel 35
+  , showActiveIcon = True
+  , getActiveWindowIconPixbuf = defaultGetWindowIconPixbuf
   }
 
 instance Default WindowsConfig where
@@ -73,19 +83,37 @@ windowsNew :: WindowsConfig -> TaffyIO Gtk.Widget
 windowsNew config = do
   label <- lift $ Gtk.labelNew Nothing
 
+  icon <- lift $ Gtk.imageNew
+
+  context <- ask
+
   let setLabelTitle title = lift $ postGUIASync $ Gtk.labelSetMarkup label title
-      activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
+      getActiveWindowData = getActiveWindow >>= (traverse $ getWindowData Nothing [])
+      getThePixbuf size = fmap join $ (runX11Def Nothing getActiveWindowData) >>= (traverse $ getActiveWindowIconPixbuf config size)
+      refreshImage = flip runReaderT context . getThePixbuf
+
+  forceImageRefresh <- autoSizeImage icon refreshImage Gtk.OrientationHorizontal
+
+  let activeWindowUpdatedCallback _ =
+        (lift forceImageRefresh) >> getActiveLabel config >>= setLabelTitle
 
   subscription <-
     subscribeToPropertyEvents [ewmhActiveWindow, ewmhWMName, ewmhWMClass]
                       activeWindowUpdatedCallback
   _ <- liftReader (Gtk.onWidgetUnrealize label) (unsubscribe subscription)
 
-  context <- ask
+  grid <- lift $ Gtk.gridNew
 
-  labelWidget <- Gtk.toWidget label
+  let gridAttachWidgets showActiveIcon
+        | showActiveIcon = (Gtk.gridAttach grid icon 0 0 1 1) >> (Gtk.gridAttach grid label 1 0 1 1)
+        | otherwise = Gtk.gridAttach grid label 0 0 1 1
+
+  gridAttachWidgets $ showActiveIcon config
+  
+  gridWidget <- Gtk.toWidget grid
+
   menu <- dynamicMenuNew
-    DynamicMenuConfig { dmClickWidget = labelWidget
+    DynamicMenuConfig { dmClickWidget = gridWidget
                       , dmPopulateMenu = flip runReaderT context . fillMenu config
                       }
 
