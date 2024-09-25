@@ -28,7 +28,7 @@
     # from nixpkgs. The "default" package in this flake will be built with
     # the whichever GHC nixpkgs uses to generate pkgs.haskellPackages.
     # Currently in nixpkgs: haskellPackages = haskell.packages.ghc96
-    supportedCompilers = [ "ghc94" "ghc96" "ghc98" ];
+    supportedCompilers = [ "ghc92" "ghc94" "ghc96" "ghc98" ];
 
   in {
     lib = nixpkgs.lib.extend (composeExtensions
@@ -73,7 +73,11 @@
     } // lib.listToAttrs (map (compiler: {
       name = "${compiler}-taffybar";
       value = pkgs.haskell.packages.${compiler}.taffybar;
-    }) supportedCompilers);
+    }) supportedCompilers) // {
+      tested-with = pkgs.runCommand "taffybar-tested-with.cabal" {} ''
+        echo "tested-with: ${lib.concatMapStringsSep ", " (c: "GHC == ${pkgs.haskell.compiler.${c}.version}") supportedCompilers}" > $out
+      '';
+    };
 
     checks = {
       hlint = pkgs.haskellPackages.taffybar.hlint;

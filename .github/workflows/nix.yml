@@ -24,9 +24,17 @@ jobs:
   build:
     name: Build with ${{ matrix.compiler }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
+      fail-fast: false
       matrix:
-        compiler: [ghc94]
+        compiler: [ghc94, ghc98]
+        experimental: [false]
+        # include:
+        #   - compiler: ghc92
+        #     experimental: true
+        #   - compiler: ghc910
+        #     experimental: true
     steps:
       - uses: actions/checkout@v3
       - name: Install Nix
