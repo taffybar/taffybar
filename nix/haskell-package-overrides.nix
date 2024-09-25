@@ -70,6 +70,13 @@ final: prev: let
         preFixup = "";
       }))
     ];
+
+    # Overrides for building with GHC >=9.8.
+    # Required until these are merged into nixos-unstable:
+    #   https://github.com/NixOS/nixpkgs/pull/339272
+    #   https://github.com/NixOS/nixpkgs/pull/342755
+    scotty = doJailbreak super.scotty; # text <2.1
+    broadcast-chan = doJailbreak super.broadcast-chan; # base <4.19
   };
 in
   lib.composeExtensions
