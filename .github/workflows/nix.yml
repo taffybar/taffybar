@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        compiler: [ghc94]
+        compiler: [ghc92, ghc94, ghc98, ghc910]
     steps:
       - uses: actions/checkout@v3
       - name: Install Nix
