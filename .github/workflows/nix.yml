@@ -6,7 +6,7 @@ on:
 
 jobs:
   lints:
-    name: Build
+    name: Build and Check
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
@@ -16,3 +16,20 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Run `nix build`
         run: nix build .
+      - name: Run `nix flake check`
+        run: nix flake check
+
+  build:
+    name: Build with ${{ matrix.compiler }}
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        compiler: [ghc94]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v4
+      - name: Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Nix build for ${{ matrix.compiler }}
+        run: nix build .#${{ matrix.compiler }}-taffybar

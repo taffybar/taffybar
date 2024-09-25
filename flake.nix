@@ -1,72 +1,56 @@
 {
   inputs = {
-    flake-utils.url = github:numtide/flake-utils;
-    git-ignore-nix = {
-      url = github:hercules-ci/gitignore.nix/master;
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
     gtk-sni-tray = {
-      url = github:taffybar/gtk-sni-tray/master;
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-      inputs.git-ignore-nix.follows = "git-ignore-nix";
-      inputs.status-notifier-item.follows = "status-notifier-item";
+      url = "github:taffybar/gtk-sni-tray/master";
+      flake = false;
     };
     gtk-strut = {
-      url = github:taffybar/gtk-strut/master;
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-      inputs.git-ignore-nix.follows = "git-ignore-nix";
+      url = "github:taffybar/gtk-strut/master";
+      flake = false;
     };
     xmonad = {
-      url = github:xmonad/xmonad/master;
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.unstable.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-      inputs.git-ignore-nix.follows = "git-ignore-nix";
+      url = "github:xmonad/xmonad/master";
+      flake = false;
     };
     status-notifier-item = {
-      url = github:taffybar/status-notifier-item;
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-      inputs.git-ignore-nix.follows = "git-ignore-nix";
-    };
-    nixpkgs = {
-      url = github:NixOS/nixpkgs/nixos-unstable;
+      url = "github:taffybar/status-notifier-item";
+      flake = false;
     };
   };
 
-  outputs = { self, flake-utils, nixpkgs, git-ignore-nix, gtk-sni-tray, gtk-strut, status-notifier-item, xmonad }: let
-    inherit (nixpkgs) lib;
+  outputs = { self, nixpkgs, flake-utils, gtk-sni-tray, gtk-strut, status-notifier-item, xmonad }: let
+    inherit (self) lib;
+    inherit (nixpkgs.lib) composeExtensions;
+
+    # This flake will generate packages using the following compilers
+    # from nixpkgs. The "default" package in this flake will be built with
+    # the whichever GHC nixpkgs uses to generate pkgs.haskellPackages.
+    # Currently in nixpkgs: haskellPackages = haskell.packages.ghc96
+    supportedCompilers = [ "ghc94" "ghc96" "ghc98" ];
+
   in {
-    # Define a haskellPackages overlay with taffybar added.
-    hoverlay = final: prev: let
-      haskellLib = final.haskell.lib.compose;
-      inherit (haskellLib) packageSourceOverrides;
-    in
-      lib.composeExtensions
-        (packageSourceOverrides {
-          # This package, with non-git files filtered out to reduce
-          # unnecessary rebuilds.
-          taffybar = git-ignore-nix.lib.gitignoreSource ./.;
-          # Example project
-          my-taffybar = git-ignore-nix.lib.gitignoreSource ./example;
-          # Dependencies which we want to build from source.
-          # These are flake inputs.
-          inherit gtk-strut gtk-sni-tray status-notifier-item xmonad;
-        })
-        (self: super: {
-          # Add further customization of haskellPackages here
+    lib = nixpkgs.lib.extend (composeExtensions
+      (import ./nix/lib-overlay.nix)
+      (final: prev: {
+        taffybar = prev.taffybar.extend (final: prev: {
+          sourceOverrides = prev.sourceOverrides // {
+            # Flake input dependencies which we want to build from source.
+            inherit gtk-strut gtk-sni-tray status-notifier-item xmonad;
+          };
         });
+      }));
 
     # Make a nixpkgs overlay using the above haskellPackages overlay.
-    overlays.default = final: prev: {
-      haskell = prev.haskell // {
-        packageOverrides = lib.composeExtensions
-          prev.haskell.packageOverrides
-          (self.hoverlay final prev);
-      };
-    };
+    overlays.default = composeExtensions
+      (import ./nix/overlay.nix)
+      (final: prev: {
+        lib = prev.lib.extend (final: prev: {
+          # Use lib.taffybar from this flake
+          inherit (self.lib) taffybar;
+        });
+      });
 
   } // flake-utils.lib.eachDefaultSystem (system: let
     pkgs = import nixpkgs {
@@ -74,34 +58,31 @@
       overlays = [ self.overlays.default ];
       config.allowBroken = true;
     };
-    haskellPackages = pkgs.haskell.packages.ghc96;
 
   in {
-    devShells.default = (haskellPackages.shellFor {
-      packages = p: [ p.taffybar p.my-taffybar ];
-
-      # Add some development tools to the shell.
-      nativeBuildInputs = [
-        pkgs.cabal-install
-        pkgs.haskell-language-server
-      ] ++ (with haskellPackages; [
-        hlint ormolu implicit-hie hie-bios
-      ]);
-
-    }).overrideAttrs (oldAttrs: {
-      # This is required so that "cabal repl" and haskell-language-server
-      # can find non-pkgconfig dependencies.
-      shellHook = ''
-        ${oldAttrs.shellHook or ""}
-        export LD_LIBRARY_PATH=${lib.makeLibraryPath [ pkgs.zlib ]}:$LD_LIBRARY_PATH
-      '';
-    });
+    devShells = {
+      default = import ./nix/shell.nix { inherit pkgs; };
+    } // lib.genAttrs supportedCompilers
+      (compiler: pkgs.haskell.packages.${compiler}.taffybar.env);
 
     packages = {
       default = self.packages.${system}.taffybar;
-      inherit (haskellPackages)
+      inherit (pkgs.haskellPackages)
         taffybar
         my-taffybar;
+    } // lib.listToAttrs (map (compiler: {
+      name = "${compiler}-taffybar";
+      value = pkgs.haskell.packages.${compiler}.taffybar;
+    }) supportedCompilers);
+
+    checks = {
+      hlint = pkgs.haskellPackages.taffybar.hlint;
+      ghc-warnings = pkgs.haskellPackages.taffybar.fail-on-all-warnings;
     };
   });
+
+  nixConfig = {
+    extra-substituters = [ "https://haskell-language-server.cachix.org" ];
+    extra-trusted-public-keys = [ "haskell-language-server.cachix.org-1:juFfHrwkOxqIOZShtC4YC1uT1bBcq2RSvC7OMKx0Nz8=" ];
+  };
 }
