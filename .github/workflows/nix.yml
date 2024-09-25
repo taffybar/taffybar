@@ -6,8 +6,11 @@ on:
 
 jobs:
   lints:
-    name: Build and Check
+    name: Build and Check with GHC 9.6 on ${{ matrix.nixpkgs }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        nixpkgs: [nixos-unstable, nixos-24.05]
     steps:
       - uses: actions/checkout@v3
       - name: Check Nix flake inputs
@@ -16,10 +19,16 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@main
       - name: Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Use ${{ matrix.nixpkgs }}
+        if: matrix.nixpkgs != 'nixos-unstable'
+        run: nix flake lock --override-input nixpkgs github:NixOS/nixpkgs/${{ matrix.nixpkgs }}
       - name: Run `nix build`
         run: nix build .
       - name: Run `nix flake check`
         run: nix flake check
+      - name: Run `nix-build` using overlay on ${{ matrix.nixpkgs }}
+        if: matrix.nixpkgs != 'nixos-unstable'
+        run: nix-build -I nixpkgs=flake:github:NixOS/nixpkgs/${{ matrix.nixpkgs }} '<nixpkgs>' --arg overlays '[(import ./nix/overlay.nix)]' -A pkgs.haskellPackages.taffybar
 
   build:
     name: Build with ${{ matrix.compiler }}
