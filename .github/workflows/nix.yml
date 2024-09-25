@@ -7,11 +7,11 @@ on:
 jobs:
   lints:
     name: Build and Check
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v4
+        uses: DeterminateSystems/nix-installer-action@main
       - name: Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Run `nix build`
@@ -21,14 +21,14 @@ jobs:
 
   build:
     name: Build with ${{ matrix.compiler }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         compiler: [ghc94]
     steps:
       - uses: actions/checkout@v3
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v4
+        uses: DeterminateSystems/nix-installer-action@main
       - name: Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Nix build for ${{ matrix.compiler }}
