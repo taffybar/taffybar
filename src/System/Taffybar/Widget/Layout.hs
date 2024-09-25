@@ -79,7 +79,7 @@ layoutNew config = do
 
   -- This callback is run in a separate thread and needs to use
   -- postGUIASync
-  let callback _ = liftReader postGUIASync $ do
+  let callback _ = mapReaderT postGUIASync $ do
         layout <- runX11Def "" $ readAsString Nothing xLayoutProp
         markup <- formatLayout config (T.pack layout)
         lift $ Gtk.labelSetMarkup label markup

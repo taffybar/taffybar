@@ -323,7 +323,7 @@ buildBarWindow context barConfig = do
 -- windows that should active. Will avoid recreating windows if there is already
 -- a window with the appropriate geometry and "BarConfig".
 refreshTaffyWindows :: TaffyIO ()
-refreshTaffyWindows = liftReader postGUIASync $ do
+refreshTaffyWindows = mapReaderT postGUIASync $ do
   logC DEBUG "Refreshing windows"
   ctx <- ask
   windowsVar <- asks existingWindows
