@@ -24,7 +24,6 @@ import           Control.Concurrent
 import           Control.Monad ( when )
 import           Control.Monad.IO.Class
 import           Data.Default ( Default(..) )
-import           Data.Foldable ( mapM_ )
 import           Data.Sequence ( Seq(..), (<|), viewl, ViewL(..) )
 import qualified Data.Sequence as S
 import qualified Data.Text as T
@@ -32,7 +31,6 @@ import qualified GI.Cairo.Render as C
 import           GI.Cairo.Render.Connector
 import qualified GI.Cairo.Render.Matrix as M
 import qualified GI.Gtk as Gtk
-import           Prelude hiding ( mapM_ )
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 

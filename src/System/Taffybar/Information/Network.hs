@@ -16,7 +16,6 @@
 
 module System.Taffybar.Information.Network where
 
-import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import           Control.Exception (catch, SomeException)
 import           Control.Monad
@@ -28,8 +27,6 @@ import           Data.Time.Clock.System
 import           Safe ( atMay, initSafe, readDef )
 import           System.Taffybar.Information.StreamInfo ( getParsedInfo )
 import           System.Taffybar.Util
-
-import           Prelude
 
 networkInfoFile :: FilePath
 networkInfoFile = "/proc/net/dev"

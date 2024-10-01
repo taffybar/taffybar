@@ -61,7 +61,6 @@ module System.Taffybar.Information.EWMHDesktopInfo
   , withEWMHIcons
   ) where
 
-import Control.Applicative
 import Control.Monad ((>=>))
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -77,8 +76,6 @@ import Foreign.Storable
 import System.Log.Logger
 import System.Taffybar.Information.SafeX11 hiding (logHere)
 import System.Taffybar.Information.X11DesktopInfo
-
-import Prelude
 
 logHere :: MonadIO m => Priority -> String -> m ()
 logHere p = liftIO . logM "System.Taffybar.Information.EWMHDesktopInfo" p

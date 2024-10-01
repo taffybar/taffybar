@@ -34,7 +34,6 @@ import Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,
                getWindowProperty16, getWindowProperty32,
                xGetWMHints, getWMHints, refreshKeyboardMapping)
-import Prelude
 import System.IO.Unsafe
 import System.Log.Logger
 import System.Timeout

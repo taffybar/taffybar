@@ -61,8 +61,6 @@ import Graphics.X11.Xrandr
 import Safe
 import System.Taffybar.Information.SafeX11
 
-import Prelude
-
 data X11Context = X11Context
   { contextDisplay :: Display
   , _contextRoot :: Window

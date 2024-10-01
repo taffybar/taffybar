@@ -11,7 +11,6 @@ import qualified Data.Map as M
 import           Data.Maybe
 import qualified GI.GLib as Gdk
 import qualified GI.GdkPixbuf as Gdk
-import           Prelude
 import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo

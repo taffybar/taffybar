@@ -13,7 +13,6 @@
 
 module System.Taffybar.Widget.Workspaces where
 
-import           Control.Applicative
 import           Control.Arrow ((&&&))
 import           Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
@@ -32,7 +31,6 @@ import           Data.List (elemIndex, intersect, sortBy, (\\))
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.MultiMap as MM
-import           Data.Ord
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import           Data.Time.Units
@@ -42,7 +40,6 @@ import qualified GI.Gdk.Enums as Gdk
 import qualified GI.Gdk.Structs.EventScroll as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import           Prelude
 import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
 import           System.Taffybar.Context
