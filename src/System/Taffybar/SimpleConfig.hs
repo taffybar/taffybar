@@ -24,7 +24,6 @@ module System.Taffybar.SimpleConfig
   , StrutSize(..)
   ) where
 
-import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Data.Default (Default(..))
@@ -39,6 +38,7 @@ import           System.Taffybar
 import qualified System.Taffybar.Context as BC (BarConfig(..), TaffybarConfig(..))
 import           System.Taffybar.Context hiding (TaffybarConfig(..), BarConfig(..))
 import           System.Taffybar.Util
+import qualified UnliftIO.MVar as MV
 
 -- | An ADT representing the edge of the monitor along which taffybar should be
 -- displayed.

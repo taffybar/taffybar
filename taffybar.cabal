@@ -61,7 +61,6 @@ library
                , directory
                , dyre >= 0.9.0 && < 0.10
                , either >= 4.0.0.0
-               , enclosed-exceptions >= 1.0.0.1
                , filepath
                , fsnotify >= 0.4 && < 0.5
                , gi-cairo-connector
@@ -90,7 +89,6 @@ library
                , scotty >= 0.20 && < 0.23
                , split >= 0.1.4.2
                , status-notifier-item >= 0.3.1.0
-               , stm
                , template-haskell
                , text
                , time >= 1.9 && < 2.0
@@ -99,6 +97,8 @@ library
                , transformers >= 0.3.0.0
                , tuple >= 0.3.0.2
                , unix
+               , unliftio
+               , unliftio-core
                , utf8-string
                , xdg-desktop-entry
                , xdg-basedir >= 0.2 && < 0.3
@@ -252,8 +252,8 @@ test-suite unit
                , taffybar
                , taffybar:testlib
                , transformers
+               , unliftio
                , QuickCheck
-               , X11
   build-tool-depends: hspec-discover:hspec-discover == 2.*
 
 source-repository head

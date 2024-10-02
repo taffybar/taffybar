@@ -17,7 +17,6 @@
 
 module System.Taffybar.Widget.Util where
 
-import           Control.Concurrent ( forkIO )
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Bifunctor ( first )
@@ -34,6 +33,7 @@ import           System.Environment.XDG.DesktopEntry
 import           System.FilePath.Posix
 import           System.Taffybar.Util
 import           Text.Printf
+import           UnliftIO.Concurrent ( forkIO )
 
 import           Paths_taffybar ( getDataDir )
 

@@ -2,7 +2,6 @@
 module System.Taffybar.Information.Chrome where
 
 import           BroadcastChan
-import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import qualified Data.ByteString as BS
@@ -17,6 +16,8 @@ import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.SafeX11
 import           Text.Read hiding (lift)
 import           Text.Regex
+import           UnliftIO.Concurrent (forkIO)
+import qualified UnliftIO.MVar as MV
 import           Web.Scotty
 
 logIO :: System.Log.Logger.Priority -> String -> IO ()
@@ -29,7 +30,7 @@ data ChromeTabImageData = ChromeTabImageData
 
 newtype ChromeTabImageDataState =
   ChromeTabImageDataState
-  (MVar (M.Map Int ChromeTabImageData), BroadcastChan Out ChromeTabImageData)
+  (MV.MVar (M.Map Int ChromeTabImageData), BroadcastChan Out ChromeTabImageData)
 
 getChromeTabImageDataState :: TaffyIO ChromeTabImageDataState
 getChromeTabImageDataState = do
@@ -41,7 +42,7 @@ getChromeTabImageDataChannel = do
   ChromeTabImageDataState (_, chan) <- getChromeTabImageDataState
   return chan
 
-getChromeTabImageDataTable :: TaffyIO (MVar (M.Map Int ChromeTabImageData))
+getChromeTabImageDataTable :: TaffyIO (MV.MVar (M.Map Int ChromeTabImageData))
 getChromeTabImageDataTable = do
   ChromeTabImageDataState (table, _) <- getChromeTabImageDataState
   return table
@@ -50,7 +51,7 @@ newtype ChromeFaviconServerPort = ChromeFaviconServerPort Int
 
 listenForChromeFaviconUpdates :: Int -> TaffyIO ChromeTabImageDataState
 listenForChromeFaviconUpdates port = do
-  infoVar <- lift $ newMVar M.empty
+  infoVar <- lift $ MV.newMVar M.empty
   inChan <- newBroadcastChan
   outChan <- newBChanListener inChan
   _ <- lift $ forkIO $ scotty port $
@@ -68,27 +69,27 @@ listenForChromeFaviconUpdates port = do
                     , tabImageDataId = tabID
                     }
               in
-                modifyMVar_ infoVar $ \currentMap ->
+                MV.modifyMVar_ infoVar $ \currentMap ->
                   do
                     _ <- writeBChan inChan chromeTabImageData
                     return $ M.insert tabID chromeTabImageData currentMap
         Gdk.pixbufLoaderGetPixbuf loader >>= maybe (return ()) updateChannelAndMVar
   return $ ChromeTabImageDataState (infoVar, outChan)
 
-newtype X11WindowToChromeTabId = X11WindowToChromeTabId (MVar (M.Map X11Window Int))
+newtype X11WindowToChromeTabId = X11WindowToChromeTabId (MV.MVar (M.Map X11Window Int))
 
 getX11WindowToChromeTabId :: TaffyIO X11WindowToChromeTabId
 getX11WindowToChromeTabId =
   getStateDefault $ X11WindowToChromeTabId <$> maintainX11WindowToChromeTabId
 
-maintainX11WindowToChromeTabId :: TaffyIO (MVar (M.Map X11Window Int))
+maintainX11WindowToChromeTabId :: TaffyIO (MV.MVar (M.Map X11Window Int))
 maintainX11WindowToChromeTabId = do
   startTabMap <- updateTabMap M.empty
-  tabMapVar <- lift $ newMVar startTabMap
+  tabMapVar <- lift $ MV.newMVar startTabMap
   let handleEvent PropertyEvent { ev_window = window } =
         do
           title <- runX11Def "" $ getWindowTitle window
-          lift $ modifyMVar_ tabMapVar $ \currentMap -> do
+          lift $ MV.modifyMVar_ tabMapVar $ \currentMap -> do
             let newMap = addTabIdEntry currentMap (window, title)
             logIO DEBUG (show newMap)
             return newMap

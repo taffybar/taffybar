@@ -60,9 +60,6 @@ module System.Taffybar.Context
   ) where
 
 import           Control.Arrow ((&&&), (***))
-import           Control.Concurrent (forkIO)
-import qualified Control.Concurrent.MVar as MV
-import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -91,6 +88,9 @@ import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
+import           UnliftIO.Concurrent (forkIO)
+import qualified UnliftIO.MVar as MV
+import           UnliftIO.Exception (catchAny)
 import           Unsafe.Coerce
 
 logIO :: Priority -> String -> IO ()
@@ -382,7 +382,7 @@ refreshTaffyWindows = mapReaderT postGUIASync $ do
 
 -- | Unconditionally delete all existing Taffybar top-level windows.
 removeTaffyWindows :: TaffyIO ()
-removeTaffyWindows = asks existingWindows >>= liftIO . MV.readMVar >>= deleteWindows
+removeTaffyWindows = asks existingWindows >>= MV.readMVar >>= deleteWindows
   where
     deleteWindows = mapM_ (sequenceT . (msg *** del))
 
@@ -458,7 +458,7 @@ putState getValue = do
 
 -- | A version of 'forkIO' in 'TaffyIO'.
 taffyFork :: ReaderT r IO () -> ReaderT r IO ()
-taffyFork = void . mapReaderT forkIO
+taffyFork = void . forkIO
 
 startX11EventHandler :: Taffy IO ()
 startX11EventHandler = taffyFork $ do

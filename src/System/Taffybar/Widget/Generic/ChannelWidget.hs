@@ -1,11 +1,11 @@
 module System.Taffybar.Widget.Generic.ChannelWidget where
 
 import BroadcastChan
-import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Foldable (traverse_)
 import GI.Gtk
+import UnliftIO.Concurrent (forkIO, killThread)
 
 -- | Given a widget, a 'BroadcastChan' and a function that consumes the values
 -- yielded by the channel that is in 'IO', connect the function to the

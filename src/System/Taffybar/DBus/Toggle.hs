@@ -15,8 +15,6 @@
 
 module System.Taffybar.DBus.Toggle ( handleDBusToggles ) where
 
-import qualified Control.Concurrent.MVar as MV
-import           Control.Exception
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -36,6 +34,8 @@ import           System.Taffybar.Context
 import           System.Taffybar.Util
 import           Text.Printf
 import           Text.Read ( readMaybe )
+import qualified UnliftIO.MVar as MV
+import           UnliftIO.Exception (SomeException, catch)
 
 -- $usage
 --

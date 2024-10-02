@@ -133,7 +133,6 @@ module System.Taffybar
 import qualified Control.Concurrent.MVar as MV
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
-import           Control.Exception ( finally )
 import           Data.Function ( on )
 import           Control.Monad
 import qualified Data.GI.Gtk.Threading as GIThreading
@@ -154,6 +153,7 @@ import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
 import           System.Taffybar.Util ( onSigINT, maybeHandleSigHUP, rebracket_ )
+import           UnliftIO.Exception ( finally )
 
 import           Paths_taffybar ( getDataDir )
 

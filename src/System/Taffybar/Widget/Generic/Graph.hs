@@ -20,7 +20,6 @@ module System.Taffybar.Widget.Generic.Graph (
   , defaultGraphConfig
   ) where
 
-import           Control.Concurrent
 import           Control.Monad ( when )
 import           Control.Monad.IO.Class
 import           Data.Default ( Default(..) )
@@ -33,8 +32,9 @@ import qualified GI.Cairo.Render.Matrix as M
 import qualified GI.Gtk as Gtk
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
+import qualified UnliftIO.MVar as MV
 
-newtype GraphHandle = GH (MVar GraphState)
+newtype GraphHandle = GH (MV.MVar GraphState)
 data GraphState =
   GraphState { graphIsBootstrapped :: Bool
              , graphHistory :: [Seq Double]
@@ -100,7 +100,7 @@ instance Default GraphConfig where
 -- should be as many values in the list as there are data sets.
 graphAddSample :: GraphHandle -> [Double] -> IO ()
 graphAddSample (GH mv) rawData = do
-  s <- readMVar mv
+  s <- MV.readMVar mv
   let drawArea = graphCanvas s
       histSize = graphHistorySize (graphConfig s)
       histsAndNewVals = zip pcts (graphHistory s)
@@ -108,7 +108,7 @@ graphAddSample (GH mv) rawData = do
         [] -> map S.singleton pcts
         _ -> map (\(p,h) -> S.take histSize $ p <| h) histsAndNewVals
   when (graphIsBootstrapped s) $ do
-    modifyMVar_ mv (\s' -> return s' { graphHistory = newHists })
+    MV.modifyMVar_ mv (\s' -> return s' { graphHistory = newHists })
     postGUIASync $ Gtk.widgetQueueDraw drawArea
   where
     pcts = map (clamp 0 1) rawData
@@ -195,20 +195,20 @@ renderGraph hists cfg w h xStep = do
   sequence_ $ zipWith3 renderDataSet hists (graphDataColors cfg)
             (graphDataStyles cfg)
 
-drawBorder :: MVar GraphState -> Gtk.DrawingArea -> C.Render ()
+drawBorder :: MV.MVar GraphState -> Gtk.DrawingArea -> C.Render ()
 drawBorder mv drawArea = do
   (w, h) <- widgetGetAllocatedSize drawArea
-  s <- liftIO $ readMVar mv
+  s <- liftIO $ MV.readMVar mv
   let cfg = graphConfig s
   renderFrameAndBackground cfg w h
-  liftIO $ modifyMVar_ mv (\s' -> return s' { graphIsBootstrapped = True })
+  liftIO $ MV.modifyMVar_ mv (\s' -> return s' { graphIsBootstrapped = True })
   return ()
 
-drawGraph :: MVar GraphState -> Gtk.DrawingArea ->  C.Render ()
+drawGraph :: MV.MVar GraphState -> Gtk.DrawingArea ->  C.Render ()
 drawGraph mv drawArea = do
   (w, h) <- widgetGetAllocatedSize drawArea
   drawBorder mv drawArea
-  s <- liftIO $ readMVar mv
+  s <- liftIO $ MV.readMVar mv
   let hist = graphHistory s
       cfg = graphConfig s
       histSize = graphHistorySize cfg
@@ -223,7 +223,7 @@ drawGraph mv drawArea = do
 graphNew :: MonadIO m => GraphConfig -> m (Gtk.Widget, GraphHandle)
 graphNew cfg = liftIO $ do
   drawArea <- Gtk.drawingAreaNew
-  mv <- newMVar GraphState { graphIsBootstrapped = False
+  mv <- MV.newMVar GraphState { graphIsBootstrapped = False
                            , graphHistory = []
                            , graphCanvas = drawArea
                            , graphConfig = cfg

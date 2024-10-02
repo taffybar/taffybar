@@ -7,13 +7,13 @@ module System.Taffybar.Widget.Generic.Icon
   , pollingIconImageWidgetNewFromName
   ) where
 
-import Control.Concurrent ( forkIO, threadDelay )
 import qualified Data.Text as T
-import Control.Exception as E
 import Control.Monad ( forever, void )
 import Control.Monad.IO.Class
 import GI.Gtk
 import System.Taffybar.Util
+import UnliftIO.Concurrent ( forkIO, threadDelay )
+import UnliftIO.Exception ( IOException, catch )
 
 -- | Create a new widget that displays a static image
 --
@@ -94,7 +94,7 @@ pollingIcon interval doUpdateName doInitImage doSetImage = liftIO $ do
       let tryUpdate = liftIO $ do
             name' <- doUpdateName
             postGUIASync $ void $ doSetImage image name'
-      E.catch tryUpdate ignoreIOException
+      catch tryUpdate ignoreIOException
       threadDelay $ floor (interval * 1000000)
     return ()
   putInBox image

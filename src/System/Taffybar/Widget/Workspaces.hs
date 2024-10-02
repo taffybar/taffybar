@@ -14,9 +14,6 @@
 module System.Taffybar.Widget.Workspaces where
 
 import           Control.Arrow ((&&&))
-import           Control.Concurrent
-import qualified Control.Concurrent.MVar as MV
-import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -51,6 +48,9 @@ import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
 import           System.Taffybar.Widget.Util
 import           System.Taffybar.WindowIcon
 import           Text.Printf
+import           UnliftIO.Concurrent (forkIO)
+import qualified UnliftIO.MVar as MV
+import           UnliftIO.Exception (catchAny)
 
 data WorkspaceState
   = Active
@@ -854,7 +854,7 @@ buildButtonController contentsBuilder workspace = do
     _ <-
       Gtk.onWidgetScrollEvent ebox $ \scrollEvent -> do
         dir <- Gdk.getEventScrollDirection scrollEvent
-        workspaces <- liftIO $ MV.readMVar workspacesRef
+        workspaces <- MV.readMVar workspacesRef
         let switchOne a =
               liftIO $
               flip runReaderT ctx $

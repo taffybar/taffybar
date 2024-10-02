@@ -18,7 +18,6 @@
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.Crypto where
 
-import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -44,6 +43,7 @@ import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.ChannelWidget
 import           System.Taffybar.WindowIcon
 import           Text.Printf
+import qualified UnliftIO.MVar as MV
 
 -- | Extends 'cryptoPriceLabel' with an icon corresponding to the symbol of the
 -- purchase crypto that will appear to the left of the price label. See the
@@ -103,7 +103,7 @@ cryptoPriceLabel' (CryptoPriceChannel (chan, var)) = do
         postGUIASync $ Gtk.labelSetMarkup label $
                      Data.Text.pack $ show cryptoPrice
   void $ Gtk.onWidgetRealize label $
-       readMVar var >>= updateWidget
+       MV.readMVar var >>= updateWidget
   Gtk.toWidget =<< channelWidgetNew label chan updateWidget
 
 cryptoIconsDir :: IO FilePath

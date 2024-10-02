@@ -1,6 +1,6 @@
 module System.Taffybar.Information.CPU ( cpuLoad ) where
 
-import Control.Concurrent ( threadDelay )
+import UnliftIO.Concurrent ( threadDelay )
 import System.IO ( IOMode(ReadMode), openFile, hGetLine, hClose )
 
 procData :: IO [Double]

@@ -16,8 +16,6 @@
 
 module System.Taffybar.Information.Network where
 
-import qualified Control.Concurrent.MVar as MV
-import           Control.Exception (catch, SomeException)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Maybe (MaybeT(..))
@@ -27,6 +25,8 @@ import           Data.Time.Clock.System
 import           Safe ( atMay, initSafe, readDef )
 import           System.Taffybar.Information.StreamInfo ( getParsedInfo )
 import           System.Taffybar.Util
+import qualified UnliftIO.MVar as MV
+import           UnliftIO.Exception (catch, SomeException)
 
 networkInfoFile :: FilePath
 networkInfoFile = "/proc/net/dev"

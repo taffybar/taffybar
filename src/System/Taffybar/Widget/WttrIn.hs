@@ -9,7 +9,6 @@
 -- For more information on how to use wttr.in, see <https://wttr.in/:help>.
 module System.Taffybar.Widget.WttrIn (textWttrNew) where
 
-import Control.Exception as E (handle)
 import Control.Monad.IO.Class (MonadIO)
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (toStrict)
@@ -30,6 +29,7 @@ import Network.HTTP.Types.Status (statusIsSuccessful)
 import System.Log.Logger (Priority (ERROR), logM)
 import System.Taffybar.Widget.Generic.PollingLabel (pollingLabelNew)
 import Text.Regex (matchRegex, mkRegex)
+import UnliftIO.Exception (handle)
 
 -- | Creates a GTK Label widget that polls the requested wttr.in url for weather
 -- information.

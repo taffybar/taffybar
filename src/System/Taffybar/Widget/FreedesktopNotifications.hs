@@ -28,8 +28,6 @@ module System.Taffybar.Widget.FreedesktopNotifications
   ) where
 
 import           BroadcastChan
-import           Control.Concurrent
-import           Control.Concurrent.STM
 import           Control.Monad ( forever, void )
 import           Control.Monad.IO.Class
 import           DBus
@@ -47,6 +45,8 @@ import           GI.GLib (markupEscapeText)
 import           GI.Gtk
 import qualified GI.Pango as Pango
 import           System.Taffybar.Util
+import           UnliftIO.Concurrent (forkIO, threadDelay)
+import           UnliftIO.STM (TVar, atomically, modifyTVar', newTVarIO, readTVar, readTVarIO, writeTVar)
 
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification

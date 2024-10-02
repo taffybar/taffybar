@@ -23,7 +23,6 @@ module System.Taffybar.Hooks
   ) where
 
 import           BroadcastChan
-import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
@@ -37,6 +36,7 @@ import           System.Taffybar.Information.Network
 import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.LogFormatter
 import           System.Taffybar.Util
+import           UnliftIO.Concurrent (forkIO)
 
 -- | The type of the channel that provides network information in taffybar.
 newtype NetworkInfoChan =
