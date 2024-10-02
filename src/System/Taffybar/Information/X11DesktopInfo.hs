@@ -64,7 +64,6 @@ module System.Taffybar.Information.X11DesktopInfo
   ) where
 
 import Codec.Binary.UTF8.String as UTF8
-import qualified Control.Concurrent.MVar as MV
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -77,6 +76,7 @@ import Data.Maybe (fromMaybe, listToMaybe)
 import GHC.Generics (Generic)
 import Graphics.X11.Xrandr (XRRScreenResources(..), XRROutputInfo(..), xrrGetOutputInfo, xrrGetScreenResources, xrrGetOutputPrimary)
 import System.Taffybar.Information.SafeX11 hiding (displayName)
+import qualified UnliftIO.MVar as MV
 
 -- | Represents a connection to an X11 display.
 -- Use 'getX11Context' to construct one of these.

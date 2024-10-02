@@ -12,14 +12,14 @@ module System.Taffybar.Widget.Generic.PollingGraph (
   defaultGraphConfig
   ) where
 
-import           Control.Concurrent
-import qualified Control.Exception.Enclosed as E
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Text as T
 import           GI.Gtk
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.Graph
+import           UnliftIO.Concurrent (killThread)
+import           UnliftIO.Exception (tryAny)
 
 pollingGraphNewWithTooltip
   :: MonadIO m
@@ -29,7 +29,7 @@ pollingGraphNewWithTooltip cfg pollSeconds action = liftIO $ do
 
   _ <- onWidgetRealize graphWidget $ do
        sampleThread <- foreverWithDelay pollSeconds $ do
-         esample <- E.tryAny action
+         esample <- tryAny action
          case esample of
            Left _ -> return ()
            Right (sample, tooltipStr) -> do

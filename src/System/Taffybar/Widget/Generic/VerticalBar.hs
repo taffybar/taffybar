@@ -12,7 +12,6 @@ module System.Taffybar.Widget.Generic.VerticalBar (
   defaultBarConfigIO
   ) where
 
-import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified GI.Cairo.Render as C
@@ -20,8 +19,9 @@ import           GI.Cairo.Render.Connector
 import           GI.Gtk hiding (widgetGetAllocatedSize)
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
+import qualified UnliftIO.MVar as MV
 
-newtype VerticalBarHandle = VBH (MVar VerticalBarState)
+newtype VerticalBarHandle = VBH (MV.MVar VerticalBarState)
 data VerticalBarState = VerticalBarState
   { barIsBootstrapped :: Bool
   , barPercent :: Double
@@ -76,10 +76,10 @@ defaultBarConfigIO c =
 
 verticalBarSetPercent :: VerticalBarHandle -> Double -> IO ()
 verticalBarSetPercent (VBH mv) pct = do
-  s <- readMVar mv
+  s <- MV.readMVar mv
   let drawArea = barCanvas s
   when (barIsBootstrapped s) $ do
-    modifyMVar_ mv (\s' -> return s' { barPercent = clamp 0 1 pct })
+    MV.modifyMVar_ mv (\s' -> return s' { barPercent = clamp 0 1 pct })
     postGUIASync $ widgetQueueDraw drawArea
 
 clamp :: Double -> Double -> Double -> Double
@@ -152,12 +152,12 @@ renderBar pct cfg width height = do
   C.rectangle 0 0 activeWidth activeHeight
   C.fill
 
-drawBar :: MVar VerticalBarState -> DrawingArea -> C.Render ()
+drawBar :: MV.MVar VerticalBarState -> DrawingArea -> C.Render ()
 drawBar mv drawArea = do
   (w, h) <- widgetGetAllocatedSize drawArea
   s <- liftIO $ do
-         s <- readMVar mv
-         modifyMVar_ mv (\s' -> return s' { barIsBootstrapped = True })
+         s <- MV.readMVar mv
+         MV.modifyMVar_ mv (\s' -> return s' { barIsBootstrapped = True })
          return s
   renderBar (barPercent s) (barConfig s) w h
 
@@ -165,7 +165,7 @@ verticalBarNew :: MonadIO m => BarConfig -> m (GI.Gtk.Widget, VerticalBarHandle)
 verticalBarNew cfg = liftIO $ do
   drawArea <- drawingAreaNew
   mv <-
-    newMVar
+    MV.newMVar
       VerticalBarState
       { barIsBootstrapped = False
       , barPercent = 0

@@ -18,8 +18,6 @@
 module System.Taffybar.Information.Crypto where
 
 import           BroadcastChan
-import           Control.Concurrent
-import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Aeson
@@ -38,6 +36,8 @@ import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Util
 import           Text.Printf
+import qualified UnliftIO.MVar as MV
+import           UnliftIO.Exception (catchAny)
 
 getSymbolToCoinGeckoId :: MonadIO m => m (M.Map Text Text)
 getSymbolToCoinGeckoId = do
@@ -58,7 +58,7 @@ newtype SymbolToCoinGeckoId = SymbolToCoinGeckoId (M.Map Text Text)
 newtype CryptoPriceInfo = CryptoPriceInfo { lastPrice :: Double }
 
 newtype CryptoPriceChannel (a :: Symbol) =
-  CryptoPriceChannel (BroadcastChan In CryptoPriceInfo, MVar CryptoPriceInfo)
+  CryptoPriceChannel (BroadcastChan In CryptoPriceInfo, MV.MVar CryptoPriceInfo)
 
 getCryptoPriceChannel :: KnownSymbol a => TaffyIO (CryptoPriceChannel a)
 getCryptoPriceChannel = do
@@ -98,13 +98,13 @@ buildCryptoPriceChannel ::
 buildCryptoPriceChannel delay symbolToId = do
   let initialBackoff = delay
   chan <- newBroadcastChan
-  var <- liftIO $ newMVar $ CryptoPriceInfo 0.0
-  backoffVar <- liftIO $ newMVar initialBackoff
+  var <- liftIO $ MV.newMVar $ CryptoPriceInfo 0.0
+  backoffVar <- liftIO $ MV.newMVar initialBackoff
 
   let doWrites info = do
-        _ <- swapMVar var info
+        _ <- MV.swapMVar var info
         _ <- writeBChan chan info
-        _ <- swapMVar backoffVar initialBackoff
+        _ <- MV.swapMVar backoffVar initialBackoff
         return ()
 
   case resolveSymbolPair (Proxy :: Proxy a) symbolToId of
@@ -114,7 +114,7 @@ buildCryptoPriceChannel delay symbolToId = do
            catchAny (liftIO $ getLatestPrice cgIdentifier inCurrency >>=
                             maybe (return ()) (doWrites . CryptoPriceInfo) >> return delay) $ \e -> do
                                      logCrypto WARNING $ printf "Error when fetching crypto price: %s" (show e)
-                                     modifyMVar backoffVar $ \current ->
+                                     MV.modifyMVar backoffVar $ \current ->
                                        return (min (current * 2) delay, current)
 
   return $ CryptoPriceChannel (chan, var)

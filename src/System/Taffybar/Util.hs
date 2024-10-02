@@ -52,14 +52,11 @@ module System.Taffybar.Util (
 import           Conduit
 import           Control.Applicative
 import           Control.Arrow ((&&&))
-import           Control.Concurrent
-import           Control.Exception.Base
 import           Control.Monad
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Data.Either.Combinators
 import           Data.GI.Base.GError
-import           Control.Exception.Enclosed (catchAny)
 import           Data.GI.Gtk.Threading as Gtk (postGUIASync, postGUISync)
 import           Data.Maybe
 import           Data.IORef (newIORef, readIORef, writeIORef)
@@ -75,6 +72,8 @@ import           System.Log.Logger
 import           System.Posix.Signals (Signal, Handler(..), installHandler, sigINT)
 import qualified System.Process as P
 import           Text.Printf
+import           UnliftIO.Concurrent (ThreadId, forkIO, threadDelay)
+import           UnliftIO.Exception (bracket, catch, catchAny)
 
 
 taffyStateDir :: IO FilePath
@@ -138,7 +137,7 @@ runCommandFromPath :: MonadIO m => FilePath -> [String] -> m (Either String Stri
 runCommandFromPath = runCommand
 
 -- | Execute the provided IO action at the provided interval.
-foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO () -> m ThreadId
+foreverWithDelay :: (MonadUnliftIO m, RealFrac d) => d -> m () -> m ThreadId
 foreverWithDelay delay action =
   foreverWithVariableDelay $ safeAction >> return delay
   where safeAction =
@@ -148,8 +147,8 @@ foreverWithDelay delay action =
 -- | Execute the provided IO action, and use the value it returns to decide how
 -- long to wait until executing it again. The value returned by the action is
 -- interpreted as a number of seconds.
-foreverWithVariableDelay :: (MonadIO m, RealFrac d) => IO d -> m ThreadId
-foreverWithVariableDelay action = liftIO $ forkIO $ action >>= delayThenAction
+foreverWithVariableDelay :: (MonadUnliftIO m, RealFrac d) => m d -> m ThreadId
+foreverWithVariableDelay action = forkIO $ action >>= delayThenAction
   where delayThenAction delay =
           threadDelay (floor $ delay * 1000000) >> action >>= delayThenAction
 

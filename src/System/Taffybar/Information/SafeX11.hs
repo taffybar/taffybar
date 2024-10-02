@@ -25,13 +25,11 @@ module System.Taffybar.Information.SafeX11
   )
   where
 
-import Control.Concurrent
-import Control.Exception
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe (MaybeT(..))
 import Data.Either.Combinators
-import Data.Typeable
+import Data.Typeable (Typeable)
 import Foreign hiding (void)
 import Foreign.C.Types
 import GHC.ForeignPtr
@@ -44,6 +42,9 @@ import System.IO.Unsafe
 import System.Log.Logger
 import System.Timeout
 import Text.Printf
+import UnliftIO.Chan (Chan, newChan, readChan, writeChan)
+import UnliftIO.Concurrent (ThreadId, myThreadId, forkIO)
+import UnliftIO.Exception (Exception, IOException, catch)
 
 logHere :: Priority -> String -> IO ()
 logHere = logM "System.Taffybar.Information.SafeX11"

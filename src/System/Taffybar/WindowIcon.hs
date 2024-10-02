@@ -1,6 +1,5 @@
 module System.Taffybar.WindowIcon where
 
-import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -30,6 +29,7 @@ import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
+import qualified UnliftIO.MVar as MV
 
 type ColorRGBA = Word32
 
@@ -135,7 +135,7 @@ getWindowIconFromClasses =
 
 getPixBufFromChromeData :: X11Window -> TaffyIO (Maybe Gdk.Pixbuf)
 getPixBufFromChromeData window = do
-  imageData <- getChromeTabImageDataTable >>= lift . readMVar
+  imageData <- getChromeTabImageDataTable >>= lift . MV.readMVar
   X11WindowToChromeTabId x11LookupMapVar <- getX11WindowToChromeTabId
-  x11LookupMap <- lift $ readMVar x11LookupMapVar
+  x11LookupMap <- lift $ MV.readMVar x11LookupMapVar
   return $ tabImageData <$> (M.lookup window x11LookupMap >>= flip M.lookup imageData)

@@ -2,8 +2,6 @@
 -- a callback at a set interval.
 module System.Taffybar.Widget.Generic.PollingLabel where
 
-import           Control.Concurrent
-import           Control.Exception.Enclosed as E
 import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Text as T
@@ -12,6 +10,8 @@ import           System.Log.Logger
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
+import           UnliftIO.Concurrent ( killThread )
+import           UnliftIO.Exception ( tryAny )
 
 -- | Create a new widget that updates itself at regular intervals.  The
 -- function
@@ -60,7 +60,7 @@ pollingLabelWithVariableDelay action =
                printf "Polling label delay was %s" $ show delay
           return delay
         updateLabelHandlingErrors =
-          E.tryAny action >>= either (const $ return 1) updateLabel
+          tryAny action >>= either (const $ return 1) updateLabel
 
     _ <- onWidgetRealize label $ do
       sampleThread <- foreverWithVariableDelay updateLabelHandlingErrors

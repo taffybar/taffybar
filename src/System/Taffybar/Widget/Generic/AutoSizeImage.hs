@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module System.Taffybar.Widget.Generic.AutoSizeImage where
 
-import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Int
@@ -15,6 +14,7 @@ import           System.Log.Logger
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
+import qualified UnliftIO.MVar as MV
 
 imageLog :: Priority -> String -> IO ()
 imageLog = logM "System.Taffybar.Widget.Generic.AutoSizeImage"
