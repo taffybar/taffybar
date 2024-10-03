@@ -26,6 +26,7 @@ module System.Taffybar.SimpleConfig
 
 import           Control.Monad
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Reader (runReaderT)
 import           Data.Default (Default(..))
 import           Data.List
 import           Data.Maybe
@@ -187,4 +188,4 @@ useAllMonitors = lift $ do
 -- on the primary monitor.
 usePrimaryMonitor :: TaffyIO [Int]
 usePrimaryMonitor =
-  singleton . fromMaybe 0 <$> lift (withX11Context def getPrimaryOutputNumber)
+  singleton . fromMaybe 0 <$> lift (withX11Context def (runReaderT getPrimaryOutputNumber))

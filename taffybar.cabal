@@ -74,19 +74,23 @@ library
                , gi-pango
                , gtk-sni-tray >= 0.1.8.0
                , gtk-strut >= 0.1.2.1
+               , hashable
                , haskell-gi-base >= 0.24
                , hslogger
                , http-conduit
                , http-client >= 0.5
                , http-client-tls
                , http-types
+               , managed
                , multimap >= 1.2.1
                , parsec >= 3.1
                , process >= 1.0.1.1
                , rate-limit >= 1.1.1
                , regex-compat
                , safe >= 0.3 && < 1
+               , say
                , scotty >= 0.20 && < 0.23
+               , stm
                , split >= 0.1.4.2
                , status-notifier-item >= 0.3.1.0
                , template-haskell
@@ -99,6 +103,7 @@ library
                , unix
                , unliftio
                , unliftio-core
+               , unordered-containers
                , utf8-string
                , xdg-desktop-entry
                , xdg-basedir >= 0.2 && < 0.3
@@ -124,6 +129,7 @@ library
                  , System.Taffybar.Information.MPRIS2
                  , System.Taffybar.Information.Memory
                  , System.Taffybar.Information.Network
+                 , System.Taffybar.Information.ResourceThread
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.StreamInfo
                  , System.Taffybar.Information.X11DesktopInfo

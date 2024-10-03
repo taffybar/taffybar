@@ -98,7 +98,7 @@ liftContext :: TaffyIO a -> WorkspacesIO a
 liftContext action = asks taffyContext >>= lift . runReaderT action
 
 liftX11Def :: a -> X11Property a -> WorkspacesIO a
-liftX11Def dflt prop = liftContext $ runX11Def dflt prop
+liftX11Def dflt f = liftContext . runProperty $ f `fallback` dflt
 
 setWorkspaceWidgetStatusClass ::
      (MonadIO m, Gtk.IsWidget a) => Workspace -> a -> m ()
@@ -199,11 +199,11 @@ updateWorkspacesVar = do
 
 getWorkspaceToWindows ::
   [X11Window] -> X11Property (MM.MultiMap WorkspaceId X11Window)
-getWorkspaceToWindows =
-  foldM
-    (\theMap window ->
-       MM.insert <$> getWorkspace window <*> pure window <*> pure theMap)
-    MM.empty
+getWorkspaceToWindows = foldM
+  (\theMap window ->
+     maybe theMap (\ws -> MM.insert ws window theMap)
+     <$> getWorkspace window)
+  MM.empty
 
 getWindowData :: Maybe X11Window
               -> [X11Window]
@@ -682,12 +682,12 @@ constantScaleWindowIconPixbufGetter constantSize getter =
 handleIconGetterException :: WindowIconPixbufGetter -> WindowIconPixbufGetter
 handleIconGetterException getter size windowData =
   catchAny (getter size windowData) $ \e -> do
-    wLog WARNING $ printf "Failed to get window icon for %s: %s" (show windowData) (show e)
+    wLog DEBUG $ printf "Failed to get window icon for %s: %s" (show windowData) (show e)
     return Nothing
 
 getWindowIconPixbufFromEWMH :: WindowIconPixbufGetter
 getWindowIconPixbufFromEWMH = handleIconGetterException $ \size windowData ->
-  runX11Def Nothing (getIconPixBufFromEWMH size $ windowId windowData)
+  runProperty (getIconPixBufFromEWMH size $ windowId windowData)
 
 getWindowIconPixbufFromClass :: WindowIconPixbufGetter
 getWindowIconPixbufFromClass = handleIconGetterException $ \size windowData ->
@@ -726,9 +726,9 @@ addCustomIconsAndFallback
   -> (Int32 -> TaffyIO (Maybe Gdk.Pixbuf))
   -> WindowIconPixbufGetter
   -> WindowIconPixbufGetter
-addCustomIconsAndFallback getCustomIconPath fallback defaultGetter =
+addCustomIconsAndFallback getCustomIconPath fallBack defaultGetter =
   scaledWindowIconPixbufGetter $
-  getCustomIcon <|||> defaultGetter <|||> (\s _ -> fallback s)
+  getCustomIcon <|||> defaultGetter <|||> (\s _ -> fallBack s)
   where
     getCustomIcon :: Int32 -> WindowData -> TaffyIO (Maybe Gdk.Pixbuf)
     getCustomIcon _ wdata =
@@ -738,7 +738,8 @@ addCustomIconsAndFallback getCustomIconPath fallback defaultGetter =
 -- | Sort windows by top-left corner position.
 sortWindowsByPosition :: [WindowData] -> WorkspacesIO [WindowData]
 sortWindowsByPosition wins = do
-  let getGeometryWorkspaces w = getDisplay >>= liftIO . (`safeGetGeometry` w)
+  let getGeometryWorkspaces = runSafeX11 . safeGetGeometry
+      getGeometries :: X11Property [(X11Window, (Int32, Int32))]
       getGeometries = mapM
                       (forkM return
                                (((sel2 &&& sel3) <$>) . getGeometryWorkspaces) .

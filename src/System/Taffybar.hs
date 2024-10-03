@@ -135,6 +135,8 @@ import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
 import           Data.Function ( on )
 import           Control.Monad
+import           Control.Monad.Managed ( runManaged, managed_ )
+import           Control.Monad.IO.Class ( MonadIO(..) )
 import qualified Data.GI.Gtk.Threading as GIThreading
 import           Data.List ( groupBy, sort, isPrefixOf )
 import qualified Data.Text as T
@@ -251,7 +253,7 @@ startCSS' prio cssFilePaths = do
 -- If Taffybar is running as a daemon, then this also installs a
 -- handler on @SIGHUP@ which triggers reloading of the CSS files, and
 -- recreates the inotify watcher.
-withCSSReloadable :: [FilePath] -> IO () -> IO ()
+withCSSReloadable :: [FilePath] -> IO a -> IO a
 withCSSReloadable css action = rebracket_ (fst <$> startCSS css) $ \reload -> do
   let reload' = noteReload >> reload
   rebracket_ (watchCSS css reload') $ \rewatch -> do
@@ -315,13 +317,19 @@ startTaffybar config = do
   GIThreading.setCurrentThreadAsGUIThread
 
   cssPathsToLoad <- getCSSPaths config
-  context <- buildContext config
 
-  withCSSReloadable cssPathsToLoad $ Gtk.main
-    `finally` logTaffy DEBUG "Finished main loop"
-    `onSigINT` do
-      logTaffy INFO "Interrupted"
-      exitTaffybar context
+  runManaged (do
+    managed_ $ withCSSReloadable cssPathsToLoad
+
+    context <- buildContext config
+
+    liftIO $ Gtk.main
+      `finally` logTaffy DEBUG "Finished main loop"
+      `onSigINT` do
+        logTaffy INFO "Interrupted"
+        exitTaffybar context)
+
+    `finally` logTaffy DEBUG "Cleaned up"
 
   logTaffy DEBUG "Exited normally"
 

@@ -13,7 +13,7 @@ import qualified GI.GdkPixbuf as Gdk
 import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
-import           System.Taffybar.Information.SafeX11
+import           System.Taffybar.Information.SafeX11 (Event(..))
 import           Text.Read hiding (lift)
 import           Text.Regex
 import           UnliftIO.Concurrent (forkIO)
@@ -88,7 +88,7 @@ maintainX11WindowToChromeTabId = do
   tabMapVar <- lift $ MV.newMVar startTabMap
   let handleEvent PropertyEvent { ev_window = window } =
         do
-          title <- runX11Def "" $ getWindowTitle window
+          title <- runProperty $ getWindowTitle window
           lift $ MV.modifyMVar_ tabMapVar $ \currentMap -> do
             let newMap = addTabIdEntry currentMap (window, title)
             logIO DEBUG (show newMap)
@@ -109,8 +109,7 @@ addTabIdEntry theMap (win, title) =
           maybe theMap ((flip $ M.insert win) theMap) $ getTabIdFromTitle title
 
 updateTabMap :: M.Map X11Window Int -> TaffyIO (M.Map X11Window Int)
-updateTabMap tabMap =
-  runX11Def tabMap $ do
+updateTabMap tabMap = runProperty $ do
     wins <- getWindows
     titles <- mapM getWindowTitle wins
     let winsWithTitles = zip wins titles

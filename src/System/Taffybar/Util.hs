@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE RankNTypes #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Util
@@ -38,6 +39,7 @@ module System.Taffybar.Util (
   -- * Control
   , foreverWithVariableDelay
   , foreverWithDelay
+  , bracketIO
   -- * Process control
   , runCommand
   , onSigINT
@@ -47,6 +49,8 @@ module System.Taffybar.Util (
   -- * Resource management
   , rebracket
   , rebracket_
+  , managedR
+  , managedR_
   -- * Deprecated
   , logPrintFDebug
   , liftReader
@@ -58,7 +62,9 @@ module System.Taffybar.Util (
 import           Conduit
 import           Control.Applicative
 import           Control.Arrow ((&&&))
+import qualified Control.Exception as E
 import           Control.Monad
+import           Control.Monad.Managed (MonadManaged, managed_, managed)
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Data.Either.Combinators
@@ -149,6 +155,18 @@ runCommand cmd args = liftIO $ do
 runCommandFromPath :: MonadIO m => FilePath -> [String] -> m (Either String String)
 runCommandFromPath = runCommand
 
+-- | A partially unlifted version of 'Control.Exception.bracket' from @base@.
+--
+-- This should be used instead of 'UnliftIO.Exception.bracket' in
+-- situations where the cleanup action may block for a little while.
+--
+-- 'UnliftIO.Exception.bracket' uses
+-- 'Control.Exception.uninterruptibleMask_' for the cleanup
+-- action. When cleanup actions are potentially blocking, they should
+-- still be masked, but not masked uninterruptible.
+bracketIO :: MonadUnliftIO m => IO a -> (a -> IO ()) -> (a -> m c) -> m c
+bracketIO a b c = withRunInIO $ \run -> E.bracket a b (run . c)
+
 -- | A variant of 'bracket' which allows for reloading.
 --
 -- The first parameter is an allocation function which returns a newly
@@ -183,6 +201,14 @@ rebracket alloc action = bracket setup teardown (action . reload)
 rebracket_ :: IO (IO ()) -> (IO () -> IO a) -> IO a
 rebracket_ alloc action = rebracket ((, ()) <$> alloc) $
   \reload -> reload >> action reload
+
+-- | Variant of 'managed' for resources which are acquired in a 'ReaderT' monad.
+managedR :: MonadManaged m => (forall r. (a -> ReaderT x IO r) -> ReaderT x IO r) -> ReaderT x m a
+managedR f = ask >>= \x -> managed (\g -> runReaderT (f (liftIO . g)) x)
+
+-- | Variant of 'managed_' for resources which are acquired in a 'ReaderT' monad.
+managedR_ :: MonadManaged m => (forall r. ReaderT x IO r -> ReaderT x IO r) -> ReaderT x m ()
+managedR_ f = ask >>= \x -> managed_ (\g -> runReaderT (f (liftIO g)) x)
 
 -- | Execute the provided IO action at the provided interval.
 foreverWithDelay :: (MonadUnliftIO m, RealFrac d) => d -> m () -> m ThreadId
@@ -316,10 +342,10 @@ maybeHandleSigHUP callback action =
 -- The given callback function won't be run immediately within the
 -- @sigaction@ handler, but will instead be posted to the GLib main
 -- loop.
-handlePosixSignal :: Signal -> IO () -> IO a -> IO a
-handlePosixSignal sig cb = withSigHandlerBase sig (Catch handler)
-  where
-    handler = postGUIASyncWithPriority G.PRIORITY_HIGH_IDLE cb
+handlePosixSignal :: MonadUnliftIO m => Signal -> m () -> m a -> m a
+handlePosixSignal sig cb action = withRunInIO $ \run ->
+  let handler = postGUIASyncWithPriority G.PRIORITY_HIGH_IDLE (run cb)
+  in  withSigHandlerBase sig (Catch handler) (run action)
 
 -- | Install a handler for the given signal, run an 'IO' action, then
 -- restore the original handler.

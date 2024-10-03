@@ -45,15 +45,13 @@ data WindowsConfig = WindowsConfig
   }
 
 defaultGetMenuLabel :: X11Window -> TaffyIO T.Text
-defaultGetMenuLabel window = do
-  windowString <- runX11Def "(nameless window)" (getWindowTitle window)
-  return $ T.pack windowString
+defaultGetMenuLabel = fmap (T.pack . nonEmpty) . runProperty . getWindowTitle
+  where nonEmpty s = if null s then "(nameless window)" else s
 
 defaultGetActiveLabel :: TaffyIO T.Text
 defaultGetActiveLabel = do
-  label <- fromMaybe "" <$> (runX11Def Nothing getActiveWindow >>=
-                                       traverse defaultGetMenuLabel)
-  markupEscapeText label (-1)
+  label <- traverse defaultGetMenuLabel =<< runProperty getActiveWindow
+  markupEscapeText (fromMaybe "" label) (-1)
 
 truncatedGetActiveLabel :: Int -> TaffyIO T.Text
 truncatedGetActiveLabel maxLength =
@@ -120,7 +118,7 @@ buildWindowsIcon windowIconPixbufGetter = do
 
   context <- ask
   let getActiveWindowPixbuf size = runTaffy context . runMaybeT $ do
-        wd <- MaybeT $ runX11Def Nothing $
+        wd <- MaybeT $ runProperty $
           traverse (getWindowData Nothing []) =<< getActiveWindow
         MaybeT $ windowIconPixbufGetter size wd
 
@@ -130,12 +128,12 @@ buildWindowsIcon windowIconPixbufGetter = do
 -- | Populate the given menu widget with the list of all currently open windows.
 fillMenu :: Gtk.IsMenuShell a => WindowsConfig -> a -> ReaderT Context IO ()
 fillMenu config menu = ask >>= \context ->
-  runX11Def () $ do
+  runProperty $ do
     windowIds <- getWindows
     forM_ windowIds $ \windowId ->
       lift $ do
         labelText <- runTaffy context (getMenuLabel config windowId)
-        let focusCallback = runTaffy context (runX11 $ focusWindow windowId) >>
+        let focusCallback = runTaffy context (runProperty $ focusWindow windowId) >>
                             return True
         item <- Gtk.menuItemNewWithLabel labelText
         _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
