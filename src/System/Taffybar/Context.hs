@@ -38,6 +38,7 @@ module System.Taffybar.Context
     -- * Taffy monad
     Taffy,
     TaffyIO,
+    runTaffy,
 
     -- ** Context
     Context (..),
@@ -149,6 +150,10 @@ type Taffy m v = ReaderT Context m v
 -- | 'TaffyIO' is 'IO' wrapped with a 'ReaderT' providing 'Context'. This is the
 -- type of most widgets and callback in Taffybar.
 type TaffyIO v = ReaderT Context IO v
+
+-- | Apply the provided 'Context' to a 'Taffy' action.
+runTaffy :: Context -> Taffy m v -> m v
+runTaffy = flip runReaderT
 
 type Listener = Event -> Taffy IO ()
 
@@ -348,7 +353,7 @@ buildContextWithBackend
                     -- XXX: We have to do a force refresh here because there is no
                     -- way to reliably move windows, since the window manager can do
                     -- whatever it pleases.
-                    (runReaderT forceRefreshTaffyWindows context)
+                    (runTaffy context forceRefreshTaffyWindows)
               )
 
     -- Some compositors/backends will keep the reserved space for a layer-shell
@@ -356,7 +361,7 @@ buildContextWithBackend
     -- window. Listen for systemd-logind resume and force a refresh.
     registerResumeRefresh context
 
-    flip runReaderT context $ do
+    runTaffy context $ do
       logC DEBUG "Starting X11 Handler"
       startX11EventHandler
       logC DEBUG "Running startup hook"
@@ -391,7 +396,7 @@ registerResumeRefresh ctx = do
           threadDelay 1_000_000
           _ <- MV.swapMVar pendingVar False
           logIO NOTICE "Resumed from sleep - forcing taffybar window refresh"
-          postGUIASync $ runReaderT forceRefreshTaffyWindows ctx
+          postGUIASync $ runTaffy ctx forceRefreshTaffyWindows
 
       callback :: D.Signal -> IO ()
       callback sig =
@@ -533,7 +538,7 @@ buildBarWindow context barConfig = do
     (strutMonitor (strutConfig barConfig))
 
   let addWidgetWith widgetAdd (count, buildWidget) =
-        runReaderT buildWidget thisContext >>= widgetAdd count
+        runTaffy thisContext buildWidget >>= widgetAdd count
 
   shownBoxes <-
     case barLevels barConfig of
@@ -655,7 +660,7 @@ refreshTaffyWindows = mapReaderT postGUIASync $ do
   ctx <- ask
   windowsVar <- asks existingWindows
 
-  let rebuildWindows currentWindows = flip runReaderT ctx $
+  let rebuildWindows currentWindows = runTaffy ctx $
         do
           barConfigs <- join $ asks getBarConfigs
 
@@ -732,7 +737,7 @@ forceRefreshTaffyWindows = removeTaffyWindows >> refreshTaffyWindows
 -- to be destroyed, the main loop still needs to be running.
 exitTaffybar :: Context -> IO ()
 exitTaffybar ctx = do
-  postGUIASync $ runReaderT removeTaffyWindows ctx
+  postGUIASync $ runTaffy ctx removeTaffyWindows
   Gtk.mainQuit
 
 asksContextVar :: (r -> MV.MVar b) -> ReaderT r IO b
@@ -757,7 +762,7 @@ runX11Def dflt prop = runX11 $ postX11RequestSyncProp prop dflt
 
 runX11Context :: (MonadIO m) => Context -> a -> X11Property a -> m a
 runX11Context context dflt prop =
-  liftIO $ runReaderT (runX11Def dflt prop) context
+  liftIO $ runTaffy context (runX11Def dflt prop)
 
 -- | Get a state value by type from the 'contextState' field of 'Context'.
 getState :: forall t. (Typeable t) => Taffy IO (Maybe t)
@@ -784,7 +789,7 @@ putState getValue = do
         currentValue = M.lookup theType contextStateMap
         insertAndReturn value =
           (M.insert theType (Value value) contextStateMap, value)
-     in flip runReaderT ctx $
+     in runTaffy ctx $
           maybe
             (insertAndReturn <$> getValue)
             (return . (contextStateMap,))
@@ -815,8 +820,7 @@ startX11EventHandler = do
     -- from x11ContextVar here.
     lift $
       withX11Context def $
-        eventLoop
-          (\e -> runReaderT (handleX11Event e) c)
+        eventLoop (runTaffy c . handleX11Event)
 
 setupBarWindow :: Context -> StrutConfig -> Gtk.Window -> IO ()
 setupBarWindow context config window =

@@ -26,7 +26,6 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Except
-import Control.Monad.Trans.Reader
 import DBus
 import DBus.Client
 import qualified DBus.TH as DBus
@@ -270,7 +269,7 @@ simplePlayerWidget
       widget <- Gtk.toWidget ebox
       let widgetData =
             MPRIS2PlayerWidget {playerLabel = label, playerWidget = widget}
-      flip runReaderT ctx $
+      runTaffy ctx $
         simplePlayerWidget c addToParent (Just widgetData) np
 simplePlayerWidget
   config
@@ -376,7 +375,7 @@ simplePlayerWidgetWithControls
                 controlsPlayPauseButtonLabel = playPauseButtonLabel,
                 controlsNextButton = nextButton
               }
-      flip runReaderT ctx $
+      runTaffy ctx $
         simplePlayerWidgetWithControls c addToParent (Just widgetData) np
 simplePlayerWidgetWithControls
   config
@@ -448,7 +447,7 @@ mpris2NewWithConfig config =
           updatePlayerWidgetsVar nowPlayings =
             postGUISync $
               MV.modifyMVar_ playerWidgetsVar $
-                flip runReaderT ctx
+                runTaffy ctx
                   . updatePlayerWidgets nowPlayings
 
           setPlayingClass = do
