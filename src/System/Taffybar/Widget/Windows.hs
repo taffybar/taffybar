@@ -86,7 +86,7 @@ windowsNew config = do
   labelWidget <- Gtk.toWidget label
   menu <- dynamicMenuNew
     DynamicMenuConfig { dmClickWidget = labelWidget
-                      , dmPopulateMenu = flip runReaderT context . fillMenu config
+                      , dmPopulateMenu = runTaffy context . fillMenu config
                       }
 
   widgetSetClassGI menu "windows"
@@ -98,8 +98,8 @@ fillMenu config menu = ask >>= \context ->
     windowIds <- getWindows
     forM_ windowIds $ \windowId ->
       lift $ do
-        labelText <- runReaderT (getMenuLabel config windowId) context
-        let focusCallback = runReaderT (runX11 $ focusWindow windowId) context >>
+        labelText <- runTaffy context (getMenuLabel config windowId)
+        let focusCallback = runTaffy context (runX11 $ focusWindow windowId) >>
                             return True
         item <- Gtk.menuItemNewWithLabel labelText
         _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback

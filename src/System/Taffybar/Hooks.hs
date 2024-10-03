@@ -77,7 +77,7 @@ getDirectoryEntriesByClassName =
 -- | Update the 'DesktopEntry' cache every 60 seconds.
 updateDirectoryEntriesCache :: TaffyIO ()
 updateDirectoryEntriesCache = ask >>= \ctx ->
-  void $ lift $ foreverWithDelay (60 :: Double) $ flip runReaderT ctx $
+  void $ lift $ foreverWithDelay (60 :: Double) $ runTaffy ctx $
        void $ putState readDirectoryEntriesDefault
 
 -- | Read 'DesktopEntry' values into a 'MM.Multimap', where they are indexed by

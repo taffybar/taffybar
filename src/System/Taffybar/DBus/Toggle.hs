@@ -111,7 +111,7 @@ exportTogglesInterface = do
   ctx <- ask
   lift $ taffyStateDir >>= createDirectoryIfMissing True
   stateFile <- lift toggleStateFile
-  let toggleTaffyOnMon fn mon = flip runReaderT ctx $ do
+  let toggleTaffyOnMon fn mon = runTaffy ctx $ do
         lift $ MV.modifyMVar_ enabledVar $ \numToEnabled -> do
           let current = fromMaybe True $ M.lookup mon numToEnabled
               result = M.insert mon (fn current) numToEnabled
@@ -138,7 +138,7 @@ exportTogglesInterface = do
             takeInt $ toggleTaffyOnMon (const False)
           , autoMethod "showOnMonitor" $
             takeInt $ toggleTaffyOnMon (const True)
-          , autoMethod "refresh" $ runReaderT refreshTaffyWindows ctx
+          , autoMethod "refresh" $ runTaffy ctx refreshTaffyWindows
           , autoMethod "exit" $ exitTaffybar ctx
           ]
         }
