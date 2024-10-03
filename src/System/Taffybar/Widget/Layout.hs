@@ -83,7 +83,7 @@ layoutNew config = do
   -- This callback is run in a separate thread and needs to use
   -- postGUIASync
   let callback _ = mapReaderT postGUIASync $ do
-        layout <- runX11Def "" $ readAsString Nothing xLayoutProp
+        layout <- runProperty $ readAsString xLayoutProp Nothing
         markup <- formatLayout config (T.pack layout)
         lift $ Gtk.labelSetMarkup label markup
 
@@ -104,7 +104,7 @@ dispatchButtonEvent context btn = do
   ev <- isLR <$> getEventButtonType btn <*> getEventButtonButton btn
   case ev of
     Just inc -> do
-      runTaffy context (runX11Def () (switch inc))
+      runPropContext context (switch inc)
       return True
     Nothing -> return False
   where
