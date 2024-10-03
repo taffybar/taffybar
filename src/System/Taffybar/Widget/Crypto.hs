@@ -63,7 +63,7 @@ cryptoPriceLabelWithIcon = do
 
   ctx <- ask
   let refresh =
-        const $ flip runReaderT ctx $
+        const $ runTaffy ctx $
         fromMaybe <$> pixBufFromColor 10 0 <*> getCryptoPixbuf symbol
   image <- autoSizeImageNew refresh Gtk.OrientationHorizontal
 

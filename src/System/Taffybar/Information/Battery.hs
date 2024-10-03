@@ -235,7 +235,7 @@ monitorDisplayBattery propertiesToMonitor = do
         signalCallback _ _ changedProps _ =
           do
             batteryLogF DEBUG "Battery changed properties: %s" changedProps
-            runReaderT doUpdate ctx
+            runTaffy ctx doUpdate
     _ <- registerForUPowerPropertyChanges propertiesToMonitor signalCallback
     doUpdate
 
@@ -248,7 +248,7 @@ monitorDisplayBattery propertiesToMonitor = do
 refreshBatteriesOnPropChange :: TaffyIO ()
 refreshBatteriesOnPropChange = ask >>= \ctx ->
   let updateIfRealChange _ _ changedProps _ =
-        flip runReaderT ctx $
+        runTaffy ctx $
              when (any ((`notElem` ["UpdateTime", "Voltage"]) . fst) $
                        M.toList changedProps) $
                   lift (threadDelay 1000000) >> refreshAllBatteries

@@ -142,9 +142,9 @@ textBatteryNewWithLabelAction labelSetter = do
   liftIO $ do
     label <- labelNew Nothing
     let updateWidget =
-          postGUIASync . flip runReaderT ctx . labelSetter label
+          postGUIASync . runTaffy ctx . labelSetter label
     void $ onWidgetRealize label $
-         runReaderT getDisplayBatteryInfo ctx >>= updateWidget
+         runTaffy ctx getDisplayBatteryInfo >>= updateWidget
     toWidget =<< channelWidgetNew label chan updateWidget
 
 themeLoadFlags :: [IconLookupFlags]
@@ -159,7 +159,7 @@ batteryIconNew = do
     styleCtx <- widgetGetStyleContext =<< toWidget image
     defaultTheme <- iconThemeGetDefault
     let getCurrentBatteryIconNameString =
-          T.pack . batteryIconName <$> runReaderT getDisplayBatteryInfo ctx
+          T.pack . batteryIconName <$> runTaffy ctx getDisplayBatteryInfo
         extractPixbuf info =
           fst <$> iconInfoLoadSymbolicForContext info styleCtx
         setIconForSize size = do

@@ -100,10 +100,10 @@ windowsNew config = do
   Gtk.widgetShowAll hbox
   boxWidget <- Gtk.toWidget hbox
 
-  runTaffy <- asks (flip runReaderT)
+  context <- ask
   menu <- dynamicMenuNew
     DynamicMenuConfig { dmClickWidget = boxWidget
-                      , dmPopulateMenu = runTaffy . fillMenu config
+                      , dmPopulateMenu = runTaffy context . fillMenu config
                       }
 
   widgetSetClassGI menu "windows"
@@ -118,8 +118,8 @@ buildWindowsIcon :: WindowIconPixbufGetter -> TaffyIO (IO (), Gtk.Widget)
 buildWindowsIcon windowIconPixbufGetter = do
   icon <- lift Gtk.imageNew
 
-  runTaffy <- asks (flip runReaderT)
-  let getActiveWindowPixbuf size = runTaffy . runMaybeT $ do
+  context <- ask
+  let getActiveWindowPixbuf size = runTaffy context . runMaybeT $ do
         wd <- MaybeT $ runX11Def Nothing $
           traverse (getWindowData Nothing []) =<< getActiveWindow
         MaybeT $ windowIconPixbufGetter size wd
@@ -134,8 +134,8 @@ fillMenu config menu = ask >>= \context ->
     windowIds <- getWindows
     forM_ windowIds $ \windowId ->
       lift $ do
-        labelText <- runReaderT (getMenuLabel config windowId) context
-        let focusCallback = runReaderT (runX11 $ focusWindow windowId) context >>
+        labelText <- runTaffy context (getMenuLabel config windowId)
+        let focusCallback = runTaffy context (runX11 $ focusWindow windowId) >>
                             return True
         item <- Gtk.menuItemNewWithLabel labelText
         _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
