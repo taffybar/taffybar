@@ -38,6 +38,7 @@ module System.Taffybar.Util (
   -- * Control
   , foreverWithVariableDelay
   , foreverWithDelay
+  , bracketIO
   -- * Process control
   , runCommand
   , onSigINT
@@ -53,6 +54,7 @@ module System.Taffybar.Util (
 import           Conduit
 import           Control.Applicative
 import           Control.Arrow ((&&&))
+import qualified Control.Exception as E
 import           Control.Monad
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
@@ -139,6 +141,18 @@ runCommand cmd args = liftIO $ do
 {-# DEPRECATED runCommandFromPath "Use runCommand instead" #-}
 runCommandFromPath :: MonadIO m => FilePath -> [String] -> m (Either String String)
 runCommandFromPath = runCommand
+
+-- | A partially unlifted version of 'Control.Exception.bracket' from @base@.
+--
+-- This should be used instead of 'UnliftIO.Exception.bracket' in
+-- situations where the cleanup action may block for a little while.
+--
+-- 'UnliftIO.Exception.bracket' uses
+-- 'Control.Exception.uninterruptibleMask_' for the cleanup
+-- action. When cleanup actions are potentially blocking, they should
+-- still be masked, but not masked uninterruptible.
+bracketIO :: MonadUnliftIO m => IO a -> (a -> IO ()) -> (a -> m c) -> m c
+bracketIO a b c = withRunInIO $ \run -> E.bracket a b (run . c)
 
 -- | Execute the provided IO action at the provided interval.
 foreverWithDelay :: (MonadUnliftIO m, RealFrac d) => d -> m () -> m ThreadId

@@ -24,7 +24,6 @@ import           System.Taffybar.Context
 import           System.Taffybar.Hooks
 import           System.Taffybar.Information.Chrome
 import           System.Taffybar.Information.EWMHDesktopInfo
-import           System.Taffybar.Information.X11DesktopInfo
 import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
@@ -83,9 +82,9 @@ pixBufFromEWMHIcon EWMHIcon {ewmhWidth = w, ewmhHeight = h, ewmhPixelsARGB = px}
      width height rowStride (Just free)
 
 getIconPixBufFromEWMH :: Int32 -> X11Window -> X11Property (Maybe Gdk.Pixbuf)
-getIconPixBufFromEWMH size x11WindowId = runMaybeT $ do
-  ewmhData <- MaybeT $ getWindowIconsData x11WindowId
-  MaybeT $ lift $ withEWMHIcons ewmhData (getPixbufFromEWMHIcons size)
+getIconPixBufFromEWMH size w = do
+  ewmhData <- getWindowIconsData w
+  liftIO $ withEWMHIcons ewmhData (getPixbufFromEWMHIcons size)
 
 -- | Create a pixbuf with the indicated RGBA color.
 pixBufFromColor
