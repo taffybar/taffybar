@@ -1,9 +1,9 @@
 module Main where
 
 import           Data.Default                    (def)
-import           XMonad
+import           XMonad                          (xmonad)
 import           XMonad.Hooks.EwmhDesktops       (ewmh)
-import           XMonad.Hooks.ManageDocks
+import           XMonad.Hooks.ManageDocks        (docks)
 import           XMonad.Hooks.TaffybarPagerHints (pagerHints)
 
 main = xmonad $
