@@ -23,7 +23,7 @@ extra-doc-files:
   CHANGELOG.md
   doc/*.md
 
-flag DeprecatedPagerHints
+flag Deprecated-Pager-Hints
   description: Enables the deprecated System.Taffybar.Support.PagerHints module, which has been moved to xmonad-contrib.
 
 library
@@ -157,7 +157,7 @@ library
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
                  , System.Taffybar.WindowIcon
 
-  if flag(DeprecatedPagerHints)
+  if flag(Deprecated-Pager-Hints)
     build-depends: xmonad
     exposed-modules: System.Taffybar.Support.PagerHints
 
