@@ -73,7 +73,7 @@ import           GI.GdkX11.Objects.X11Window
 import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
 import           StatusNotifier.TransparentWindow
-import           System.Log.Logger
+import           System.Log.Logger (Priority(..), logM)
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
@@ -81,10 +81,10 @@ import           System.Taffybar.Widget.Util
 import           Text.Printf
 import           Unsafe.Coerce
 
-logIO :: System.Log.Logger.Priority -> String -> IO ()
+logIO :: Priority -> String -> IO ()
 logIO = logM "System.Taffybar.Context"
 
-logC :: MonadIO m => System.Log.Logger.Priority -> String -> m ()
+logC :: MonadIO m => Priority -> String -> m ()
 logC p = liftIO . logIO p
 
 -- | 'Taffy' is a monad transformer that provides 'Reader' for 'Context'.
