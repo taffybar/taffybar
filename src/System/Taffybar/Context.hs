@@ -444,9 +444,9 @@ putState getValue = do
          (return . (contextStateMap,))
          (currentValue >>= fromValue)
 
--- | A version of "forkIO" in "TaffyIO".
+-- | A version of 'forkIO' in 'TaffyIO'.
 taffyFork :: ReaderT r IO () -> ReaderT r IO ()
-taffyFork = void . liftReader forkIO
+taffyFork = void . mapReaderT forkIO
 
 startX11EventHandler :: Taffy IO ()
 startX11EventHandler = taffyFork $ do
