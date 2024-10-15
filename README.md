@@ -78,5 +78,6 @@ exist, then create your own with GTK.
 [install]: https://github.com/taffybar/taffybar/blob/master/doc/install.md
 [config]:  https://github.com/taffybar/taffybar/blob/master/doc/config.md
 [custom]:  https://github.com/taffybar/taffybar/blob/master/doc/custom.md
+[run]:     https://github.com/taffybar/taffybar/blob/master/doc/run.md
 [faq]:     https://github.com/taffybar/taffybar/blob/master/doc/faq.md
 [contrib]: https://github.com/taffybar/taffybar/blob/master/doc/contrib.md
