@@ -74,7 +74,7 @@ import Foreign.Marshal.Array
 import Foreign.Ptr
 import Foreign.Storable
 import System.Log.Logger
-import System.Taffybar.Information.SafeX11 hiding (logHere)
+import System.Taffybar.Information.SafeX11
 import System.Taffybar.Information.X11DesktopInfo
 
 logHere :: MonadIO m => Priority -> String -> m ()

@@ -15,7 +15,13 @@
 module System.Taffybar.Information.SafeX11
   ( module Graphics.X11.Xlib
   , module Graphics.X11.Xlib.Extras
-  , module System.Taffybar.Information.SafeX11
+  , getWMHints
+  , getWindowProperty8
+  , getWindowProperty16
+  , getWindowProperty32
+  , postX11RequestSyncDef
+  , rawGetWindowPropertyBytes
+  , safeGetGeometry
   )
   where
 
