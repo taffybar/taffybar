@@ -6,29 +6,48 @@ on:
 
 jobs:
   lints:
-    name: Build and Check
-    runs-on: ubuntu-22.04
+    name: Build and Check with GHC 9.6 on ${{ matrix.nixpkgs }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        nixpkgs: [nixos-unstable, nixos-24.05]
     steps:
       - uses: actions/checkout@v3
+      - name: Check Nix flake inputs
+        uses: DeterminateSystems/flake-checker-action@main
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v4
+        uses: DeterminateSystems/nix-installer-action@main
       - name: Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Use ${{ matrix.nixpkgs }}
+        if: matrix.nixpkgs != 'nixos-unstable'
+        run: nix flake lock --override-input nixpkgs github:NixOS/nixpkgs/${{ matrix.nixpkgs }}
       - name: Run `nix build`
         run: nix build .
       - name: Run `nix flake check`
         run: nix flake check
+      - name: Run `nix-build` using overlay on ${{ matrix.nixpkgs }}
+        if: matrix.nixpkgs != 'nixos-unstable'
+        run: nix-build -I nixpkgs=flake:github:NixOS/nixpkgs/${{ matrix.nixpkgs }} '<nixpkgs>' --arg overlays '[(import ./nix/overlay.nix)]' -A pkgs.haskellPackages.taffybar
 
   build:
     name: Build with ${{ matrix.compiler }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
+      fail-fast: false
       matrix:
-        compiler: [ghc94]
+        compiler: [ghc94, ghc98]
+        experimental: [false]
+        # include:
+        #   - compiler: ghc92
+        #     experimental: true
+        #   - compiler: ghc910
+        #     experimental: true
     steps:
       - uses: actions/checkout@v3
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v4
+        uses: DeterminateSystems/nix-installer-action@main
       - name: Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Nix build for ${{ matrix.compiler }}

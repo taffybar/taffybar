@@ -9,4 +9,5 @@ cabal.sandbox.config
 *build-docs*
 .ghc.environment*
 .direnv
+/.envrc.local
 /.golden/*/actual
