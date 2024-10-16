@@ -1,3 +1,18 @@
+# 4.0.3 **UNRELEASED**
+
+## Breaking Changes
+
+TBD
+
+## Improvements
+
+TBD
+
+## Bug Fixes
+
+TBD
+
+
 # 4.0.2
 
  * Taffybar can now build with GHC 9.4.
