@@ -104,6 +104,18 @@ Taffybar.
 [sni]: https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/
 [SNITray]: https://hackage.haskell.org/package/taffybar/docs/System-Taffybar-Widget-SNITray.html
 
+### Network Manager Tray Icon (`nm-applet`)
+
+`nm-applet` needs to be started with the `--indicator` option so that
+it registers with the StatusNotifierWatcher.
+
+If using XDG autostart, then edit the `Exec=` line of
+[`nm-applet.desktop`](https://gitlab.gnome.org/GNOME/network-manager-applet/-/blob/main/nm-applet.desktop.in?ref_type=heads)
+in `~/.config/autostart`.
+
+(Sometimes a `nm-applet --sm-disable` option is mentioned.
+This option is not needed [1](https://askubuntu.com/a/525273), [2](https://mail.gnome.org/archives/networkmanager-list/2011-May/msg00141.html).)
+
 ## NixOS
 
 ### GDK pixbuf loaders cache
