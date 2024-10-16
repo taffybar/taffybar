@@ -40,6 +40,7 @@ import Graphics.X11.Xlib.Extras
                xGetWMHints, getWMHints, refreshKeyboardMapping)
 import System.IO.Unsafe
 import System.Log.Logger
+import System.Taffybar.Util (labelMyThread)
 import System.Timeout
 import Text.Printf
 import UnliftIO.Chan (Chan, newChan, readChan, writeChan)
@@ -120,7 +121,9 @@ requestQueue = unsafePerformIO newChan
 
 {-# NOINLINE x11Thread #-}
 x11Thread :: ThreadId
-x11Thread = unsafePerformIO $ forkIO startHandlingX11Requests
+x11Thread = unsafePerformIO $ forkIO $ do
+  labelMyThread "x11Thread"
+  startHandlingX11Requests
 
 withErrorHandler :: XErrorHandler -> IO a -> IO a
 withErrorHandler new_handler action = do

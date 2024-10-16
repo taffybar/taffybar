@@ -225,6 +225,7 @@ monitorDisplayBattery propertiesToMonitor = do
   infoVar <- lift $ MV.newMVar $ infoMapToBatteryInfo M.empty
   chan <- newBroadcastChan
   taffyFork $ do
+    labelMyThread "monitorDisplayBattery"
     ctx <- ask
     let warnOfFailedGetDevice err =
           batteryLogF WARNING "Failure getting DisplayBattery: %s" err >>
