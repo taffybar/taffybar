@@ -46,7 +46,9 @@ newtype NetworkInfoChan =
 buildNetworkInfoChan :: Double -> IO NetworkInfoChan
 buildNetworkInfoChan interval = do
   chan <- newBroadcastChan
-  _ <- forkIO $ monitorNetworkInterfaces interval (void . writeBChan chan)
+  _ <- forkIO $ do
+    labelMyThread "NetworkInfo"
+    monitorNetworkInterfaces interval (void . writeBChan chan)
   return $ NetworkInfoChan chan
 
 -- | Get the 'NetworkInfoChan' from 'Context', creating it if it does not exist.

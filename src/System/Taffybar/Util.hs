@@ -43,6 +43,7 @@ module System.Taffybar.Util (
   , onSigINT
   , maybeHandleSigHUP
   , handlePosixSignal
+  , labelMyThread
   -- * Resource management
   , rebracket
   , rebracket_
@@ -68,6 +69,9 @@ import           Data.Maybe
 import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import           Data.Tuple.Sequence
+#if MIN_VERSION_base(4,18,0)
+import           GHC.Conc.Sync (labelThread, myThreadId)
+#endif
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.GLib.Constants as G
 import           Network.HTTP.Simple
@@ -323,3 +327,11 @@ withSigHandlerBase :: Signal -> Handler -> IO a -> IO a
 withSigHandlerBase sig h = bracket (install h) install . const
   where
     install handler = installHandler sig handler Nothing
+
+-- | Assigns a descriptive name to the currently running thread.
+labelMyThread :: MonadIO m => String -> m ()
+#if MIN_VERSION_base(4,18,0)
+labelMyThread name = liftIO (myThreadId >>= flip labelThread name)
+#else
+labelMyThread _ = pure ()
+#endif

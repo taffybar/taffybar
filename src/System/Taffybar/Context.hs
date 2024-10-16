@@ -467,6 +467,7 @@ taffyFork = void . forkIO
 
 startX11EventHandler :: Taffy IO ()
 startX11EventHandler = taffyFork $ do
+  labelMyThread "X11EventLoop"
   c <- ask
   -- XXX: The event loop needs its own X11Context to separately handle
   -- communications from the X server. We deliberately avoid using the context
