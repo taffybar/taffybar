@@ -8,13 +8,13 @@ module System.Taffybar.SpecUtil
   ) where
 
 import Control.Arrow (second)
-import Control.Exception (bracket)
 import Control.Monad (guard, join)
 import Data.List (uncons)
-import System.Directory (Permissions (..), findExecutable, getPermissions, setPermissions)
-import System.Environment (lookupEnv, setEnv, unsetEnv)
 import System.FilePath (isRelative, takeFileName, (</>))
-import System.IO.Temp (withSystemTempDirectory)
+import UnliftIO.Directory (Permissions (..), findExecutable, getPermissions, setPermissions)
+import UnliftIO.Environment (lookupEnv, setEnv, unsetEnv)
+import UnliftIO.Temporary (withSystemTempDirectory)
+import UnliftIO.Exception (bracket)
 
 -- | Run the given 'IO' action with the @PATH@ environment variable
 -- set up so that executing the given command name will run a

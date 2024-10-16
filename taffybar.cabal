@@ -195,13 +195,12 @@ test-suite unit
                , System.Taffybar.SpecUtil
   default-language: Haskell2010
   build-depends: base
-               , directory
                , filepath
                , hspec
                , hspec-core
                , hspec-golden
                , taffybar
-               , temporary
+               , unliftio
   build-tool-depends: hspec-discover:hspec-discover == 2.*
   ghc-options: -Wall -rtsopts -threaded
 
