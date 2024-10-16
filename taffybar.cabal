@@ -1,6 +1,6 @@
 cabal-version: 3.8
 name: taffybar
-version: 4.0.1
+version: 4.0.3
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD-3-Clause
 license-file: LICENSE
