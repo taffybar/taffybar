@@ -55,3 +55,13 @@ range 0—255, but the fourth is a float in the range 0.0—1.0. For example:
   background-color: rgba(255, 250, 205, 0.3);
 }
 ```
+
+### Adding CSS classes to Taffybar widgets
+
+Use [`System.Taffybar.Util.widgetSetClassGI`][widgetSetClassGI] to add
+a CSS class to a widget in your Taffybar config.
+
+This can be used for example to apply different styling to widgets of
+the same type.
+
+[widgetSetClassGI]: https://hackage.haskell.org/package/taffybar/docs/System-Taffybar-Widget-Util.html#v:widgetSetClassGI
