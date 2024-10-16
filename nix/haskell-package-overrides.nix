@@ -78,7 +78,13 @@ final: prev: let
     scotty = doJailbreak super.scotty; # text <2.1
     broadcast-chan = doJailbreak super.broadcast-chan; # base <4.19
   };
+
+  fixDeps92 = self: super: lib.optionalAttrs (lib.versionOlder super.ghc.version "9.4") {
+    taffybar = super.taffybar.override { inherit (pkgs) gtk3; };
+    gtk-sni-tray = super.gtk-sni-tray.override { inherit (pkgs) gtk3; };
+  };
+
 in
   lib.composeExtensions
     (haskellLib.packageSourceOverrides sourceOverrides)
-    configuration
+    (lib.composeExtensions configuration fixDeps92)
