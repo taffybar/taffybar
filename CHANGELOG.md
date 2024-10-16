@@ -1,9 +1,29 @@
-# Unreleased
+# 4.0.2
+
+ * Taffybar can now build with GHC 9.4.
+
+ * Allow building with Scotty 0.22.
+
+ * Drop unused `ConfigFile` dependency.
+
+
+# 4.0.1
+
+## Improvements
+
+ * Taffybar can now build with GHC 9.4.
+
+ * Adds a `flake.nix`.
 
 ## Bug Fixes
 
- * Gtk.widgetShowAll is run on the widget created by `cryptoPriceLabelWithIcon`,
+ * `Gtk.widgetShowAll` is run on the widget created by `cryptoPriceLabelWithIcon`,
    so that it shows up by default.
+
+ * Fix misleading precision of rgba() parameters in `taffybar.css`.
+
+ * Remove `cryptocurrency` Cabal flag, which is now unnecessary.
+
 
 # 4.0.0
 
