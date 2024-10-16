@@ -814,6 +814,7 @@ startX11EventHandler :: Taffy IO ()
 startX11EventHandler = do
   backendType <- asks backend
   when (backendType == BackendX11) $ taffyFork $ do
+    labelMyThread "X11EventLoop"
     c <- ask
     -- XXX: The event loop needs its own X11Context to separately handle
     -- communications from the X server. We deliberately avoid using the context
