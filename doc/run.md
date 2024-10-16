@@ -52,7 +52,7 @@ session bus. Ensure that:
 
 ## Battery Status
 
-UPower is required for [`System.Taffybar.Information.Battery`][Battery].
+[UPower][] is required for [`System.Taffybar.Information.Battery`][Battery].
 
 To test that it's running and working, run:
 
@@ -74,7 +74,19 @@ $ upower -i /org/freedesktop/UPower/devices/DisplayDevice
     icon-name:          'battery-full-charged-symbolic'
 ```
 
+### Incorrect battery state?
+
+If the battery icon is not updating or the battery state is not reported
+correctly (e.g. [issue #330](https://github.com/taffybar/taffybar/issues/330),
+you could try a workaround:
+
+1. Run UPower with the `--debug` option added.
+2. Apply [`System.Taffybar.Hooks.withBatteryRefresh`][withBatteryRefresh]
+   to your `TaffybarConfig`.
+
 [Battery]: https://hackage.haskell.org/package/taffybar/docs/System-Taffybar-Information-Battery.html
+[withBatteryRefresh]: https://hackage.haskell.org/package/taffybar-4.0.2/docs/System-Taffybar-Hooks.html#v:withBatteryRefresh
+[UPower]: https://upower.freedesktop.org/
 
 ## System Tray
 
