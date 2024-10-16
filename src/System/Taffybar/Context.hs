@@ -22,29 +22,41 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Context
-  ( Context(..)
-  , TaffybarConfig(..)
-  , Taffy
-  , TaffyIO
+  ( -- * Configuration
+    TaffybarConfig(..)
+  , defaultTaffybarConfig
+  , appendHook
+  -- ** Bars
   , BarConfig(..)
   , BarConfigGetter
-  , appendHook
+  , showBarId
+
+  -- * Taffy monad
+  , Taffy
+  , TaffyIO
+  -- ** Context
+  , Context(..)
   , buildContext
   , buildEmptyContext
-  , defaultTaffybarConfig
+  -- ** Context State
   , getState
   , getStateDefault
   , putState
-  , forceRefreshTaffyWindows
+
+  -- * Control
   , refreshTaffyWindows
-  , removeTaffyWindows
   , exitTaffybar
+
+  -- * X11
   , runX11
   , runX11Def
+  -- ** Event subscription
   , subscribeToAll
   , subscribeToPropertyEvents
-  , taffyFork
   , unsubscribe
+
+  -- * Threading
+  , taffyFork
   ) where
 
 import           Control.Arrow ((&&&), (***))
@@ -87,11 +99,11 @@ logIO = logM "System.Taffybar.Context"
 logC :: MonadIO m => Priority -> String -> m ()
 logC p = liftIO . logIO p
 
--- | 'Taffy' is a monad transformer that provides 'Reader' for 'Context'.
+-- | 'Taffy' is a monad transformer that provides 'ReaderT' for 'Context'.
 type Taffy m v = ReaderT Context m v
 
 -- | 'TaffyIO' is 'IO' wrapped with a 'ReaderT' providing 'Context'. This is the
--- type of most widgets and callback in taffybar.
+-- type of most widgets and callback in Taffybar.
 type TaffyIO v = ReaderT Context IO v
 
 type Listener = Event -> Taffy IO ()

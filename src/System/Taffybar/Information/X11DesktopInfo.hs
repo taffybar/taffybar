@@ -20,27 +20,41 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Information.X11DesktopInfo
-  ( X11Context(..)
-  , X11Property
-  , X11Window
-  , doLowerWindow
-  , eventLoop
-  , fetch
-  , getAtom
+  ( -- * Context
+    X11Context(..)
   , getDefaultCtx
+  , withDefaultCtx
+
+  -- * Properties
+  , X11Property
+
+  -- ** Event loop
+  , eventLoop
+
+  -- ** Context getters
   , getDisplay
-  , getPrimaryOutputNumber
-  , getVisibleTags
-  , isWindowUrgent
-  , postX11RequestSyncProp
+  , getAtom
+
+  -- ** Basic properties of windows
+  , X11Window
+  , PropertyFetcher
+  , fetch
   , readAsInt
   , readAsListOfInt
   , readAsListOfString
   , readAsListOfWindow
   , readAsString
+
+  -- ** Getters
+  , isWindowUrgent
+  , getPrimaryOutputNumber
+  , getVisibleTags
+
+  -- ** Operations
+  , doLowerWindow
+  , postX11RequestSyncProp
   , sendCommandEvent
   , sendWindowEvent
-  , withDefaultCtx
   ) where
 
 import Codec.Binary.UTF8.String as UTF8
@@ -56,18 +70,22 @@ import Data.Maybe (fromMaybe, listToMaybe)
 import Graphics.X11.Xrandr (XRRScreenResources(..), XRROutputInfo(..), xrrGetOutputInfo, xrrGetScreenResources, xrrGetOutputPrimary)
 import System.Taffybar.Information.SafeX11 hiding (displayName)
 
+-- | Represents a connection to an X11 display.
+-- Use 'getDefaultCtx' to construct one of these.
 data X11Context = X11Context
   { contextDisplay :: Display
   , _contextRoot :: Window
   , atomCache :: MV.MVar [(String, Atom)]
   }
 
+-- | 'IO' actions with access to an 'X11Context'.
 type X11Property a = ReaderT X11Context IO a
 type X11Window = Window
-type PropertyFetcher a = Display -> Atom -> Window -> IO (Maybe [a])
+type PropertyFetcher a = Display -> Atom -> X11Window -> IO (Maybe [a])
 
--- | Put the current display and root window objects inside a Reader transformer
--- for further computation.
+-- | Makes a connection to the default X11 display using
+-- 'getDefaultCtx' and puts the current display and root window
+-- objects inside a 'ReaderT' transformer for further computation.
 withDefaultCtx :: X11Property a -> IO a
 withDefaultCtx fun = do
   ctx <- getDefaultCtx
@@ -75,7 +93,8 @@ withDefaultCtx fun = do
   closeDisplay (contextDisplay ctx)
   return res
 
--- | An X11Property that returns the @Display@ object stored in the X11Context.
+-- | An X11Property that returns the 'Display' object stored in the
+-- 'X11Context'.
 getDisplay :: X11Property Display
 getDisplay = contextDisplay <$> ask
 
@@ -143,7 +162,7 @@ isWindowUrgent window = do
 getVisibleTags :: X11Property [String]
 getVisibleTags = readAsListOfString Nothing "_XMONAD_VISIBLE_WORKSPACES"
 
--- | Return the Atom with the given name.
+-- | Return the 'Atom' with the given name.
 getAtom :: String -> X11Property Atom
 getAtom s = do
   (X11Context d _ cacheVar) <- ask
@@ -179,14 +198,18 @@ sendCommandEvent cmd arg = do
   (X11Context dpy root _) <- ask
   sendCustomEvent dpy cmd arg root root
 
--- | Similar to 'sendCommandEvent', but with an argument of type Window.
+-- | Similar to 'sendCommandEvent', but with an argument of type 'X11Window'.
 sendWindowEvent :: Atom -> X11Window -> X11Property ()
 sendWindowEvent cmd win = do
   (X11Context dpy root _) <- ask
   sendCustomEvent dpy cmd cmd root win
 
--- | Build a new @X11Context@ containing the current X11 display and its root
--- window.
+-- | Builds a new 'X11Context' containing a connection to the default
+-- X11 display and its root window.
+--
+-- If the X11 connection could not be opened, it will throw
+-- @'Control.Exception.userError' "openDisplay"@. This can occur if the
+-- @X -maxclients@ limit has been exceeded.
 getDefaultCtx :: IO X11Context
 getDefaultCtx = do
   d <- openDisplay ""
@@ -236,14 +259,14 @@ postX11RequestSyncProp prop def = do
   let action = runReaderT prop c
   lift $ postX11RequestSyncDef def action
 
--- | X11Property which reflects whether or not the provided RROutput is active.
+-- | 'X11Property' which reflects whether or not the provided 'RROutput' is active.
 isActiveOutput :: XRRScreenResources -> RROutput -> X11Property Bool
 isActiveOutput sres output = do
   (X11Context display _ _) <- ask
   maybeOutputInfo <- liftIO $ xrrGetOutputInfo display sres output
   return $ maybe 0 xrr_oi_crtc maybeOutputInfo /= 0
 
--- | Return all the active RR outputs.
+-- | Return all the active RANDR outputs.
 getActiveOutputs :: X11Property [RROutput]
 getActiveOutputs = do
   (X11Context display rootw _) <- ask
@@ -259,7 +282,7 @@ getPrimaryOutputNumber = do
   outputs <- getActiveOutputs
   return $ primary `elemIndex` outputs
 
--- | Move the X11Windows to the bottom of the X11 window stack.
+-- | Move the given 'X11Window' to the bottom of the X11 window stack.
 doLowerWindow :: X11Window -> X11Property ()
 doLowerWindow window =
   asks contextDisplay >>= lift . flip lowerWindow window
