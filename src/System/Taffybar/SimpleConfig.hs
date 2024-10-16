@@ -186,4 +186,4 @@ useAllMonitors = lift $ do
 -- on the primary monitor.
 usePrimaryMonitor :: TaffyIO [Int]
 usePrimaryMonitor =
-  return . fromMaybe 0 <$> lift (withDefaultCtx getPrimaryOutputNumber)
+  singleton . fromMaybe 0 <$> lift (withX11Context def getPrimaryOutputNumber)
