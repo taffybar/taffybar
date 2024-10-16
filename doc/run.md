@@ -28,12 +28,12 @@ Your XMonad configuration should have:
 
 ## D-Bus
 
-Taffybar connects to both the session bus and system bus. These days
+Taffybar connects to both the system bus and session bus. These days
 it would be a rare Linux system which doesn't have a working D-Bus
-system bus.
+_system bus_.
 
 However there can sometimes be problems configuring the per-user
-session bus. Ensure that:
+_session bus_. Ensure that:
 
 1. The D-Bus session bus (i.e. `dbus-daemon` or `dbus-broker`) is
    running for the user, or is able to be socket-activated. If you are
@@ -113,7 +113,7 @@ Under NixOS, it's not possible to have a global mutable file such as
 
 So graphical applications using `gdk-pixbuf` on NixOS need to have the
 environment variable `GDK_PIXBUF_MODULE_FILE` set according to the
-system configuration. _and_ available in the process execution
+system configuration, _and_ available in the process execution
 environment _before_ they are started.
 
 Applications started from within `gnome-session`, being child
@@ -139,5 +139,9 @@ this is done for you.
 
 For loading of desktop entry files and icons, Taffybar needs to be run
 with a correctly configured `XDG_DATA_DIRS` environment variable.
+
+If you run Taffybar as a `systemd --user` service, the the correct
+value of `XDG_DATA_DIRS` needs to be imported into the service manager
+environment, _before_ `taffybar.service` is started.
 
 If using home-manager and the option [`xsession.enable`](https://github.com/nix-community/home-manager/blob/master/modules/xsession.nix), this is done for you.
