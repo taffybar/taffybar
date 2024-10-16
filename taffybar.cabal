@@ -225,7 +225,6 @@ test-suite unit
                , unliftio
                , unliftio-core
                , QuickCheck
-               , X11
   build-tool-depends: hspec-discover:hspec-discover == 2.*
   ghc-options: -Wall -rtsopts -threaded
 
