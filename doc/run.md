@@ -28,12 +28,12 @@ Your XMonad configuration should have:
 
 ## D-Bus
 
-Taffybar connects to both the session bus and system bus. These days
+Taffybar connects to both the system bus and session bus. These days
 it would be a rare Linux system which doesn't have a working D-Bus
-system bus.
+_system bus_.
 
 However there can sometimes be problems configuring the per-user
-session bus. Ensure that:
+_session bus_. Ensure that:
 
 1. The D-Bus session bus (i.e. `dbus-daemon` or `dbus-broker`) is
    running for the user, or is able to be socket-activated. If you are
@@ -52,7 +52,7 @@ session bus. Ensure that:
 
 ## Battery Status
 
-UPower is required for [`System.Taffybar.Information.Battery`][Battery].
+[UPower][] is required for [`System.Taffybar.Information.Battery`][Battery].
 
 To test that it's running and working, run:
 
@@ -74,7 +74,19 @@ $ upower -i /org/freedesktop/UPower/devices/DisplayDevice
     icon-name:          'battery-full-charged-symbolic'
 ```
 
+### Incorrect battery state?
+
+If the battery icon is not updating or the battery state is not reported
+correctly (e.g. [issue #330](https://github.com/taffybar/taffybar/issues/330),
+you could try a workaround:
+
+1. Run UPower with the `--debug` option added.
+2. Apply [`System.Taffybar.Hooks.withBatteryRefresh`][withBatteryRefresh]
+   to your `TaffybarConfig`.
+
 [Battery]: https://hackage.haskell.org/package/taffybar/docs/System-Taffybar-Information-Battery.html
+[withBatteryRefresh]: https://hackage.haskell.org/package/taffybar-4.0.2/docs/System-Taffybar-Hooks.html#v:withBatteryRefresh
+[UPower]: https://upower.freedesktop.org/
 
 ## System Tray
 
@@ -92,6 +104,18 @@ Taffybar.
 [sni]: https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/
 [SNITray]: https://hackage.haskell.org/package/taffybar/docs/System-Taffybar-Widget-SNITray.html
 
+### Network Manager Tray Icon (`nm-applet`)
+
+`nm-applet` needs to be started with the `--indicator` option so that
+it registers with the StatusNotifierWatcher.
+
+If using XDG autostart, then edit the `Exec=` line of
+[`nm-applet.desktop`](https://gitlab.gnome.org/GNOME/network-manager-applet/-/blob/main/nm-applet.desktop.in?ref_type=heads)
+in `~/.config/autostart`.
+
+(Sometimes a `nm-applet --sm-disable` option is mentioned.
+This option is not needed [1](https://askubuntu.com/a/525273), [2](https://mail.gnome.org/archives/networkmanager-list/2011-May/msg00141.html).)
+
 ## NixOS
 
 ### GDK pixbuf loaders cache
@@ -101,7 +125,7 @@ Under NixOS, it's not possible to have a global mutable file such as
 
 So graphical applications using `gdk-pixbuf` on NixOS need to have the
 environment variable `GDK_PIXBUF_MODULE_FILE` set according to the
-system configuration. _and_ available in the process execution
+system configuration, _and_ available in the process execution
 environment _before_ they are started.
 
 Applications started from within `gnome-session`, being child
@@ -127,5 +151,9 @@ this is done for you.
 
 For loading of desktop entry files and icons, Taffybar needs to be run
 with a correctly configured `XDG_DATA_DIRS` environment variable.
+
+If you run Taffybar as a `systemd --user` service, the the correct
+value of `XDG_DATA_DIRS` needs to be imported into the service manager
+environment, _before_ `taffybar.service` is started.
 
 If using home-manager and the option [`xsession.enable`](https://github.com/nix-community/home-manager/blob/master/modules/xsession.nix), this is done for you.

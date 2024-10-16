@@ -104,4 +104,4 @@ exampleTaffybarConfig =
         , barHeight = ExactSize 50
         , widgetSpacing = 0
         }
-  in withLogServer $ withToggleServer $ toTaffyConfig myConfig
+  in withLogServer $ withToggleServer $ toTaffybarConfig myConfig
