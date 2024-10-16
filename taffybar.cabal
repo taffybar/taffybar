@@ -1,4 +1,4 @@
-cabal-version: 3.8
+cabal-version: 3.4
 name: taffybar
 version: 4.0.3
 synopsis: A desktop bar similar to xmobar, but with more GUI
@@ -8,7 +8,7 @@ author: Ivan Malison
 maintainer: IvanMalison@gmail.com
 category: System
 build-type: Simple
-tested-with: GHC == 9.4.8, GHC == 9.6.6, GHC == 9.8.2
+tested-with: GHC == 9.2.8, GHC == 9.4.8, GHC == 9.6.6, GHC == 9.8.2
 homepage: http://github.com/taffybar/taffybar
 data-files:
   taffybar.css
@@ -188,6 +188,7 @@ executable taffybar
   ghc-options: -Wall -rtsopts -threaded
 
 test-suite unit
+  type: exitcode-stdio-1.0
   hs-source-dirs: test
   main-is: Spec.hs
   other-modules: System.Taffybar.AuthSpec
