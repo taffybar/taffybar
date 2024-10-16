@@ -36,7 +36,7 @@ import           System.Environment.XDG.BaseDir
 import           System.Exit (ExitCode (..), exitWith)
 import           System.FilePath.Posix
 import           System.Log.Logger
-import           System.Posix.Signals (Handler(..), installHandler, sigINT)
+import           System.Posix.Signals (Signal, Handler(..), installHandler, sigINT)
 import qualified System.Process as P
 import           Text.Printf
 
@@ -203,14 +203,19 @@ onSigINT
   -> IO a
 onSigINT action callback = do
   exitStatus <- newIORef Nothing
+
   let intHandler = do
         writeIORef exitStatus (Just (ExitFailure 130))
         callback
 
-  void $ installHandler sigINT (CatchOnce intHandler) Nothing
+  withSigHandler sigINT (CatchOnce intHandler) $ do
+    res <- action
+    readIORef exitStatus >>= mapM_ exitWith
+    pure res
 
-  res <- action
-
-  readIORef exitStatus >>= mapM_ exitWith
-
-  pure res
+-- | Install a handler for the given signal, run an 'IO' action, then
+-- restore the original handler.
+withSigHandler :: Signal -> Handler -> IO a -> IO a
+withSigHandler sig h = bracket (install h) install . const
+  where
+    install handler = installHandler sig handler Nothing
