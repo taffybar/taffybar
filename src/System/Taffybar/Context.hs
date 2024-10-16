@@ -73,7 +73,7 @@ import           GI.GdkX11.Objects.X11Window
 import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
 import           StatusNotifier.TransparentWindow
-import           System.Log.Logger
+import           System.Log.Logger (Priority(..), logM)
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
@@ -81,10 +81,10 @@ import           System.Taffybar.Widget.Util
 import           Text.Printf
 import           Unsafe.Coerce
 
-logIO :: System.Log.Logger.Priority -> String -> IO ()
+logIO :: Priority -> String -> IO ()
 logIO = logM "System.Taffybar.Context"
 
-logC :: MonadIO m => System.Log.Logger.Priority -> String -> m ()
+logC :: MonadIO m => Priority -> String -> m ()
 logC p = liftIO . logIO p
 
 -- | 'Taffy' is a monad transformer that provides 'Reader' for 'Context'.
@@ -323,7 +323,7 @@ buildBarWindow context barConfig = do
 -- windows that should active. Will avoid recreating windows if there is already
 -- a window with the appropriate geometry and "BarConfig".
 refreshTaffyWindows :: TaffyIO ()
-refreshTaffyWindows = liftReader postGUIASync $ do
+refreshTaffyWindows = mapReaderT postGUIASync $ do
   logC DEBUG "Refreshing windows"
   ctx <- ask
   windowsVar <- asks existingWindows
@@ -444,9 +444,9 @@ putState getValue = do
          (return . (contextStateMap,))
          (currentValue >>= fromValue)
 
--- | A version of "forkIO" in "TaffyIO".
+-- | A version of 'forkIO' in 'TaffyIO'.
 taffyFork :: ReaderT r IO () -> ReaderT r IO ()
-taffyFork = void . liftReader forkIO
+taffyFork = void . mapReaderT forkIO
 
 startX11EventHandler :: Taffy IO ()
 startX11EventHandler = taffyFork $ do

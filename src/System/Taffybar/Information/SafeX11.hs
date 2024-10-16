@@ -15,7 +15,13 @@
 module System.Taffybar.Information.SafeX11
   ( module Graphics.X11.Xlib
   , module Graphics.X11.Xlib.Extras
-  , module System.Taffybar.Information.SafeX11
+  , getWMHints
+  , getWindowProperty8
+  , getWindowProperty16
+  , getWindowProperty32
+  , postX11RequestSyncDef
+  , rawGetWindowPropertyBytes
+  , safeGetGeometry
   )
   where
 
@@ -34,7 +40,6 @@ import Graphics.X11.Xlib.Extras
        hiding (rawGetWindowProperty, getWindowProperty8,
                getWindowProperty16, getWindowProperty32,
                xGetWMHints, getWMHints, refreshKeyboardMapping)
-import Prelude
 import System.IO.Unsafe
 import System.Log.Logger
 import System.Timeout

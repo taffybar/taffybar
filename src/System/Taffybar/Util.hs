@@ -11,7 +11,42 @@
 -- Portability : unportable
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Util where
+module System.Taffybar.Util (
+  -- * Configuration
+    taffyStateDir
+  -- * GTK concurrency
+  , module Gtk
+  -- * GLib
+  , catchGErrorsAsLeft
+  -- * Logging
+  , logPrintF
+  -- * Text
+  , truncateString
+  , truncateText
+  -- * Resources
+  , downloadURIToPath
+  , getPixbufFromFilePath
+  , safePixbufNewFromFile
+  -- * Logic Combinators
+  , (<||>)
+  , (<|||>)
+  , forkM
+  , ifM
+  , anyM
+  , maybeTCombine
+  , maybeToEither
+  -- * Control
+  , foreverWithVariableDelay
+  , foreverWithDelay
+  -- * Process control
+  , runCommand
+  , onSigINT
+  -- * Deprecated
+  , logPrintFDebug
+  , liftReader
+  , liftActionTaker
+  , (??)
+  ) where
 
 import           Conduit
 import           Control.Applicative
@@ -24,7 +59,7 @@ import           Control.Monad.Trans.Reader
 import           Data.Either.Combinators
 import           Data.GI.Base.GError
 import           Control.Exception.Enclosed (catchAny)
-import qualified Data.GI.Gtk.Threading as Gtk
+import           Data.GI.Gtk.Threading as Gtk (postGUIASync, postGUISync)
 import           Data.Maybe
 import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
@@ -44,10 +79,9 @@ import           Text.Printf
 taffyStateDir :: IO FilePath
 taffyStateDir = getUserDataDir "taffybar"
 
-liftReader ::
-  Monad m => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b
-liftReader modifier action =
-  ask >>= lift . modifier . runReaderT action
+{-# DEPRECATED liftReader "Use Control.Monad.Trans.Reader.mapReaderT instead" #-}
+liftReader :: Monad m => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b
+liftReader = mapReaderT
 
 logPrintF
   :: (MonadIO m, Show t)
@@ -55,6 +89,7 @@ logPrintF
 logPrintF logPath priority format toPrint =
   liftIO $ logM logPath priority $ printf format $ show toPrint
 
+{-# DEPRECATED logPrintFDebug "Use logPrintF instead" #-}
 logPrintFDebug :: (MonadIO m, Show t) => String -> String -> t -> m ()
 logPrintFDebug path = logPrintF path DEBUG
 
@@ -62,6 +97,7 @@ infixl 4 ??
 (??) :: Functor f => f (a -> b) -> a -> f b
 fab ?? a = fmap ($ a) fab
 {-# INLINE (??) #-}
+{-# DEPRECATED (??) "Use @f <*> pure a@ instead" #-}
 
 ifM :: Monad m => m Bool -> m a -> m a -> m a
 ifM cond whenTrue whenFalse =
@@ -171,12 +207,6 @@ downloadURIToPath uri filepath =
   createDirectoryIfMissing True directory >>
   runConduitRes (httpSource uri getResponseBody .| sinkFile filepath)
   where (directory, _) = splitFileName filepath
-
-postGUIASync :: IO () -> IO ()
-postGUIASync = Gtk.postGUIASync
-
-postGUISync :: IO () -> IO ()
-postGUISync = Gtk.postGUISync
 
 anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
 anyM _ [] = return False

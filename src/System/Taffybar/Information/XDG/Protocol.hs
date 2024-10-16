@@ -36,7 +36,6 @@ import           Data.List
 import           Data.Maybe
 import qualified Debug.Trace as D
 import           GHC.IO.Encoding
-import           Prelude
 import           Safe (headMay)
 import           System.Directory
 import           System.Environment

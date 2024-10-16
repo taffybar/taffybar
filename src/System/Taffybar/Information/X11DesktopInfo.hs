@@ -43,9 +43,6 @@ module System.Taffybar.Information.X11DesktopInfo
   , withDefaultCtx
   ) where
 
-import Data.List
-import Data.Maybe
-
 import Codec.Binary.UTF8.String as UTF8
 import qualified Control.Concurrent.MVar as MV
 import Control.Monad
@@ -53,15 +50,11 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import Data.Bits (testBit, (.|.))
+import Data.List (elemIndex)
 import Data.List.Split (endBy)
-import Graphics.X11.Xlib
-import Graphics.X11.Xlib.Extras
-  hiding (getWindowProperty8, getWindowProperty32, getWMHints)
-import Graphics.X11.Xrandr
-import Safe
-import System.Taffybar.Information.SafeX11
-
-import Prelude
+import Data.Maybe (fromMaybe, listToMaybe)
+import Graphics.X11.Xrandr (XRRScreenResources(..), XRROutputInfo(..), xrrGetOutputInfo, xrrGetScreenResources, xrrGetOutputPrimary)
+import System.Taffybar.Information.SafeX11 hiding (displayName)
 
 data X11Context = X11Context
   { contextDisplay :: Display
@@ -100,7 +93,7 @@ doRead def transform windowPropFn window name =
 readAsInt :: Maybe X11Window -- ^ window to read from. Nothing means the root window.
           -> String -- ^ name of the property to retrieve
           -> X11Property Int
-readAsInt = doRead (-1) (maybe (-1) fromIntegral . headMay) getWindowProperty32
+readAsInt = doRead (-1) (maybe (-1) fromIntegral . listToMaybe) getWindowProperty32
 
 -- | Retrieve the property of the given window (or the root window, if Nothing)
 -- with the given name as a list of Ints. If that property hasn't been set, then
