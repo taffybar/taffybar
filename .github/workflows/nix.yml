@@ -37,11 +37,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [ghc94, ghc98]
+        compiler: [ghc92, ghc94, ghc98]
         experimental: [false]
         # include:
-        #   - compiler: ghc92
-        #     experimental: true
         #   - compiler: ghc910
         #     experimental: true
     steps:
