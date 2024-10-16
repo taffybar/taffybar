@@ -384,6 +384,7 @@ test-suite unit
                , hspec
                , hspec-core
                , hspec-golden
+               , managed
                , taffybar
                , taffybar:testlib
                , typed-process
