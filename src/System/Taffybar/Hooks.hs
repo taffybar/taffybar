@@ -8,7 +8,8 @@
 -- Stability   : unstable
 -- Portability : unportable
 --
--- This module provides various startup hooks that can be added to 'TaffyConfig'.
+-- This module provides various startup hooks that can be added to
+-- 'TaffybarConfig'.
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Hooks

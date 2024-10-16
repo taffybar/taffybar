@@ -19,7 +19,7 @@ Taffybar uses the directory `$XDG_CONFIG_HOME/taffybar/`. As per the
 
 ## `TaffybarConfig`
 
-Be aware that the `TaffybarConfig` value required by `dyreTaffybar`/`startTaffybar` is normally constructed via a [`SimpleConfig`](https://hackage.haskell.org/package/taffybar-4.0.2/docs/System-Taffybar-SimpleConfig.html#t:SimpleTaffyConfig) value and [`toTaffyConfig`](https://hackage.haskell.org/package/taffybar-4.0.2/docs/System-Taffybar-SimpleConfig.html#v:toTaffyConfig).
+Be aware that the `TaffybarConfig` value required by `dyreTaffybar`/`startTaffybar` is normally constructed via a [`SimpleConfig`](https://hackage.haskell.org/package/taffybar/docs/System-Taffybar-SimpleConfig.html#t:SimpleTaffyConfig) value and [`toTaffybarConfig`](https://hackage.haskell.org/package/taffybar/docs/System-Taffybar-SimpleConfig.html#v:toTaffybarConfig).
 
 ## CSS
 

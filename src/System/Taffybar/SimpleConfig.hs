@@ -18,6 +18,7 @@ module System.Taffybar.SimpleConfig
   , simpleDyreTaffybar
   , simpleTaffybar
   , toTaffyConfig
+  , toTaffybarConfig
   , useAllMonitors
   , usePrimaryMonitor
   , StrutSize(..)
@@ -125,10 +126,14 @@ toBarConfig config monitor = do
 
 newtype SimpleBarConfigs = SimpleBarConfigs (MV.MVar [(Int, BC.BarConfig)])
 
+{-# DEPRECATED toTaffyConfig "Use toTaffybarConfig instead" #-}
+toTaffyConfig :: SimpleTaffyConfig -> BC.TaffybarConfig
+toTaffyConfig = toTaffybarConfig
+
 -- | Convert a 'SimpleTaffyConfig' into a 'BC.TaffybarConfig' that can be used
 -- with 'startTaffybar' or 'dyreTaffybar'.
-toTaffyConfig :: SimpleTaffyConfig -> BC.TaffybarConfig
-toTaffyConfig conf =
+toTaffybarConfig :: SimpleTaffyConfig -> BC.TaffybarConfig
+toTaffybarConfig conf =
     def
     { BC.getBarConfigsParam = configGetter
     , BC.cssPaths = cssPaths conf
@@ -159,11 +164,11 @@ toTaffyConfig conf =
 
 -- | Start taffybar using dyre with a 'SimpleTaffybarConfig'.
 simpleDyreTaffybar :: SimpleTaffyConfig -> IO ()
-simpleDyreTaffybar conf = dyreTaffybar $ toTaffyConfig conf
+simpleDyreTaffybar conf = dyreTaffybar $ toTaffybarConfig conf
 
 -- | Start taffybar with a 'SimpleTaffybarConfig'.
 simpleTaffybar :: SimpleTaffyConfig -> IO ()
-simpleTaffybar conf = startTaffybar $ toTaffyConfig conf
+simpleTaffybar conf = startTaffybar $ toTaffybarConfig conf
 
 getMonitorCount :: IO Int
 getMonitorCount =
