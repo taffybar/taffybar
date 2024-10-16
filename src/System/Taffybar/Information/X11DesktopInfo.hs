@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Information.X11DesktopInfo
@@ -22,6 +23,7 @@
 module System.Taffybar.Information.X11DesktopInfo
   ( -- * Context
     X11Context(..)
+  , DisplayName(..)
   , getDefaultCtx
   , withDefaultCtx
 
@@ -64,9 +66,11 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import Data.Bits (testBit, (.|.))
+import Data.Default (Default(..))
 import Data.List (elemIndex)
 import Data.List.Split (endBy)
 import Data.Maybe (fromMaybe, listToMaybe)
+import GHC.Generics (Generic)
 import Graphics.X11.Xrandr (XRRScreenResources(..), XRROutputInfo(..), xrrGetOutputInfo, xrrGetScreenResources, xrrGetOutputPrimary)
 import System.Taffybar.Information.SafeX11 hiding (displayName)
 
@@ -77,6 +81,22 @@ data X11Context = X11Context
   , _contextRoot :: Window
   , atomCache :: MV.MVar [(String, Atom)]
   }
+
+
+-- | Specifies an X11 display to connect to.
+data DisplayName = DefaultDisplay
+                   -- ^ Use the @DISPLAY@ environment variable.
+                 | DisplayName String
+                   -- ^ Of the form @hostname:number.screen_number@
+                 deriving (Show, Read, Eq, Ord, Generic)
+
+instance Default DisplayName where
+  def = DefaultDisplay
+
+-- | Translate 'DisplayName' for use with 'openDisplay'.
+fromDisplayName :: DisplayName -> String
+fromDisplayName DefaultDisplay = ""
+fromDisplayName (DisplayName displayName) = displayName
 
 -- | 'IO' actions with access to an 'X11Context'.
 type X11Property a = ReaderT X11Context IO a
