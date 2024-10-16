@@ -391,6 +391,7 @@ test-suite unit
                , unliftio
                , transformers
                , QuickCheck
+               , X11
   build-tool-depends: hspec-discover:hspec-discover == 2.*
                    , taffybar:taffybar-test-wm
                    , taffybar:taffybar-appearance-snap
