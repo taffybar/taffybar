@@ -29,6 +29,7 @@ module System.Taffybar.Information.X11DesktopInfo
 
   -- * Properties
   , X11Property
+  , X11PropertyT
 
   -- ** Event loop
   , eventLoop
@@ -98,8 +99,10 @@ fromDisplayName :: DisplayName -> String
 fromDisplayName DefaultDisplay = ""
 fromDisplayName (DisplayName displayName) = displayName
 
+-- | A 'ReaderT' with 'X11Context'.
+type X11PropertyT m a = ReaderT X11Context m a
 -- | 'IO' actions with access to an 'X11Context'.
-type X11Property a = ReaderT X11Context IO a
+type X11Property a = X11PropertyT IO a
 type X11Window = Window
 type PropertyFetcher a = Display -> Atom -> X11Window -> IO (Maybe [a])
 
