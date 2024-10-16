@@ -252,6 +252,7 @@ test-suite unit
                , taffybar:testlib
                , transformers
                , QuickCheck
+               , X11
   build-tool-depends: hspec-discover:hspec-discover == 2.*
 
 source-repository head
