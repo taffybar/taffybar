@@ -10,4 +10,4 @@ cabal.sandbox.config
 .ghc.environment*
 .direnv
 /.envrc.local
-/.golden/*/actual
+/test/data/*.actual

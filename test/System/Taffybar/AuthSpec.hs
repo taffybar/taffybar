@@ -3,17 +3,39 @@
 
 module System.Taffybar.AuthSpec (spec) where
 
+import Data.List (intercalate)
+import System.FilePath ((</>), (<.>))
+import Text.Printf (printf)
+
+import Test.Hspec
+import Test.Hspec.Core.Spec (getSpecDescriptionPath)
+import Test.Hspec.Golden hiding (golden)
+
 import System.Taffybar.Auth
 import System.Taffybar.SpecUtil (withMockCommand)
-import Test.Hspec
-import Test.Hspec.Golden
-import Text.Printf
 
 spec :: Spec
 spec = aroundAll_ (withMockPass mockDb) $ describe "passGet" $ do
   golden "get a password" $ show <$> passGet "hello"
   golden "get a password with info" $ show <$> passGet "multiline"
   golden "missing entry" $ show <$> passGet "missing"
+
+golden :: String -> IO String -> Spec
+golden description runAction = do
+  path <- (++ words description) <$> getSpecDescriptionPath
+  it description $
+    taffybarGolden (intercalate "-" path) <$> runAction
+
+taffybarGolden :: String -> String -> Golden String
+taffybarGolden name output = Golden
+  { output
+  , encodePretty = show
+  , writeToFile = writeFile
+  , readFromFile = readFile
+  , goldenFile = "test/data/" </> name <.> "golden"
+  , actualFile = Nothing
+  , failFirstTime = True
+  }
 
 mockDb :: [MockEntry]
 mockDb = [ mockEntry "hello" "xyzzy" []
