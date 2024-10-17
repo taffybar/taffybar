@@ -169,6 +169,8 @@ library
                , System.Taffybar.DBus.Client.UPowerDevice
                , System.Taffybar.DBus.Client.Util
 
+  autogen-modules: Paths_taffybar
+
   cc-options: -fPIC
   ghc-options: -Wall -funbox-strict-fields -fno-warn-orphans
 
@@ -182,6 +184,7 @@ executable taffybar
                , taffybar
 
   other-modules: Paths_taffybar
+  autogen-modules: Paths_taffybar
 
   hs-source-dirs: app
   main-is: Main.hs
