@@ -51,7 +51,6 @@ library
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
                , filepath
-               , gi-cairo
                , gi-cairo-connector
                , gi-cairo-render
                , gi-gdk
@@ -63,7 +62,6 @@ library
                , gi-pango
                , gtk-sni-tray >= 0.1.8.0
                , gtk-strut >= 0.1.2.1
-               , haskell-gi >= 0.24
                , haskell-gi-base >= 0.24
                , hslogger
                , http-conduit
@@ -71,7 +69,6 @@ library
                , http-client-tls
                , http-types
                , multimap >= 1.2.1
-               , old-locale
                , parsec >= 3.1
                , process >= 1.0.1.1
                , rate-limit >= 1.1.1
@@ -87,7 +84,6 @@ library
                , time-locale-compat >= 0.1 && < 0.2
                , time-units >= 1.0.0
                , transformers >= 0.3.0.0
-               , transformers-base >= 0.4
                , tuple >= 0.3.0.2
                , unix
                , utf8-string
@@ -202,7 +198,6 @@ test-suite unit
                , directory
                , filepath
                , hspec
-               , hspec-api
                , hspec-core
                , hspec-golden
                , taffybar
