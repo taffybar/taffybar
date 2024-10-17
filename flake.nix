@@ -89,6 +89,7 @@
     checks = {
       hlint = pkgs.haskellPackages.taffybar.hlint;
       ghc-warnings = pkgs.haskellPackages.taffybar.fail-on-all-warnings;
+    } // lib.optionalAttrs (system == "x86_64-linux") {
       dependency-graph = weeder-nix.lib.${system}.makeWeederCheck {
         weederToml = ./weeder.toml;
         haskellPackages = pkgs.haskellPackages;
