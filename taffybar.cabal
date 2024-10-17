@@ -51,19 +51,17 @@ library
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
                , filepath
-               , gi-cairo
                , gi-cairo-connector
                , gi-cairo-render
-               , gi-gdk
-               , gi-gdkpixbuf
+               , gi-gdk >=3.0.6 && <3.1
+               , gi-gdkpixbuf >=2.0.6 && <2.1
                , gi-gdkx11
                , gi-glib
-               , gi-gtk
-               , gi-gtk-hs
+               , gi-gtk >= 3.0.26 && < 4
+               , gi-gtk-hs >= 0.3.9 && < 0.4
                , gi-pango
                , gtk-sni-tray >= 0.1.8.0
                , gtk-strut >= 0.1.2.1
-               , haskell-gi >= 0.24
                , haskell-gi-base >= 0.24
                , hslogger
                , http-conduit
@@ -71,7 +69,6 @@ library
                , http-client-tls
                , http-types
                , multimap >= 1.2.1
-               , old-locale
                , parsec >= 3.1
                , process >= 1.0.1.1
                , rate-limit >= 1.1.1
@@ -87,7 +84,6 @@ library
                , time-locale-compat >= 0.1 && < 0.2
                , time-units >= 1.0.0
                , transformers >= 0.3.0.0
-               , transformers-base >= 0.4
                , tuple >= 0.3.0.2
                , unix
                , utf8-string
@@ -169,6 +165,8 @@ library
                , System.Taffybar.DBus.Client.UPowerDevice
                , System.Taffybar.DBus.Client.Util
 
+  autogen-modules: Paths_taffybar
+
   cc-options: -fPIC
   ghc-options: -Wall -funbox-strict-fields -fno-warn-orphans
 
@@ -182,6 +180,7 @@ executable taffybar
                , taffybar
 
   other-modules: Paths_taffybar
+  autogen-modules: Paths_taffybar
 
   hs-source-dirs: app
   main-is: Main.hs
@@ -199,7 +198,6 @@ test-suite unit
                , directory
                , filepath
                , hspec
-               , hspec-api
                , hspec-core
                , hspec-golden
                , taffybar

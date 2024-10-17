@@ -46,6 +46,7 @@ module System.Taffybar.Util (
   , liftReader
   , liftActionTaker
   , (??)
+  , runCommandFromPath
   ) where
 
 import           Conduit
@@ -131,6 +132,10 @@ runCommand cmd args = liftIO $ do
   return $ case ecode of
     ExitSuccess -> Right stdout
     ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) stderr
+
+{-# DEPRECATED runCommandFromPath "Use runCommand instead" #-}
+runCommandFromPath :: MonadIO m => FilePath -> [String] -> m (Either String String)
+runCommandFromPath = runCommand
 
 -- | Execute the provided IO action at the provided interval.
 foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO () -> m ThreadId
