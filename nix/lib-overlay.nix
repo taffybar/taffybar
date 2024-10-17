@@ -24,7 +24,7 @@ final: prev: let lib = final; in {
       lib.lists.any file.hasExt [ "cabal" "hs" "lhs" ] ||
       lib.strings.hasPrefix "LICENSE" file.name;
     taffyExtraFilesFilter = file:
-      lib.lists.any file.hasExt [ "md" "css" "svg" "xml" ];
+      lib.lists.any file.hasExt [ "md" "css" "png" "svg" "xml" "golden" ];
     taffyFileFilter = file: final.taffybar.haskellFilesFilter file ||
                             final.taffybar.taffyExtraFilesFilter file;
   });
