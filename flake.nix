@@ -27,6 +27,9 @@
   outputs = { self, nixpkgs, flake-utils, gtk-sni-tray, gtk-strut, status-notifier-item, xmonad, weeder-nix }: let
     inherit (self) lib;
     inherit (nixpkgs.lib) composeExtensions;
+    inherit (flake-utils.lib) eachSystem;
+
+    supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
 
     # This flake will generate packages using the following compilers
     # from nixpkgs. The "default" package in this flake will be built with
@@ -56,7 +59,7 @@
         });
       });
 
-  } // flake-utils.lib.eachDefaultSystem (system: let
+  } // eachSystem supportedSystems (system: let
     pkgs = import nixpkgs {
       inherit system;
       overlays = [ self.overlays.default ];
@@ -86,6 +89,7 @@
     checks = {
       hlint = pkgs.haskellPackages.taffybar.hlint;
       ghc-warnings = pkgs.haskellPackages.taffybar.fail-on-all-warnings;
+    } // lib.optionalAttrs (system == "x86_64-linux") {
       dependency-graph = weeder-nix.lib.${system}.makeWeederCheck {
         weederToml = ./weeder.toml;
         haskellPackages = pkgs.haskellPackages;
