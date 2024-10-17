@@ -18,9 +18,13 @@
       url = "github:taffybar/status-notifier-item";
       flake = false;
     };
+    weeder-nix = {
+      url = "github:NorfairKing/weeder-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, gtk-sni-tray, gtk-strut, status-notifier-item, xmonad }: let
+  outputs = { self, nixpkgs, flake-utils, gtk-sni-tray, gtk-strut, status-notifier-item, xmonad, weeder-nix }: let
     inherit (self) lib;
     inherit (nixpkgs.lib) composeExtensions;
 
@@ -82,6 +86,13 @@
     checks = {
       hlint = pkgs.haskellPackages.taffybar.hlint;
       ghc-warnings = pkgs.haskellPackages.taffybar.fail-on-all-warnings;
+      dependency-graph = weeder-nix.lib.${system}.makeWeederCheck {
+        weederToml = ./weeder.toml;
+        haskellPackages = pkgs.haskellPackages;
+        packages = [ "taffybar" ];
+        # Never fail - too many false positives at the moment.
+        reportOnly = true;
+      };
     };
   });
 
