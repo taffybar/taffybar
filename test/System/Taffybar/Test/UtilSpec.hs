@@ -1,7 +1,6 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE CPP #-}
 
@@ -24,11 +23,20 @@ module System.Taffybar.Test.UtilSpec
   , laxTimeout
   , laxTimeout'
   , DodgyEq(..)
+  -- ** Logging for tests
+  , logSetup
+  , specLogSetup
+  , specLog
+  , specLogAt
+  , getSpecLogPriority
+  , Priority(..)
   ) where
 
-import Control.Arrow (second)
-import Control.Monad (guard, join, void)
+import Control.Applicative ((<|>))
+import Control.Monad (guard, join, void, (<=<))
 import Control.Monad.IO.Unlift
+import Data.Bifunctor (second)
+import qualified Data.ByteString.Char8 as B8
 import Data.Either.Extra (eitherToMaybe)
 import Data.Function (on)
 import Data.List (deleteFirstsBy, uncons)
@@ -40,6 +48,9 @@ import GHC.Conc.Sync (ThreadId(..), ThreadStatus(..))
 #endif
 import System.Exit (ExitCode(..))
 import System.FilePath (isRelative, takeFileName, (</>))
+import System.IO (Handle, BufferMode(..), hSetBuffering, stderr)
+import System.Log.Logger (Priority(..), updateGlobalLogger, setLevel, logM, getLevel, getLogger, removeHandler, setHandlers)
+import System.Log.Handler.Simple (GenericHandler(..))
 import System.Process.Typed (readProcess, proc)
 import System.Posix.Files (readSymbolicLink)
 import Test.Hspec
@@ -47,10 +58,13 @@ import Text.Read (readMaybe)
 import UnliftIO.Concurrent (forkFinally, threadDelay)
 import UnliftIO.Directory (Permissions (..), findExecutable, getPermissions, setPermissions, listDirectory)
 import UnliftIO.Environment (lookupEnv, setEnv, unsetEnv)
-import UnliftIO.Exception (bracket, throwIO, throwString, tryIO)
+import UnliftIO.Exception (bracket, evaluateDeep, throwIO, throwString, tryIO)
 import qualified UnliftIO.MVar as MV
 import UnliftIO.Temporary (withSystemTempDirectory)
 import UnliftIO.Timeout (timeout)
+
+
+import System.Taffybar.LogFormatter (taffyLogHandler)
 
 -- | Run the given 'IO' action with the @PATH@ environment variable
 -- set up so that executing the given command name will run a
@@ -186,6 +200,63 @@ newtype DodgyEq a = DodgyEq { unDodgyEq :: a }
 
 instance Eq (DodgyEq a) where
   a == b = show a == show b
+
+------------------------------------------------------------------------
+
+-- | Logger name for messages originating from specs.
+specLoggerName :: String
+specLoggerName = "Test"
+
+-- | Log a test message.
+specLog :: MonadIO m => String -> m ()
+specLog = specLogAt INFO
+
+-- | Log a test message at the given level.
+specLogAt :: MonadIO m => Priority -> String -> m ()
+specLogAt level = liftIO . logM specLoggerName level
+
+-- | Setup logging before running the specs.
+logSetup :: HasCallStack => SpecWith a -> SpecWith a
+logSetup = beforeAll_ specLogSetup
+
+-- | Get log levels from environment variables and set up formatters.
+specLogSetup :: IO ()
+specLogSetup = do
+  updateGlobalLogger "" removeHandler
+  hSetBuffering stderr LineBuffering
+  setup "System.Taffybar" "TAFFYBAR_VERBOSE" taffyLogHandler
+  setup specLoggerName "TAFFYBAR_TEST_VERBOSE" (pure specLogHandler)
+  where
+    setup loggerName envVar getHandler = do
+      p <- getEnvPriority envVar
+      h <- getHandler
+      updateGlobalLogger loggerName (maybe id setLevel p . setHandlers [h])
+
+-- | A plain looking log handler, to contrast with 'taffyLogFormatter'.
+specLogHandler :: GenericHandler Handle
+specLogHandler = GenericHandler
+  { priority = DEBUG
+  , formatter =  \_ (level, msg) _name -> return (show level ++ ": " ++ msg)
+  , privData = stderr
+  , writeFunc = \h -> B8.hPutStrLn h . B8.pack <=< evaluateDeep
+  , closeFunc = \_ -> return ()
+  }
+
+-- | Find out the configured log level for specs.
+getSpecLogPriority :: MonadIO m => m Priority
+getSpecLogPriority = fromMaybe WARNING . getLevel <$> liftIO (getLogger specLoggerName)
+
+-- | Converts an environment variable value to a 'Priority'.
+-- Numeric or textual levels are supported.
+getEnvPriority :: String -> IO (Maybe Priority)
+getEnvPriority = fmap (>>= toPriority) . lookupEnv
+  where
+    toPriority s = readMaybe s <|> fmap fromInt (readMaybe s)
+
+    fromInt :: Int -> Priority
+    fromInt n | n >= 2 = DEBUG
+              | n <= 0 = WARNING
+              | otherwise = INFO
 
 ------------------------------------------------------------------------
 
