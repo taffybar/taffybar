@@ -194,6 +194,14 @@ test-suite unit
   other-modules: System.Taffybar.AuthSpec
                , System.Taffybar.Test.UtilSpec
   default-language: Haskell2010
+  default-extensions:
+    DeriveGeneric
+    GeneralizedNewtypeDeriving
+    NumericUnderscores
+    RecordWildCards
+    StandaloneDeriving
+    TupleSections
+
   build-depends: base
                , extra
                , filepath
