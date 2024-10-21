@@ -9,6 +9,8 @@ pkgs.haskellPackages.shellFor {
   nativeBuildInputs = (with pkgs; [
     cabal-install
     haskell-language-server
+  ]) ++ (with pkgs.xorg; [
+    xdpyinfo
   ]) ++ (with pkgs.haskellPackages; [
     hlint ormolu weeder implicit-hie hie-bios
   ]);
