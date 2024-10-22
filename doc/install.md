@@ -7,7 +7,7 @@
 Several Linux distributions package Taffybar:
 
 - [NixOS (nixpkgs)](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/window-managers/taffybar/default.nix)
-- [arch/aur](https://aur.archlinux.org/packages/taffybar/)
+- [Arch Linux [extra]](https://archlinux.org/packages/extra/x86_64/taffybar/)
 - [Debian (main)](https://packages.debian.org/unstable/taffybar)
 - [Ubuntu (universe)](https://packages.ubuntu.com/taffybar)
 
