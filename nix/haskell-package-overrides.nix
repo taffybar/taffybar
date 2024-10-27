@@ -15,6 +15,13 @@ final: prev: let
   configuration = with haskellLib; self: super: {
     taffybar = lib.pipe super.taffybar [
       (self.generateOptparseApplicativeCompletions [ "taffybar" ])
+      (with pkgs.xorg; addTestToolDepends [
+        xorgserver   # Provides Xvfb
+        xprop        # Used for test assertions
+        xrandr       # Used for test setup
+        pkgs.xdummy  # Wrapper script and config for Xserver
+        pkgs.xterm   # An X client
+      ])
       (overrideCabal (drv: {
         # This is required so that "cabal repl" and haskell-language-server
         # can find non-pkgconfig dependencies.

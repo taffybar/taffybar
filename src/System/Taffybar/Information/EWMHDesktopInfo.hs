@@ -57,7 +57,7 @@ module System.Taffybar.Information.EWMHDesktopInfo
   , parseWindowClasses
   , switchOneWorkspace
   , switchToWorkspace
-  , withDefaultCtx
+  , withX11Context
   , withEWMHIcons
   ) where
 

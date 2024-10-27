@@ -12,7 +12,7 @@ import Test.Hspec.Core.Spec (getSpecDescriptionPath)
 import Test.Hspec.Golden hiding (golden)
 
 import System.Taffybar.Auth
-import System.Taffybar.SpecUtil (withMockCommand)
+import System.Taffybar.Test.UtilSpec (withMockCommand)
 
 spec :: Spec
 spec = aroundAll_ (withMockPass mockDb) $ describe "passGet" $ do

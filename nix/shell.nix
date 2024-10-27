@@ -6,10 +6,10 @@ pkgs.haskellPackages.shellFor {
   withHoogle = true;
 
   # Add some development tools to the shell.
-  nativeBuildInputs = [
-    pkgs.cabal-install
-    pkgs.haskell-language-server
-  ] ++ (with pkgs.haskellPackages; [
+  nativeBuildInputs = (with pkgs; [
+    cabal-install
+    haskell-language-server
+  ]) ++ (with pkgs.haskellPackages; [
     hlint ormolu weeder implicit-hie hie-bios
   ]);
 

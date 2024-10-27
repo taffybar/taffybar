@@ -11,3 +11,5 @@ cabal.sandbox.config
 .direnv
 /.envrc.local
 /test/data/*.actual
+/.hspec
+/.hspec-failures

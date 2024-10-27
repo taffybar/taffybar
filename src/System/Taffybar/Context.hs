@@ -225,7 +225,7 @@ buildContext TaffybarConfig
        [DBus.nameAllowReplacement, DBus.nameReplaceExisting]
   listenersVar <- MV.newMVar []
   state <- MV.newMVar M.empty
-  x11Context <- getDefaultCtx >>= MV.newMVar
+  x11Context <- getX11Context def >>= MV.newMVar
   windowsVar <- MV.newMVar []
   let context = Context
                 { x11ContextVar = x11Context
@@ -466,7 +466,7 @@ startX11EventHandler = taffyFork $ do
   -- XXX: The event loop needs its own X11Context to separately handle
   -- communications from the X server. We deliberately avoid using the context
   -- from x11ContextVar here.
-  lift $ withDefaultCtx $ eventLoop
+  lift $ withX11Context def $ eventLoop
          (\e -> runReaderT (handleX11Event e) c)
 
 -- | Remove the listener associated with the provided "Unique" from the
