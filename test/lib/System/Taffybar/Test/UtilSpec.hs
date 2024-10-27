@@ -54,6 +54,7 @@ import System.Log.Handler.Simple (GenericHandler(..))
 import System.Process.Typed (readProcess, proc)
 import System.Posix.Files (readSymbolicLink)
 import Test.Hspec
+import Text.Printf (printf)
 import Text.Read (readMaybe)
 import UnliftIO.Concurrent (forkFinally, threadDelay)
 import UnliftIO.Directory (Permissions (..), findExecutable, getPermissions, setPermissions, listDirectory)
@@ -62,7 +63,6 @@ import UnliftIO.Exception (bracket, evaluateDeep, throwIO, throwString, tryIO)
 import qualified UnliftIO.MVar as MV
 import UnliftIO.Temporary (withSystemTempDirectory)
 import UnliftIO.Timeout (timeout)
-
 
 import System.Taffybar.LogFormatter (taffyLogHandler)
 
@@ -180,15 +180,15 @@ diffLiveThreads = deleteFirstsBy ((==) `on` fst)
 tryIOMaybe :: MonadUnliftIO m => m a -> m (Maybe a)
 tryIOMaybe = fmap eitherToMaybe . tryIO
 
-laxTimeout' :: (MonadUnliftIO m) => Int -> m a -> m a
+laxTimeout' :: (HasCallStack, MonadUnliftIO m) => Int -> m a -> m a
 laxTimeout' n action = laxTimeout n action >>= \case
   Just a -> pure a
-  Nothing -> expectationFailure' "Timed out"
+  Nothing -> expectationFailure' $ printf "Timed out after %dusec" n
 
-expectationFailure' :: MonadIO m => String -> m a
+expectationFailure' :: (HasCallStack, MonadIO m) => String -> m a
 expectationFailure' msg = liftIO (expectationFailure msg) >> throwString msg
 
-laxTimeout :: MonadUnliftIO m => Int -> m a -> m (Maybe a)
+laxTimeout :: (HasCallStack, MonadUnliftIO m) => Int -> m a -> m (Maybe a)
 laxTimeout n action = do
   result <- MV.newEmptyMVar
   void $ forkFinally (timeout n action) (MV.putMVar result)
