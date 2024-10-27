@@ -1,6 +1,5 @@
 module System.Taffybar.WindowIcon where
 
-import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -25,11 +24,11 @@ import           System.Taffybar.Context
 import           System.Taffybar.Hooks
 import           System.Taffybar.Information.Chrome
 import           System.Taffybar.Information.EWMHDesktopInfo
-import           System.Taffybar.Information.X11DesktopInfo
 import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
+import qualified UnliftIO.MVar as MV
 
 type ColorRGBA = Word32
 
@@ -83,9 +82,9 @@ pixBufFromEWMHIcon EWMHIcon {ewmhWidth = w, ewmhHeight = h, ewmhPixelsARGB = px}
      width height rowStride (Just free)
 
 getIconPixBufFromEWMH :: Int32 -> X11Window -> X11Property (Maybe Gdk.Pixbuf)
-getIconPixBufFromEWMH size x11WindowId = runMaybeT $ do
-  ewmhData <- MaybeT $ getWindowIconsData x11WindowId
-  MaybeT $ lift $ withEWMHIcons ewmhData (getPixbufFromEWMHIcons size)
+getIconPixBufFromEWMH size w = do
+  ewmhData <- getWindowIconsData w
+  liftIO $ withEWMHIcons ewmhData (getPixbufFromEWMHIcons size)
 
 -- | Create a pixbuf with the indicated RGBA color.
 pixBufFromColor
@@ -135,7 +134,7 @@ getWindowIconFromClasses =
 
 getPixBufFromChromeData :: X11Window -> TaffyIO (Maybe Gdk.Pixbuf)
 getPixBufFromChromeData window = do
-  imageData <- getChromeTabImageDataTable >>= lift . readMVar
+  imageData <- getChromeTabImageDataTable >>= lift . MV.readMVar
   X11WindowToChromeTabId x11LookupMapVar <- getX11WindowToChromeTabId
-  x11LookupMap <- lift $ readMVar x11LookupMapVar
+  x11LookupMap <- lift $ MV.readMVar x11LookupMapVar
   return $ tabImageData <$> (M.lookup window x11LookupMap >>= flip M.lookup imageData)

@@ -18,7 +18,6 @@
 module System.Taffybar.Widget.MPRIS2 where
 
 import           Control.Arrow
-import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -46,6 +45,7 @@ import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Util
 import           System.Taffybar.WindowIcon
 import           Text.Printf
+import qualified UnliftIO.MVar as MV
 
 mprisLog :: (MonadIO m, Show t) => Priority -> String -> t -> m ()
 mprisLog = logPrintF "System.Taffybar.Widget.MPRIS2"
@@ -170,7 +170,7 @@ simplePlayerWidget c addToParent Nothing
     widget <- Gtk.toWidget ebox
     let widgetData =
           MPRIS2PlayerWidget { playerLabel = label, playerWidget = widget }
-    flip runReaderT ctx $
+    runTaffy ctx $
          simplePlayerWidget c addToParent (Just widgetData) np
 
 simplePlayerWidget config _
@@ -222,7 +222,7 @@ mpris2NewWithConfig config = ask >>= \ctx -> asks sessionDBusClient >>= \client 
       return $ M.union updatedWidgets playerWidgets
 
     updatePlayerWidgetsVar nowPlayings = postGUISync $
-      MV.modifyMVar_ playerWidgetsVar $ flip runReaderT ctx .
+      MV.modifyMVar_ playerWidgetsVar $ runTaffy ctx .
         updatePlayerWidgets nowPlayings
 
     setPlayingClass = do

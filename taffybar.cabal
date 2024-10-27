@@ -49,7 +49,6 @@ library
                , directory
                , dyre >= 0.9.0 && < 0.10
                , either >= 4.0.0.0
-               , enclosed-exceptions >= 1.0.0.1
                , filepath
                , gi-cairo-connector
                , gi-cairo-render
@@ -62,22 +61,24 @@ library
                , gi-pango
                , gtk-sni-tray >= 0.1.8.0
                , gtk-strut >= 0.1.2.1
+               , hashable
                , haskell-gi-base >= 0.24
                , hslogger
                , http-conduit
                , http-client >= 0.5
                , http-client-tls
                , http-types
+               , managed
                , multimap >= 1.2.1
                , parsec >= 3.1
                , process >= 1.0.1.1
                , rate-limit >= 1.1.1
                , regex-compat
                , safe >= 0.3 && < 1
+               , say
                , scotty >= 0.20 && < 0.23
                , split >= 0.1.4.2
                , status-notifier-item >= 0.3.1.0
-               , stm
                , template-haskell
                , text
                , time >= 1.9 && < 2.0
@@ -86,6 +87,9 @@ library
                , transformers >= 0.3.0.0
                , tuple >= 0.3.0.2
                , unix
+               , unliftio
+               , unliftio-core
+               , unordered-containers
                , utf8-string
                , xdg-desktop-entry
                , xdg-basedir >= 0.2 && < 0.3
@@ -111,6 +115,7 @@ library
                  , System.Taffybar.Information.MPRIS2
                  , System.Taffybar.Information.Memory
                  , System.Taffybar.Information.Network
+                 , System.Taffybar.Information.ResourceThread
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.StreamInfo
                  , System.Taffybar.Information.X11DesktopInfo
@@ -217,6 +222,7 @@ test-suite unit
                , hspec
                , hspec-core
                , hspec-golden
+               , managed
                , taffybar
                , text
                , transformers
@@ -225,7 +231,6 @@ test-suite unit
                , unliftio
                , unliftio-core
                , QuickCheck
-               , X11
   build-tool-depends: hspec-discover:hspec-discover == 2.*
   ghc-options: -Wall -rtsopts -threaded
 

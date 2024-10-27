@@ -15,8 +15,6 @@
 
 module System.Taffybar.DBus.Toggle ( handleDBusToggles ) where
 
-import qualified Control.Concurrent.MVar as MV
-import           Control.Exception
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -36,6 +34,8 @@ import           System.Taffybar.Context
 import           System.Taffybar.Util
 import           Text.Printf
 import           Text.Read ( readMaybe )
+import qualified UnliftIO.MVar as MV
+import           UnliftIO.Exception (SomeException, catch)
 
 -- $usage
 --
@@ -111,7 +111,7 @@ exportTogglesInterface = do
   ctx <- ask
   lift $ taffyStateDir >>= createDirectoryIfMissing True
   stateFile <- lift toggleStateFile
-  let toggleTaffyOnMon fn mon = flip runReaderT ctx $ do
+  let toggleTaffyOnMon fn mon = runTaffy ctx $ do
         lift $ MV.modifyMVar_ enabledVar $ \numToEnabled -> do
           let current = fromMaybe True $ M.lookup mon numToEnabled
               result = M.insert mon (fn current) numToEnabled
@@ -138,7 +138,7 @@ exportTogglesInterface = do
             takeInt $ toggleTaffyOnMon (const False)
           , autoMethod "showOnMonitor" $
             takeInt $ toggleTaffyOnMon (const True)
-          , autoMethod "refresh" $ runReaderT refreshTaffyWindows ctx
+          , autoMethod "refresh" $ runTaffy ctx refreshTaffyWindows
           , autoMethod "exit" $ exitTaffybar ctx
           ]
         }

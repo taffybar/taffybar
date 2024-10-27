@@ -22,7 +22,6 @@ module System.Taffybar.Information.Battery
   ) where
 
 import           BroadcastChan
-import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -45,6 +44,8 @@ import           System.Taffybar.DBus.Client.Params
 import           System.Taffybar.DBus.Client.UPower
 import           System.Taffybar.DBus.Client.UPowerDevice
 import           System.Taffybar.Util
+import           UnliftIO.Concurrent (forkIO, threadDelay)
+import qualified UnliftIO.MVar as MV
 
 batteryLogPath :: String
 batteryLogPath = "System.Taffybar.Information.Battery"
@@ -155,12 +156,12 @@ getBatteryPaths = do
     return $ filter isBattery paths
 
 newtype DisplayBatteryChanVar =
-  DisplayBatteryChanVar (BroadcastChan In BatteryInfo, MVar BatteryInfo)
+  DisplayBatteryChanVar (BroadcastChan In BatteryInfo, MV.MVar BatteryInfo)
 
 getDisplayBatteryInfo :: TaffyIO BatteryInfo
 getDisplayBatteryInfo = do
   DisplayBatteryChanVar (_, theVar) <- getDisplayBatteryChanVar
-  lift $ readMVar theVar
+  lift $ MV.readMVar theVar
 
 defaultMonitorDisplayBatteryProperties :: [String]
 defaultMonitorDisplayBatteryProperties = [ "IconName", "State", "Percentage" ]
@@ -182,7 +183,7 @@ getDisplayBatteryChan = do
 
 updateBatteryInfo
   :: BroadcastChan In BatteryInfo
-  -> MVar BatteryInfo
+  -> MV.MVar BatteryInfo
   -> ObjectPath
   -> TaffyIO ()
 updateBatteryInfo chan var path =
@@ -190,7 +191,7 @@ updateBatteryInfo chan var path =
   where
     doWrites info =
         batteryLogF DEBUG "Writing info %s" info >>
-        swapMVar var info >> void (writeBChan chan info)
+        MV.swapMVar var info >> void (writeBChan chan info)
     warnOfFailure = batteryLogF WARNING "Failed to update battery info %s"
 
 registerForAnyUPowerPropertiesChanged
@@ -217,13 +218,14 @@ registerForUPowerPropertyChanges properties signalHandler = do
 -- | Monitor the DisplayDevice for changes, writing a new "BatteryInfo" object
 -- to returned "MVar" and "Chan" objects
 monitorDisplayBattery ::
-  [String] -> TaffyIO (BroadcastChan In BatteryInfo, MVar BatteryInfo)
+  [String] -> TaffyIO (BroadcastChan In BatteryInfo, MV.MVar BatteryInfo)
 monitorDisplayBattery propertiesToMonitor = do
   lift $ batteryLog DEBUG "Starting Battery Monitor"
   client <- asks systemDBusClient
-  infoVar <- lift $ newMVar $ infoMapToBatteryInfo M.empty
+  infoVar <- lift $ MV.newMVar $ infoMapToBatteryInfo M.empty
   chan <- newBroadcastChan
-  taffyFork $ do
+  void $ forkIO $ do
+    labelMyThread "monitorDisplayBattery"
     ctx <- ask
     let warnOfFailedGetDevice err =
           batteryLogF WARNING "Failure getting DisplayBattery: %s" err >>
@@ -234,7 +236,7 @@ monitorDisplayBattery propertiesToMonitor = do
         signalCallback _ _ changedProps _ =
           do
             batteryLogF DEBUG "Battery changed properties: %s" changedProps
-            runReaderT doUpdate ctx
+            runTaffy ctx doUpdate
     _ <- registerForUPowerPropertyChanges propertiesToMonitor signalCallback
     doUpdate
 
@@ -247,7 +249,7 @@ monitorDisplayBattery propertiesToMonitor = do
 refreshBatteriesOnPropChange :: TaffyIO ()
 refreshBatteriesOnPropChange = ask >>= \ctx ->
   let updateIfRealChange _ _ changedProps _ =
-        flip runReaderT ctx $
+        runTaffy ctx $
              when (any ((`notElem` ["UpdateTime", "Voltage"]) . fst) $
                        M.toList changedProps) $
                   lift (threadDelay 1000000) >> refreshAllBatteries

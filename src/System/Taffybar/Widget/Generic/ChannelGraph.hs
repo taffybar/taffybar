@@ -1,12 +1,12 @@
 module System.Taffybar.Widget.Generic.ChannelGraph where
 
 import BroadcastChan
-import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Foldable (traverse_)
 import GI.Gtk
 import System.Taffybar.Widget.Generic.Graph
+import UnliftIO.Concurrent (forkIO, killThread)
 
 -- | Given a 'BroadcastChan' and an action to consume that broadcast chan and
 -- turn it into graphable values, build a graph that will update as values are

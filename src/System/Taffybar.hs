@@ -131,8 +131,9 @@ module System.Taffybar
 
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
-import           Control.Exception ( finally )
 import           Control.Monad
+import           Control.Monad.Managed ( runManaged )
+import           Control.Monad.IO.Class ( MonadIO(..) )
 import qualified Data.GI.Gtk.Threading as GIThreading
 import qualified Data.Text as T
 import qualified GI.Gdk as Gdk
@@ -147,6 +148,7 @@ import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
 import           System.Taffybar.Util ( onSigINT )
+import           UnliftIO.Exception ( finally )
 
 import           Paths_taffybar ( getDataDir )
 
@@ -228,13 +230,17 @@ startTaffybar config = do
     then getDefaultCSSPaths
     else return $ cssPaths config
   _ <- startCSS $ defaultCSS:cssPathsToLoad
-  context <- buildContext config
 
-  Gtk.main
-    `finally` logTaffy DEBUG "Finished main loop"
-    `onSigINT` do
-      logTaffy INFO "Interrupted"
-      exitTaffybar context
+  runManaged (do
+    context <- buildContext config
+
+    liftIO $ Gtk.main
+      `finally` logTaffy DEBUG "Finished main loop"
+      `onSigINT` do
+        logTaffy INFO "Interrupted"
+        exitTaffybar context)
+
+    `finally` logTaffy DEBUG "Cleaned up"
 
   logTaffy DEBUG "Exited normally"
 

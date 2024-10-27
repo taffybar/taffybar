@@ -38,9 +38,11 @@ module System.Taffybar.Util (
   -- * Control
   , foreverWithVariableDelay
   , foreverWithDelay
+  , bracketIO
   -- * Process control
   , runCommand
   , onSigINT
+  , labelMyThread
   -- * Deprecated
   , logPrintFDebug
   , liftReader
@@ -52,19 +54,20 @@ module System.Taffybar.Util (
 import           Conduit
 import           Control.Applicative
 import           Control.Arrow ((&&&))
-import           Control.Concurrent
-import           Control.Exception.Base
+import qualified Control.Exception as E
 import           Control.Monad
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Data.Either.Combinators
 import           Data.GI.Base.GError
-import           Control.Exception.Enclosed (catchAny)
 import           Data.GI.Gtk.Threading as Gtk (postGUIASync, postGUISync)
 import           Data.Maybe
 import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import           Data.Tuple.Sequence
+#if MIN_VERSION_base(4,18,0)
+import           GHC.Conc.Sync (labelThread, myThreadId)
+#endif
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import           Network.HTTP.Simple
 import           System.Directory
@@ -75,6 +78,8 @@ import           System.Log.Logger
 import           System.Posix.Signals (Signal, Handler(..), installHandler, sigINT)
 import qualified System.Process as P
 import           Text.Printf
+import           UnliftIO.Concurrent (ThreadId, forkIO, threadDelay)
+import           UnliftIO.Exception (bracket, catch, catchAny)
 
 
 taffyStateDir :: IO FilePath
@@ -137,8 +142,20 @@ runCommand cmd args = liftIO $ do
 runCommandFromPath :: MonadIO m => FilePath -> [String] -> m (Either String String)
 runCommandFromPath = runCommand
 
+-- | A partially unlifted version of 'Control.Exception.bracket' from @base@.
+--
+-- This should be used instead of 'UnliftIO.Exception.bracket' in
+-- situations where the cleanup action may block for a little while.
+--
+-- 'UnliftIO.Exception.bracket' uses
+-- 'Control.Exception.uninterruptibleMask_' for the cleanup
+-- action. When cleanup actions are potentially blocking, they should
+-- still be masked, but not masked uninterruptible.
+bracketIO :: MonadUnliftIO m => IO a -> (a -> IO ()) -> (a -> m c) -> m c
+bracketIO a b c = withRunInIO $ \run -> E.bracket a b (run . c)
+
 -- | Execute the provided IO action at the provided interval.
-foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO () -> m ThreadId
+foreverWithDelay :: (MonadUnliftIO m, RealFrac d) => d -> m () -> m ThreadId
 foreverWithDelay delay action =
   foreverWithVariableDelay $ safeAction >> return delay
   where safeAction =
@@ -148,8 +165,8 @@ foreverWithDelay delay action =
 -- | Execute the provided IO action, and use the value it returns to decide how
 -- long to wait until executing it again. The value returned by the action is
 -- interpreted as a number of seconds.
-foreverWithVariableDelay :: (MonadIO m, RealFrac d) => IO d -> m ThreadId
-foreverWithVariableDelay action = liftIO $ forkIO $ action >>= delayThenAction
+foreverWithVariableDelay :: (MonadUnliftIO m, RealFrac d) => m d -> m ThreadId
+foreverWithVariableDelay action = forkIO $ action >>= delayThenAction
   where delayThenAction delay =
           threadDelay (floor $ delay * 1000000) >> action >>= delayThenAction
 
@@ -254,3 +271,11 @@ withSigHandler :: Signal -> Handler -> IO a -> IO a
 withSigHandler sig h = bracket (install h) install . const
   where
     install handler = installHandler sig handler Nothing
+
+-- | Assigns a descriptive name to the currently running thread.
+labelMyThread :: MonadIO m => String -> m ()
+#if MIN_VERSION_base(4,18,0)
+labelMyThread name = liftIO (myThreadId >>= flip labelThread name)
+#else
+labelMyThread _ = pure ()
+#endif
