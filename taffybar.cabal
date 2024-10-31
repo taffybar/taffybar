@@ -246,20 +246,24 @@ test-suite unit
   other-modules: UnitSpec
                , System.Taffybar.AuthSpec
                , System.Taffybar.ContextSpec
+               , System.Taffybar.Information.ResourceThreadSpec
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.SimpleConfigSpec
-  build-depends: data-default
+  build-depends: containers
+               , data-default
                , filepath
                , gi-gtk
                , hspec
                , hspec-core
                , hspec-golden
                , managed
+               , stm
                , taffybar
                , taffybar:testlib
                , transformers
                , unliftio
                , QuickCheck
+               , quickcheck-state-machine
   build-tool-depends: hspec-discover:hspec-discover == 2.*
 
 source-repository head
