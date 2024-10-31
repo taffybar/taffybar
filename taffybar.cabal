@@ -76,6 +76,7 @@ library
                , filepath
                , fsnotify >= 0.4 && < 0.5
                , monad-control
+               , monad-unlift
                , gi-cairo-connector
                , gi-cairo-render
                 , gi-gdk3 >=3.0.30 && <3.1
@@ -113,6 +114,8 @@ library
                , transformers >= 0.3.0.0
                , tuple >= 0.3.0.2
                , unix
+               , unliftio
+               , unliftio-core
                , utf8-string
                , xdg-desktop-entry
                , xdg-basedir >= 0.2 && < 0.3
@@ -156,6 +159,7 @@ library
                  , System.Taffybar.Information.NetworkManager
                  , System.Taffybar.Information.PowerProfiles
                  , System.Taffybar.Information.Privacy
+                 , System.Taffybar.Information.ResourceThread
                  , System.Taffybar.Information.ScreenLock
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.Systemd
@@ -369,12 +373,14 @@ test-suite unit
                , System.Taffybar.AppearanceSpec
                , System.Taffybar.ContextSpec
                , System.Taffybar.Information.CryptoSpec
+               , System.Taffybar.Information.ResourceThreadSpec
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.Information.WakeupSpec
                , System.Taffybar.SimpleConfigSpec
                , System.Taffybar.Widget.Workspaces.ChannelSpec
                , System.Taffybar.Widget.WindowsSpec
-  build-depends: data-default
+  build-depends: containers
+               , data-default
                , bytestring
                , directory
                , JuicyPixels
@@ -385,6 +391,7 @@ test-suite unit
                , hspec-core
                , hspec-golden
                , managed
+               , stm
                , taffybar
                , taffybar:testlib
                , typed-process
@@ -393,6 +400,7 @@ test-suite unit
                , transformers
                , QuickCheck
                , X11
+               , quickcheck-state-machine
   build-tool-depends: hspec-discover:hspec-discover == 2.*
                    , taffybar:taffybar-test-wm
                    , taffybar:taffybar-appearance-snap
