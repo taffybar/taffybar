@@ -37,10 +37,10 @@ import           System.Taffybar.Widget.Util
 
 -- $usage
 --
--- This widget requires that the "System.Taffybar.Support.PagerHints" hook be
+-- This widget requires that the "XMonad.Hooks.TaffybarPagerHints" hook be
 -- installed in your @xmonad.hs@:
 --
--- > import System.Taffybar.Support.PagerHints (pagerHints)
+-- > import XMonad.Hooks.TaffybarPagerHints (pagerHints)
 -- > main = do
 -- >   xmonad $ ewmh $ pagerHints $ defaultConfig
 -- > ...
@@ -79,7 +79,7 @@ layoutNew config = do
 
   -- This callback is run in a separate thread and needs to use
   -- postGUIASync
-  let callback _ = liftReader postGUIASync $ do
+  let callback _ = mapReaderT postGUIASync $ do
         layout <- runX11Def "" $ readAsString Nothing xLayoutProp
         markup <- formatLayout config (T.pack layout)
         lift $ Gtk.labelSetMarkup label markup

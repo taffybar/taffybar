@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module System.Taffybar.Widget
   ( module System.Taffybar.Widget.Util
   -- * "System.Taffybar.Widget.Battery"
@@ -9,8 +11,10 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.CommandRunner"
   , module System.Taffybar.Widget.CommandRunner
 
+#ifdef WIDGET_CRYPTO
   -- * "System.Taffybar.Widget.Crypto"
   , module System.Taffybar.Widget.Crypto
+#endif
 
   -- * "System.Taffybar.Widget.DiskIOMonitor"
   , module System.Taffybar.Widget.DiskIOMonitor
@@ -64,7 +68,9 @@ module System.Taffybar.Widget
 import System.Taffybar.Widget.Battery
 import System.Taffybar.Widget.CPUMonitor
 import System.Taffybar.Widget.CommandRunner
+#ifdef WIDGET_CRYPTO
 import System.Taffybar.Widget.Crypto
+#endif
 import System.Taffybar.Widget.DiskIOMonitor
 import System.Taffybar.Widget.FSMonitor
 import System.Taffybar.Widget.FreedesktopNotifications

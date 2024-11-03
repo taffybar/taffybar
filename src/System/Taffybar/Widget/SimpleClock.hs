@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings #-}
 module System.Taffybar.Widget.SimpleClock
   ( textClockNew
@@ -92,21 +90,6 @@ defaultClockConfig = ClockConfig
 instance Default ClockConfig where
   def = defaultClockConfig
 
-systemGetTZ :: IO TimeZone
-systemGetTZ = setTZ >> getCurrentTimeZone
-
--- | Old versions of time do not call localtime_r properly. We set the time zone
--- manually, if required.
-setTZ :: IO ()
-#if MIN_VERSION_time(1, 4, 2)
-setTZ = return ()
-#else
-setTZ = c_tzsetp
-
-foreign import ccall unsafe "time.h tzset"
-  c_tzset :: IO ()
-#endif
-
 -- | A configurable text-based clock widget.  It currently allows for
 -- a configurable time zone through the 'ClockConfig'.
 --
@@ -118,7 +101,7 @@ textClockNewWith ClockConfig
                    , clockFormatString = formatString
                    , clockUpdateStrategy = updateStrategy
                    } = liftIO $ do
-  let getTZ = maybe systemGetTZ return userZone
+  let getTZ = maybe getCurrentTimeZone return userZone
       locale = fromMaybe L.defaultTimeLocale userLocale
 
   let getUserZonedTime =
@@ -162,4 +145,3 @@ textClockNewWith ClockConfig
        toggleCalendar label cal
   widgetShowAll ebox
   toWidget ebox
-

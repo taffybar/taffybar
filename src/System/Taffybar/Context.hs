@@ -2,7 +2,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonoLocalBinds #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 -----------------------------------------------------------------------------
@@ -23,30 +22,44 @@
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Context
-  ( Context(..)
-  , TaffybarConfig(..)
-  , Taffy
-  , TaffyIO
+  ( -- * Configuration
+    TaffybarConfig(..)
+  , defaultTaffybarConfig
+  , appendHook
+  -- ** Bars
   , BarConfig(..)
   , BarConfigGetter
-  , appendHook
+  , showBarId
+
+  -- * Taffy monad
+  , Taffy
+  , TaffyIO
+  -- ** Context
+  , Context(..)
   , buildContext
   , buildEmptyContext
-  , defaultTaffybarConfig
+  -- ** Context State
   , getState
   , getStateDefault
   , putState
-  , forceRefreshTaffyWindows
+
+  -- * Control
   , refreshTaffyWindows
+  , exitTaffybar
+
+  -- * X11
   , runX11
   , runX11Def
+  -- ** Event subscription
   , subscribeToAll
   , subscribeToPropertyEvents
-  , taffyFork
   , unsubscribe
+
+  -- * Threading
+  , taffyFork
   ) where
 
-import           Control.Arrow ((&&&))
+import           Control.Arrow ((&&&), (***))
 import           Control.Concurrent (forkIO)
 import qualified Control.Concurrent.MVar as MV
 import           Control.Exception.Enclosed (catchAny)
@@ -75,7 +88,7 @@ import           GI.GdkX11.Objects.X11Window
 import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
 import           StatusNotifier.TransparentWindow
-import           System.Log.Logger
+import           System.Log.Logger (Priority(..), logM)
 import           System.Taffybar.Information.EWMHDesktopInfo (ewmhCurrentDesktop)
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
@@ -85,17 +98,17 @@ import           Text.Printf
 import           Text.Read (readMaybe)
 import           Unsafe.Coerce
 
-logIO :: System.Log.Logger.Priority -> String -> IO ()
+logIO :: Priority -> String -> IO ()
 logIO = logM "System.Taffybar.Context"
 
-logC :: MonadIO m => System.Log.Logger.Priority -> String -> m ()
+logC :: MonadIO m => Priority -> String -> m ()
 logC p = liftIO . logIO p
 
--- | 'Taffy' is a monad transformer that provides 'Reader' for 'Context'.
-type Taffy m v = MonadIO m => ReaderT Context m v
+-- | 'Taffy' is a monad transformer that provides 'ReaderT' for 'Context'.
+type Taffy m v = ReaderT Context m v
 
 -- | 'TaffyIO' is 'IO' wrapped with a 'ReaderT' providing 'Context'. This is the
--- type of most widgets and callback in taffybar.
+-- type of most widgets and callback in Taffybar.
 type TaffyIO v = ReaderT Context IO v
 
 type Listener = Event -> Taffy IO ()
@@ -217,7 +230,7 @@ buildContext TaffybarConfig
        [DBus.nameAllowReplacement, DBus.nameReplaceExisting]
   listenersVar <- MV.newMVar []
   state <- MV.newMVar M.empty
-  x11Context <- getDefaultCtx >>= MV.newMVar
+  x11Context <- getX11Context def >>= MV.newMVar
   windowsVar <- MV.newMVar []
   let context = Context
                 { x11ContextVar = x11Context
@@ -252,14 +265,26 @@ buildContext TaffybarConfig
 buildEmptyContext :: IO Context
 buildEmptyContext = buildContext def
 
+-- | Format the 'barId' as a numeric string.
+showBarId :: BarConfig -> String
+showBarId = show . hashUnique . barId
+
 buildBarWindow :: Context -> BarConfig -> IO Gtk.Window
 buildBarWindow context barConfig = do
   let thisContext = context { contextBarConfig = Just barConfig }
-  logIO DEBUG $
-      printf "Building bar window with StrutConfig: %s" $
-      show $ strutConfig barConfig
+  logC INFO $
+      printf "Building window for Taffybar(id=%s) with %s"
+      (showBarId barConfig)
+      (show $ strutConfig barConfig)
 
   window <- Gtk.windowNew Gtk.WindowTypeToplevel
+
+  void $ Gtk.onWidgetDestroy window $ do
+    let bId = showBarId barConfig
+    logC INFO $ printf "Window for Taffybar(id=%s) destroyed" bId
+    MV.modifyMVar_ (existingWindows context) (pure . filter ((/=) window . sel2))
+    logC DEBUG $ printf "Window for Taffybar(id=%s) unregistered" bId
+
   box <- Gtk.boxNew Gtk.OrientationHorizontal $ fromIntegral $
          widgetSpacing barConfig
   _ <- widgetSetClassGI box "taffy-box"
@@ -324,7 +349,7 @@ buildBarWindow context barConfig = do
 -- windows that should active. Will avoid recreating windows if there is already
 -- a window with the appropriate geometry and "BarConfig".
 refreshTaffyWindows :: TaffyIO ()
-refreshTaffyWindows = liftReader postGUIASync $ do
+refreshTaffyWindows = mapReaderT postGUIASync $ do
   logC DEBUG "Refreshing windows"
   ctx <- ask
   windowsVar <- asks existingWindows
@@ -369,16 +394,33 @@ refreshTaffyWindows = liftReader postGUIASync $ do
   logC DEBUG "Finished refreshing windows"
   return ()
 
+-- | Unconditionally delete all existing Taffybar top-level windows.
+removeTaffyWindows :: TaffyIO ()
+removeTaffyWindows = asks existingWindows >>= liftIO . MV.readMVar >>= deleteWindows
+  where
+    deleteWindows = mapM_ (sequenceT . (msg *** del))
+
+    msg :: BarConfig -> TaffyIO ()
+    msg barConfig = logC INFO $
+      printf "Destroying window for Taffybar(id=%s)" (showBarId barConfig)
+
+    del :: Gtk.Window -> TaffyIO ()
+    del = Gtk.widgetDestroy
+
 -- | Forcibly refresh taffybar windows, even if there are existing windows that
 -- correspond to the uniques in the bar configs yielded by 'barConfigGetter'.
 forceRefreshTaffyWindows :: TaffyIO ()
-forceRefreshTaffyWindows =
-  asks existingWindows >>= lift . flip MV.modifyMVar_ deleteWindows >>
-       refreshTaffyWindows
-    where deleteWindows windows =
-            do
-              mapM_ (Gtk.widgetDestroy . sel2) windows
-              return []
+forceRefreshTaffyWindows = removeTaffyWindows >> refreshTaffyWindows
+
+-- | Destroys all top-level windows belonging to Taffybar, then
+-- requests the GTK main loop to exit.
+--
+-- This ensures that the windows disappear promptly. For GTK windows
+-- to be destroyed, the main loop still needs to be running.
+exitTaffybar :: Context -> IO ()
+exitTaffybar ctx = do
+  postGUIASync $ runReaderT removeTaffyWindows ctx
+  Gtk.mainQuit
 
 rateLimitFn
   :: forall req resp.
@@ -410,7 +452,7 @@ onCurrentDesktopUpdate window context = do
 updateTaffyWindowStatus :: Gtk.Window -> TaffyIO ()
 updateTaffyWindowStatus window = do
     ctx <- ask
-    runX11Context ctx () $ void $ do 
+    runX11Context ctx () $ void $ do
         barXY <- Gtk.windowGetPosition window
         let barX = fromIntegral $ fst barXY
             barY = fromIntegral $ snd barXY
@@ -431,8 +473,8 @@ updateTaffyWindowStatus window = do
                 | (monX < barX) && (barX < monX + monW) &&
                   (monY < barY) && (barY < monY + monH)     = "focused-monitor"
                 | otherwise                                 = "unfocused-monitor"
- 
-        updateWidgetClasses window 
+
+        updateWidgetClasses window
                             [monFocusStatus]
                             ["focused-monitor", "unfocused-monitor"]
 
@@ -502,9 +544,9 @@ putState getValue = do
          (return . (contextStateMap,))
          (currentValue >>= fromValue)
 
--- | A version of "forkIO" in "TaffyIO".
+-- | A version of 'forkIO' in 'TaffyIO'.
 taffyFork :: ReaderT r IO () -> ReaderT r IO ()
-taffyFork = void . liftReader forkIO
+taffyFork = void . mapReaderT forkIO
 
 startX11EventHandler :: Taffy IO ()
 startX11EventHandler = taffyFork $ do
@@ -512,7 +554,7 @@ startX11EventHandler = taffyFork $ do
   -- XXX: The event loop needs its own X11Context to separately handle
   -- communications from the X server. We deliberately avoid using the context
   -- from x11ContextVar here.
-  lift $ withDefaultCtx $ eventLoop
+  lift $ withX11Context def $ eventLoop
          (\e -> runReaderT (handleX11Event e) c)
 
 -- | Remove the listener associated with the provided "Unique" from the

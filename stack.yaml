@@ -2,7 +2,7 @@ packages:
 - '.'
 extra-deps:
 
-resolver: nightly-2020-04-30
+resolver: nightly-2023-05-30
 
 nix:
   packages:

@@ -5,7 +5,7 @@
 -- License     : BSD3-style (see LICENSE)
 --
 -- Maintainer  : José A. Romero L. <escherdragon@gmail.com>
--- Stability   : unstable
+-- Stability   : deprecated
 -- Portability : unportable
 --
 -- Complements the "XMonad.Hooks.EwmhDesktops" with two additional hints
@@ -30,11 +30,12 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Support.PagerHints (
+module System.Taffybar.Support.PagerHints
+  {-# DEPRECATED "Use XMonad.Hooks.TaffybarPagerHints instead" #-} (
   -- * Usage
   -- $usage
   pagerHints
-) where
+  ) where
 
 import Codec.Binary.UTF8.String (encode)
 import Control.Monad

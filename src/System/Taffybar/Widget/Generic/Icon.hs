@@ -10,7 +10,7 @@ module System.Taffybar.Widget.Generic.Icon
 import Control.Concurrent ( forkIO, threadDelay )
 import qualified Data.Text as T
 import Control.Exception as E
-import Control.Monad ( forever )
+import Control.Monad ( forever, void )
 import Control.Monad.IO.Class
 import GI.Gtk
 import System.Taffybar.Util
@@ -28,10 +28,10 @@ iconImageWidgetNew path = liftIO $ imageNewFromFile path >>= putInBox
 -- > iconWidgetNewFromName name
 --
 -- returns a widget with the icon named @name@. Icon
--- names are sourced from the current GTK theme. 
+-- names are sourced from the current GTK theme.
 iconImageWidgetNewFromName :: MonadIO m => T.Text -> m Widget
-iconImageWidgetNewFromName name = liftIO $ 
-  imageNewFromIconName (Just name) (fromIntegral $ fromEnum IconSizeMenu) 
+iconImageWidgetNewFromName name = liftIO $
+  imageNewFromIconName (Just name) (fromIntegral $ fromEnum IconSizeMenu)
   >>= putInBox
 
 -- | Create a new widget that updates itself at regular intervals.  The
@@ -73,16 +73,16 @@ pollingIconImageWidgetNewFromName
   -> Double    -- ^ Update interval (in seconds)
   -> IO T.Text -- ^ Command to run update the icon name
   -> m Widget
-pollingIconImageWidgetNewFromName name interval cmd = 
+pollingIconImageWidgetNewFromName name interval cmd =
   pollingIcon interval cmd
     (imageNewFromIconName (Just name) (fromIntegral $ fromEnum IconSizeMenu))
     (\image name' -> imageSetFromIconName image (Just name') $ fromIntegral $ fromEnum IconSizeMenu)
 
--- | Creates a polling icon. 
-pollingIcon 
+-- | Creates a polling icon.
+pollingIcon
   :: MonadIO m
   => Double   -- ^ Update Interval (in seconds)
-  -> IO name  -- ^ IO action that updates image's icon-name/filepath 
+  -> IO name  -- ^ IO action that updates image's icon-name/filepath
   -> IO Image -- ^ MonadIO action that creates the initial image.
   -> (Image -> name -> IO b)
               -- ^ MonadIO action that updates the image.
@@ -93,7 +93,7 @@ pollingIcon interval doUpdateName doInitImage doSetImage = liftIO $ do
     _ <- forkIO $ forever $ do
       let tryUpdate = liftIO $ do
             name' <- doUpdateName
-            postGUIASync $ doSetImage image name' >> return ()
+            postGUIASync $ void $ doSetImage image name'
       E.catch tryUpdate ignoreIOException
       threadDelay $ floor (interval * 1000000)
     return ()

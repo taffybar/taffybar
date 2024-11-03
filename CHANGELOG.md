@@ -1,4 +1,73 @@
-# Unreleased
+# 4.0.3
+
+## Breaking Changes
+
+ * Taffybar is tested with GHC versions >= 9.2 && < 9.10.
+   Other versions may or may not work.
+
+ * The following symbols have been deprecated (not removed):
+    - `System.Taffybar.SimpleConfig.toTaffyConfig` -
+      Use [`toTaffybarConfig`][toTaffybarConfig] instead.
+    - `System.Taffybar.Support.PagerHints` -
+      Use the [`XMonad.Hooks.TaffybarPagerHints`][TaffybarPagerHints] module instead.
+    - `System.Taffybar.Util`:
+        * `liftReader` - Use [`Control.Monad.Trans.Reader.mapReaderT`][mapReaderT] instead.
+        * `logPrintFDebug` -  Use [`logPrintF`][logPrintF] instead.
+        * `(??)` - Use `f <*> pure a` instead.
+        * `runCommandFromPath` - Use [`runCommand`][runCommand] instead.
+
+[toTaffybarConfig]: https://hackage.haskell.org/package/taffybar-4.0.3/docs/System-Taffybar-SimpleConfig.html#v:toTaffybarConfig
+[TaffybarPagerHints]: https://hackage.haskell.org/package/xmonad-contrib-0.18.1/docs/XMonad-Hooks-TaffybarPagerHints.html
+[mapReaderT]: https://hackage.haskell.org/package/transformers-0.6.1.0/docs/Control-Monad-Trans-Reader.html#v:mapReaderT
+[logPrintF]: https://hackage.haskell.org/package/taffybar-4.0.3/docs/System-Taffybar-Util.html#v:logPrintF
+[runCommand]: https://hackage.haskell.org/package/taffybar-4.0.3/docs/System-Taffybar-Util.html#v:runCommand
+
+## Improvements
+
+ * Revise and expand documentation.
+
+ * Some code cleanups such as applying HLint suggestions, fixing
+   compiler warnings, cleaning module imports.
+
+ * The Nix code for `flake.nix` was streamlined, because upstream
+   nixpkgs already contains the necessary derivation overrides.
+
+## Bug Fixes
+
+ * Fix handling of Ctrl-C.
+
+ * Improve logging in [`System.Taffybar.Information.Battery`](https://hackage.haskell.org/package/taffybar-4.0.3/docs/System-Taffybar-Information-Battery.html)
+   and [`System.Taffybar.WindowIcon`](https://hackage.haskell.org/package/taffybar-4.0.3/docs/System-Taffybar-WindowIcon.html).
+
+
+# 4.0.2
+
+ * Taffybar can now build with GHC 9.6.
+
+ * Allow building with Scotty 0.22.
+
+ * Drop unused `ConfigFile` dependency.
+
+
+# 4.0.1
+
+## Improvements
+
+ * Taffybar can now build with GHC 9.4.
+
+ * Adds a `flake.nix`.
+
+## Bug Fixes
+
+ * `Gtk.widgetShowAll` is run on the widget created by `cryptoPriceLabelWithIcon`,
+   so that it shows up by default.
+
+ * Fix misleading precision of rgba() parameters in `taffybar.css`.
+
+ * Remove `cryptocurrency` Cabal flag, which is now unnecessary.
+
+
+# 4.0.0
 
 ## Breaking Changes
 
@@ -57,6 +126,8 @@
  * Many types have `Default` instances.
 
  * Window titles are shown on hover.
+
+ * Allow sorting workspace window icons by _NET_CLIENT_LIST_STACKING.
 
 ## Changes
 

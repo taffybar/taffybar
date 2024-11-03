@@ -1,4 +1,4 @@
-@define-color transparent rgba(0.0, 0.0, 0.0, 0.0);
+@define-color transparent rgba(0, 0, 0, 0.0);
 @define-color white #FFFFFF;
 @define-color black #000000;
 @define-color taffy-blue #0c7cd5;
@@ -25,7 +25,7 @@
 
 .taffy-box {
 	border-radius: 10px;
-	background-color: rgba(0.0, 0.0, 0.0, 0.3);
+	background-color: rgba(0, 0, 0, 0.3);
 }
 
 .inner-pad {
@@ -53,11 +53,11 @@
 }
 
 .active .contents {
-	background-color: rgba(0.0, 0.0, 0.0, 0.5);
+	background-color: rgba(0, 0, 0, 0.5);
 }
 
 .visible .contents {
-	background-color: rgba(0.0, 0.0, 0.0, 0.2);
+	background-color: rgba(0, 0, 0, 0.2);
 }
 
 .window-icon-container {
