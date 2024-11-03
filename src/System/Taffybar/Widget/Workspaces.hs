@@ -13,7 +13,6 @@
 
 module System.Taffybar.Widget.Workspaces where
 
-import           Control.Applicative
 import           Control.Arrow ((&&&))
 import           Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
@@ -28,11 +27,10 @@ import           Data.Default (Default(..))
 import qualified Data.Foldable as F
 import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
-import           Data.List (intersect, sortBy, (\\))
+import           Data.List (elemIndex, intersect, sortBy, (\\))
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.MultiMap as MM
-import           Data.Ord
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import           Data.Time.Units
@@ -42,7 +40,6 @@ import qualified GI.Gdk.Enums as Gdk
 import qualified GI.Gdk.Structs.EventScroll as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import           Prelude
 import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
 import           System.Taffybar.Context
@@ -283,7 +280,7 @@ addWidget controller = do
     hbox <- Gtk.boxNew Gtk.OrientationHorizontal 0
     void $ Gtk.widgetGetParent workspaceWidget >>=
          traverse (unsafeCastTo Gtk.Box) >>=
-         traverse (flip Gtk.containerRemove workspaceWidget)
+         traverse (`Gtk.containerRemove` workspaceWidget)
     Gtk.containerAdd hbox workspaceWidget
     Gtk.containerAdd cont hbox
 
@@ -309,7 +306,7 @@ workspacesNew cfg = ask >>= \tContext -> lift $ do
       handleConfigureEvents _ = return ()
   (workspaceSubscription, iconSubscription, geometrySubscription) <-
     flip runReaderT tContext $ sequenceT
-         ( subscribeToPropertyEvents (updateEvents cfg) $ doUpdate
+         ( subscribeToPropertyEvents (updateEvents cfg) doUpdate
          , subscribeToPropertyEvents [ewmhWMIcon] (lift . onIconChanged iconHandler)
          , subscribeToAll handleConfigureEvents
          )
@@ -683,8 +680,8 @@ constantScaleWindowIconPixbufGetter constantSize getter =
   const $ scaledWindowIconPixbufGetter getter constantSize
 
 handleIconGetterException :: WindowIconPixbufGetter -> WindowIconPixbufGetter
-handleIconGetterException getter =
-  \size windowData -> catchAny (getter size windowData) $ \e -> do
+handleIconGetterException getter size windowData =
+  catchAny (getter size windowData) $ \e -> do
     wLog WARNING $ printf "Failed to get window icon for %s: %s" (show windowData) (show e)
     return Nothing
 
@@ -738,12 +735,13 @@ addCustomIconsAndFallback getCustomIconPath fallback defaultGetter =
       lift $
       maybe (return Nothing) getPixbufFromFilePath $ getCustomIconPath wdata
 
+-- | Sort windows by top-left corner position.
 sortWindowsByPosition :: [WindowData] -> WorkspacesIO [WindowData]
 sortWindowsByPosition wins = do
   let getGeometryWorkspaces w = getDisplay >>= liftIO . (`safeGetGeometry` w)
       getGeometries = mapM
                       (forkM return
-                               ((((sel2 &&& sel3) <$>) .) getGeometryWorkspaces) .
+                               (((sel2 &&& sel3) <$>) . getGeometryWorkspaces) .
                                windowId)
                       wins
   windowGeometries <- liftX11Def [] getGeometries
@@ -753,6 +751,16 @@ sortWindowsByPosition wins = do
         compare
           (windowMinimized a, getLeftPos a)
           (windowMinimized b, getLeftPos b)
+  return $ sortBy compareWindowData wins
+
+-- | Sort windows in reverse _NET_CLIENT_LIST_STACKING order.
+-- Starting in xmonad-contrib 0.17.0, this is effectively focus history, active first.
+-- Previous versions erroneously stored focus-sort-order in _NET_CLIENT_LIST.
+sortWindowsByStackIndex :: [WindowData] -> WorkspacesIO [WindowData]
+sortWindowsByStackIndex wins = do
+  stackingWindows <- liftX11Def [] getWindowsStacking
+  let getStackIdx wd = fromMaybe (-1) $ elemIndex (windowId wd) stackingWindows
+      compareWindowData a b = compare (getStackIdx b) (getStackIdx a)
   return $ sortBy compareWindowData wins
 
 updateImages :: IconController -> Workspace -> WorkspacesIO [IconWidget]

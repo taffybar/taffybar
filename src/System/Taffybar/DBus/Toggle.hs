@@ -15,7 +15,6 @@
 
 module System.Taffybar.DBus.Toggle ( handleDBusToggles ) where
 
-import           Control.Applicative
 import qualified Control.Concurrent.MVar as MV
 import           Control.Exception
 import           Control.Monad
@@ -29,9 +28,7 @@ import           Data.Int
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified GI.Gdk as Gdk
-import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
-import           Prelude
 import           System.Directory
 import           System.FilePath.Posix
 import           System.Log.Logger
@@ -142,7 +139,7 @@ exportTogglesInterface = do
           , autoMethod "showOnMonitor" $
             takeInt $ toggleTaffyOnMon (const True)
           , autoMethod "refresh" $ runReaderT refreshTaffyWindows ctx
-          , autoMethod "exit" (Gtk.mainQuit :: IO ())
+          , autoMethod "exit" $ exitTaffybar ctx
           ]
         }
   lift $ do

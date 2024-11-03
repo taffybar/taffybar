@@ -50,7 +50,7 @@ main = do
   -- XXX: The configuration record here does not get used, this just calls in to dyre.
   then dyreTaffybar def
   else do
-    logM "System.Taffybar" WARNING $
+    logM "System.Taffybar" WARNING
            (  printf "No taffybar configuration file found at %s." taffyFilepath
            ++ " Starting with example configuration."
            )

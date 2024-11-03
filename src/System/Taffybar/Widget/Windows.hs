@@ -100,7 +100,7 @@ windowsNew config = do
   subscription <-
     subscribeToPropertyEvents [ewmhActiveWindow, ewmhWMName, ewmhWMClass]
                       activeWindowUpdatedCallback
-  _ <- liftReader (Gtk.onWidgetUnrealize label) (unsubscribe subscription)
+  _ <- mapReaderT (Gtk.onWidgetUnrealize label) (unsubscribe subscription)
 
   grid <- lift $ Gtk.gridNew
 

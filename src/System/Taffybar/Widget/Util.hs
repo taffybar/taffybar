@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.Util
@@ -132,7 +132,7 @@ getImageForDesktopEntry size de = getImageForMaybeIconName (T.pack <$> deIcon de
 
 getImageForMaybeIconName :: Maybe T.Text -> Int32 -> IO (Maybe GI.Pixbuf)
 getImageForMaybeIconName mIconName size =
-  join <$> sequenceA (flip getImageForIconName size <$> mIconName)
+  join <$> traverse (`getImageForIconName` size) mIconName
 
 getImageForIconName :: T.Text -> Int32 -> IO (Maybe GI.Pixbuf)
 getImageForIconName iconName size =

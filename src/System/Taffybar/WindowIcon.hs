@@ -29,6 +29,7 @@ import           System.Taffybar.Information.X11DesktopInfo
 import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
+import           Text.Printf
 
 type ColorRGBA = Word32
 
@@ -100,9 +101,10 @@ getDirectoryEntryByClass
   -> TaffyIO (Maybe DesktopEntry)
 getDirectoryEntryByClass klass = do
   entries <- MM.lookup klass <$> getDirectoryEntriesByClassName
-  when (length entries > 1) $
-       logPrintF "System.Taffybar.WindowIcon" INFO "Multiple entries for: %s"
-       (klass, entries)
+  when (length entries > 1) $ liftIO $
+       logM "System.Taffybar.WindowIcon" DEBUG $ printf
+         "Class \"%s\" has multiple desktop entries: %s"
+         klass (intercalate ", " $ map deFilename entries)
   return $ listToMaybe entries
 
 getWindowIconForAllClasses

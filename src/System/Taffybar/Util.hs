@@ -11,7 +11,43 @@
 -- Portability : unportable
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Util where
+module System.Taffybar.Util (
+  -- * Configuration
+    taffyStateDir
+  -- * GTK concurrency
+  , module Gtk
+  -- * GLib
+  , catchGErrorsAsLeft
+  -- * Logging
+  , logPrintF
+  -- * Text
+  , truncateString
+  , truncateText
+  -- * Resources
+  , downloadURIToPath
+  , getPixbufFromFilePath
+  , safePixbufNewFromFile
+  -- * Logic Combinators
+  , (<||>)
+  , (<|||>)
+  , forkM
+  , ifM
+  , anyM
+  , maybeTCombine
+  , maybeToEither
+  -- * Control
+  , foreverWithVariableDelay
+  , foreverWithDelay
+  -- * Process control
+  , runCommand
+  , onSigINT
+  -- * Deprecated
+  , logPrintFDebug
+  , liftReader
+  , liftActionTaker
+  , (??)
+  , runCommandFromPath
+  ) where
 
 import           Conduit
 import           Control.Applicative
@@ -24,17 +60,19 @@ import           Control.Monad.Trans.Reader
 import           Data.Either.Combinators
 import           Data.GI.Base.GError
 import           Control.Exception.Enclosed (catchAny)
-import qualified Data.GI.Gtk.Threading as Gtk
+import           Data.GI.Gtk.Threading as Gtk (postGUIASync, postGUISync)
 import           Data.Maybe
+import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import           Data.Tuple.Sequence
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import           Network.HTTP.Simple
 import           System.Directory
 import           System.Environment.XDG.BaseDir
-import           System.Exit (ExitCode (..))
+import           System.Exit (ExitCode (..), exitWith)
 import           System.FilePath.Posix
 import           System.Log.Logger
+import           System.Posix.Signals (Signal, Handler(..), installHandler, sigINT)
 import qualified System.Process as P
 import           Text.Printf
 
@@ -42,10 +80,9 @@ import           Text.Printf
 taffyStateDir :: IO FilePath
 taffyStateDir = getUserDataDir "taffybar"
 
-liftReader ::
-  Monad m => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b
-liftReader modifier action =
-  ask >>= lift . modifier . runReaderT action
+{-# DEPRECATED liftReader "Use Control.Monad.Trans.Reader.mapReaderT instead" #-}
+liftReader :: Monad m => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b
+liftReader = mapReaderT
 
 logPrintF
   :: (MonadIO m, Show t)
@@ -53,6 +90,7 @@ logPrintF
 logPrintF logPath priority format toPrint =
   liftIO $ logM logPath priority $ printf format $ show toPrint
 
+{-# DEPRECATED logPrintFDebug "Use logPrintF instead" #-}
 logPrintFDebug :: (MonadIO m, Show t) => String -> String -> t -> m ()
 logPrintFDebug path = logPrintF path DEBUG
 
@@ -60,6 +98,7 @@ infixl 4 ??
 (??) :: Functor f => f (a -> b) -> a -> f b
 fab ?? a = fmap ($ a) fab
 {-# INLINE (??) #-}
+{-# DEPRECATED (??) "Use @f <*> pure a@ instead" #-}
 
 ifM :: Monad m => m Bool -> m a -> m a -> m a
 ifM cond whenTrue whenFalse =
@@ -81,10 +120,10 @@ truncateText n incoming
   | T.length incoming <= n = incoming
   | otherwise = T.append (T.take n incoming) "…"
 
-runCommandFromPath :: MonadIO m => [String] -> m (Either String String)
-runCommandFromPath = runCommand "/usr/bin/env"
-
 -- | Run the provided command with the provided arguments.
+--
+-- If the command filename does not contain a slash, then the @PATH@
+-- environment variable is searched for the executable.
 runCommand :: MonadIO m => FilePath -> [String] -> m (Either String String)
 runCommand cmd args = liftIO $ do
   (ecode, stdout, stderr) <- P.readProcessWithExitCode cmd args ""
@@ -93,6 +132,10 @@ runCommand cmd args = liftIO $ do
   return $ case ecode of
     ExitSuccess -> Right stdout
     ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) stderr
+
+{-# DEPRECATED runCommandFromPath "Use runCommand instead" #-}
+runCommandFromPath :: MonadIO m => FilePath -> [String] -> m (Either String String)
+runCommandFromPath = runCommand
 
 -- | Execute the provided IO action at the provided interval.
 foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO () -> m ThreadId
@@ -170,12 +213,6 @@ downloadURIToPath uri filepath =
   runConduitRes (httpSource uri getResponseBody .| sinkFile filepath)
   where (directory, _) = splitFileName filepath
 
-postGUIASync :: IO () -> IO ()
-postGUIASync = Gtk.postGUIASync
-
-postGUISync :: IO () -> IO ()
-postGUISync = Gtk.postGUISync
-
 anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
 anyM _ [] = return False
 anyM p (x:xs) = do
@@ -183,3 +220,37 @@ anyM p (x:xs) = do
   if q
   then return True
   else anyM p xs
+
+-- | Installs a useful posix signal handler for 'sigINT' (i.e. Ctrl-C)
+-- for cases when the 'Control.Exception.UserInterrupt' exception gets
+-- swallowed within a main loop, preventing the program from exiting.
+--
+-- The given callback should be a command which causes the main loop
+-- action to exit. For example:
+--
+-- > Gtk.main `onSigINT` Gtk.mainQuit
+--
+-- If the signal handler was invoked, the program will exit with
+-- status 130 after the main loop action returns.
+onSigINT
+  :: IO a -- ^ The main loop 'IO' action
+  -> IO () -- ^ Callback for @SIGINT@
+  -> IO a
+onSigINT action callback = do
+  exitStatus <- newIORef Nothing
+
+  let intHandler = do
+        writeIORef exitStatus (Just (ExitFailure 130))
+        callback
+
+  withSigHandler sigINT (CatchOnce intHandler) $ do
+    res <- action
+    readIORef exitStatus >>= mapM_ exitWith
+    pure res
+
+-- | Install a handler for the given signal, run an 'IO' action, then
+-- restore the original handler.
+withSigHandler :: Signal -> Handler -> IO a -> IO a
+withSigHandler sig h = bracket (install h) install . const
+  where
+    install handler = installHandler sig handler Nothing

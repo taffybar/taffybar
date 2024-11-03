@@ -1,7 +1,15 @@
 /dist/
-.stack-work
+/dist-newstyle/
+/.stack-work/
 .cabal-sandbox
 cabal.sandbox.config
+/cabal.project.local
 /result
+/result-*
 *build-docs*
 .ghc.environment*
+.direnv
+/.envrc.local
+/test/data/*.actual
+/.hspec
+/.hspec-failures

@@ -24,15 +24,13 @@ import           Control.Concurrent
 import           Control.Monad ( when )
 import           Control.Monad.IO.Class
 import           Data.Default ( Default(..) )
-import           Data.Foldable ( mapM_ )
-import           Data.Sequence ( Seq, (<|), viewl, ViewL(..) )
+import           Data.Sequence ( Seq(..), (<|), viewl, ViewL(..) )
 import qualified Data.Sequence as S
 import qualified Data.Text as T
 import qualified GI.Cairo.Render as C
 import           GI.Cairo.Render.Connector
 import qualified GI.Cairo.Render.Matrix as M
 import qualified GI.Gtk as Gtk
-import           Prelude hiding ( mapM_ )
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 
@@ -172,13 +170,13 @@ renderGraph hists cfg w h xStep = do
       C.transform $ M.Matrix (-1) 0 0 1 (fromIntegral w) 0
 
   let pctToY pct = fromIntegral h * (1 - pct)
-      renderDataSet hist color style
-        | S.length hist <= 1 = return ()
-        | otherwise = do
+      renderDataSet hist color style = case viewl hist of
+        EmptyL                -> return ()
+        _oneSample :< Empty   -> return ()
+        newestSample :< hist' -> do
           let (r, g, b, a) = color
               originY = pctToY newestSample
               originX = 0
-              newestSample :< hist' = viewl hist
           C.setSourceRGBA r g b a
           C.moveTo originX originY
 

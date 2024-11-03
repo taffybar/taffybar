@@ -1,5 +1,8 @@
 cradle:
   cabal:
+    - path: "./example/./taffybar.hs"
+      component: "my-taffybar:exe:my-taffybar"
+
     - path: "./src"
       component: "lib:taffybar"
 
@@ -8,3 +11,6 @@ cradle:
 
     - path: "./app/Paths_taffybar.hs"
       component: "taffybar:exe:taffybar"
+
+    - path: "./test"
+      component: "taffybar:test:unit"

@@ -27,6 +27,7 @@ module System.Taffybar.Information.EWMHDesktopInfo
   , allEWMHProperties
   , ewmhActiveWindow
   , ewmhClientList
+  , ewmhClientListStacking
   , ewmhCurrentDesktop
   , ewmhDesktopNames
   , ewmhNumberOfDesktops
@@ -49,17 +50,18 @@ module System.Taffybar.Information.EWMHDesktopInfo
   , getWindowStateProperty
   , getWindowTitle
   , getWindows
+  , getWindowsStacking
   , getWorkspace
   , getWorkspaceNames
   , isWindowUrgent
   , parseWindowClasses
   , switchOneWorkspace
   , switchToWorkspace
-  , withDefaultCtx
+  , withX11Context
   , withEWMHIcons
   ) where
 
-import Control.Applicative
+import Control.Monad ((>=>))
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Data.List
@@ -72,10 +74,8 @@ import Foreign.Marshal.Array
 import Foreign.Ptr
 import Foreign.Storable
 import System.Log.Logger
-import System.Taffybar.Information.SafeX11 hiding (logHere)
+import System.Taffybar.Information.SafeX11
 import System.Taffybar.Information.X11DesktopInfo
-
-import Prelude
 
 logHere :: MonadIO m => Priority -> String -> m ()
 logHere p = liftIO . logM "System.Taffybar.Information.EWMHDesktopInfo" p
@@ -93,9 +93,10 @@ type PixelsWordType = Word64
 
 type EWMHProperty = String
 
-ewmhActiveWindow, ewmhClientList, ewmhCurrentDesktop, ewmhDesktopNames, ewmhNumberOfDesktops, ewmhStateHidden, ewmhWMDesktop, ewmhWMStateHidden, ewmhWMClass, ewmhWMState, ewmhWMIcon, ewmhWMName, ewmhWMName2 :: EWMHProperty
+ewmhActiveWindow, ewmhClientList, ewmhClientListStacking, ewmhCurrentDesktop, ewmhDesktopNames, ewmhNumberOfDesktops, ewmhStateHidden, ewmhWMDesktop, ewmhWMStateHidden, ewmhWMClass, ewmhWMState, ewmhWMIcon, ewmhWMName, ewmhWMName2 :: EWMHProperty
 ewmhActiveWindow = "_NET_ACTIVE_WINDOW"
 ewmhClientList = "_NET_CLIENT_LIST"
+ewmhClientListStacking = "_NET_CLIENT_LIST_STACKING"
 ewmhCurrentDesktop = "_NET_CURRENT_DESKTOP"
 ewmhDesktopNames = "_NET_DESKTOP_NAMES"
 ewmhNumberOfDesktops = "_NET_NUMBER_OF_DESKTOPS"
@@ -112,6 +113,7 @@ allEWMHProperties :: [EWMHProperty]
 allEWMHProperties =
   [ ewmhActiveWindow
   , ewmhClientList
+  , ewmhClientListStacking
   , ewmhCurrentDesktop
   , ewmhDesktopNames
   , ewmhNumberOfDesktops
@@ -228,7 +230,7 @@ getWindowIconsData window = do
 -- point will not be executed, after the call to 'withEWMHIcons' completes.
 withEWMHIcons :: EWMHIconData -> ([EWMHIcon] -> IO a) -> IO a
 withEWMHIcons (fptr, size) action =
-  withForeignPtr fptr ((>>= action) . parseIcons size)
+  withForeignPtr fptr (parseIcons size >=> action)
 
 -- | Split icon raw integer data into EWMHIcons. Each icon raw data is an
 -- integer for width, followed by height, followed by exactly (width*height)
@@ -259,11 +261,15 @@ parseIcons totalSize arr = do
 
 -- | Get the window that currently has focus if such a window exists.
 getActiveWindow :: X11Property (Maybe X11Window)
-getActiveWindow = listToMaybe . filter (> 0) <$> readAsListOfWindow Nothing ewmhActiveWindow
+getActiveWindow = find (> 0) <$> readAsListOfWindow Nothing ewmhActiveWindow
 
--- | Return a list of all @X11Window@s.
+-- | Return a list of all @X11Window@s, sorted by initial mapping order, oldest to newest.
 getWindows :: X11Property [X11Window]
 getWindows = readAsListOfWindow Nothing ewmhClientList
+
+-- | Return a list of all @X11Window@s, sorted in stacking order, bottom-to-top.
+getWindowsStacking :: X11Property [X11Window]
+getWindowsStacking = readAsListOfWindow Nothing ewmhClientListStacking
 
 -- | Return the index (starting from 0) of the workspace on which the given
 -- window is being displayed.

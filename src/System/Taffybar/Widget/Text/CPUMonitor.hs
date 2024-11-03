@@ -19,11 +19,11 @@ textCpuMonitorNew fmt period = do
   where
     callback = do
       (userLoad, systemLoad, totalLoad) <- cpuLoad
-      let [userLoad', systemLoad', totalLoad'] = map (formatPercent.(*100)) [userLoad, systemLoad, totalLoad]
+      let pct = formatPercent . (* 100)
       let template = ST.newSTMP fmt
-      let template' = ST.setManyAttrib [ ("user", userLoad'),
-                                         ("system", systemLoad'),
-                                         ("total", totalLoad') ] template
+      let template' = ST.setManyAttrib [ ("user", pct userLoad),
+                                         ("system", pct systemLoad),
+                                         ("total", pct totalLoad) ] template
       return $ ST.render template'
 
 formatPercent :: Double -> String

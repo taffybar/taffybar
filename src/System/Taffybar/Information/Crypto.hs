@@ -18,25 +18,42 @@
 module System.Taffybar.Information.Crypto where
 
 import           BroadcastChan
-import qualified CoinbasePro.Environment as CB
-import qualified CoinbasePro.Headers as CB
-import qualified CoinbasePro.Request as CB
-import qualified CoinbasePro.Types as CB
-import qualified CoinbasePro.Unauthenticated.API as CB
 import           Control.Concurrent
+import           Control.Exception.Enclosed (catchAny)
+import           Control.Monad
 import           Control.Monad.IO.Class
+import           Data.Aeson
+import           Data.Aeson.Types (parseMaybe)
+import qualified Data.Aeson.Key as Key
 import qualified Data.ByteString.Lazy as LBS
-import           Data.ByteString.UTF8 as BS
+import qualified Data.ByteString.UTF8 as BS
+import qualified Data.Map as M
+import           Data.Maybe
 import           Data.Proxy
-import qualified Data.Text
-import           Data.Time
+import           Data.Text (Text)
+import qualified Data.Text as T
 import           GHC.TypeLits
 import           Network.HTTP.Simple hiding (Proxy)
+import           System.Log.Logger
 import           System.Taffybar.Context
-import           Control.Exception.Enclosed (catchAny)
 import           System.Taffybar.Util
 import           Text.Printf
-import System.Log.Logger
+
+getSymbolToCoinGeckoId :: MonadIO m => m (M.Map Text Text)
+getSymbolToCoinGeckoId = do
+    let uri = "https://api.coingecko.com/api/v3/coins/list?include_platform=false"
+        request = parseRequest_ uri
+    bodyText <- liftIO $ catchAny (getResponseBody <$> httpLBS request) $ \e -> do
+                           liftIO $ logM "System.Taffybar.Information.Crypto" WARNING $
+                                  printf "Error fetching coins list from coin gecko %s" $ show e
+                           return ""
+    let coinInfos :: [CoinGeckoInfo]
+        coinInfos = fromMaybe [] $ decode bodyText
+
+    return $ M.fromList $ map (\CoinGeckoInfo { identifier = theId, symbol = theSymbol } ->
+                        (theSymbol, theId)) coinInfos
+
+newtype SymbolToCoinGeckoId = SymbolToCoinGeckoId (M.Map Text Text)
 
 newtype CryptoPriceInfo = CryptoPriceInfo { lastPrice :: Double }
 
@@ -44,14 +61,42 @@ newtype CryptoPriceChannel (a :: Symbol) =
   CryptoPriceChannel (BroadcastChan In CryptoPriceInfo, MVar CryptoPriceInfo)
 
 getCryptoPriceChannel :: KnownSymbol a => TaffyIO (CryptoPriceChannel a)
-getCryptoPriceChannel = getStateDefault $ buildCryptoPriceChannel (60.0 :: Double)
+getCryptoPriceChannel = do
+  -- XXX: This is a gross hack that is needed to avoid deadlock
+  symbolToId <- getStateDefault $ SymbolToCoinGeckoId <$> getSymbolToCoinGeckoId
+  getStateDefault $ buildCryptoPriceChannel (60.0 :: Double) symbolToId
 
-initialBackoff :: RealFrac d => d
-initialBackoff = 2.0
+data CoinGeckoInfo =
+  CoinGeckoInfo { identifier :: Text, symbol :: Text }
+  deriving (Show)
+
+instance FromJSON CoinGeckoInfo where
+  parseJSON = withObject "CoinGeckoInfo" (\v -> CoinGeckoInfo <$> v .: "id" <*> v .: "symbol")
+
+logCrypto :: MonadIO m => Priority -> String -> m ()
+logCrypto p = liftIO . logM "System.Taffybar.Information.Crypto" p
+
+resolveSymbolPair :: KnownSymbol a => Proxy a -> SymbolToCoinGeckoId -> Either String (Text, Text)
+resolveSymbolPair sym symbolToId = do
+  (symbolName, inCurrency) <- parseSymbolPair (symbolVal sym)
+  cgIdentifier <- lookupSymbolCoinGeckoId symbolToId symbolName
+  pure (cgIdentifier, inCurrency)
+
+  where
+    parseSymbolPair :: String -> Either String (Text, Text)
+    parseSymbolPair symbolPair = case T.splitOn "-" (T.toLower $ T.pack symbolPair) of
+      [symbolName, inCurrency] | not (T.null inCurrency) -> Right (symbolName, inCurrency)
+      _ -> Left $ printf "Type parameter \"%s\" does not match the form \"ASSET-CURRENCY\"" symbolPair
+
+    lookupSymbolCoinGeckoId :: SymbolToCoinGeckoId -> Text -> Either String Text
+    lookupSymbolCoinGeckoId (SymbolToCoinGeckoId m) symbolName = maybeToEither
+      (printf "Symbol \"%s\" not found in coin gecko list" (T.unpack symbolName))
+      (M.lookup symbolName m)
 
 buildCryptoPriceChannel ::
-  forall a m d. (KnownSymbol a, MonadIO m, RealFrac d) => d -> m (CryptoPriceChannel a)
-buildCryptoPriceChannel delay = do
+  forall a. KnownSymbol a => Double -> SymbolToCoinGeckoId -> TaffyIO (CryptoPriceChannel a)
+buildCryptoPriceChannel delay symbolToId = do
+  let initialBackoff = delay
   chan <- newBroadcastChan
   var <- liftIO $ newMVar $ CryptoPriceInfo 0.0
   backoffVar <- liftIO $ newMVar initialBackoff
@@ -62,33 +107,30 @@ buildCryptoPriceChannel delay = do
         _ <- swapMVar backoffVar initialBackoff
         return ()
 
-  let symbol = Data.Text.pack $ symbolVal (Proxy :: Proxy a)
-  _ <- foreverWithVariableDelay $
-       catchAny (liftIO $ getLatestPrice symbol >>= doWrites >> return delay) $
-                  \e -> do
-                    logPrintF "System.Taffybar.Information.Crypto"
-                              WARNING "Error when fetching crypto price: %s" e
-                    modifyMVar backoffVar $ \current ->
-                      return (min (current * 2) delay, current)
+  case resolveSymbolPair (Proxy :: Proxy a) symbolToId of
+    Left err -> logCrypto WARNING err
+    Right (cgIdentifier, inCurrency) ->
+      void $ foreverWithVariableDelay $
+           catchAny (liftIO $ getLatestPrice cgIdentifier inCurrency >>=
+                            maybe (return ()) (doWrites . CryptoPriceInfo) >> return delay) $ \e -> do
+                                     logCrypto WARNING $ printf "Error when fetching crypto price: %s" (show e)
+                                     modifyMVar backoffVar $ \current ->
+                                       return (min (current * 2) delay, current)
 
   return $ CryptoPriceChannel (chan, var)
 
-getLatestPrice :: MonadIO m => Data.Text.Text -> m CryptoPriceInfo
-getLatestPrice productString =
-  CryptoPriceInfo . CB.unPrice . CB.close . head <$> getDaysCandles productString
-
-getDaysCandles :: MonadIO m => Data.Text.Text -> m [CB.Candle]
-getDaysCandles productString = liftIO $ do
-  oneDayAgo <- addUTCTime (-60*60*24) <$> getCurrentTime
-  let candles =
-        CB.candles (CB.ProductId productString)
-            (Just oneDayAgo) Nothing CB.Minute
-  CB.run CB.Production (candles CB.userAgent)
+getLatestPrice :: MonadIO m => Text -> Text -> m (Maybe Double)
+getLatestPrice tokenId inCurrency = do
+  let uri = printf "https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=%s"
+            tokenId inCurrency
+      request = parseRequest_ uri
+  bodyText <- getResponseBody <$> httpLBS request
+  return $ decode bodyText >>= parseMaybe ((.: Key.fromText tokenId) >=> (.: Key.fromText inCurrency))
 
 getCryptoMeta :: MonadIO m => String -> String -> m LBS.ByteString
-getCryptoMeta cmcAPIKey symbol = do
+getCryptoMeta cmcAPIKey symbolName = do
   let headers = [("X-CMC_PRO_API_KEY", BS.fromString cmcAPIKey)] :: RequestHeaders
       uri = printf "https://pro-api.coinmarketcap.com/v1/cryptocurrency/info?symbol=%s"
-            symbol
+            symbolName
       request = setRequestHeaders headers $ parseRequest_ uri
   getResponseBody <$> httpLBS request

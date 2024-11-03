@@ -38,7 +38,6 @@ import           Data.Default ( Default(..) )
 import           Data.Foldable
 import           Data.Int ( Int32 )
 import           Data.Map ( Map )
-import           Data.Monoid
 import           Data.Sequence ( Seq, (|>), viewl, ViewL(..) )
 import qualified Data.Sequence as S
 import           Data.Text ( Text )
@@ -48,8 +47,6 @@ import           GI.GLib (markupEscapeText)
 import           GI.Gtk
 import qualified GI.Pango as Pango
 import           System.Taffybar.Util
-
-import Prelude
 
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification
