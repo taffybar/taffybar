@@ -19,6 +19,7 @@ module System.Taffybar.Widget.Windows where
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.Maybe
 import           Data.Default (Default(..))
 import           Data.Maybe
 import qualified Data.Text as T
@@ -26,9 +27,11 @@ import           GI.GLib (markupEscapeText)
 import qualified GI.Gtk as Gtk
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
-import           System.Taffybar.Util
+import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.DynamicMenu
 import           System.Taffybar.Widget.Util
+import           System.Taffybar.Widget.Workspaces (WindowIconPixbufGetter, getWindowData, defaultGetWindowIconPixbuf)
+import           System.Taffybar.Util
 
 data WindowsConfig = WindowsConfig
   { getMenuLabel :: X11Window -> TaffyIO T.Text
@@ -36,6 +39,9 @@ data WindowsConfig = WindowsConfig
   -- the window menu.
   , getActiveLabel :: TaffyIO T.Text
   -- ^ Action to build the label text for the active window.
+  , getActiveWindowIconPixbuf :: Maybe WindowIconPixbufGetter
+  -- ^ Optional function to retrieve a pixbuf to show next to the
+  -- window label.
   }
 
 defaultGetMenuLabel :: X11Window -> TaffyIO T.Text
@@ -62,6 +68,7 @@ defaultWindowsConfig =
   WindowsConfig
   { getMenuLabel = truncatedGetMenuLabel 35
   , getActiveLabel = truncatedGetActiveLabel 35
+  , getActiveWindowIconPixbuf = Just defaultGetWindowIconPixbuf
   }
 
 instance Default WindowsConfig where
@@ -71,25 +78,54 @@ instance Default WindowsConfig where
 -- its source of events.
 windowsNew :: WindowsConfig -> TaffyIO Gtk.Widget
 windowsNew config = do
-  label <- lift $ Gtk.labelNew Nothing
+  hbox <- lift $ Gtk.boxNew Gtk.OrientationHorizontal 0
 
-  let setLabelTitle title = lift $ postGUIASync $ Gtk.labelSetMarkup label title
-      activeWindowUpdatedCallback _ = getActiveLabel config >>= setLabelTitle
+  refreshIcon <- case getActiveWindowIconPixbuf config of
+    Just getIcon -> do
+      (rf, icon) <- buildWindowsIcon getIcon
+      Gtk.boxPackStart hbox icon True True 0
+      pure rf
+    Nothing -> pure (pure ())
 
-  subscription <-
-    subscribeToPropertyEvents [ewmhActiveWindow, ewmhWMName, ewmhWMClass]
-                      activeWindowUpdatedCallback
-  _ <- mapReaderT (Gtk.onWidgetUnrealize label) (unsubscribe subscription)
+  (setLabelTitle, label) <- buildWindowsLabel
+  Gtk.boxPackStart hbox label True True 0
+  let refreshLabel = getActiveLabel config >>= lift . setLabelTitle
 
-  context <- ask
+  subscription <- subscribeToPropertyEvents
+    [ewmhActiveWindow, ewmhWMName, ewmhWMClass]
+    (const $ refreshLabel >> lift refreshIcon)
 
-  labelWidget <- Gtk.toWidget label
+  void $ mapReaderT (Gtk.onWidgetUnrealize hbox) (unsubscribe subscription)
+
+  Gtk.widgetShowAll hbox
+  boxWidget <- Gtk.toWidget hbox
+
+  runTaffy <- asks (flip runReaderT)
   menu <- dynamicMenuNew
-    DynamicMenuConfig { dmClickWidget = labelWidget
-                      , dmPopulateMenu = flip runReaderT context . fillMenu config
+    DynamicMenuConfig { dmClickWidget = boxWidget
+                      , dmPopulateMenu = runTaffy . fillMenu config
                       }
 
   widgetSetClassGI menu "windows"
+
+buildWindowsLabel :: TaffyIO (T.Text -> IO (), Gtk.Widget)
+buildWindowsLabel = do
+  label <- lift $ Gtk.labelNew Nothing
+  let setLabelTitle title = postGUIASync $ Gtk.labelSetMarkup label title
+  (setLabelTitle,) <$> Gtk.toWidget label
+
+buildWindowsIcon :: WindowIconPixbufGetter -> TaffyIO (IO (), Gtk.Widget)
+buildWindowsIcon windowIconPixbufGetter = do
+  icon <- lift Gtk.imageNew
+
+  runTaffy <- asks (flip runReaderT)
+  let getActiveWindowPixbuf size = runTaffy . runMaybeT $ do
+        wd <- MaybeT $ runX11Def Nothing $
+          traverse (getWindowData Nothing []) =<< getActiveWindow
+        MaybeT $ windowIconPixbufGetter size wd
+
+  updateImage <- autoSizeImage icon getActiveWindowPixbuf Gtk.OrientationHorizontal
+  (postGUIASync updateImage,) <$> Gtk.toWidget icon
 
 -- | Populate the given menu widget with the list of all currently open windows.
 fillMenu :: Gtk.IsMenuShell a => WindowsConfig -> a -> ReaderT Context IO ()

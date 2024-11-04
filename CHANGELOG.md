@@ -1,3 +1,12 @@
+# 4.0.4 (UNRELEASED)
+
+## Improvements
+
+ * Add icon next to window label in Windows widget. This can be configured with [`WindowsConfig(getActiveWindowIconPixbuf)`][WindowsConfig].
+
+[WindowsConfig]: https://hackage.haskell.org/package/taffybar-4.0.4/docs/System-Taffybar-Widget-Windows.html#t:WindowsConfig
+
+
 # 4.0.3
 
 ## Breaking Changes
