@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 -----------------------------------------------------------------------------
 -- |
@@ -135,13 +136,14 @@ import           Control.Exception ( finally )
 import           Control.Monad
 import qualified Data.GI.Gtk.Threading as GIThreading
 import qualified Data.Text as T
+import           Data.Word (Word32)
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import           Graphics.X11.Xlib.Misc ( initThreads )
 import           System.Directory
 import           System.Environment.XDG.BaseDir ( getUserConfigFile )
 import           System.Exit ( exitFailure )
-import           System.FilePath ( (</>) )
+import           System.FilePath ( (</>), normalise )
 import qualified System.IO as IO
 import           System.Log.Logger
 import           System.Taffybar.Context
@@ -175,38 +177,65 @@ dyreTaffybarMain cfg =
       IO.hPutStrLn IO.stderr ("Error: " ++ err)
       exitFailure
 
+-- | Locate installed vendor data file.
 getDataFile :: String -> IO FilePath
 getDataFile name = do
   dataDir <- getDataDir
-  return (dataDir </> name)
-
-startCSS :: [FilePath] -> IO Gtk.CssProvider
-startCSS cssFilePaths = do
-  -- Override the default GTK theme path settings.  This causes the
-  -- bar (by design) to ignore the real GTK theme and just use the
-  -- provided minimal theme to set the background and text colors.
-  -- Users can override this default.
-  taffybarProvider <- Gtk.cssProviderNew
-
-  let loadIfExists filePath =
-        doesFileExist filePath >>=
-        flip when (Gtk.cssProviderLoadFromPath taffybarProvider (T.pack filePath))
-
-  mapM_ loadIfExists cssFilePaths
-
-  Just scr <- Gdk.screenGetDefault
-  Gtk.styleContextAddProviderForScreen scr taffybarProvider 800
-  return taffybarProvider
+  return (normalise (dataDir </> name))
 
 -- | Locates full the 'FilePath' of the given Taffybar config file.
 -- The [XDG Base Directory](https://specifications.freedesktop.org/basedir-spec/latest/) convention is used, meaning that config files are usually in @~\/.config\/taffybar@.
 getTaffyFile :: String -> IO FilePath
 getTaffyFile = getUserConfigFile "taffybar"
 
-getDefaultCSSPaths :: IO [FilePath]
-getDefaultCSSPaths = do
-  defaultUserConfig <- getTaffyFile "taffybar.css"
-  return [defaultUserConfig]
+-- | Return CSS files which should be loaded for the given config.
+getCSSPaths :: TaffybarConfig -> IO [FilePath]
+getCSSPaths TaffybarConfig{cssPaths} = sequence (defaultCSS:userCSS)
+  where
+    -- Vendor CSS file, which is always loaded before user's CSS.
+    defaultCSS = getDataFile "taffybar.css"
+    -- User's configured CSS files, with XDG config file being the default.
+    userCSS | null cssPaths = [getTaffyFile "taffybar.css"]
+            | otherwise     = map return cssPaths
+
+-- | Overrides the default GTK theme and settings with CSS styles from
+-- the given files (if they exist).
+--
+-- This causes the bar (by design) to ignore the real GTK theme and
+-- just use the provided minimal theme to set the background and text
+-- colors.
+startCSS :: [FilePath] -> IO (IO (), Gtk.CssProvider)
+startCSS = startCSS' 800
+
+-- | Installs a GTK style provider at a certain priority and loads it
+-- with styles from a list of CSS files (if they exist).
+--
+-- This will return the 'Gtk.CssProvider' object, paired with a
+-- cleanup function which can be used later to uninstall the style
+-- provider.
+--
+-- The priority defines how the Taffybar CSS cascades with the GTK theme, etc.
+-- For your information, these are the GTK defined priorities:
+--  * @GTK_STYLE_PROVIDER_PRIORITY_FALLBACK@ = 1
+--  * @GTK_STYLE_PROVIDER_PRIORITY_THEME@ = 100
+--  * @GTK_STYLE_PROVIDER_PRIORITY_SETTINGS@ = 400
+--  * @GTK_STYLE_PROVIDER_PRIORITY_APPLICATION@ = 600
+--  * @GTK_STYLE_PROVIDER_PRIORITY_USER@ = 800
+--
+-- The file @XDG_CONFIG_HOME/gtk-3.0/gtk.css@ uses priority 800.
+startCSS' :: Word32  -> [FilePath] -> IO (IO (), Gtk.CssProvider)
+startCSS' prio cssFilePaths = do
+  provider <- Gtk.cssProviderNew
+  mapM_ (logLoadCSSFile provider) =<< filterM doesFileExist cssFilePaths
+  uninstall <- install provider =<< Gdk.screenGetDefault
+  pure (uninstall, provider)
+  where
+    logLoadCSSFile p f = logTaffy INFO ("Loading stylesheet " ++ f) >> loadCSSFile p f
+    loadCSSFile p = Gtk.cssProviderLoadFromPath p . T.pack
+    install provider (Just scr) = do
+      Gtk.styleContextAddProviderForScreen scr provider prio
+      pure (Gtk.styleContextRemoveProviderForScreen scr provider)
+    install _ Nothing = pure (pure ())
 
 -- | Start Taffybar with the provided 'TaffybarConfig'. This function will not
 -- handle recompiling taffybar automatically when @taffybar.hs@ is updated. If you
@@ -222,12 +251,8 @@ startTaffybar config = do
   _ <- initThreads
   _ <- Gtk.init Nothing
   GIThreading.setCurrentThreadAsGUIThread
-  defaultCSS <- getDataFile "taffybar.css"
-  cssPathsToLoad <-
-    if null $ cssPaths config
-    then getDefaultCSSPaths
-    else return $ cssPaths config
-  _ <- startCSS $ defaultCSS:cssPathsToLoad
+
+  void . startCSS =<< getCSSPaths config
   context <- buildContext config
 
   Gtk.main
