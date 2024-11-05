@@ -43,6 +43,8 @@ module System.Taffybar.Util (
   , onSigINT
   , maybeHandleSigHUP
   , handlePosixSignal
+  -- * Resource management
+  , rebracket
   -- * Deprecated
   , logPrintFDebug
   , liftReader
@@ -54,7 +56,8 @@ module System.Taffybar.Util (
 import           Conduit
 import           Control.Applicative
 import           Control.Arrow ((&&&))
-import           Control.Concurrent
+import           Control.Concurrent (ThreadId, forkIO, threadDelay)
+import qualified Control.Concurrent.MVar as MV
 import           Control.Exception.Base
 import           Control.Monad
 import           Control.Monad.Trans.Maybe
@@ -141,6 +144,32 @@ runCommand cmd args = liftIO $ do
 {-# DEPRECATED runCommandFromPath "Use runCommand instead" #-}
 runCommandFromPath :: MonadIO m => FilePath -> [String] -> m (Either String String)
 runCommandFromPath = runCommand
+
+-- | A variant of 'bracket' which allows for reloading.
+--
+-- The first parameter is an allocation function which returns a newly
+-- created value of type @r@, paired with an @IO@ action which will
+-- destroy that value.
+--
+-- The second parameter is the action to run. It is passed a "reload"
+-- function which will run the allocation function and return the
+-- newly created value.
+--
+-- Initially, there is no value. Reloading will cause the previous
+-- value (if any) to be destroyed. When the action completes, the
+-- current value (if any) will be destroyed.
+rebracket :: IO (IO (), r) -> (IO r -> IO a) -> IO a
+rebracket alloc action = bracket setup teardown (action . reload)
+  where
+    cleanup = fst
+    resource = snd
+    setup = MV.newMVar Nothing
+    teardown = maybeTeardown <=< MV.takeMVar
+    maybeTeardown = maybe (pure ()) cleanup
+    reload var = MV.modifyMVar var $ \stale -> do
+      maybeTeardown stale
+      fresh <- alloc
+      pure (Just fresh, resource fresh)
 
 -- | Execute the provided IO action at the provided interval.
 foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO () -> m ThreadId
