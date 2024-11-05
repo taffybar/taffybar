@@ -1,13 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module System.Taffybar.Test.XvfbSpec
   ( spec
@@ -502,9 +494,9 @@ newModeName (ListIndex i) = RRModeName ("newmode" ++ show i)
 -- | Test the test util functions.
 spec :: Spec
 spec = logSetup $ do
-  describe "xvfb sanity check" $ aroundAll (withXvfb . withXTerm) $ do
+  describe "xvfb" $ aroundAll (withXvfb . withXTerm) $ do
     it "xprop" $ property . prop_xprop
-  describe "xdummy sanity check" $ aroundAll withXdummy $ do
+  describe "xdummy" $ aroundAll withXdummy $ do
     it "xprop" $ property . prop_xprop
     it "xrandr" $ property . prop_xrandr
 

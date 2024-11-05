@@ -206,37 +206,48 @@ common test
     ScopedTypeVariables
   ghc-options: -fno-warn-orphans
 
-
-test-suite unit
-  import: haskell, test, exe
-  type: exitcode-stdio-1.0
-  hs-source-dirs: test
-  main-is: Spec.hs
-  other-modules: System.Taffybar.AuthSpec
-               , System.Taffybar.ContextSpec
-               , System.Taffybar.Information.X11DesktopInfoSpec
-               , System.Taffybar.SimpleConfigSpec
-               , System.Taffybar.Test.UtilSpec
-               , System.Taffybar.Test.XvfbSpec
+library testlib
+  import: haskell, test
+  hs-source-dirs: test/lib
+  exposed-modules: TestLibSpec
+                 , System.Taffybar.Test.UtilSpec
+                 , System.Taffybar.Test.XvfbSpec
   build-depends: attoparsec
                , bytestring
                , data-default
                , extra
                , filepath
-               , gi-gtk
                , hslogger
                , hspec
-               , hspec-core
-               , hspec-golden
                , taffybar
                , text
-               , transformers
                , typed-process
                , unix
                , unliftio
                , unliftio-core
+               , QuickCheck >= 2
+  build-tool-depends: hspec-discover:hspec-discover == 2.*
+
+test-suite unit
+  import: haskell, test, exe
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test/unit
+  main-is: unit-tests.hs
+  other-modules: UnitSpec
+               , System.Taffybar.AuthSpec
+               , System.Taffybar.ContextSpec
+               , System.Taffybar.Information.X11DesktopInfoSpec
+               , System.Taffybar.SimpleConfigSpec
+  build-depends: data-default
+               , filepath
+               , gi-gtk
+               , hspec
+               , hspec-core
+               , hspec-golden
+               , taffybar
+               , taffybar:testlib
+               , transformers
                , QuickCheck
-               , X11
   build-tool-depends: hspec-discover:hspec-discover == 2.*
 
 source-repository head

@@ -262,13 +262,13 @@ getEnvPriority = fmap (>>= toPriority) . lookupEnv
 
 spec :: Spec
 spec = do
-  it "withMockCommand sanity check" $ example $
+  it "withMockCommand" $ example $
     withMockCommand "blah" "#!/usr/bin/env bash\necho hello \"$@\"\n" $ do
       (code, out, err) <- readProcess (proc "blah" ["arstd"])
       code `shouldBe` ExitSuccess
       out `shouldBe` "hello arstd\n"
       err `shouldBe` ""
 
-  it "laxTimeout sanity check" $ example $ do
+  it "laxTimeout" $ example $ do
     let t = 50_000
     laxTimeout t (threadDelay (t * 2)) `shouldReturn` Nothing
