@@ -41,6 +41,7 @@ module System.Taffybar.Util (
   -- * Process control
   , runCommand
   , onSigINT
+  , maybeHandleSigHUP
   , handlePosixSignal
   -- * Deprecated
   , logPrintFDebug
@@ -74,8 +75,9 @@ import           System.Directory
 import           System.Environment.XDG.BaseDir
 import           System.Exit (ExitCode (..), exitWith)
 import           System.FilePath.Posix
+import           System.IO (hIsTerminalDevice, stdout, stderr)
 import           System.Log.Logger
-import           System.Posix.Signals (Signal, Handler(..), installHandler, sigINT)
+import           System.Posix.Signals (Signal, Handler(..), installHandler, sigHUP, sigINT)
 import qualified System.Process as P
 import           Text.Printf
 
@@ -129,12 +131,12 @@ truncateText n incoming
 -- environment variable is searched for the executable.
 runCommand :: MonadIO m => FilePath -> [String] -> m (Either String String)
 runCommand cmd args = liftIO $ do
-  (ecode, stdout, stderr) <- P.readProcessWithExitCode cmd args ""
+  (ecode, out, err) <- P.readProcessWithExitCode cmd args ""
   logM "System.Taffybar.Util" INFO $
        printf "Running command %s with args %s" (show cmd) (show args)
   return $ case ecode of
-    ExitSuccess -> Right stdout
-    ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) stderr
+    ExitSuccess -> Right out
+    ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) err
 
 {-# DEPRECATED runCommandFromPath "Use runCommand instead" #-}
 runCommandFromPath :: MonadIO m => FilePath -> [String] -> m (Either String String)
@@ -250,6 +252,19 @@ onSigINT action callback = do
     res <- action
     readIORef exitStatus >>= mapM_ exitWith
     pure res
+
+-- | Installs the given function as a handler for @SIGHUP@, but only
+-- if this process is not running in a terminal (i.e. runnning as a
+-- daemon).
+--
+-- If not running as a daemon, then no handler is installed by
+-- 'maybeHandleSigHUP'. The default handler for 'sigHUP' exits the
+-- program, which is the correct thing to do.
+maybeHandleSigHUP :: IO () -> IO a -> IO a
+maybeHandleSigHUP callback action =
+  ifM (anyM hIsTerminalDevice [stdout, stderr])
+    action
+    (handlePosixSignal sigHUP callback action)
 
 -- | Install a handler for the given POSIX 'Signal' while the given
 -- @IO@ action is running, then restore the original handler.
