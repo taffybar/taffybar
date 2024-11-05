@@ -210,11 +210,14 @@ library testlib
   import: haskell, test
   hs-source-dirs: test/lib
   exposed-modules: TestLibSpec
+                 , System.Taffybar.Test.DBusSpec
                  , System.Taffybar.Test.UtilSpec
                  , System.Taffybar.Test.XvfbSpec
   build-depends: attoparsec
                , bytestring
+               , containers
                , data-default
+               , dbus
                , extra
                , filepath
                , hslogger
