@@ -59,15 +59,14 @@ import GHC.Generics (Generic)
 import System.Process.Typed
 import System.IO (Handle, hClose, hGetLine)
 import Text.Read (readMaybe)
-import UnliftIO.Async (race)
 import UnliftIO.Concurrent (threadDelay)
-import UnliftIO.Exception (fromEitherM, throwString, bracket_, throwIO)
+import UnliftIO.Exception (fromEitherM, throwString, bracket_)
 
 import Test.Hspec
 import Test.QuickCheck
 import Test.QuickCheck.Monadic
 
-import System.Taffybar.Test.UtilSpec (withSetEnv, logSetup, specLog, specLogAt, getSpecLogPriority, Priority(..))
+import System.Taffybar.Test.UtilSpec (withSetEnv, logSetup, specLog, specLogAt, getSpecLogPriority, Priority(..), setStderrCond, setServiceDefaults, withService)
 import System.Taffybar.Information.X11DesktopInfo (DisplayName(..))
 
 ------------------------------------------------------------------------
@@ -212,12 +211,6 @@ withXTerm action dn = do
 
 ------------------------------------------------------------------------
 
-streamSpecCond :: Priority -> Priority -> StreamSpec any ()
-streamSpecCond level verbosity = if level >= verbosity then inherit else nullStream
-
-setStderrCond :: Priority -> ProcessConfig i o e -> ProcessConfig i o ()
-setStderrCond = setStderr . streamSpecCond INFO
-
 consumeXDisplayFd :: Handle -> IO DisplayName
 consumeXDisplayFd h = do
   l <- readMaybe <$> hGetLine h
@@ -230,23 +223,16 @@ withXserver :: String -> [String] -> Maybe Int -> (DisplayName -> IO a) -> IO a
 withXserver prog args display action = do
   cfg <- makeXvfb <$> getSpecLogPriority
   specLog $ "withXserver running: " ++ show cfg
-  withProcessTerm cfg $ \p -> do
+  withService cfg $ \p -> do
     d <- consumeXDisplayFd (getStdout p)
-    r <- race (waitExitCode p) (action d)
-    either (throwIO . exitException cfg) pure r
+    action d
   where
     args' = displayArgMaybe ++ ["-displayfd", "1", "-terminate", "60"] ++ args
     makeXvfb logLevel = proc prog args'
-      & setCloseFds True
-      & setStdin nullStream
+      & setServiceDefaults logLevel
       & setStdout createPipe
-      & setStderrCond logLevel
 
     displayArgMaybe = maybeToList (fmap displaySpec display)
-
-    -- If the Xserver exits for whatever reason, before the action
-    -- completes, then it's an error.
-    exitException p c = ExitCodeException c (setStdout nullStream p) "" ""
 
 withXvfb :: (DisplayName -> IO a) -> IO a
 withXvfb = withXserver "Xvfb" ["-screen", "0", "1024x768x24"] Nothing

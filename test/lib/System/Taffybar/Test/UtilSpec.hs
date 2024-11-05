@@ -13,6 +13,12 @@ module System.Taffybar.Test.UtilSpec
   , withEnv
   , withSetEnv
   , prependPath
+  -- ** Running subprocesses
+  , withService
+  , setStdoutCond
+  , setStderrCond
+  , setServiceDefaults
+  , makeServiceDefaults
   -- * Concurrency
   , listLiveThreads
   , diffLiveThreads
@@ -38,8 +44,8 @@ import Control.Monad (guard, join, void, (<=<))
 import Control.Monad.IO.Unlift
 import Data.Bifunctor (second)
 import qualified Data.ByteString.Char8 as B8
-import Data.Either.Extra (eitherToMaybe)
-import Data.Function (on)
+import Data.Either.Extra (eitherToMaybe, isLeft)
+import Data.Function (on, (&))
 import Data.List (deleteFirstsBy, uncons)
 import Data.Maybe (catMaybes, fromMaybe)
 #if MIN_VERSION_base(4,18,0)
@@ -49,18 +55,19 @@ import GHC.Conc.Sync (ThreadId(..), ThreadStatus(..))
 #endif
 import System.Exit (ExitCode(..))
 import System.FilePath (isRelative, takeFileName, (</>))
-import System.IO (Handle, BufferMode(..), hSetBuffering, stderr)
+import System.IO (Handle, BufferMode(..), hSetBuffering, stderr, hClose)
 import System.Log.Logger (Priority(..), updateGlobalLogger, setLevel, logM, getLevel, getLogger, removeHandler, setHandlers)
 import System.Log.Handler.Simple (GenericHandler(..))
-import System.Process.Typed (readProcess, proc)
+import System.Process.Typed (readProcess, proc, ProcessConfig, Process, withProcessTerm, waitExitCode, ExitCodeException (..), setStdin, nullStream, setStdout, setStderr, StreamSpec, setCloseFds, inherit, createPipe, getStdin)
 import System.Posix.Files (readSymbolicLink)
 import Test.Hspec
 import Text.Printf (printf)
 import Text.Read (readMaybe)
+import UnliftIO.Async (race)
 import UnliftIO.Concurrent (forkFinally, threadDelay)
 import UnliftIO.Directory (Permissions (..), findExecutable, getPermissions, setPermissions, listDirectory)
 import UnliftIO.Environment (lookupEnv, setEnv, unsetEnv)
-import UnliftIO.Exception (bracket, evaluateDeep, throwIO, throwString, tryIO)
+import UnliftIO.Exception (bracket, evaluateDeep, throwIO, throwString, tryIO, StringException (..), try)
 import qualified UnliftIO.MVar as MV
 import UnliftIO.Temporary (withSystemTempDirectory)
 import UnliftIO.Timeout (timeout)
@@ -263,6 +270,36 @@ getEnvPriority = fmap (>>= toPriority) . lookupEnv
               | n <= 0 = WARNING
               | otherwise = INFO
 
+-- | Like 'withProcessTerm_', except that if the process exits -- for
+-- whatever reason -- before the action completes, then it's an
+-- error. It will immediately cancel the action and throw an
+-- 'ExitCodeException'.
+withService :: MonadUnliftIO m => ProcessConfig stdin stdout stderr -> (Process stdin stdout stderr -> m a) -> m a
+withService cfg action = withProcessTerm cfg $ \p -> do
+  either throwEarlyExitException pure =<< race (waitExitCode p) (action p)
+  where
+    throwEarlyExitException c = throwIO $ ExitCodeException c cfg' "" ""
+    cfg' = cfg & setStdin nullStream & setStdout nullStream & setStderr nullStream
+
+streamSpecCond :: Priority -> Priority -> StreamSpec any ()
+streamSpecCond level verbosity = if level >= verbosity then inherit else nullStream
+
+setStdoutCond :: Priority -> ProcessConfig i o e -> ProcessConfig i () e
+setStdoutCond = setStdout . streamSpecCond DEBUG
+
+setStderrCond :: Priority -> ProcessConfig i o e -> ProcessConfig i o ()
+setStderrCond = setStderr . streamSpecCond INFO
+
+makeServiceDefaults :: FilePath -> [String] -> IO (ProcessConfig () () ())
+makeServiceDefaults prog args =
+  ($ proc prog args) . setServiceDefaults <$> getSpecLogPriority
+
+setServiceDefaults :: Priority -> ProcessConfig i o e -> ProcessConfig () () ()
+setServiceDefaults logLevel = setCloseFds True
+  . setStdin nullStream
+  . setStdoutCond logLevel
+  . setStderrCond logLevel
+
 ------------------------------------------------------------------------
 
 spec :: Spec
@@ -277,3 +314,28 @@ spec = do
   it "laxTimeout" $ example $ do
     let t = 50_000
     laxTimeout t (threadDelay (t * 2)) `shouldReturn` Nothing
+
+  describe "withService" $ around_ (laxTimeout' 100_000) $ do
+    let wait = const $ threadDelay maxBound
+    it "normal" $ example $
+      withService (proc "sleep" ["60"]) (const $ pure ())
+        `shouldReturn` ()
+    it "exc" $ example $
+      withService (proc "sleep" ["60"]) (const $ throwString "hello")
+        `shouldThrow` \(StringException msg _) -> msg == "hello"
+    it "early exit" $ example $
+      withService "true" wait `shouldThrow`
+        \exc -> eceExitCode exc == ExitSuccess
+    it "manual exit" $ example $
+      withService
+        (proc "cat" [] & setStdin createPipe)
+        (\p -> hClose (getStdin p) >> wait p)
+        `shouldThrow` \exc -> eceExitCode exc == ExitSuccess
+    it "failure" $ example $
+      withService "false" wait `shouldThrow`
+        \exc -> eceExitCode exc /= ExitSuccess
+    it "error message" $ example $ do
+      res <- try (withService (proc "false" ["arg1", "arg2"]) wait)
+      res `shouldSatisfy` isLeft
+      either (show . eceProcessConfig) show res
+        `shouldBe` "Raw command: false arg1 arg2\n"
