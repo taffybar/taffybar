@@ -148,7 +148,7 @@ import qualified System.IO as IO
 import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
-import           System.Taffybar.Util ( onSigINT )
+import           System.Taffybar.Util ( onSigINT, maybeHandleSigHUP, rebracket )
 
 import           Paths_taffybar ( getDataDir )
 
@@ -237,6 +237,17 @@ startCSS' prio cssFilePaths = do
       pure (Gtk.styleContextRemoveProviderForScreen scr provider)
     install _ Nothing = pure (pure ())
 
+-- | Uses 'startCSS' in a 'bracket' block to ensure that the CSS
+-- provider is removed when Taffybar finishes.
+--
+-- If Taffybar is running as a daemon, then this also installs a
+-- handler on @SIGHUP@ which triggers reloading of the CSS files.
+withCSSReloadable :: [FilePath] -> IO () -> IO ()
+withCSSReloadable css action = rebracket (startCSS css) $ \reload -> do
+  void reload
+  let notice = logTaffy NOTICE "Received SIGHUP reloading CSS..."
+  maybeHandleSigHUP (notice <* reload) action
+
 -- | Start Taffybar with the provided 'TaffybarConfig'. This function will not
 -- handle recompiling taffybar automatically when @taffybar.hs@ is updated. If you
 -- would like this feature, use 'dyreTaffybar' instead. If automatic
@@ -252,10 +263,10 @@ startTaffybar config = do
   _ <- Gtk.init Nothing
   GIThreading.setCurrentThreadAsGUIThread
 
-  void . startCSS =<< getCSSPaths config
+  cssPathsToLoad <- getCSSPaths config
   context <- buildContext config
 
-  Gtk.main
+  withCSSReloadable cssPathsToLoad $ Gtk.main
     `finally` logTaffy DEBUG "Finished main loop"
     `onSigINT` do
       logTaffy INFO "Interrupted"
