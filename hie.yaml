@@ -3,14 +3,17 @@ cradle:
     - path: "./example/./taffybar.hs"
       component: "my-taffybar:exe:my-taffybar"
 
+    - path: "./example/./xmonad.hs"
+      component: "my-taffybar:exe:my-xmonad"
+
     - path: "./src"
       component: "lib:taffybar"
 
     - path: "./app/Main.hs"
       component: "taffybar:exe:taffybar"
 
-    - path: "./app/Paths_taffybar.hs"
-      component: "taffybar:exe:taffybar"
+    - path: "./test/lib"
+      component: "taffybar:lib:testlib"
 
-    - path: "./test"
+    - path: "./test/unit"
       component: "taffybar:test:unit"
