@@ -26,6 +26,7 @@ module System.Taffybar.Test.UtilSpec
   -- ** Logging for tests
   , logSetup
   , specLogSetup
+  , specLogSetupPrio
   , specLog
   , specLogAt
   , getSpecLogPriority
@@ -221,16 +222,20 @@ logSetup = beforeAll_ specLogSetup
 
 -- | Get log levels from environment variables and set up formatters.
 specLogSetup :: IO ()
-specLogSetup = do
+specLogSetup = specLogSetupPrio WARNING
+
+-- | Like 'specLogSetup', but with a default minimum priority.
+specLogSetupPrio :: Priority -> IO ()
+specLogSetupPrio defaultPriority = do
   updateGlobalLogger "" removeHandler
   hSetBuffering stderr LineBuffering
   setup "System.Taffybar" "TAFFYBAR_VERBOSE" taffyLogHandler
   setup specLoggerName "TAFFYBAR_TEST_VERBOSE" (pure specLogHandler)
   where
     setup loggerName envVar getHandler = do
-      p <- getEnvPriority envVar
+      p <- fromMaybe defaultPriority <$> getEnvPriority envVar
       h <- getHandler
-      updateGlobalLogger loggerName (maybe id setLevel p . setHandlers [h])
+      updateGlobalLogger loggerName (setLevel p . setHandlers [h])
 
 -- | A plain looking log handler, to contrast with 'taffyLogFormatter'.
 specLogHandler :: GenericHandler Handle
