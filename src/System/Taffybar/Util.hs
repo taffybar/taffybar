@@ -41,6 +41,7 @@ module System.Taffybar.Util (
   -- * Process control
   , runCommand
   , onSigINT
+  , handlePosixSignal
   -- * Deprecated
   , logPrintFDebug
   , liftReader
@@ -61,11 +62,13 @@ import           Data.Either.Combinators
 import           Data.GI.Base.GError
 import           Control.Exception.Enclosed (catchAny)
 import           Data.GI.Gtk.Threading as Gtk (postGUIASync, postGUISync)
+import           Data.GI.Gtk.Threading (postGUIASyncWithPriority)
 import           Data.Maybe
 import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import           Data.Tuple.Sequence
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
+import qualified GI.GLib.Constants as G
 import           Network.HTTP.Simple
 import           System.Directory
 import           System.Environment.XDG.BaseDir
@@ -243,14 +246,27 @@ onSigINT action callback = do
         writeIORef exitStatus (Just (ExitFailure 130))
         callback
 
-  withSigHandler sigINT (CatchOnce intHandler) $ do
+  withSigHandlerBase sigINT (CatchOnce intHandler) $ do
     res <- action
     readIORef exitStatus >>= mapM_ exitWith
     pure res
 
+-- | Install a handler for the given POSIX 'Signal' while the given
+-- @IO@ action is running, then restore the original handler.
+--
+-- This function is for handling non-critical signals.
+--
+-- The given callback function won't be run immediately within the
+-- @sigaction@ handler, but will instead be posted to the GLib main
+-- loop.
+handlePosixSignal :: Signal -> IO () -> IO a -> IO a
+handlePosixSignal sig cb = withSigHandlerBase sig (Catch handler)
+  where
+    handler = postGUIASyncWithPriority G.PRIORITY_HIGH_IDLE cb
+
 -- | Install a handler for the given signal, run an 'IO' action, then
 -- restore the original handler.
-withSigHandler :: Signal -> Handler -> IO a -> IO a
-withSigHandler sig h = bracket (install h) install . const
+withSigHandlerBase :: Signal -> Handler -> IO a -> IO a
+withSigHandlerBase sig h = bracket (install h) install . const
   where
     install handler = installHandler sig handler Nothing
