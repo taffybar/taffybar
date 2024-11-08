@@ -130,25 +130,30 @@ module System.Taffybar
   , taffybarDyreParams
   ) where
 
+import qualified Control.Concurrent.MVar as MV
 import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
 import           Control.Exception ( finally )
+import           Data.Function ( on )
 import           Control.Monad
 import qualified Data.GI.Gtk.Threading as GIThreading
+import           Data.List ( groupBy, sort, isPrefixOf )
 import qualified Data.Text as T
 import           Data.Word (Word32)
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
+import qualified GI.GLib as G
 import           Graphics.X11.Xlib.Misc ( initThreads )
 import           System.Directory
 import           System.Environment.XDG.BaseDir ( getUserConfigFile )
 import           System.Exit ( exitFailure )
-import           System.FilePath ( (</>), normalise )
+import           System.FilePath ( (</>), normalise, takeDirectory, takeFileName )
+import           System.FSNotify ( startManager, watchDir, stopManager, EventIsDirectory (..), Event (..) )
 import qualified System.IO as IO
 import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Hooks
-import           System.Taffybar.Util ( onSigINT, maybeHandleSigHUP, rebracket )
+import           System.Taffybar.Util ( onSigINT, maybeHandleSigHUP, rebracket_ )
 
 import           Paths_taffybar ( getDataDir )
 
@@ -240,13 +245,59 @@ startCSS' prio cssFilePaths = do
 -- | Uses 'startCSS' in a 'bracket' block to ensure that the CSS
 -- provider is removed when Taffybar finishes.
 --
+-- An @inotify@ watch list will be set up so that a change to any of
+-- the CSS files causes the CSS provider to be reloaded.
+--
 -- If Taffybar is running as a daemon, then this also installs a
--- handler on @SIGHUP@ which triggers reloading of the CSS files.
+-- handler on @SIGHUP@ which triggers reloading of the CSS files, and
+-- recreates the inotify watcher.
 withCSSReloadable :: [FilePath] -> IO () -> IO ()
-withCSSReloadable css action = rebracket (startCSS css) $ \reload -> do
-  void reload
-  let notice = logTaffy NOTICE "Received SIGHUP reloading CSS..."
-  maybeHandleSigHUP (notice <* reload) action
+withCSSReloadable css action = rebracket_ (fst <$> startCSS css) $ \reload -> do
+  let reload' = noteReload >> reload
+  rebracket_ (watchCSS css reload') $ \rewatch -> do
+    let rewatch' = noteRewatch >> rewatch >> reload
+    maybeHandleSigHUP rewatch' action
+  where
+    noteReload = logTaffy NOTICE "Reloading CSS..."
+    noteRewatch = logTaffy NOTICE "SIGHUP received - restarting file watchers..."
+
+-- | Opens an @inotify@ instance and watches the directories containing
+-- our CSS files.
+--
+-- The given notifier function will be called shortly after one of the
+-- CSS files changes.
+--
+-- A cleanup function is returned which will clear the watch list and
+-- close the @inotify@ instance.
+watchCSS :: [FilePath] -> IO () -> IO (IO ())
+watchCSS css notifier = do
+  callback <- debounce 100 notifier
+  mgr <- startManager
+  cssDirs <- getDirs css
+  mapM_ (\(dir, fs) -> watchDir mgr dir (eventP fs) callback) cssDirs
+  pure (stopManager mgr)
+  where
+    getDirs = filterM (doesDirectoryExist . fst)
+      . filter (not . isPrefixOf "/nix/store/" . fst)
+      . dirGroups
+      . sort
+    dirGroups xs = [ (takeDirectory f, map takeFileName (f:fs))
+                   | (f:fs) <- groupBy ((==) `on` takeDirectory) xs]
+    eventP fs ev = eventIsDirectory ev == IsFile
+      && takeFileName (eventPath ev) `elem` fs
+
+    -- inotify events arrive in batches. To avoid unnecessary reloads,
+    -- accumulate events in an MVar and call the notifier after a
+    -- short delay.
+    debounce msec cb = do
+      buffer <- MV.newMVar []
+      let mainLoopCallback = do
+             evs <- MV.modifyMVar buffer (pure . ([],))
+             unless (null evs) cb
+             pure G.SOURCE_REMOVE
+      pure $ \ev -> do
+        MV.modifyMVar_ buffer (pure . (ev:))
+        void $ G.timeoutAdd G.PRIORITY_LOW msec mainLoopCallback
 
 -- | Start Taffybar with the provided 'TaffybarConfig'. This function will not
 -- handle recompiling taffybar automatically when @taffybar.hs@ is updated. If you
