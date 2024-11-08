@@ -46,19 +46,12 @@ interactively try CSS rules, which is immensely helpful.
 
 ### Reloading CSS
 
-Changes to `taffybar.css` take effect after restarting Taffybar.
+Taffybar watches `taffybar.css` (and other configured CSS files) for
+modification, so style changes should be visible immediately.
 
-But, if Taffybar is running as a daemon, a `SIGHUP` signal on the
-process will cause it to reload the CSS files.
-
-So you could use a file watcher tool such as [entr][] for faster
-feedback while editing CSS rules:
-
-```sh
-entr -s 'kill -HUP `pidof taffybar`' <<< $HOME/.config/taffybar/taffybar.css
-```
-
-[entr]: http://eradman.com/entrproject/
+But, if the file watching doesn't work for some reason, and Taffybar
+is running as a daemon, a `SIGHUP` signal on the process will force it
+to reload the CSS files.
 
 ### Specifying colours
 
