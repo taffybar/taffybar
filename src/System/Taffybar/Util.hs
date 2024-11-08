@@ -45,6 +45,7 @@ module System.Taffybar.Util (
   , handlePosixSignal
   -- * Resource management
   , rebracket
+  , rebracket_
   -- * Deprecated
   , logPrintFDebug
   , liftReader
@@ -170,6 +171,15 @@ rebracket alloc action = bracket setup teardown (action . reload)
       maybeTeardown stale
       fresh <- alloc
       pure (Just fresh, resource fresh)
+
+-- | A variant of 'rebracket' where the resource value isn't needed.
+--
+-- And because the resource value isn't needed, this variant will
+-- automatically allocate the resource before running the enclosed
+-- action.
+rebracket_ :: IO (IO ()) -> (IO () -> IO a) -> IO a
+rebracket_ alloc action = rebracket ((, ()) <$> alloc) $
+  \reload -> reload >> action reload
 
 -- | Execute the provided IO action at the provided interval.
 foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO () -> m ThreadId
