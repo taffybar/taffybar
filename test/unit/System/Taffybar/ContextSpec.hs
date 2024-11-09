@@ -36,10 +36,12 @@ import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget.SimpleClock (textClockNewWith)
 import System.Taffybar.Widget.Workspaces (workspacesNew)
 
+import System.Taffybar.Test.DBusSpec (withTestDBus)
+import System.Taffybar.Test.UtilSpec (logSetup)
 import System.Taffybar.Test.XvfbSpec (withXdummy, setDefaultDisplay_)
 
 spec :: Spec
-spec = sequential $ aroundAll_ (withXdummy . flip setDefaultDisplay_) $ do
+spec = logSetup $ sequential $ aroundAll_ withTestDBus $ aroundAll_ (withXdummy . flip setDefaultDisplay_) $ do
   describe "Fuzz tests" $ do
     prop "eval generators" prop_genSimpleConfig
     xprop "TaffybarConfig" prop_taffybarConfig
