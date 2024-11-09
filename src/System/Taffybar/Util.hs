@@ -41,6 +41,11 @@ module System.Taffybar.Util (
   -- * Process control
   , runCommand
   , onSigINT
+  , maybeHandleSigHUP
+  , handlePosixSignal
+  -- * Resource management
+  , rebracket
+  , rebracket_
   -- * Deprecated
   , logPrintFDebug
   , liftReader
@@ -52,7 +57,8 @@ module System.Taffybar.Util (
 import           Conduit
 import           Control.Applicative
 import           Control.Arrow ((&&&))
-import           Control.Concurrent
+import           Control.Concurrent (ThreadId, forkIO, threadDelay)
+import qualified Control.Concurrent.MVar as MV
 import           Control.Exception.Base
 import           Control.Monad
 import           Control.Monad.Trans.Maybe
@@ -61,18 +67,21 @@ import           Data.Either.Combinators
 import           Data.GI.Base.GError
 import           Control.Exception.Enclosed (catchAny)
 import           Data.GI.Gtk.Threading as Gtk (postGUIASync, postGUISync)
+import           Data.GI.Gtk.Threading (postGUIASyncWithPriority)
 import           Data.Maybe
 import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import           Data.Tuple.Sequence
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
+import qualified GI.GLib.Constants as G
 import           Network.HTTP.Simple
 import           System.Directory
 import           System.Environment.XDG.BaseDir
 import           System.Exit (ExitCode (..), exitWith)
 import           System.FilePath.Posix
+import           System.IO (hIsTerminalDevice, stdout, stderr)
 import           System.Log.Logger
-import           System.Posix.Signals (Signal, Handler(..), installHandler, sigINT)
+import           System.Posix.Signals (Signal, Handler(..), installHandler, sigHUP, sigINT)
 import qualified System.Process as P
 import           Text.Printf
 
@@ -126,16 +135,51 @@ truncateText n incoming
 -- environment variable is searched for the executable.
 runCommand :: MonadIO m => FilePath -> [String] -> m (Either String String)
 runCommand cmd args = liftIO $ do
-  (ecode, stdout, stderr) <- P.readProcessWithExitCode cmd args ""
+  (ecode, out, err) <- P.readProcessWithExitCode cmd args ""
   logM "System.Taffybar.Util" INFO $
        printf "Running command %s with args %s" (show cmd) (show args)
   return $ case ecode of
-    ExitSuccess -> Right stdout
-    ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) stderr
+    ExitSuccess -> Right out
+    ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) err
 
 {-# DEPRECATED runCommandFromPath "Use runCommand instead" #-}
 runCommandFromPath :: MonadIO m => FilePath -> [String] -> m (Either String String)
 runCommandFromPath = runCommand
+
+-- | A variant of 'bracket' which allows for reloading.
+--
+-- The first parameter is an allocation function which returns a newly
+-- created value of type @r@, paired with an @IO@ action which will
+-- destroy that value.
+--
+-- The second parameter is the action to run. It is passed a "reload"
+-- function which will run the allocation function and return the
+-- newly created value.
+--
+-- Initially, there is no value. Reloading will cause the previous
+-- value (if any) to be destroyed. When the action completes, the
+-- current value (if any) will be destroyed.
+rebracket :: IO (IO (), r) -> (IO r -> IO a) -> IO a
+rebracket alloc action = bracket setup teardown (action . reload)
+  where
+    cleanup = fst
+    resource = snd
+    setup = MV.newMVar Nothing
+    teardown = maybeTeardown <=< MV.takeMVar
+    maybeTeardown = maybe (pure ()) cleanup
+    reload var = MV.modifyMVar var $ \stale -> do
+      maybeTeardown stale
+      fresh <- alloc
+      pure (Just fresh, resource fresh)
+
+-- | A variant of 'rebracket' where the resource value isn't needed.
+--
+-- And because the resource value isn't needed, this variant will
+-- automatically allocate the resource before running the enclosed
+-- action.
+rebracket_ :: IO (IO ()) -> (IO () -> IO a) -> IO a
+rebracket_ alloc action = rebracket ((, ()) <$> alloc) $
+  \reload -> reload >> action reload
 
 -- | Execute the provided IO action at the provided interval.
 foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO () -> m ThreadId
@@ -243,14 +287,40 @@ onSigINT action callback = do
         writeIORef exitStatus (Just (ExitFailure 130))
         callback
 
-  withSigHandler sigINT (CatchOnce intHandler) $ do
+  withSigHandlerBase sigINT (CatchOnce intHandler) $ do
     res <- action
     readIORef exitStatus >>= mapM_ exitWith
     pure res
 
+-- | Installs the given function as a handler for @SIGHUP@, but only
+-- if this process is not running in a terminal (i.e. runnning as a
+-- daemon).
+--
+-- If not running as a daemon, then no handler is installed by
+-- 'maybeHandleSigHUP'. The default handler for 'sigHUP' exits the
+-- program, which is the correct thing to do.
+maybeHandleSigHUP :: IO () -> IO a -> IO a
+maybeHandleSigHUP callback action =
+  ifM (anyM hIsTerminalDevice [stdout, stderr])
+    action
+    (handlePosixSignal sigHUP callback action)
+
+-- | Install a handler for the given POSIX 'Signal' while the given
+-- @IO@ action is running, then restore the original handler.
+--
+-- This function is for handling non-critical signals.
+--
+-- The given callback function won't be run immediately within the
+-- @sigaction@ handler, but will instead be posted to the GLib main
+-- loop.
+handlePosixSignal :: Signal -> IO () -> IO a -> IO a
+handlePosixSignal sig cb = withSigHandlerBase sig (Catch handler)
+  where
+    handler = postGUIASyncWithPriority G.PRIORITY_HIGH_IDLE cb
+
 -- | Install a handler for the given signal, run an 'IO' action, then
 -- restore the original handler.
-withSigHandler :: Signal -> Handler -> IO a -> IO a
-withSigHandler sig h = bracket (install h) install . const
+withSigHandlerBase :: Signal -> Handler -> IO a -> IO a
+withSigHandlerBase sig h = bracket (install h) install . const
   where
     install handler = installHandler sig handler Nothing

@@ -51,6 +51,7 @@ library
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
                , filepath
+               , fsnotify >= 0.4 && < 0.5
                , gi-cairo-connector
                , gi-cairo-render
                , gi-gdk >=3.0.6 && <3.1
