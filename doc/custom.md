@@ -26,8 +26,7 @@ Be aware that the `TaffybarConfig` value required by `dyreTaffybar`/`startTaffyb
 [#308 Add styling tips section to README/docs](https://github.com/taffybar/taffybar/issues/308)
 
 Appearance of Taffybar widgets can be controlled with CSS rules. These
-are by default loaded from `$XDG_CONFIG_HOME/taffybar/taffybar.css`. Taffybar
-must be restarted for changes in `taffybar.css` to take effect.
+are by default loaded from `$XDG_CONFIG_HOME/taffybar/taffybar.css`.
 
 ### GTK Documentation
 
@@ -44,6 +43,15 @@ CSS class names of widgets. The GTK Inspector also lets you
 interactively try CSS rules, which is immensely helpful.
 
 [inspector]: https://developer.gnome.org/documentation/tools/inspector.html
+
+### Reloading CSS
+
+Taffybar watches `taffybar.css` (and other configured CSS files) for
+modification, so style changes should be visible immediately.
+
+But, if the file watching doesn't work for some reason, and Taffybar
+is running as a daemon, a `SIGHUP` signal on the process will force it
+to reload the CSS files.
 
 ### Specifying colours
 

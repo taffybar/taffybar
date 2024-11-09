@@ -21,6 +21,11 @@ final: prev: let
         xrandr       # Used for test setup
         pkgs.xdummy  # Wrapper script and config for Xserver
         pkgs.xterm   # An X client
+        pkgs.dbus    # dbus-daemon for test environment
+        (pkgs.python3.withPackages (ps: with ps; [
+          python-dbusmock  # Mock system bus services such as UPower
+        ]))
+        pkgs.upower  # For checking the mock system bus service
       ])
       (overrideCabal (drv: {
         # This is required so that "cabal repl" and haskell-language-server

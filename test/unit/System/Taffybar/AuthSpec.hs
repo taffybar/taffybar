@@ -1,6 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RecordWildCards #-}
-
 module System.Taffybar.AuthSpec (spec) where
 
 import Data.List (intercalate)

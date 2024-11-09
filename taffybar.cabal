@@ -27,15 +27,27 @@ extra-doc-files:
 flag Deprecated-Pager-Hints
   description: Enables the deprecated System.Taffybar.Support.PagerHints module, which has been moved to xmonad-contrib.
 
-library
+common haskell
   default-extensions:
-    TupleSections
+    DeriveGeneric
+    GeneralizedNewtypeDeriving
+    LambdaCase
+    NumericUnderscores
     StandaloneDeriving
-    MonoLocalBinds
-
+    TupleSections
   default-language: Haskell2010
   build-depends: base >= 4.15.0.0 && < 5
-               , HStringTemplate >= 0.8 && < 0.9
+  ghc-options: -Wall
+
+common exe
+  ghc-options: -rtsopts -threaded
+
+library
+  import: haskell
+  default-extensions:
+    MonoLocalBinds
+
+  build-depends: HStringTemplate >= 0.8 && < 0.9
                , X11 >= 1.5.0.1
                , aeson
                , ansi-terminal
@@ -51,6 +63,7 @@ library
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
                , filepath
+               , fsnotify >= 0.4 && < 0.5
                , gi-cairo-connector
                , gi-cairo-render
                , gi-gdk >=3.0.6 && <3.1
@@ -168,12 +181,11 @@ library
   autogen-modules: Paths_taffybar
 
   cc-options: -fPIC
-  ghc-options: -Wall -funbox-strict-fields -fno-warn-orphans
+  ghc-options: -funbox-strict-fields -fno-warn-orphans
 
 executable taffybar
-  default-language: Haskell2010
-  build-depends: base
-               , data-default
+  import: haskell, exe
+  build-depends: data-default
                , directory
                , hslogger
                , optparse-applicative
@@ -185,49 +197,62 @@ executable taffybar
   hs-source-dirs: app
   main-is: Main.hs
   pkgconfig-depends: gtk+-3.0
-  ghc-options: -Wall -rtsopts -threaded
 
-test-suite unit
-  type: exitcode-stdio-1.0
-  hs-source-dirs: test
-  main-is: Spec.hs
-  other-modules: System.Taffybar.AuthSpec
-               , System.Taffybar.ContextSpec
-               , System.Taffybar.Information.X11DesktopInfoSpec
-               , System.Taffybar.SimpleConfigSpec
-               , System.Taffybar.Test.UtilSpec
-               , System.Taffybar.Test.XvfbSpec
-  default-language: Haskell2010
+common test
   default-extensions:
-    DeriveGeneric
-    GeneralizedNewtypeDeriving
-    NumericUnderscores
+    ImportQualifiedPost
+    NamedFieldPuns
     RecordWildCards
-    StandaloneDeriving
-    TupleSections
+    OverloadedStrings
+    ScopedTypeVariables
+  ghc-options: -fno-warn-orphans
 
-  build-depends: base
-               , attoparsec
+library testlib
+  import: haskell, test
+  hs-source-dirs: test/lib
+  exposed-modules: TestLibSpec
+                 , System.Taffybar.Test.DBusSpec
+                 , System.Taffybar.Test.UtilSpec
+                 , System.Taffybar.Test.XvfbSpec
+  build-depends: attoparsec
                , bytestring
+               , containers
                , data-default
+               , dbus
                , extra
                , filepath
-               , gi-gtk
                , hslogger
                , hspec
-               , hspec-core
-               , hspec-golden
                , taffybar
                , text
-               , transformers
                , typed-process
                , unix
                , unliftio
                , unliftio-core
-               , QuickCheck
-               , X11
+               , QuickCheck >= 2
   build-tool-depends: hspec-discover:hspec-discover == 2.*
-  ghc-options: -Wall -rtsopts -threaded
+
+test-suite unit
+  import: haskell, test, exe
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test/unit
+  main-is: unit-tests.hs
+  other-modules: UnitSpec
+               , System.Taffybar.AuthSpec
+               , System.Taffybar.ContextSpec
+               , System.Taffybar.Information.X11DesktopInfoSpec
+               , System.Taffybar.SimpleConfigSpec
+  build-depends: data-default
+               , filepath
+               , gi-gtk
+               , hspec
+               , hspec-core
+               , hspec-golden
+               , taffybar
+               , taffybar:testlib
+               , transformers
+               , QuickCheck
+  build-tool-depends: hspec-discover:hspec-discover == 2.*
 
 source-repository head
   type: git

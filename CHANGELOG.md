@@ -1,3 +1,19 @@
+# 4.0.4 (UNRELEASED)
+
+## Improvements
+
+ * Add icon next to window label in Windows widget. This can be configured with [`WindowsConfig(getActiveWindowIconPixbuf)`][WindowsConfig].
+
+ * Taffybar now watches its CSS files with inotify. Changes to CSS
+   should be visible immediately after saving the file.
+
+   If Taffybar is not running in a terminal, and the process receives
+   a `SIGHUP` signal, then it will restart the inotify instance and
+   reload the CSS files.
+
+[WindowsConfig]: https://hackage.haskell.org/package/taffybar-4.0.4/docs/System-Taffybar-Widget-Windows.html#t:WindowsConfig
+
+
 # 4.0.3
 
 ## Breaking Changes
