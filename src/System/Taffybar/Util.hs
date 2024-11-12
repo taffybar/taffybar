@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE RankNTypes #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Util
@@ -38,14 +39,18 @@ module System.Taffybar.Util (
   -- * Control
   , foreverWithVariableDelay
   , foreverWithDelay
+  , bracketIO
   -- * Process control
   , runCommand
   , onSigINT
   , maybeHandleSigHUP
   , handlePosixSignal
+  , labelMyThread
   -- * Resource management
   , rebracket
   , rebracket_
+  , managedR
+  , managedR_
   -- * Deprecated
   , logPrintFDebug
   , liftReader
@@ -57,21 +62,22 @@ module System.Taffybar.Util (
 import           Conduit
 import           Control.Applicative
 import           Control.Arrow ((&&&))
-import           Control.Concurrent (ThreadId, forkIO, threadDelay)
-import qualified Control.Concurrent.MVar as MV
-import           Control.Exception.Base
+import qualified Control.Exception as E
 import           Control.Monad
+import           Control.Monad.Managed (MonadManaged, managed_, managed)
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Data.Either.Combinators
 import           Data.GI.Base.GError
-import           Control.Exception.Enclosed (catchAny)
 import           Data.GI.Gtk.Threading as Gtk (postGUIASync, postGUISync)
 import           Data.GI.Gtk.Threading (postGUIASyncWithPriority)
 import           Data.Maybe
 import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import           Data.Tuple.Sequence
+#if MIN_VERSION_base(4,18,0)
+import           GHC.Conc.Sync (labelThread, myThreadId)
+#endif
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.GLib.Constants as G
 import           Network.HTTP.Simple
@@ -84,6 +90,9 @@ import           System.Log.Logger
 import           System.Posix.Signals (Signal, Handler(..), installHandler, sigHUP, sigINT)
 import qualified System.Process as P
 import           Text.Printf
+import           UnliftIO.Concurrent (ThreadId, forkIO, threadDelay)
+import           UnliftIO.Exception (bracket, catch, catchAny)
+import qualified UnliftIO.MVar as MV
 
 
 taffyStateDir :: IO FilePath
@@ -146,6 +155,18 @@ runCommand cmd args = liftIO $ do
 runCommandFromPath :: MonadIO m => FilePath -> [String] -> m (Either String String)
 runCommandFromPath = runCommand
 
+-- | A partially unlifted version of 'Control.Exception.bracket' from @base@.
+--
+-- This should be used instead of 'UnliftIO.Exception.bracket' in
+-- situations where the cleanup action may block for a little while.
+--
+-- 'UnliftIO.Exception.bracket' uses
+-- 'Control.Exception.uninterruptibleMask_' for the cleanup
+-- action. When cleanup actions are potentially blocking, they should
+-- still be masked, but not masked uninterruptible.
+bracketIO :: MonadUnliftIO m => IO a -> (a -> IO ()) -> (a -> m c) -> m c
+bracketIO a b c = withRunInIO $ \run -> E.bracket a b (run . c)
+
 -- | A variant of 'bracket' which allows for reloading.
 --
 -- The first parameter is an allocation function which returns a newly
@@ -181,8 +202,16 @@ rebracket_ :: IO (IO ()) -> (IO () -> IO a) -> IO a
 rebracket_ alloc action = rebracket ((, ()) <$> alloc) $
   \reload -> reload >> action reload
 
+-- | Variant of 'managed' for resources which are acquired in a 'ReaderT' monad.
+managedR :: MonadManaged m => (forall r. (a -> ReaderT x IO r) -> ReaderT x IO r) -> ReaderT x m a
+managedR f = ask >>= \x -> managed (\g -> runReaderT (f (liftIO . g)) x)
+
+-- | Variant of 'managed_' for resources which are acquired in a 'ReaderT' monad.
+managedR_ :: MonadManaged m => (forall r. ReaderT x IO r -> ReaderT x IO r) -> ReaderT x m ()
+managedR_ f = ask >>= \x -> managed_ (\g -> runReaderT (f (liftIO g)) x)
+
 -- | Execute the provided IO action at the provided interval.
-foreverWithDelay :: (MonadIO m, RealFrac d) => d -> IO () -> m ThreadId
+foreverWithDelay :: (MonadUnliftIO m, RealFrac d) => d -> m () -> m ThreadId
 foreverWithDelay delay action =
   foreverWithVariableDelay $ safeAction >> return delay
   where safeAction =
@@ -192,8 +221,8 @@ foreverWithDelay delay action =
 -- | Execute the provided IO action, and use the value it returns to decide how
 -- long to wait until executing it again. The value returned by the action is
 -- interpreted as a number of seconds.
-foreverWithVariableDelay :: (MonadIO m, RealFrac d) => IO d -> m ThreadId
-foreverWithVariableDelay action = liftIO $ forkIO $ action >>= delayThenAction
+foreverWithVariableDelay :: (MonadUnliftIO m, RealFrac d) => m d -> m ThreadId
+foreverWithVariableDelay action = forkIO $ action >>= delayThenAction
   where delayThenAction delay =
           threadDelay (floor $ delay * 1000000) >> action >>= delayThenAction
 
@@ -313,10 +342,10 @@ maybeHandleSigHUP callback action =
 -- The given callback function won't be run immediately within the
 -- @sigaction@ handler, but will instead be posted to the GLib main
 -- loop.
-handlePosixSignal :: Signal -> IO () -> IO a -> IO a
-handlePosixSignal sig cb = withSigHandlerBase sig (Catch handler)
-  where
-    handler = postGUIASyncWithPriority G.PRIORITY_HIGH_IDLE cb
+handlePosixSignal :: MonadUnliftIO m => Signal -> m () -> m a -> m a
+handlePosixSignal sig cb action = withRunInIO $ \run ->
+  let handler = postGUIASyncWithPriority G.PRIORITY_HIGH_IDLE (run cb)
+  in  withSigHandlerBase sig (Catch handler) (run action)
 
 -- | Install a handler for the given signal, run an 'IO' action, then
 -- restore the original handler.
@@ -324,3 +353,11 @@ withSigHandlerBase :: Signal -> Handler -> IO a -> IO a
 withSigHandlerBase sig h = bracket (install h) install . const
   where
     install handler = installHandler sig handler Nothing
+
+-- | Assigns a descriptive name to the currently running thread.
+labelMyThread :: MonadIO m => String -> m ()
+#if MIN_VERSION_base(4,18,0)
+labelMyThread name = liftIO (myThreadId >>= flip labelThread name)
+#else
+labelMyThread _ = pure ()
+#endif

@@ -22,9 +22,9 @@ module System.Taffybar.Information.StreamInfo
     , getTransfer
     ) where
 
-import Control.Concurrent ( threadDelay )
-import Data.IORef
+import Data.IORef ( IORef, readIORef, writeIORef )
 import Data.Maybe ( fromMaybe )
+import UnliftIO.Concurrent ( threadDelay )
 
 -- | Apply the given parser function to the file under the given path to produce
 -- a lookup map, then use the given selector as key to extract from it the

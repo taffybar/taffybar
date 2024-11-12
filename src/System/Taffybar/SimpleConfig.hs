@@ -24,9 +24,7 @@ module System.Taffybar.SimpleConfig
   , StrutSize(..)
   ) where
 
-import qualified Control.Concurrent.MVar as MV
-import           Control.Monad
-import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Class (lift)
 import           Data.Default (Default(..))
 import           Data.List
 import           Data.Maybe
@@ -39,6 +37,7 @@ import           System.Taffybar
 import qualified System.Taffybar.Context as BC (BarConfig(..), TaffybarConfig(..))
 import           System.Taffybar.Context hiding (TaffybarConfig(..), BarConfig(..))
 import           System.Taffybar.Util
+import qualified UnliftIO.MVar as MV
 
 -- | An ADT representing the edge of the monitor along which taffybar should be
 -- displayed.
@@ -171,20 +170,21 @@ simpleDyreTaffybar conf = dyreTaffybar $ toTaffybarConfig conf
 simpleTaffybar :: SimpleTaffyConfig -> IO ()
 simpleTaffybar conf = startTaffybar $ toTaffybarConfig conf
 
-getMonitorCount :: IO Int
-getMonitorCount =
-  fromIntegral <$> (screenGetDefault >>= maybe (return 0)
-                    (screenGetDisplay >=> displayGetNMonitors))
+-- | Get the number of monitors that belong to the default display.
+-- If the GDK display manager has no default display, this will return
+-- 'Nothing'.
+getMonitorCount :: IO (Maybe Int)
+getMonitorCount = displayGetDefault >>= mapM (fmap fromIntegral . displayGetNMonitors)
 
 -- | Supply this value for 'monitorsAction' to display the taffybar window on
 -- all monitors.
 useAllMonitors :: TaffyIO [Int]
 useAllMonitors = lift $ do
-  count <- getMonitorCount
+  count <- fromMaybe 1 <$> getMonitorCount
   return [0..count-1]
 
 -- | Supply this value for 'monitorsAction' to display the taffybar window only
 -- on the primary monitor.
 usePrimaryMonitor :: TaffyIO [Int]
 usePrimaryMonitor =
-  singleton . fromMaybe 0 <$> lift (withX11Context def getPrimaryOutputNumber)
+  singleton . fromMaybe 0 <$> runProperty getPrimaryOutputNumber

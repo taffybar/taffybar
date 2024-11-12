@@ -11,11 +11,11 @@ module System.Taffybar.Widget.Generic.PollingBar (
   defaultBarConfig
   ) where
 
-import Control.Concurrent
-import Control.Exception.Enclosed ( tryAny )
 import qualified GI.Gtk
 import System.Taffybar.Widget.Util ( backgroundLoop )
 import Control.Monad.IO.Class
+import UnliftIO.Concurrent ( threadDelay )
+import UnliftIO.Exception ( tryAny )
 
 import System.Taffybar.Widget.Generic.VerticalBar
 

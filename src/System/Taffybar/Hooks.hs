@@ -23,7 +23,6 @@ module System.Taffybar.Hooks
   ) where
 
 import           BroadcastChan
-import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
@@ -37,6 +36,7 @@ import           System.Taffybar.Information.Network
 import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.LogFormatter
 import           System.Taffybar.Util
+import           UnliftIO.Concurrent (forkIO)
 
 -- | The type of the channel that provides network information in taffybar.
 newtype NetworkInfoChan =
@@ -46,7 +46,9 @@ newtype NetworkInfoChan =
 buildNetworkInfoChan :: Double -> IO NetworkInfoChan
 buildNetworkInfoChan interval = do
   chan <- newBroadcastChan
-  _ <- forkIO $ monitorNetworkInterfaces interval (void . writeBChan chan)
+  _ <- forkIO $ do
+    labelMyThread "NetworkInfo"
+    monitorNetworkInterfaces interval (void . writeBChan chan)
   return $ NetworkInfoChan chan
 
 -- | Get the 'NetworkInfoChan' from 'Context', creating it if it does not exist.
@@ -77,7 +79,7 @@ getDirectoryEntriesByClassName =
 -- | Update the 'DesktopEntry' cache every 60 seconds.
 updateDirectoryEntriesCache :: TaffyIO ()
 updateDirectoryEntriesCache = ask >>= \ctx ->
-  void $ lift $ foreverWithDelay (60 :: Double) $ flip runReaderT ctx $
+  void $ lift $ foreverWithDelay (60 :: Double) $ runTaffy ctx $
        void $ putState readDirectoryEntriesDefault
 
 -- | Read 'DesktopEntry' values into a 'MM.Multimap', where they are indexed by
