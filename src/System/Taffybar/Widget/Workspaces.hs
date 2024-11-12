@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-{-# LANGUAGE ScopedTypeVariables, ExistentialQuantification, RankNTypes, OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables, ExistentialQuantification, RankNTypes, OverloadedStrings, StrictData #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Widget.Workspaces
@@ -398,7 +398,7 @@ updateWorkspaceControllers = do
         builder = widgetBuilder cfg
 
     _ <- updateVar controllersRef $ \controllers -> do
-      let oldRemoved = F.foldl (flip M.delete) controllers removeWorkspaces
+      let oldRemoved = F.foldl' (flip M.delete) controllers removeWorkspaces
           buildController idx = builder <$> M.lookup idx workspacesMap
           buildAndAddController theMap idx =
             maybe (return theMap) (>>= return . flip (M.insert idx) theMap)
@@ -426,7 +426,7 @@ onWorkspaceUpdate context = do
         case event of
           PropertyEvent _ _ _ _ _ atom _ _ ->
             wLog DEBUG $ printf "Event %s" $ show atom
-          _ -> return ()
+          _anythingElse -> return ()
         void $ forkIO $ rateLimited event
   return withLog
   where
