@@ -1,23 +1,23 @@
 module System.Taffybar.Widget.Generic.ChannelWidget where
 
-import BroadcastChan
 import Control.Concurrent
+import Control.Concurrent.STM.TChan
 import Control.Monad
 import Control.Monad.IO.Class
-import Data.Foldable (traverse_)
+import Control.Monad.STM (atomically)
 import GI.Gtk
 
--- | Given a widget, a 'BroadcastChan' and a function that consumes the values
+-- | Given a widget, a broadcast 'TChan' and a function that consumes the values
 -- yielded by the channel that is in 'IO', connect the function to the
--- 'BroadcastChan' on a dedicated haskell thread.
+-- 'TChan' on a dedicated haskell thread.
 channelWidgetNew ::
   (MonadIO m, IsWidget w) =>
-  w -> BroadcastChan In a -> (a -> IO ()) -> m w
+  w -> TChan a -> (a -> IO ()) -> m w
 channelWidgetNew widget channel updateWidget = do
   void $ onWidgetRealize widget $ do
-    ourChan <- newBChanListener channel
+    ourChan <- atomically $ dupTChan channel
     processingThreadId <- forkIO $ forever $
-      readBChan ourChan >>= traverse_ updateWidget
+      atomically (readTChan ourChan) >>= updateWidget
     void $ onWidgetUnrealize widget $ killThread processingThreadId
   widgetShowAll widget
   return widget

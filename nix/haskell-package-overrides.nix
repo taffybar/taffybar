@@ -88,7 +88,6 @@ final: prev: let
     #   https://github.com/NixOS/nixpkgs/pull/339272
     #   https://github.com/NixOS/nixpkgs/pull/342755
     scotty = doJailbreak super.scotty; # text <2.1
-    broadcast-chan = doJailbreak super.broadcast-chan; # base <4.19
   };
 
   fixDeps92 = self: super: lib.optionalAttrs (lib.versionOlder super.ghc.version "9.4") {

@@ -10,7 +10,7 @@
 -- Portability : unportable
 --
 -- This module provides functions for querying battery information using the
--- UPower dbus, as well as a "BroadcastChan" system for allowing multiple
+-- UPower dbus, as well as a broadcast "TChan" system for allowing multiple
 -- readers to receive 'BatteryState' updates without duplicating requests.
 -----------------------------------------------------------------------------
 module System.Taffybar.Information.Battery
@@ -21,10 +21,11 @@ module System.Taffybar.Information.Battery
   , module System.Taffybar.Information.Battery
   ) where
 
-import           BroadcastChan
 import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.Monad.STM (atomically)
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Reader
@@ -155,7 +156,7 @@ getBatteryPaths = do
     return $ filter isBattery paths
 
 newtype DisplayBatteryChanVar =
-  DisplayBatteryChanVar (BroadcastChan In BatteryInfo, MVar BatteryInfo)
+  DisplayBatteryChanVar (TChan BatteryInfo, MVar BatteryInfo)
 
 getDisplayBatteryInfo :: TaffyIO BatteryInfo
 getDisplayBatteryInfo = do
@@ -175,13 +176,13 @@ getDisplayBatteryChanVar :: TaffyIO DisplayBatteryChanVar
 getDisplayBatteryChanVar =
   setupDisplayBatteryChanVar defaultMonitorDisplayBatteryProperties
 
-getDisplayBatteryChan :: TaffyIO (BroadcastChan In BatteryInfo)
+getDisplayBatteryChan :: TaffyIO (TChan BatteryInfo)
 getDisplayBatteryChan = do
   DisplayBatteryChanVar (chan, _) <- getDisplayBatteryChanVar
   return chan
 
 updateBatteryInfo
-  :: BroadcastChan In BatteryInfo
+  :: TChan BatteryInfo
   -> MVar BatteryInfo
   -> ObjectPath
   -> TaffyIO ()
@@ -190,7 +191,7 @@ updateBatteryInfo chan var path =
   where
     doWrites info =
         batteryLogF DEBUG "Writing info %s" info >>
-        swapMVar var info >> void (writeBChan chan info)
+        swapMVar var info >> void (atomically $ writeTChan chan info)
     warnOfFailure = batteryLogF WARNING "Failed to update battery info %s"
 
 registerForAnyUPowerPropertiesChanged
@@ -217,12 +218,12 @@ registerForUPowerPropertyChanges properties signalHandler = do
 -- | Monitor the DisplayDevice for changes, writing a new "BatteryInfo" object
 -- to returned "MVar" and "Chan" objects
 monitorDisplayBattery ::
-  [String] -> TaffyIO (BroadcastChan In BatteryInfo, MVar BatteryInfo)
+  [String] -> TaffyIO (TChan BatteryInfo, MVar BatteryInfo)
 monitorDisplayBattery propertiesToMonitor = do
   lift $ batteryLog DEBUG "Starting Battery Monitor"
   client <- asks systemDBusClient
   infoVar <- lift $ newMVar $ infoMapToBatteryInfo M.empty
-  chan <- newBroadcastChan
+  chan <- liftIO newBroadcastTChanIO
   taffyFork $ do
     ctx <- ask
     let warnOfFailedGetDevice err =

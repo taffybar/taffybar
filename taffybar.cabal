@@ -51,7 +51,6 @@ library
                , X11 >= 1.5.0.1
                , aeson
                , ansi-terminal
-               , broadcast-chan >= 0.2.0.2
                , bytestring
                , conduit
                , containers

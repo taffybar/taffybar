@@ -22,9 +22,10 @@ module System.Taffybar.Hooks
   , refreshBatteriesOnPropChange
   ) where
 
-import           BroadcastChan
 import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
 import           Control.Monad
+import           Control.Monad.STM (atomically)
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import qualified Data.MultiMap as MM
@@ -40,13 +41,13 @@ import           System.Taffybar.Util
 
 -- | The type of the channel that provides network information in taffybar.
 newtype NetworkInfoChan =
-  NetworkInfoChan (BroadcastChan In [(String, (Rational, Rational))])
+  NetworkInfoChan (TChan [(String, (Rational, Rational))])
 
 -- | Build a 'NetworkInfoChan' that refreshes at the provided interval.
 buildNetworkInfoChan :: Double -> IO NetworkInfoChan
 buildNetworkInfoChan interval = do
-  chan <- newBroadcastChan
-  _ <- forkIO $ monitorNetworkInterfaces interval (void . writeBChan chan)
+  chan <- newBroadcastTChanIO
+  _ <- forkIO $ monitorNetworkInterfaces interval (void . atomically . writeTChan chan)
   return $ NetworkInfoChan chan
 
 -- | Get the 'NetworkInfoChan' from 'Context', creating it if it does not exist.
