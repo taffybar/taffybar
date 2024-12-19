@@ -13,7 +13,7 @@
 -- This module provides battery widgets that are queried using the UPower dbus
 -- service. To avoid duplicating all information requests for each battery
 -- widget displayed (if using a multi-head configuration or multiple battery
--- widgets), these widgets use the "BroadcastChan" based system for receiving
+-- widgets), these widgets use the broadcast "TChan" based system for receiving
 -- updates defined in "System.Taffybar.Information.Battery".
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.Battery
