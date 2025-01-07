@@ -1,4 +1,4 @@
-# 4.0.4 (UNRELEASED)
+# 4.1.0 (UNRELEASED)
 
 ## Improvements
 
