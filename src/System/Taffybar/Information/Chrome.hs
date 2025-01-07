@@ -1,9 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module System.Taffybar.Information.Chrome where
 
-import           BroadcastChan
 import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
 import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.STM (atomically)
 import           Control.Monad.Trans.Class
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
@@ -29,14 +31,14 @@ data ChromeTabImageData = ChromeTabImageData
 
 newtype ChromeTabImageDataState =
   ChromeTabImageDataState
-  (MVar (M.Map Int ChromeTabImageData), BroadcastChan Out ChromeTabImageData)
+  (MVar (M.Map Int ChromeTabImageData), TChan ChromeTabImageData)
 
 getChromeTabImageDataState :: TaffyIO ChromeTabImageDataState
 getChromeTabImageDataState = do
   ChromeFaviconServerPort port <- fromMaybe (ChromeFaviconServerPort 5000) <$> getState
   getStateDefault (listenForChromeFaviconUpdates port)
 
-getChromeTabImageDataChannel :: TaffyIO (BroadcastChan Out ChromeTabImageData)
+getChromeTabImageDataChannel :: TaffyIO (TChan ChromeTabImageData)
 getChromeTabImageDataChannel = do
   ChromeTabImageDataState (_, chan) <- getChromeTabImageDataState
   return chan
@@ -51,8 +53,8 @@ newtype ChromeFaviconServerPort = ChromeFaviconServerPort Int
 listenForChromeFaviconUpdates :: Int -> TaffyIO ChromeTabImageDataState
 listenForChromeFaviconUpdates port = do
   infoVar <- lift $ newMVar M.empty
-  inChan <- newBroadcastChan
-  outChan <- newBChanListener inChan
+  inChan <- liftIO newBroadcastTChanIO
+  outChan <- liftIO . atomically $ dupTChan inChan
   _ <- lift $ forkIO $ scotty port $
     post "/setTabImageData/:tabID" $ do
       tabID <- queryParam "tabID"
@@ -70,7 +72,7 @@ listenForChromeFaviconUpdates port = do
               in
                 modifyMVar_ infoVar $ \currentMap ->
                   do
-                    _ <- writeBChan inChan chromeTabImageData
+                    _ <- atomically $ writeTChan inChan chromeTabImageData
                     return $ M.insert tabID chromeTabImageData currentMap
         Gdk.pixbufLoaderGetPixbuf loader >>= maybe (return ()) updateChannelAndMVar
   return $ ChromeTabImageDataState (infoVar, outChan)

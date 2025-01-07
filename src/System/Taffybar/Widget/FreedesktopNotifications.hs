@@ -27,7 +27,6 @@ module System.Taffybar.Widget.FreedesktopNotifications
   , notifyAreaNew
   ) where
 
-import           BroadcastChan
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Monad ( forever, void )
@@ -64,14 +63,14 @@ data NotifyState = NotifyState
   , noteConfig :: NotificationConfig -- ^ The associated configuration
   , noteQueue :: TVar (Seq Notification) -- ^ The queue of active notifications
   , noteIdSource :: TVar Word32 -- ^ A source of fresh notification ids
-  , noteChan :: BroadcastChan In () -- ^ Writing to this channel wakes up the display thread
+  , noteChan :: TChan () -- ^ Writing to this channel wakes up the display thread
   }
 
 initialNoteState :: Widget -> Label -> NotificationConfig -> IO NotifyState
 initialNoteState wrapper l cfg = do
   m <- newTVarIO 1
   q <- newTVarIO S.empty
-  ch <- newBroadcastChan
+  ch <- newBroadcastTChanIO
   return NotifyState { noteQueue = q
                      , noteIdSource = m
                      , noteWidget = l
@@ -172,14 +171,14 @@ notificationDaemon onNote onCloseNote = do
 
 --------------------------------------------------------------------------------
 wakeupDisplayThread :: NotifyState -> IO ()
-wakeupDisplayThread s = void $ writeBChan (noteChan s) ()
+wakeupDisplayThread s = void . atomically $ writeTChan (noteChan s) ()
 
 -- | Refreshes the GUI
 displayThread :: NotifyState -> IO ()
 displayThread s = do
-  chan <- newBChanListener (noteChan s)
+  chan <- atomically . dupTChan $ noteChan s
   forever $ do
-    _ <- readBChan chan
+    _ <- atomically $ readTChan chan
     ns <- readTVarIO (noteQueue s)
     postGUIASync $
       if S.length ns == 0

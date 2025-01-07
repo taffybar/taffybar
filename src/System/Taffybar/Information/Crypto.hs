@@ -17,11 +17,12 @@
 -----------------------------------------------------------------------------
 module System.Taffybar.Information.Crypto where
 
-import           BroadcastChan
 import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
 import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.Monad.STM (atomically)
 import           Data.Aeson
 import           Data.Aeson.Types (parseMaybe)
 import qualified Data.Aeson.Key as Key
@@ -58,7 +59,7 @@ newtype SymbolToCoinGeckoId = SymbolToCoinGeckoId (M.Map Text Text)
 newtype CryptoPriceInfo = CryptoPriceInfo { lastPrice :: Double }
 
 newtype CryptoPriceChannel (a :: Symbol) =
-  CryptoPriceChannel (BroadcastChan In CryptoPriceInfo, MVar CryptoPriceInfo)
+  CryptoPriceChannel (TChan CryptoPriceInfo, MVar CryptoPriceInfo)
 
 getCryptoPriceChannel :: KnownSymbol a => TaffyIO (CryptoPriceChannel a)
 getCryptoPriceChannel = do
@@ -97,13 +98,13 @@ buildCryptoPriceChannel ::
   forall a. KnownSymbol a => Double -> SymbolToCoinGeckoId -> TaffyIO (CryptoPriceChannel a)
 buildCryptoPriceChannel delay symbolToId = do
   let initialBackoff = delay
-  chan <- newBroadcastChan
+  chan <- liftIO newBroadcastTChanIO
   var <- liftIO $ newMVar $ CryptoPriceInfo 0.0
   backoffVar <- liftIO $ newMVar initialBackoff
 
   let doWrites info = do
         _ <- swapMVar var info
-        _ <- writeBChan chan info
+        _ <- atomically $ writeTChan chan info
         _ <- swapMVar backoffVar initialBackoff
         return ()
 

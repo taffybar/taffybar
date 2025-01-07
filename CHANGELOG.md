@@ -1,4 +1,4 @@
-# 4.0.4 (UNRELEASED)
+# 4.1.0 (UNRELEASED)
 
 ## Improvements
 
@@ -11,7 +11,13 @@
    a `SIGHUP` signal, then it will restart the inotify instance and
    reload the CSS files.
 
+ * The [`BroadcastChan`][broadcast-chan] dependency has not received
+   Cabal revisions for a while, so is replaced with [`Control.Concurrent.STM.TChan`][tchan].
+   Some types in `System.Taffybar.Hooks` and `System.Taffybar.Information.{Battery,Chrome,Crypto}` change accordingly.
+
 [WindowsConfig]: https://hackage.haskell.org/package/taffybar-4.0.4/docs/System-Taffybar-Widget-Windows.html#t:WindowsConfig
+[broadcast-chan]: https://hackage.haskell.org/package/broadcast-chan
+[tchan]: https://hackage.haskell.org/package/stm-2.5.1.0/docs/Control-Concurrent-STM-TChan.html
 
 
 # 4.0.3
