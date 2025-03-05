@@ -1,8 +1,18 @@
-# 4.1.0 (UNRELEASED)
+# 4.1.0
+
+## Breaking Changes
+
+ * The [`BroadcastChan`][broadcast-chan] dependency has not received
+   Cabal revisions for a while, so is replaced with [`Control.Concurrent.STM.TChan`][tchan].
+   Some types in `System.Taffybar.Hooks` and `System.Taffybar.Information.{Battery,Chrome,Crypto}` change accordingly.
+
+[broadcast-chan]: https://hackage.haskell.org/package/broadcast-chan
+[tchan]: https://hackage.haskell.org/package/stm-2.5.1.0/docs/Control-Concurrent-STM-TChan.html
 
 ## Improvements
 
- * Add icon next to window label in Windows widget. This can be configured with [`WindowsConfig(getActiveWindowIconPixbuf)`][WindowsConfig].
+ * Add icon next to window label in Windows widget. This can be configured
+   with [`WindowsConfig(getActiveWindowIconPixbuf)`][WindowsConfig].
 
  * Taffybar now watches its CSS files with inotify. Changes to CSS
    should be visible immediately after saving the file.
@@ -11,13 +21,7 @@
    a `SIGHUP` signal, then it will restart the inotify instance and
    reload the CSS files.
 
- * The [`BroadcastChan`][broadcast-chan] dependency has not received
-   Cabal revisions for a while, so is replaced with [`Control.Concurrent.STM.TChan`][tchan].
-   Some types in `System.Taffybar.Hooks` and `System.Taffybar.Information.{Battery,Chrome,Crypto}` change accordingly.
-
-[WindowsConfig]: https://hackage.haskell.org/package/taffybar-4.0.4/docs/System-Taffybar-Widget-Windows.html#t:WindowsConfig
-[broadcast-chan]: https://hackage.haskell.org/package/broadcast-chan
-[tchan]: https://hackage.haskell.org/package/stm-2.5.1.0/docs/Control-Concurrent-STM-TChan.html
+[WindowsConfig]: https://hackage.haskell.org/package/taffybar-4.1.0/docs/System-Taffybar-Widget-Windows.html#t:WindowsConfig
 
 
 # 4.0.3
