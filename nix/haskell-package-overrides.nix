@@ -82,12 +82,6 @@ final: prev: let
         preFixup = "";
       }))
     ];
-
-    # Overrides for building with GHC >=9.8.
-    # Required until these are merged into nixos-unstable:
-    #   https://github.com/NixOS/nixpkgs/pull/339272
-    #   https://github.com/NixOS/nixpkgs/pull/342755
-    scotty = doJailbreak super.scotty; # text <2.1
   };
 
   fixDeps92 = self: super: lib.optionalAttrs (lib.versionOlder super.ghc.version "9.4") {
