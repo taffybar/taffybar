@@ -34,7 +34,7 @@
     # This flake will generate packages using the following compilers
     # from nixpkgs. The "default" package in this flake will be built with
     # the whichever GHC nixpkgs uses to generate pkgs.haskellPackages.
-    # Currently in nixpkgs: haskellPackages = haskell.packages.ghc96
+    # Currently in nixpkgs: haskellPackages = haskell.packages.ghc910
     supportedCompilers = [ "ghc92" "ghc94" "ghc96" "ghc98" ];
 
   in {
