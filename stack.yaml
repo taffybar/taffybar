@@ -1,8 +1,6 @@
 packages:
 - '.'
-extra-deps:
-
-resolver: nightly-2023-05-30
+resolver: lts-24.15
 
 nix:
   packages:
