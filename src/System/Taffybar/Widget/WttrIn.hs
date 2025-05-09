@@ -28,7 +28,7 @@ import Network.HTTP.Client
   )
 import Network.HTTP.Types.Status (statusIsSuccessful)
 import System.Log.Logger (Priority (ERROR), logM)
-import System.Taffybar.Widget.Generic.PollingLabel (pollingLabelNew)
+import System.Taffybar.Widget.Generic.PollingLabel (pollingLabelWithVariableDelayAndRefresh)
 import Text.Regex (matchRegex, mkRegex)
 
 -- | Creates a GTK Label widget that polls the requested wttr.in url for weather
@@ -47,7 +47,10 @@ textWttrNew ::
   -- | Update Interval (in seconds)
   Double ->
   m Widget
-textWttrNew url interval = pollingLabelNew interval (callWttr url)
+textWttrNew url interval = pollingLabelWithVariableDelayAndRefresh action True
+  where action = do
+          rsp <- callWttr url
+          return (rsp, Nothing, interval)
 
 -- | IO Action that calls wttr.in as per the user's request.
 callWttr :: String -> IO T.Text

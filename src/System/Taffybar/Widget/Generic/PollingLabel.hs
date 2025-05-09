@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- | This is a simple text widget that updates its contents by calling
 -- a callback at a set interval.
 module System.Taffybar.Widget.Generic.PollingLabel where
@@ -8,6 +10,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import qualified Data.Text as T
 import           GI.Gtk
+import qualified GI.Gdk as Gdk
 import           System.Log.Logger
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
@@ -48,9 +51,27 @@ pollingLabelWithVariableDelay
   => IO (T.Text, Maybe T.Text, Double)
   -> m GI.Gtk.Widget
 pollingLabelWithVariableDelay action =
+  pollingLabelWithVariableDelayAndRefresh action False
+
+-- TODO: Customize the delay and message on mouse click
+pollingLabelWithVariableDelayAndRefresh
+  :: MonadIO m
+  => IO (T.Text, Maybe T.Text, Double)
+  -> Bool -- ^ Whether to refresh the label on mouse click
+  -> m GI.Gtk.Widget
+pollingLabelWithVariableDelayAndRefresh action refreshOnClick =
   liftIO $ do
     grid <- gridNew
     label <- labelNew Nothing
+    ebox <- eventBoxNew
+
+    when refreshOnClick $ void $ onWidgetButtonPressEvent ebox $ onClick [Gdk.EventTypeButtonPress] $ do
+      postGUIASync $ labelSetMarkup label "Refreshing..."
+      forkIO $ do
+        newLavelStr <- E.tryAny action >>= \case
+          Left _                  -> return "Error"
+          Right (_labelStr, _, _) -> return _labelStr
+        postGUIASync $ labelSetMarkup label newLavelStr
 
     let updateLabel (labelStr, tooltipStr, delay) = do
           postGUIASync $ do
@@ -69,5 +90,6 @@ pollingLabelWithVariableDelay action =
     vFillCenter label
     vFillCenter grid
     containerAdd grid label
-    widgetShowAll grid
-    toWidget grid
+    containerAdd ebox grid
+    widgetShowAll ebox
+    toWidget ebox
