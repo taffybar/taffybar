@@ -55,6 +55,7 @@ module System.Taffybar.Information.X11DesktopInfo
   , isWindowUrgent
   , getPrimaryOutputNumber
   , getVisibleTags
+  , getFocusedMonitorRect
 
   -- ** Operations
   , doLowerWindow
@@ -187,6 +188,9 @@ isWindowUrgent window = do
 -- an empty list of strings if the @pagerHints@ hook is not available.
 getVisibleTags :: X11Property [String]
 getVisibleTags = readAsListOfString Nothing "_XMONAD_VISIBLE_WORKSPACES"
+
+getFocusedMonitorRect :: X11Property [String]
+getFocusedMonitorRect = readAsListOfString Nothing "_XMONAD_FOCUSED_MONITOR_GEOMETRY"
 
 -- | Return the 'Atom' with the given name.
 getAtom :: String -> X11Property Atom
