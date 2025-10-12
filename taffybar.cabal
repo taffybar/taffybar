@@ -8,7 +8,7 @@ author: Ivan Malison
 maintainer: IvanMalison@gmail.com
 category: System
 build-type: Simple
-tested-with: GHC == 9.2.8, GHC == 9.4.8, GHC == 9.6.6, GHC == 9.8.2
+tested-with: GHC == 9.8.4, GHC == 9.10.3
 homepage: http://github.com/taffybar/taffybar
 data-files:
   taffybar.css
