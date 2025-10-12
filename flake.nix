@@ -1,8 +1,10 @@
 {
   description = "gtk-strut";
   inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    git-ignore-nix.url = github:hercules-ci/gitignore.nix/master;
+    git-ignore-nix.url = "github:hercules-ci/gitignore.nix";
+    git-ignore-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
   outputs = { self, flake-utils, nixpkgs, git-ignore-nix }:
   let
