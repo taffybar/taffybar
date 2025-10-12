@@ -84,12 +84,37 @@ final: prev: let
     ];
   };
 
+  # Patch gi-gtk and gi-gdk build dependencies.
+  # https://github.com/haskell-gi/haskell-gi/issues/478
+  fixVersionNamePackages = with haskellLib; self: super: let
+    fixup = ver: drv: if lib.versionOlder drv.version ver then fixup' drv else drv;
+    fixup' = drv: overrideCabal (oa: {
+      postPatch = oa.postPatch or "" + ''
+        substituteInPlace ${oa.pname}.cabal \
+          --replace-fail "gi-gtk " "gi-gtk3 " \
+          --replace-fail "gi-gdk " "gi-gdk3 "
+      '';
+    })
+      (drv.override {
+        gi-gtk = self.gi-gtk3;
+        gi-gdk = self.gi-gdk3;
+      });
+  in {
+    # https://github.com/NixOS/nixpkgs/pull/451363
+    gi-gtk-hs = fixup "0.3.18" super.gi-gtk-hs;
+    # For the nixos-25.05 branch
+    gi-dbusmenugtk3 = fixup "0.4.16" super.gi-dbusmenugtk3;
+  };
+
   fixDeps92 = self: super: lib.optionalAttrs (lib.versionOlder super.ghc.version "9.4") {
     taffybar = super.taffybar.override { inherit (pkgs) gtk3; };
     gtk-sni-tray = super.gtk-sni-tray.override { inherit (pkgs) gtk3; };
   };
 
 in
-  lib.composeExtensions
+  lib.composeManyExtensions [
     (haskellLib.packageSourceOverrides sourceOverrides)
-    (lib.composeExtensions configuration fixDeps92)
+    configuration
+    fixVersionNamePackages
+    fixDeps92
+  ]
