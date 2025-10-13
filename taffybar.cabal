@@ -255,4 +255,4 @@ test-suite unit
 
 source-repository head
   type: git
-  location: git://github.com/taffybar/taffybar.git
+  location: http://github.com/taffybar/taffybar.git
