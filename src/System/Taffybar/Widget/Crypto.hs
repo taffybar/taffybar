@@ -28,7 +28,6 @@ import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.Aeson.Key as Key
 import qualified Data.ByteString.Lazy as LBS
-import           Data.List.Split
 import           Data.Maybe
 import           Data.Proxy
 import qualified Data.Text
@@ -58,7 +57,7 @@ cryptoPriceLabelWithIcon :: forall a. KnownSymbol a => TaffyIO Gtk.Widget
 cryptoPriceLabelWithIcon = do
   label <- cryptoPriceLabel @a
   let symbolPair = symbolVal (Proxy :: Proxy a)
-      symbol = head $ splitOn "-" symbolPair
+      symbol = takeWhile (/= '-') symbolPair
   hbox <- Gtk.boxNew Gtk.OrientationHorizontal 0
 
   ctx <- ask

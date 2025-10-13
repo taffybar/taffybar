@@ -145,10 +145,10 @@ pPressure = do
 
 parseData :: Parser WeatherInfo
 parseData = do
-  st <- getAllBut ","
+  st <- getAllBut ','
   _ <- space
-  ss <- getAllBut "("
-  _ <- skipRestOfLine >> getAllBut "/"
+  ss <- getAllBut '('
+  _ <- skipRestOfLine >> getAllBut '/'
   (y,m,d,h) <- pTime
   w <- getAfterString "Wind: "
   v <- getAfterString "Visibility: "
@@ -163,9 +163,8 @@ parseData = do
   _ <- manyTill skipRestOfLine eof
   return $ WI st ss y m d h w v sk tC tF dp rh p
 
-getAllBut :: String -> Parser String
-getAllBut s =
-    manyTill (noneOf s) (char $ head s)
+getAllBut :: Char -> Parser String
+getAllBut c = manyTill (noneOf [c]) (char c)
 
 getAfterString :: String -> Parser String
 getAfterString s = pAfter <|> return ("<" ++ s ++ " not found!>")

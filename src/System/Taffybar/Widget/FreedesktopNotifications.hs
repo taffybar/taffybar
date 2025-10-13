@@ -207,9 +207,9 @@ data NotificationConfig = NotificationConfig
   }
 
 defaultFormatter :: [Notification] -> T.Text
-defaultFormatter ns =
-  let count = length ns
-      n = head ns
+defaultFormatter [] = ""
+defaultFormatter (n:ns) =
+  let count = length ns + 1
       prefix = if count == 1
                then ""
                else "(" <> T.pack (show count) <> ") "
