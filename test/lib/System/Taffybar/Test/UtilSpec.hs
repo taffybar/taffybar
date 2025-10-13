@@ -292,7 +292,7 @@ setStderrCond = setStderr . streamSpecCond INFO
 
 makeServiceDefaults :: FilePath -> [String] -> IO (ProcessConfig () () ())
 makeServiceDefaults prog args =
-  ($ proc prog args) . setServiceDefaults <$> getSpecLogPriority
+  flip setServiceDefaults (proc prog args) <$> getSpecLogPriority
 
 setServiceDefaults :: Priority -> ProcessConfig i o e -> ProcessConfig () () ()
 setServiceDefaults logLevel = setCloseFds True
