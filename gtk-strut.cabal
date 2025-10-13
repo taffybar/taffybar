@@ -1,0 +1,43 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.38.2.
+--
+-- see: https://github.com/sol/hpack
+
+name:           gtk-strut
+version:        0.1.4.0
+synopsis:       Library for creating strut windows with gi-gtk
+description:    Please see the README on Github at <https://github.com/IvanMalison/gtk-strut#readme>
+category:       System
+homepage:       https://github.com/IvanMalison/gtk-strut#readme
+bug-reports:    https://github.com/IvanMalison/gtk-strut/issues
+author:         Ivan Malison
+maintainer:     IvanMalison@gmail.com
+copyright:      Ivan Malison
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/IvanMalison/gtk-strut
+
+library
+  exposed-modules:
+      Graphics.UI.GIGtkStrut
+  other-modules:
+      Graphics.UI.EWMHStrut
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , data-default
+    , gi-gdk3
+    , gi-gtk3
+    , hslogger
+    , text
+    , transformers
+  default-language: Haskell2010
