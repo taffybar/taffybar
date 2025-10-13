@@ -6,15 +6,13 @@ nix:
   packages:
     - cairo
     - gcc
-    - gnome2.pango
-    - gobjectIntrospection
+    - pango
     - gtk3
     - hicolor-icon-theme
-    - libdbusmenu-glib
+    - libdbusmenu
     - libdbusmenu-gtk3
     - libxml2
-    - pkgconfig
-    - x11
+    - pkg-config
     - xorg.libX11
     - xorg.libXScrnSaver
     - xorg.libXext
