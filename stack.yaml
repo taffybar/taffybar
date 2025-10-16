@@ -1,22 +1,26 @@
 packages:
 - '.'
+resolver: lts-24.15
 extra-deps:
-
-resolver: nightly-2023-05-30
+- gtk-sni-tray-0.1.9.0
+- gtk-strut-0.1.4.0
+# - gi-gtk-hs-0.3.18   # is not released yet
+- github: haskell-gi/haskell-gi
+  commit: e2ed85835499f70e119f050a2f37f22481f93886
+  subdirs:
+  - gi-gtk-hs
 
 nix:
   packages:
     - cairo
     - gcc
-    - gnome2.pango
-    - gobjectIntrospection
+    - pango
     - gtk3
     - hicolor-icon-theme
-    - libdbusmenu-glib
+    - libdbusmenu
     - libdbusmenu-gtk3
     - libxml2
-    - pkgconfig
-    - x11
+    - pkg-config
     - xorg.libX11
     - xorg.libXScrnSaver
     - xorg.libXext

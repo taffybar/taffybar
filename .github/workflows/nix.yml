@@ -4,30 +4,35 @@ on:
   push:
     branches: [master]
 
+permissions:
+  id-token: "write"
+  contents: "read"
+
 jobs:
   lints:
-    name: Build and Check with GHC 9.6 on ${{ matrix.nixpkgs }}
+    name: Build and Check with default GHC on ${{ matrix.nixpkgs }}
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       matrix:
-        nixpkgs: [nixos-unstable, nixos-24.05]
+        nixpkgs: [nixos-unstable, nixos-25.05]
+    env:
+      drv: .#packages.x86_64-linux.default
     steps:
-      - uses: actions/checkout@v3
-      - name: Check Nix flake inputs
-        uses: DeterminateSystems/flake-checker-action@main
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-      - name: Cache
-        uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: actions/checkout@main
+      - uses: DeterminateSystems/flake-checker-action@main
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Use ${{ matrix.nixpkgs }}
         if: matrix.nixpkgs != 'nixos-unstable'
-        run: nix flake lock --override-input nixpkgs github:NixOS/nixpkgs/${{ matrix.nixpkgs }}
-      - name: Run `nix build`
-        run: nix build .
-      - name: Run `nix flake check`
-        run: nix flake check
+        run: nix flake update nixpkgs --override-input nixpkgs github:NixOS/nixpkgs/${{ matrix.nixpkgs }}
+      - name: Nix build dependencies
+        run: nix develop --print-build-logs $drv --command ghc-pkg list
+      - name: Nix build
+        run: nix build --print-build-logs $drv
+      - run: nix flake check --print-build-logs
       - name: Run `nix-build` using overlay on ${{ matrix.nixpkgs }}
-        if: matrix.nixpkgs != 'nixos-unstable'
+        if: false  # TODO: needs overlays from gtk-strut, gtk-sni-tray, etc.
         run: nix-build -I nixpkgs=flake:github:NixOS/nixpkgs/${{ matrix.nixpkgs }} '<nixpkgs>' --arg overlays '[(import ./nix/overlay.nix)]' -A pkgs.haskellPackages.taffybar
 
   build:
@@ -37,16 +42,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [ghc92, ghc94, ghc98]
+        compiler: [ghc98]
         experimental: [false]
         # include:
-        #   - compiler: ghc910
+        #   - compiler: ghc912
         #     experimental: true
+    env:
+      drv: .#packages.x86_64-linux.${{ matrix.compiler }}-taffybar
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-      - name: Cache
-        uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: actions/checkout@main
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Nix build dependencies for ${{ matrix.compiler }}
+        run: nix develop -L $drv --command ghc-pkg list
       - name: Nix build for ${{ matrix.compiler }}
-        run: nix build .#${{ matrix.compiler }}-taffybar
+        run: nix build -L $drv

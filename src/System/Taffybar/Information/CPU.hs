@@ -12,7 +12,7 @@ procData = do
   return (procParser firstLine)
 
 procParser :: String -> [Double]
-procParser = map read . tail . words
+procParser = map read . drop 1 . words
 
 truncVal :: Double -> Double
 truncVal v

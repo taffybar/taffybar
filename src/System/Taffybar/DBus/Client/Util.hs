@@ -3,9 +3,7 @@
 {-# LANGUAGE TemplateHaskellQuotes #-}
 module System.Taffybar.DBus.Client.Util where
 
-#if !MIN_VERSION_base(4,18,0)
-import           Control.Applicative (liftA2)
-#endif
+import Control.Monad (forM)
 import           DBus.Generation
 import qualified DBus.Internal.Types as T
 import qualified DBus.Introspection as I
@@ -78,13 +76,13 @@ generateGetAllRecord
 generateClientFromFile :: RecordGenerationParams -> GenerationParams -> Bool -> FilePath -> Q [Dec]
 generateClientFromFile recordGenerationParams params useObjectPath filepath = do
   object <- getIntrospectionObjectFromFile filepath "/"
-  let interface = head $ I.objectInterfaces object
-      actualObjectPath = I.objectPath object
+  let actualObjectPath = I.objectPath object
       realParams =
         if useObjectPath
           then params {genObjectPath = Just actualObjectPath}
           else params
       (<++>) = liftA2 (++)
-  generateGetAllRecord recordGenerationParams params interface <++>
-    generateClient realParams interface <++>
-    generateSignalsFromInterface realParams interface
+  fmap concat $ forM (I.objectInterfaces object) $ \interface -> do
+    generateGetAllRecord recordGenerationParams params interface <++>
+      generateClient realParams interface <++>
+      generateSignalsFromInterface realParams interface

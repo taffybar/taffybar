@@ -155,9 +155,7 @@ parseConditions key elt = case findChild (unqual key) elt of
                           $ elChildren e
           "Or"       -> Just $ Or  $ mapMaybe parseSingleItem
                           $ elChildren e
-          "Not"      -> case parseSingleItem (head (elChildren e)) of
-                          Nothing   -> Nothing
-                          Just rule -> Just $ Not rule
+          "Not"      -> Not <$> (parseSingleItem =<< listToMaybe (elChildren e))
           unknown    -> D.trace ("Unknown Condition item: " ++  unknown) Nothing
 
 -- | Combinable conditions for Include and Exclude statements.
@@ -202,8 +200,8 @@ getPreferredLanguages = do
     Just l -> return $
       let woEncoding      = takeWhile (/= '.') l
           (language, _cm) = span (/= '_') woEncoding
-          (country, _m)   = span (/= '@') (if null _cm then "" else tail _cm)
-          modifier        = if null _m then "" else tail _m
+          (country, _m)   = span (/= '@') (drop 1 _cm)
+          modifier        = drop 1 _m
                        in dgl language country modifier
     where dgl "" "" "" = []
           dgl l  "" "" = [l]

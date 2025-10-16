@@ -1,3 +1,26 @@
+# 4.1.1
+
+## Improvements
+
+ * Add [`pollingLabelWithVariableDelayAndRefresh`][pollingLabelWithVariableDelayAndRefresh]. The [`WttrIn`][WttrIn] widget uses this.
+
+[pollingLabelWithVariableDelayAndRefresh]: https://hackage.haskell.org/package/taffybar-4.1.1/docs/System-Taffybar-Widget-Generic-PollingLabel.html#v:pollingLabelWithVariableDelayAndRefresh
+
+[WttrIn]: https://hackage.haskell.org/package/taffybar-4.1.1/docs/System-Taffybar-Widget-WttrIn.html
+
+## Breaking Changes
+
+ * Use version-named package build dependencies. Users building their
+   configurations with Stack or Nix may need to do likewise. That is,
+   change:
+    - `gi-gtk` → `gi-gtk3`
+    - `gi-gdk` → `gi-gdk3`
+    - `gi-gdkx11` → `gi-gdkx113`
+
+ * Taffybar is tested with GHC versions 9.8 and 9.10.
+   Other versions may or may not work.
+
+
 # 4.1.0
 
 ## Breaking Changes
