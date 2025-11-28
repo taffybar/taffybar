@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskellQuotes #-}
 module System.Taffybar.DBus.Client.Util where
 
+import Control.Applicative (liftA2)
 import Control.Monad (forM)
 import           DBus.Generation
 import qualified DBus.Internal.Types as T
