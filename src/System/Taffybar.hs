@@ -145,6 +145,7 @@ import qualified GI.Gtk as Gtk
 import qualified GI.GLib as G
 import           Graphics.X11.Xlib.Misc ( initThreads )
 import           System.Directory
+import           System.Environment (lookupEnv)
 import           System.Environment.XDG.BaseDir ( getUserConfigFile )
 import           System.Exit ( exitFailure )
 import           System.FilePath ( (</>), normalise, takeDirectory, takeFileName )
@@ -310,7 +311,8 @@ startTaffybar config = do
   updateGlobalLogger "" removeHandler
   setTaffyLogFormatter "System.Taffybar"
   setTaffyLogFormatter "StatusNotifier"
-  _ <- initThreads
+  useX11 <- shouldInitX11
+  when useX11 $ void initThreads
   _ <- Gtk.init Nothing
   GIThreading.setCurrentThreadAsGUIThread
 
@@ -324,6 +326,12 @@ startTaffybar config = do
       exitTaffybar context
 
   logTaffy DEBUG "Exited normally"
+
+shouldInitX11 :: IO Bool
+shouldInitX11 = do
+  sessionType <- lookupEnv "XDG_SESSION_TYPE"
+  waylandDisplay <- lookupEnv "WAYLAND_DISPLAY"
+  return $ not (sessionType == Just "wayland" || waylandDisplay /= Nothing)
 
 logTaffy :: Priority -> String -> IO ()
 logTaffy = logM "System.Taffybar"

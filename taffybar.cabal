@@ -69,6 +69,7 @@ library
                , gi-gdkpixbuf >=2.0.6 && <2.1
                , gi-gdkx113 >=3.0.17 && < 4
                , gi-glib
+               , gi-gtk-layer-shell >= 0.1.7
                , gi-gtk3 >= 3.0.44 && < 4
                , gi-gtk-hs >= 0.3.17 && < 0.4
                , gi-pango
