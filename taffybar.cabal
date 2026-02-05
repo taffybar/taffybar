@@ -171,7 +171,7 @@ library
                  , System.Taffybar.Widget.Layout
                  , System.Taffybar.Widget.MPRIS2
                  , System.Taffybar.Widget.NetworkGraph
-                 , System.Taffybar.Widget.Wifi
+                 , System.Taffybar.Widget.NetworkManager
                  , System.Taffybar.Widget.SNITray
                  , System.Taffybar.Widget.SimpleClock
                  , System.Taffybar.Widget.SimpleCommandButton
