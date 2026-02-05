@@ -19,7 +19,7 @@ module System.Taffybar.Widget.HyprlandWorkspaces where
 import           Control.Applicative ((<|>))
 import           Control.Concurrent (forkIO, killThread)
 import           Control.Exception.Enclosed (catchAny)
-import           Control.Monad (foldM, forM_, unless, when, (>=>))
+import           Control.Monad (foldM, forM_, when, (>=>))
 import           Control.Monad.IO.Class (MonadIO(liftIO))
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:), (.:?), (.!=))
@@ -60,25 +60,18 @@ import           System.Taffybar.Widget.Util
   , getImageForDesktopEntry
   , widgetSetClassGI
   )
+import           System.Taffybar.Widget.Workspaces
+  ( WorkspaceState(..)
+  , cssWorkspaceStates
+  , getCSSClass
+  , possibleStatusStrings
+  , updateWidgetClasses
+  )
 import           System.Taffybar.WindowIcon (getWindowIconFromClasses, pixBufFromColor)
-
-data WorkspaceState
-  = Active
-  | Visible
-  | Hidden
-  | Empty
-  | Urgent
-  deriving (Show, Eq)
-
-getCSSClass :: (Show s) => s -> T.Text
-getCSSClass = T.toLower . T.pack . show
 
 stripSuffix :: Eq a => [a] -> [a] -> Maybe [a]
 stripSuffix suffix value =
   reverse <$> stripPrefix (reverse suffix) (reverse value)
-
-cssWorkspaceStates :: [T.Text]
-cssWorkspaceStates = map getCSSClass [Active, Visible, Hidden, Empty, Urgent]
 
 isSpecialHyprWorkspace :: HyprlandWorkspace -> Bool
 isSpecialHyprWorkspace ws =
@@ -386,22 +379,6 @@ setWorkspaceWidgetStatusClass workspace widget =
     [getCSSClass $ workspaceState workspace]
     cssWorkspaceStates
 
-updateWidgetClasses ::
-  (Foldable t1, Foldable t, Gtk.IsWidget a, MonadIO m)
-  => a
-  -> t1 T.Text
-  -> t T.Text
-  -> m ()
-updateWidgetClasses widget toAdd toRemove = do
-  context <- Gtk.widgetGetStyleContext widget
-  let hasClass = Gtk.styleContextHasClass context
-      addIfMissing klass =
-        hasClass klass >>= (`when` Gtk.styleContextAddClass context klass) . not
-      removeIfPresent klass = unless (klass `elem` toAdd) $
-        hasClass klass >>= (`when` Gtk.styleContextRemoveClass context klass)
-  mapM_ removeIfPresent toRemove
-  mapM_ addIfMissing toAdd
-
 getWindowStatusString :: HyprlandWindow -> T.Text
 getWindowStatusString windowData = T.toLower $ T.pack $
   case windowData of
@@ -409,12 +386,6 @@ getWindowStatusString windowData = T.toLower $ T.pack $
     HyprlandWindow { windowActive = True } -> show Active
     HyprlandWindow { windowUrgent = True } -> show Urgent
     _ -> "normal"
-
-possibleStatusStrings :: [T.Text]
-possibleStatusStrings =
-  map
-    (T.toLower . T.pack)
-    [show Active, show Urgent, "minimized", "normal", "inactive"]
 
 wLog :: MonadIO m => Priority -> String -> m ()
 wLog l s = liftIO $ logM "System.Taffybar.Widget.HyprlandWorkspaces" l s
