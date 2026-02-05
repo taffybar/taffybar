@@ -2,6 +2,9 @@
 
 module System.Taffybar.Widget
   ( module System.Taffybar.Widget.Util
+  -- * "System.Taffybar.Widget.Audio"
+  , module System.Taffybar.Widget.Audio
+
   -- * "System.Taffybar.Widget.Battery"
   , module System.Taffybar.Widget.Battery
 
@@ -84,6 +87,7 @@ import System.Taffybar.Widget.Text.CPUMonitor
 import System.Taffybar.Widget.Text.MemoryMonitor
 import System.Taffybar.Widget.Text.NetworkMonitor
 import System.Taffybar.Widget.Util
+import System.Taffybar.Widget.Audio
 import System.Taffybar.Widget.Weather
 import System.Taffybar.Widget.Windows
 import System.Taffybar.Widget.Workspaces
