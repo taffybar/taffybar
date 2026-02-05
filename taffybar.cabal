@@ -122,6 +122,7 @@ library
                  , System.Taffybar.DBus.Toggle
                  , System.Taffybar.Example
                  , System.Taffybar.Hooks
+                 , System.Taffybar.Hyprland
                  , System.Taffybar.Information.Audio
                  , System.Taffybar.Information.Backlight
                  , System.Taffybar.Information.Battery
@@ -131,6 +132,9 @@ library
                  , System.Taffybar.Information.Crypto
                  , System.Taffybar.Information.DiskIO
                  , System.Taffybar.Information.EWMHDesktopInfo
+                 , System.Taffybar.Information.Hyprland
+                 , System.Taffybar.Information.Hyprland.API
+                 , System.Taffybar.Information.Hyprland.Types
                  , System.Taffybar.Information.MPRIS2
                  , System.Taffybar.Information.Memory
                  , System.Taffybar.Information.Network
