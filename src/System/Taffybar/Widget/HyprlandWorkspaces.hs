@@ -17,14 +17,16 @@
 module System.Taffybar.Widget.HyprlandWorkspaces where
 
 import           Control.Applicative ((<|>))
-import           Control.Concurrent (killThread)
+import           Control.Concurrent (forkIO, killThread)
 import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad (forM_, unless, when, (>=>))
 import           Control.Monad.IO.Class (MonadIO(liftIO))
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:), (.:?), (.!=))
 import           Data.Char (toLower)
-import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Char8 as BS8
+import qualified Data.ByteString as BS
 import           Data.Default (Default(..))
 import           Data.Int (Int32)
 import           Data.List (foldl', sortOn, stripPrefix)
@@ -33,7 +35,13 @@ import qualified Data.Map.Strict as M
 import qualified Data.MultiMap as MM
 import           Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
+import qualified Network.Socket as NS
+import qualified Network.Socket.ByteString as NSB
+import           System.Environment (lookupEnv)
 import           System.Log.Logger (Priority(..), logM)
+import           System.IO (BufferMode(LineBuffering), Handle, IOMode(ReadWriteMode), hClose,
+                            hGetLine, hSetBuffering)
 import           Text.Printf (printf)
 
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
@@ -89,6 +97,8 @@ data HyprlandWorkspace = HyprlandWorkspace
   , windows :: [HyprlandWindow]
   } deriving (Show, Eq)
 
+newtype HyprlandWorkspaceCache = HyprlandWorkspaceCache [HyprlandWorkspace]
+
 type HyprlandWindowIconPixbufGetter =
   Int32 -> HyprlandWindow -> TaffyIO (Maybe Gdk.Pixbuf)
 
@@ -136,15 +146,100 @@ hyprlandWorkspacesNew cfg = do
   ctx <- ask
   let refresh = runReaderT (refreshWorkspaces cfg cont) ctx
   _ <- liftIO refresh
-  tid <- liftIO $ foreverWithDelay (updateIntervalSeconds cfg) refresh
+  tid <- liftIO $ forkIO $ hyprlandUpdateLoop cfg refresh
   _ <- liftIO $ Gtk.onWidgetUnrealize cont $ killThread tid
   Gtk.toWidget cont
+
+hyprlandUpdateLoop :: HyprlandWorkspacesConfig -> IO () -> IO ()
+hyprlandUpdateLoop _cfg refresh = do
+  mHandle <- connectHyprlandEventSocket
+  case mHandle of
+    Nothing ->
+      logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING $
+        "Hyprland event socket unavailable; workspace updates disabled"
+    Just handle ->
+      (eventLoop handle `catchAny` \e -> do
+          logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING $
+            printf "Hyprland event socket failed (%s); workspace updates disabled" (show e)
+          hClose handle)
+  where
+    eventLoop handle = do
+      line <- hGetLine handle
+      when (isRelevantHyprEvent line) refresh
+      eventLoop handle
+
+connectHyprlandEventSocket :: IO (Maybe Handle)
+connectHyprlandEventSocket = do
+  mSock <- connectHyprlandSocket ".socket2.sock"
+  case mSock of
+    Nothing -> return Nothing
+    Just sock -> do
+      handle <- NS.socketToHandle sock ReadWriteMode
+      hSetBuffering handle LineBuffering
+      return (Just handle)
+
+connectHyprlandSocket :: FilePath -> IO (Maybe NS.Socket)
+connectHyprlandSocket socketName = do
+  paths <- hyprlandSocketPaths socketName
+  tryPaths paths
+  where
+    tryPaths [] = return Nothing
+    tryPaths (path:rest) = do
+      result <- connectToSocket path
+      case result of
+        Nothing -> tryPaths rest
+        Just sock -> return (Just sock)
+
+hyprlandSocketPaths :: FilePath -> IO [FilePath]
+hyprlandSocketPaths socketName = do
+  mSig <- lookupEnv "HYPRLAND_INSTANCE_SIGNATURE"
+  case mSig of
+    Nothing -> return []
+    Just sig -> do
+      mRuntime <- lookupEnv "XDG_RUNTIME_DIR"
+      let paths =
+            case mRuntime of
+              Just runtime -> [runtime ++ "/hypr/" ++ sig ++ "/" ++ socketName]
+              Nothing -> []
+      return $ paths ++ ["/tmp/hypr/" ++ sig ++ "/" ++ socketName]
+
+connectToSocket :: FilePath -> IO (Maybe NS.Socket)
+connectToSocket path =
+  (do
+      sock <- NS.socket NS.AF_UNIX NS.Stream NS.defaultProtocol
+      NS.connect sock (NS.SockAddrUnix path)
+      return (Just sock)
+    ) `catchAny` \_ -> return Nothing
+
+isRelevantHyprEvent :: String -> Bool
+isRelevantHyprEvent line =
+  let eventName = takeWhile (/= '>') line
+  in eventName `elem`
+     [ "workspace"
+     , "workspacev2"
+     , "focusedmon"
+     , "activewindow"
+     , "activewindowv2"
+     , "openwindow"
+     , "closewindow"
+     , "movewindow"
+     , "movewindowv2"
+     , "moveworkspace"
+     , "renameworkspace"
+     , "createworkspace"
+     , "destroyworkspace"
+     , "monitoradded"
+     , "monitorremoved"
+     ]
 
 refreshWorkspaces :: HyprlandWorkspacesConfig -> Gtk.Box -> ReaderT Context IO ()
 refreshWorkspaces cfg cont = do
   ws <- getWorkspaces cfg
-  ctx <- ask
-  liftIO $ postGUIASync $ runReaderT (renderWorkspaces cfg cont ws) ctx
+  HyprlandWorkspaceCache prev <- getStateDefault $ return (HyprlandWorkspaceCache [])
+  when (ws /= prev) $ do
+    _ <- putState $ return (HyprlandWorkspaceCache ws)
+    ctx <- ask
+    liftIO $ postGUIASync $ runReaderT (renderWorkspaces cfg cont ws) ctx
 
 renderWorkspaces ::
   HyprlandWorkspacesConfig -> Gtk.Box -> [HyprlandWorkspace] -> ReaderT Context IO ()
@@ -399,15 +494,64 @@ instance FromJSON HyprlandActiveWindow where
 
 runHyprctlJson :: FromJSON a => [String] -> TaffyIO (Either String a)
 runHyprctlJson args = do
-  result <- runCommand "hyprctl" args
+  result <- runHyprlandCommandRaw args
   return $ case result of
     Left err -> Left err
-    Right out ->
-      eitherDecode' (BL.pack out)
+    Right out -> eitherDecode' (BL.fromStrict out)
+
+runHyprlandCommandRaw :: [String] -> TaffyIO (Either String BS.ByteString)
+runHyprlandCommandRaw args = do
+  let command = hyprlandSocketCommandFromArgs args
+  case command of
+    Left err -> return (Left err)
+    Right cmd -> do
+      socketResult <- liftIO $ runHyprlandCommandSocket cmd
+      case socketResult of
+        Right resp -> return (Right resp)
+        Left socketErr -> do
+          -- Fallback to hyprctl if the socket is unavailable
+          result <- runCommand "hyprctl" args
+          return $ case result of
+            Left err -> Left $ err ++ " (" ++ socketErr ++ ")"
+            Right out ->
+              Right $ TE.encodeUtf8 $ T.pack out
+
+hyprlandSocketCommandFromArgs :: [String] -> Either String String
+hyprlandSocketCommandFromArgs ("-j":rest) =
+  Right $ "j/" ++ unwords rest
+hyprlandSocketCommandFromArgs [] =
+  Left "No hyprland command provided"
+hyprlandSocketCommandFromArgs args =
+  Right $ unwords args
+
+runHyprlandCommandSocket :: String -> IO (Either String BS.ByteString)
+runHyprlandCommandSocket cmd = do
+  mSock <- connectHyprlandSocket ".socket.sock"
+  case mSock of
+    Nothing -> return (Left "Hyprland command socket unavailable")
+    Just sock ->
+      (do
+          NSB.sendAll sock (BS8.pack cmd)
+          NS.shutdown sock NS.ShutdownSend
+          resp <- recvAll sock
+          NS.close sock
+          return (Right resp)
+        ) `catchAny` \e -> do
+          NS.close sock
+          return (Left $ show e)
+
+recvAll :: NS.Socket -> IO BS.ByteString
+recvAll sock = go []
+  where
+    go acc = do
+      chunk <- NSB.recv sock 4096
+      if BS.null chunk
+        then return (BS.concat (reverse acc))
+        else go (chunk:acc)
 
 hyprlandSwitchToWorkspace :: HyprlandWorkspace -> TaffyIO ()
 hyprlandSwitchToWorkspace ws = do
-  result <- runCommand "hyprctl" ["dispatch", "workspace", workspaceName ws]
+  result <- runHyprlandCommandRaw ["dispatch", "workspace", workspaceName ws]
   case result of
     Left err -> wLog WARNING $ printf "Failed to switch workspace: %s" err
     Right _ -> return ()

@@ -82,6 +82,7 @@ library
                , http-client-tls
                , http-types
                , multimap >= 1.2.1
+               , network
                , parsec >= 3.1
                , process >= 1.0.1.1
                , rate-limit >= 1.1.1
