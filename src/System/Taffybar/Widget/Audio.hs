@@ -20,16 +20,19 @@ module System.Taffybar.Widget.Audio
   , audioLabelNewWith
   ) where
 
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Control.Monad.IO.Class
 import Data.Default (Default(..))
 import qualified Data.Text as T
+import DBus
+import DBus.Client
 import qualified GI.Gdk.Structs.EventScroll as GdkEvent
 import qualified GI.Gdk.Enums as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.GLib as G
+import System.Taffybar.DBus.Client.Params (paCoreObjectPath)
 import System.Taffybar.Information.Audio
-import System.Taffybar.Widget.Generic.PollingLabel
+import System.Taffybar.Util (postGUIASync)
 import Text.StringTemplate
 
 -- | Configuration for the audio widget.
@@ -69,15 +72,41 @@ audioLabelNew = audioLabelNewWith defaultAudioWidgetConfig
 -- | Create an audio widget with the provided configuration.
 audioLabelNewWith :: MonadIO m => AudioWidgetConfig -> m Gtk.Widget
 audioLabelNewWith config = liftIO $ do
-  widget <- pollingLabelNewWithTooltip
-    (audioPollingInterval config)
-    (formatAudioWidget config)
+  label <- Gtk.labelNew Nothing
 
-  whenToggleMute widget
-  whenScrollAdjust widget
+  let updateLabel info = do
+        (labelText, tooltipText) <- formatAudioWidget config info
+        postGUIASync $ do
+          Gtk.labelSetMarkup label labelText
+          Gtk.widgetSetTooltipMarkup label tooltipText
 
-  Gtk.widgetShowAll widget
-  return widget
+      refresh client =
+        getAudioInfoFromClient client (audioSink config) >>= updateLabel
+
+      refreshUnknown = updateLabel Nothing
+
+  void $ Gtk.onWidgetRealize label $ do
+    mClient <- connectPulseAudio
+    case mClient of
+      Nothing -> refreshUnknown
+      Just client -> do
+        refresh client
+        let matcher =
+              matchAny
+                { matchPathNamespace = Just paCoreObjectPath
+                , matchInterface = Just "org.freedesktop.DBus.Properties"
+                , matchMember = Just "PropertiesChanged"
+                }
+        handler <- addMatch client matcher (const $ refresh client)
+        void $ Gtk.onWidgetUnrealize label $ do
+          removeMatch client handler
+          disconnect client
+
+  whenToggleMute label
+  whenScrollAdjust label
+
+  Gtk.widgetShowAll label
+  return (Gtk.toWidget label)
   where
     whenToggleMute widget =
       if audioToggleMuteOnClick config
@@ -102,9 +131,9 @@ audioLabelNewWith config = liftIO $ do
 
 formatAudioWidget
   :: AudioWidgetConfig
+  -> Maybe AudioInfo
   -> IO (T.Text, Maybe T.Text)
-formatAudioWidget config = do
-  info <- getAudioInfo (audioSink config)
+formatAudioWidget config info =
   case info of
     Nothing -> return (T.pack $ audioUnknownFormat config, Nothing)
     Just audio -> do
