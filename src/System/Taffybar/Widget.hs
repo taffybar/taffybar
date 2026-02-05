@@ -28,9 +28,6 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.Layout"
   , module System.Taffybar.Widget.Layout
 
-  -- * "System.Taffybar.Widget.HyprlandLayout"
-  , module System.Taffybar.Widget.HyprlandLayout
-
   -- * "System.Taffybar.Widget.MPRIS2"
   , module System.Taffybar.Widget.MPRIS2
 
@@ -58,14 +55,8 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.Weather"
   , module System.Taffybar.Widget.Weather
 
-  -- * "System.Taffybar.Widget.HyprlandWindows"
-  , module System.Taffybar.Widget.HyprlandWindows
-
   -- * "System.Taffybar.Widget.Windows"
   , module System.Taffybar.Widget.Windows
-
-  -- * "System.Taffybar.Widget.HyprlandWorkspaces"
-  , module System.Taffybar.Widget.HyprlandWorkspaces
 
   -- * "System.Taffybar.Widget.Workspaces"
   , module System.Taffybar.Widget.Workspaces
@@ -84,7 +75,6 @@ import System.Taffybar.Widget.DiskIOMonitor
 import System.Taffybar.Widget.FSMonitor
 import System.Taffybar.Widget.FreedesktopNotifications
 import System.Taffybar.Widget.Layout
-import System.Taffybar.Widget.HyprlandLayout
 import System.Taffybar.Widget.MPRIS2
 import System.Taffybar.Widget.NetworkGraph
 import System.Taffybar.Widget.SNITray
@@ -95,8 +85,6 @@ import System.Taffybar.Widget.Text.MemoryMonitor
 import System.Taffybar.Widget.Text.NetworkMonitor
 import System.Taffybar.Widget.Util
 import System.Taffybar.Widget.Weather
-import System.Taffybar.Widget.HyprlandWorkspaces
-import System.Taffybar.Widget.HyprlandWindows
 import System.Taffybar.Widget.Windows
 import System.Taffybar.Widget.Workspaces
 import System.Taffybar.Widget.XDGMenu.MenuWidget
