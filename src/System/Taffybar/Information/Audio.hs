@@ -16,12 +16,14 @@
 module System.Taffybar.Information.Audio
   ( AudioInfo(..)
   , getAudioInfo
+  , getAudioInfoFromClient
+  , connectPulseAudio
   , toggleAudioMute
   , adjustAudioVolume
   ) where
 
 import Control.Applicative ((<|>))
-import Control.Exception (SomeException, bracket, try)
+import Control.Exception (SomeException, try)
 import Control.Monad (guard, join)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Except
@@ -32,7 +34,7 @@ import Data.Text (Text)
 import Data.Word (Word32)
 import DBus
 import DBus.Client
-import DBus.Internal.Address ()
+import DBus.Internal.Address (Address, parseAddresses)
 import DBus.Internal.Types (Serial(..))
 import System.Environment (lookupEnv)
 import System.Log.Logger (Priority(..))
@@ -63,10 +65,13 @@ audioLogF = logPrintF audioLogPath
 -- Returns Nothing when neither value is available.
 getAudioInfo :: String -> IO (Maybe AudioInfo)
 getAudioInfo sinkSpec = do
-  result <- withPulseAudio $ \client -> do
-    sinkPath <- resolveSinkPath client sinkSpec
-    maybe (return Nothing) (getDeviceInfo client) sinkPath
+  result <- withPulseAudio (`getAudioInfoFromClient` sinkSpec)
   return $ join result
+
+getAudioInfoFromClient :: Client -> String -> IO (Maybe AudioInfo)
+getAudioInfoFromClient client sinkSpec = do
+  sinkPath <- resolveSinkPath client sinkSpec
+  maybe (return Nothing) (getDeviceInfo client) sinkPath
 
 -- | Toggle mute for the provided sink. Returns True on success.
 toggleAudioMute :: String -> IO Bool
@@ -118,13 +123,25 @@ paCorePath = paCoreObjectPath
 nullObjectPath :: ObjectPath
 nullObjectPath = objectPath_ "/"
 
-withPulseAudio :: (Client -> IO a) -> IO (Maybe a)
-withPulseAudio action = do
+connectPulseAudio :: IO (Maybe Client)
+connectPulseAudio = do
   addressString <- getPulseAudioAddress
   case addressString >>= parsePulseAddress of
     Nothing -> return Nothing
     Just addr -> do
-      result <- try $ bracket (connect addr) disconnect action
+      result <- try (connect addr)
+      case result of
+        Left (_ :: SomeException) -> return Nothing
+        Right client -> return (Just client)
+
+withPulseAudio :: (Client -> IO a) -> IO (Maybe a)
+withPulseAudio action = do
+  mClient <- connectPulseAudio
+  case mClient of
+    Nothing -> return Nothing
+    Just client -> do
+      result <- try $ action client
+      disconnect client
       case result of
         Left (_ :: SomeException) -> return Nothing
         Right value -> return $ Just value
