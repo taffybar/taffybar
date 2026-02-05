@@ -123,7 +123,7 @@ library
                  , System.Taffybar.Example
                  , System.Taffybar.Hooks
                  , System.Taffybar.Hyprland
-                 , System.Taffybar.Information.Audio
+                 , System.Taffybar.Information.PulseAudio
                  , System.Taffybar.Information.Backlight
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.CPU
@@ -147,7 +147,7 @@ library
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Util
                  , System.Taffybar.Widget
-                 , System.Taffybar.Widget.Audio
+                 , System.Taffybar.Widget.PulseAudio
                  , System.Taffybar.Widget.Backlight
                  , System.Taffybar.Widget.Battery
                  , System.Taffybar.Widget.CPUMonitor
