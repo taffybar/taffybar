@@ -34,7 +34,6 @@ import           Data.Unique
 import qualified GI.Gtk as Gtk
 import           GI.Gdk
 import           Graphics.UI.GIGtkStrut
-import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar
 import qualified System.Taffybar.Context as BC (BarConfig(..), TaffybarConfig(..))
 import           System.Taffybar.Context hiding (TaffybarConfig(..), BarConfig(..))
@@ -186,5 +185,15 @@ useAllMonitors = lift $ do
 -- | Supply this value for 'monitorsAction' to display the taffybar window only
 -- on the primary monitor.
 usePrimaryMonitor :: TaffyIO [Int]
-usePrimaryMonitor =
-  singleton . fromMaybe 0 <$> lift (withX11Context def getPrimaryOutputNumber)
+usePrimaryMonitor = lift $ do
+  maybeDisplay <- displayGetDefault
+  case maybeDisplay of
+    Nothing -> return [0]
+    Just display -> do
+      maybePrimary <- displayGetPrimaryMonitor display
+      monitorCount <- displayGetNMonitors display
+      monitors <- catMaybes <$> mapM (displayGetMonitor display) [0..(monitorCount-1)]
+      let primaryIndex = case maybePrimary of
+            Nothing -> 0
+            Just primary -> fromMaybe 0 (elemIndex primary monitors)
+      return [primaryIndex]

@@ -13,8 +13,16 @@ final: prev: let
 
   # Add further customization of haskellPackages here
   configuration = with haskellLib; self: super: {
+    # Fix gtk3 build failure due to deprecated threading APIs being treated as errors
+    gtk3 = lib.pipe super.gtk3 [
+      (appendConfigureFlags ["--ghc-option=-optc=-Wno-error=deprecated-declarations"])
+    ];
     taffybar = lib.pipe super.taffybar [
       (self.generateOptparseApplicativeCompletions [ "taffybar" ])
+      (overrideCabal (drv: {
+        librarySystemDepends =
+          (drv.librarySystemDepends or []) ++ [ pkgs.gtk-layer-shell ];
+      }))
       (with pkgs.xorg; addTestToolDepends [
         xorgserver   # Provides Xvfb
         xprop        # Used for test assertions
@@ -84,28 +92,6 @@ final: prev: let
     ];
   };
 
-  # Patch gi-gtk and gi-gdk build dependencies.
-  # https://github.com/haskell-gi/haskell-gi/issues/478
-  fixVersionNamePackages = with haskellLib; self: super: let
-    fixup = ver: drv: if lib.versionOlder drv.version ver then fixup' drv else drv;
-    fixup' = drv: overrideCabal (oa: {
-      postPatch = oa.postPatch or "" + ''
-        substituteInPlace ${oa.pname}.cabal \
-          --replace-fail "gi-gtk " "gi-gtk3 " \
-          --replace-fail "gi-gdk " "gi-gdk3 "
-      '';
-    })
-      (drv.override {
-        gi-gtk = self.gi-gtk3;
-        gi-gdk = self.gi-gdk3;
-      });
-  in {
-    # https://github.com/NixOS/nixpkgs/pull/451363
-    gi-gtk-hs = fixup "0.3.18" super.gi-gtk-hs;
-    # For the nixos-25.05 branch
-    gi-dbusmenugtk3 = fixup "0.4.16" super.gi-dbusmenugtk3;
-  };
-
   fixDeps92 = self: super: lib.optionalAttrs (lib.versionOlder super.ghc.version "9.4") {
     taffybar = super.taffybar.override { inherit (pkgs) gtk3; };
     gtk-sni-tray = super.gtk-sni-tray.override { inherit (pkgs) gtk3; };
@@ -115,6 +101,5 @@ in
   lib.composeManyExtensions [
     (haskellLib.packageSourceOverrides sourceOverrides)
     configuration
-    fixVersionNamePackages
     fixDeps92
   ]

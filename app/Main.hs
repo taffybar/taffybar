@@ -50,8 +50,14 @@ main = do
   -- XXX: The configuration record here does not get used, this just calls in to dyre.
   then dyreTaffybar def
   else do
+    detectedBackend <- detectBackend
+    let exampleConfig = case detectedBackend of
+          BackendWayland -> exampleWaylandTaffybarConfig
+          BackendX11 -> exampleTaffybarConfig
     logM "System.Taffybar" WARNING
            (  printf "No taffybar configuration file found at %s." taffyFilepath
-           ++ " Starting with example configuration."
+           ++ " Starting with example configuration for "
+           ++ show detectedBackend
+           ++ "."
            )
-    startTaffybar exampleTaffybarConfig
+    startTaffybar exampleConfig

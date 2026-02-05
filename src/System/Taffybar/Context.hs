@@ -57,6 +57,9 @@ module System.Taffybar.Context
 
   -- * Threading
   , taffyFork
+  -- * Backend
+  , Backend(..)
+  , detectBackend
   ) where
 
 import           Control.Arrow ((&&&), (***))
@@ -75,16 +78,19 @@ import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
 import           Data.List
 import qualified Data.Map as M
+import           Data.Maybe (isJust)
 import qualified Data.Text as T
 import           Data.Tuple.Select
 import           Data.Tuple.Sequence
 import           Data.Unique
 import qualified GI.Gdk
 import qualified GI.GdkX11 as GdkX11
+import qualified GI.GtkLayerShell as GtkLayerShell
 import           GI.GdkX11.Objects.X11Window
 import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
 import           StatusNotifier.TransparentWindow
+import           System.Environment (lookupEnv)
 import           System.Log.Logger (Priority(..), logM)
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
@@ -109,6 +115,11 @@ type TaffyIO v = ReaderT Context IO v
 type Listener = Event -> Taffy IO ()
 type SubscriptionList = [(Unique, Listener)]
 data Value = forall t. Typeable t => Value t
+
+data Backend
+  = BackendX11
+  | BackendWayland
+  deriving (Eq, Show)
 
 fromValue :: forall t. Typeable t => Value -> Maybe t
 fromValue (Value v) =
@@ -186,7 +197,7 @@ instance Default TaffybarConfig where
 data Context = Context
   {
   -- | The X11Context that will be used to service X11Property requests.
-    x11ContextVar :: MV.MVar X11Context
+    x11ContextVar :: Maybe (MV.MVar X11Context)
   -- | The handlers which will be evaluated against incoming X11 events.
   , listeners :: MV.MVar SubscriptionList
   -- | A collection of miscellaneous pieces of state which are keyed by their
@@ -204,6 +215,8 @@ data Context = Context
   -- | The action that will be evaluated to get the bar configs associated with
   -- each active monitor taffybar should run on.
   , getBarConfigs :: BarConfigGetter
+  -- | The backend taffybar is running on.
+  , backend :: Backend
   -- | Populated with the BarConfig that resulted in the creation of a given
   -- widget, when its constructor is called. This lets widgets access thing like
   -- who their neighbors are. Note that the value of 'contextBarConfig' is
@@ -223,9 +236,12 @@ buildContext TaffybarConfig
   sDBusC <- DBus.connectSystem
   _ <- DBus.requestName dbusC "org.taffybar.Bar"
        [DBus.nameAllowReplacement, DBus.nameReplaceExisting]
+  backendType <- detectBackend
   listenersVar <- MV.newMVar []
   state <- MV.newMVar M.empty
-  x11Context <- getX11Context def >>= MV.newMVar
+  x11Context <- case backendType of
+    BackendX11 -> Just <$> (getX11Context def >>= MV.newMVar)
+    BackendWayland -> return Nothing
   windowsVar <- MV.newMVar []
   let context = Context
                 { x11ContextVar = x11Context
@@ -235,6 +251,7 @@ buildContext TaffybarConfig
                 , systemDBusClient = sDBusC
                 , getBarConfigs = barConfigGetter
                 , existingWindows = windowsVar
+                , backend = backendType
                 , contextBarConfig = Nothing
                 }
   _ <- runMaybeT $ MaybeT GI.Gdk.displayGetDefault >>=
@@ -292,7 +309,7 @@ buildBarWindow context barConfig = do
   Gtk.setWidgetHalign centerBox Gtk.AlignCenter
   Gtk.boxSetCenterWidget box (Just centerBox)
 
-  setupStrutWindow (strutConfig barConfig) window
+  setupBarWindow context (strutConfig barConfig) window
   Gtk.containerAdd window box
 
   _ <- widgetSetClassGI window "taffy-window"
@@ -323,11 +340,12 @@ buildBarWindow context barConfig = do
   Gtk.widgetShow box
   Gtk.widgetShow centerBox
 
-  runX11Context context () $ void $ runMaybeT $ do
-    gdkWindow <- MaybeT $ Gtk.widgetGetWindow window
-    xid <- GdkX11.x11WindowGetXid =<< liftIO (unsafeCastTo X11Window gdkWindow)
-    logC DEBUG $ printf "Lowering X11 window %s" $ show xid
-    lift $ doLowerWindow (fromIntegral xid)
+  when (backend context == BackendX11) $
+    runX11Context context () $ void $ runMaybeT $ do
+      gdkWindow <- MaybeT $ Gtk.widgetGetWindow window
+      xid <- GdkX11.x11WindowGetXid =<< liftIO (unsafeCastTo X11Window gdkWindow)
+      logC DEBUG $ printf "Lowering X11 window %s" $ show xid
+      lift $ doLowerWindow (fromIntegral xid)
 
   return window
 
@@ -349,7 +367,7 @@ refreshTaffyWindows = mapReaderT postGUIASync $ do
               (remainingWindows, removedWindows) =
                 partition ((`elem` barConfigs) . sel1) currentWindows
               setPropertiesFromPair (barConf, window) =
-                setupStrutWindow (strutConfig barConf) window
+                setupBarWindow ctx (strutConfig barConf) window
 
           newWindowPairs <- lift $ do
             logIO DEBUG $ printf "removedWindows: %s" $
@@ -413,8 +431,14 @@ asksContextVar getter = asks getter >>= lift . MV.readMVar
 
 -- | Run a function needing an X11 connection in 'TaffyIO'.
 runX11 :: X11Property a -> TaffyIO a
-runX11 action =
-  asksContextVar x11ContextVar >>= lift . runReaderT action
+runX11 action = do
+  maybeCtxVar <- asks x11ContextVar
+  case maybeCtxVar of
+    Nothing ->
+      liftIO $ fail "X11 context unavailable (Wayland backend in use)"
+    Just ctxVar -> do
+      ctx <- liftIO $ MV.readMVar ctxVar
+      liftIO $ runReaderT action ctx
 
 -- | Use 'runX11' together with 'postX11RequestSyncProp' on the provided
 -- property. Return the provided default if 'Nothing' is returned
@@ -461,13 +485,29 @@ taffyFork :: ReaderT r IO () -> ReaderT r IO ()
 taffyFork = void . mapReaderT forkIO
 
 startX11EventHandler :: Taffy IO ()
-startX11EventHandler = taffyFork $ do
-  c <- ask
-  -- XXX: The event loop needs its own X11Context to separately handle
-  -- communications from the X server. We deliberately avoid using the context
-  -- from x11ContextVar here.
-  lift $ withX11Context def $ eventLoop
-         (\e -> runReaderT (handleX11Event e) c)
+startX11EventHandler = do
+  backendType <- asks backend
+  when (backendType == BackendX11) $ taffyFork $ do
+    c <- ask
+    -- XXX: The event loop needs its own X11Context to separately handle
+    -- communications from the X server. We deliberately avoid using the context
+    -- from x11ContextVar here.
+    lift $ withX11Context def $ eventLoop
+           (\e -> runReaderT (handleX11Event e) c)
+
+detectBackend :: IO Backend
+detectBackend = do
+  sessionType <- lookupEnv "XDG_SESSION_TYPE"
+  waylandDisplay <- lookupEnv "WAYLAND_DISPLAY"
+  if sessionType == Just "wayland" || isJust waylandDisplay
+    then return BackendWayland
+    else return BackendX11
+
+setupBarWindow :: Context -> StrutConfig -> Gtk.Window -> IO ()
+setupBarWindow context config window =
+  case backend context of
+    BackendX11 -> setupStrutWindow config window
+    BackendWayland -> setupLayerShellWindow config window
 
 -- | Remove the listener associated with the provided "Unique" from the
 -- collection of listeners.
@@ -506,3 +546,97 @@ handleX11Event event =
   asksContextVar listeners >>= mapM_ applyListener
   where applyListener :: (Unique, Listener) -> Taffy IO ()
         applyListener (_, listener) = taffyFork $ listener event
+
+setupLayerShellWindow :: StrutConfig -> Gtk.Window -> IO ()
+setupLayerShellWindow StrutConfig
+                      { strutWidth = widthSize
+                      , strutHeight = heightSize
+                      , strutXPadding = xpadding
+                      , strutYPadding = ypadding
+                      , strutMonitor = monitorNumber
+                      , strutPosition = position
+                      , strutDisplayName = maybeDisplayName
+                      } window = do
+  supported <- GtkLayerShell.isSupported
+  unless supported $
+    logIO WARNING "Wayland backend selected, but gtk-layer-shell is not supported"
+  when supported $ do
+    maybeDisplay <- maybe GI.Gdk.displayGetDefault GI.Gdk.displayOpen maybeDisplayName
+    case maybeDisplay of
+      Nothing -> logIO WARNING "Failed to get GDK display for layer-shell"
+      Just display -> do
+        maybeMonitor <-
+          maybe (GI.Gdk.displayGetPrimaryMonitor display)
+                (GI.Gdk.displayGetMonitor display)
+                monitorNumber
+        case maybeMonitor of
+          Nothing -> logIO WARNING "Failed to get GDK monitor for layer-shell"
+          Just monitor -> do
+            monitorGeometry <- GI.Gdk.monitorGetGeometry monitor
+            monitorWidth <- GI.Gdk.getRectangleWidth monitorGeometry
+            monitorHeight <- GI.Gdk.getRectangleHeight monitorGeometry
+            let width =
+                  case widthSize of
+                    ExactSize w -> w
+                    ScreenRatio p ->
+                      floor $ p * fromIntegral (monitorWidth - (2 * xpadding))
+                height =
+                  case heightSize of
+                    ExactSize h -> h
+                    ScreenRatio p ->
+                      floor $ p * fromIntegral (monitorHeight - (2 * ypadding))
+                exclusive =
+                  case position of
+                    TopPos -> height + 2 * ypadding
+                    BottomPos -> height + 2 * ypadding
+                    LeftPos -> width + 2 * xpadding
+                    RightPos -> width + 2 * xpadding
+
+            Gtk.windowSetDefaultSize window (fromIntegral width) (fromIntegral height)
+            let (reqWidth, reqHeight) =
+                  case position of
+                    TopPos -> (-1, height)
+                    BottomPos -> (-1, height)
+                    LeftPos -> (width, -1)
+                    RightPos -> (width, -1)
+            Gtk.widgetSetSizeRequest window
+              (fromIntegral reqWidth)
+              (fromIntegral reqHeight)
+
+            GtkLayerShell.initForWindow window
+            GtkLayerShell.setKeyboardMode window GtkLayerShell.KeyboardModeNone
+            GtkLayerShell.setMonitor window monitor
+            GtkLayerShell.setNamespace window (T.pack "taffybar")
+
+            GtkLayerShell.setMargin window GtkLayerShell.EdgeLeft xpadding
+            GtkLayerShell.setMargin window GtkLayerShell.EdgeRight xpadding
+            GtkLayerShell.setMargin window GtkLayerShell.EdgeTop ypadding
+            GtkLayerShell.setMargin window GtkLayerShell.EdgeBottom ypadding
+
+            GtkLayerShell.setLayer window GtkLayerShell.LayerTop
+
+            let setAnchor = GtkLayerShell.setAnchor window
+
+            case position of
+              TopPos -> do
+                setAnchor GtkLayerShell.EdgeTop True
+                setAnchor GtkLayerShell.EdgeBottom False
+                setAnchor GtkLayerShell.EdgeLeft True
+                setAnchor GtkLayerShell.EdgeRight True
+              BottomPos -> do
+                setAnchor GtkLayerShell.EdgeTop False
+                setAnchor GtkLayerShell.EdgeBottom True
+                setAnchor GtkLayerShell.EdgeLeft True
+                setAnchor GtkLayerShell.EdgeRight True
+              LeftPos -> do
+                setAnchor GtkLayerShell.EdgeLeft True
+                setAnchor GtkLayerShell.EdgeRight False
+                setAnchor GtkLayerShell.EdgeTop True
+                setAnchor GtkLayerShell.EdgeBottom True
+              RightPos -> do
+                setAnchor GtkLayerShell.EdgeLeft False
+                setAnchor GtkLayerShell.EdgeRight True
+                setAnchor GtkLayerShell.EdgeTop True
+                setAnchor GtkLayerShell.EdgeBottom True
+
+            GtkLayerShell.setExclusiveZone window exclusive
