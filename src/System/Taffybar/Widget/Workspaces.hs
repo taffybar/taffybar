@@ -267,7 +267,7 @@ addWidgetsToTopLevel = do
   -- Elems returns elements in ascending order of their keys so this will always
   -- add the widgets in the correct order
   mapM_ addWidget $ M.elems controllersMap
-  lift $ Gtk.widgetShowAll cont
+  lift $ Gtk.widgetShow cont
 
 addWidget :: WWC -> WorkspacesIO ()
 addWidget controller = do
@@ -800,7 +800,7 @@ updateImages ic ws = do
           else justWindows ++ repeat Nothing
   newImgs <-
     zipWithM updateIconWidget' getImgs windowDatas
-  when newImagesNeeded $ lift $ Gtk.widgetShowAll $ iconsContainer ic
+  when newImagesNeeded $ lift $ Gtk.widgetShow $ iconsContainer ic
   return newImgs
 
 getWindowStatusString :: WindowData -> T.Text

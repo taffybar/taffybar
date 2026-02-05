@@ -59,7 +59,7 @@ sniTrayNewFromHostParams params host = do
   lift $ do
     tray <- buildTray host client params
     _ <- widgetSetClassGI tray "sni-tray"
-    GI.Gtk.widgetShowAll tray
+    GI.Gtk.widgetShow tray
     GI.Gtk.toWidget tray
 
 -- | Build a new StatusNotifierItem tray that also starts its own watcher,

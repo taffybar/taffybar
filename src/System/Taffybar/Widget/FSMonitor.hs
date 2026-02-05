@@ -33,7 +33,7 @@ fsMonitorNew
   -> m GI.Gtk.Widget
 fsMonitorNew interval fsList = liftIO $ do
   label <- pollingLabelNew interval $ showFSInfo fsList
-  GI.Gtk.widgetShowAll label
+  GI.Gtk.widgetShow label
   GI.Gtk.toWidget label
 
 showFSInfo :: [String] -> IO T.Text

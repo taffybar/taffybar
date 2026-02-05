@@ -102,5 +102,5 @@ menuWidgetNew mMenuPrefix = liftIO $ do
   mb <- menuBarNew
   m <- buildMenu mMenuPrefix
   addMenu mb m
-  widgetShowAll mb
+  widgetShow mb
   toWidget mb

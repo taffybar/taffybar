@@ -27,9 +27,9 @@ import           System.Taffybar.Widget.Util
 
 makeCalendar :: IO TimeZone -> IO Window
 makeCalendar tzfn = do
-  container <- windowNew WindowTypeToplevel
+  container <- windowNew Nothing
   cal <- calendarNew
-  containerAdd container cal
+  windowSetChild container (Just cal)
   _ <- onWidgetShow container $ resetCalendarDate cal tzfn
   -- Hide the calendar instead of destroying it
   _ <- onWidgetDeleteEvent container $ \_ -> widgetHide container >> return True
@@ -143,5 +143,5 @@ textClockNewWith ClockConfig
   cal <- makeCalendar getTZ
   _ <- onWidgetButtonPressEvent ebox $ onClick [Gdk.EventTypeButtonPress] $
        toggleCalendar label cal
-  widgetShowAll ebox
+  widgetShow ebox
   toWidget ebox

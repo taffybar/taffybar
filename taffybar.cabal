@@ -65,16 +65,16 @@ library
                , fsnotify >= 0.4 && < 0.5
                , gi-cairo-connector
                , gi-cairo-render
-               , gi-gdk3 >=3.0.30 && <3.1
+               , gi-gdk >=4.0.0 && <4.1
                , gi-gdkpixbuf >=2.0.6 && <2.1
-               , gi-gdkx113 >=3.0.17 && < 4
+               , gi-gdkx11 >=4.0.0 && <4.1
                , gi-glib
-               , gi-gtk-layer-shell >= 0.1.7
-               , gi-gtk3 >= 3.0.44 && < 4
+               , gi-gtk4-layer-shell >= 0.1.0
+               , gi-gtk >= 4.0.0 && < 4.1
                , gi-gtk-hs >= 0.3.17 && < 0.4
                , gi-pango
-               , gtk-sni-tray >= 0.1.8.0
-               , gtk-strut >= 0.1.2.1
+               , gtk4-sni-tray >= 0.1.9.1
+               , gtk4-strut >= 0.1.4.0
                , haskell-gi-base >= 0.24
                , hslogger
                , http-conduit
@@ -106,7 +106,7 @@ library
                , xml-helpers
 
   hs-source-dirs: src
-  pkgconfig-depends: gtk+-3.0
+  pkgconfig-depends: gtk4
   exposed-modules: System.Taffybar
                  , System.Taffybar.Auth
                  , System.Taffybar.Context
@@ -196,7 +196,7 @@ executable taffybar
 
   hs-source-dirs: app
   main-is: Main.hs
-  pkgconfig-depends: gtk+-3.0
+  pkgconfig-depends: gtk4
 
 common test
   default-extensions:
@@ -244,7 +244,7 @@ test-suite unit
                , System.Taffybar.SimpleConfigSpec
   build-depends: data-default
                , filepath
-               , gi-gtk3
+               , gi-gtk
                , hspec
                , hspec-core
                , hspec-golden

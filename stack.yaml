@@ -1,9 +1,10 @@
 packages:
 - '.'
+- '.worktrees/deps/status-notifier-item'
+- '.worktrees/deps/gtk4-strut'
+- '.worktrees/deps/gtk4-sni-tray'
 resolver: lts-24.15
 extra-deps:
-- gtk-sni-tray-0.1.9.0
-- gtk-strut-0.1.4.0
 # - gi-gtk-hs-0.3.18   # is not released yet
 - github: haskell-gi/haskell-gi
   commit: e2ed85835499f70e119f050a2f37f22481f93886
@@ -15,7 +16,8 @@ nix:
     - cairo
     - gcc
     - pango
-    - gtk3
+    - gtk4
+    - gtk4-layer-shell
     - hicolor-icon-theme
     - libdbusmenu
     - libdbusmenu-gtk3

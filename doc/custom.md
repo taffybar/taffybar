@@ -32,8 +32,8 @@ are by default loaded from `$XDG_CONFIG_HOME/taffybar/taffybar.css`.
 
 CSS styling is a feature of GTK. It uses a limited version of CSS, so
 the following articles from the GTK documentation are useful:
-- [CSS in GTK](https://docs.gtk.org/gtk3/css-overview.html)
-- [GTK CSS Properties](https://docs.gtk.org/gtk3/css-properties.html)
+- [CSS in GTK](https://docs.gtk.org/gtk4/css-overview.html)
+- [GTK CSS Properties](https://docs.gtk.org/gtk4/css-properties.html)
 
 ### GTK Inspector
 

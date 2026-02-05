@@ -91,5 +91,5 @@ pollingLabelWithVariableDelayAndRefresh action refreshOnClick =
     vFillCenter grid
     containerAdd grid label
     containerAdd ebox grid
-    widgetShowAll ebox
+    widgetShow ebox
     toWidget ebox

@@ -86,7 +86,7 @@ displayPopup widget window = do
   (x, y ) <- windowGetPosition window
   (_, natReq) <- widgetGetPreferredSize =<< widgetGetToplevel widget
   y' <- getRequisitionHeight natReq
-  widgetShowAll window
+  widgetShow window
   if y > y'
     then windowMove window x (y - y')
     else windowMove window x y'
@@ -214,5 +214,5 @@ buildContentsBox widget = liftIO $ do
   contents <- Gtk.boxNew Gtk.OrientationHorizontal 0
   Gtk.containerAdd contents widget
   _ <- widgetSetClassGI contents "contents"
-  Gtk.widgetShowAll contents
+  Gtk.widgetShow contents
   Gtk.toWidget contents >>= buildPadBox

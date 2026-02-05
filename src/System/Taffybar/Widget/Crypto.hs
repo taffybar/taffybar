@@ -69,7 +69,7 @@ cryptoPriceLabelWithIcon = do
   Gtk.containerAdd hbox image
   Gtk.containerAdd hbox label
 
-  Gtk.widgetShowAll hbox
+  Gtk.widgetShow hbox
 
   Gtk.toWidget hbox
 

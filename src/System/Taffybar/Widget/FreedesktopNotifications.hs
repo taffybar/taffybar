@@ -185,7 +185,7 @@ displayThread s = do
       then widgetHide (noteContainer s)
       else do
         labelSetMarkup (noteWidget s) $ formatMessage (noteConfig s) (toList ns)
-        widgetShowAll (noteContainer s)
+        widgetShow (noteContainer s)
   where
     formatMessage NotificationConfig {..} ns =
       T.take notificationMaxLength $ notificationFormatter ns
@@ -251,9 +251,9 @@ notifyAreaNew cfg = liftIO $ do
   labelSetEllipsize textArea Pango.EllipsizeModeEnd
 
   containerAdd button bLabel
-  boxPackStart box textArea True True 0
-  boxPackStart box sep False False 0
-  boxPackStart box button False False 0
+  boxAppend box textArea True True 0
+  boxAppend box sep False False 0
+  boxAppend box button False False 0
 
   containerAdd frame box
 
@@ -264,7 +264,7 @@ notifyAreaNew cfg = liftIO $ do
   _ <- onWidgetButtonReleaseEvent button (userCancel s)
 
   realizableWrapper <- boxNew OrientationHorizontal 0
-  boxPackStart realizableWrapper frame False False 0
+  boxAppend realizableWrapper frame False False 0
   widgetShow realizableWrapper
 
   -- We can't start the dbus listener thread until we are in the GTK

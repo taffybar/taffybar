@@ -90,7 +90,7 @@ layoutNew config = do
     ebox <- Gtk.eventBoxNew
     Gtk.containerAdd ebox label
     _ <- Gtk.onWidgetButtonPressEvent ebox $ dispatchButtonEvent ctx
-    Gtk.widgetShowAll ebox
+    Gtk.widgetShow ebox
     _ <- Gtk.onWidgetUnrealize ebox $ flip runReaderT ctx $ unsubscribe subscription
     Gtk.toWidget ebox
 

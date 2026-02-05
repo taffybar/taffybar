@@ -12,11 +12,11 @@ extra-deps:
 - dbus-hslogger-0.1.0.1
 - gi-dbusmenu-0.4.1
 - gi-dbusmenugtk3-0.4.1
-- gi-gdk-3.0.15
+- gi-gdk4-4.0.10
 - gi-gdkpixbuf-2.0.18
-- gi-gdkx11-3.0.2
+- gi-gdkx11-4.0.9
 - gi-gio-2.0.16
-- gi-gtk-3.0.21
+- gi-gtk4-4.0.12
 - gi-gtk-hs-0.3.6.1
 - gi-pango-1.0.16
 - gi-xlib-2.0.2

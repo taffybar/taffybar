@@ -21,7 +21,7 @@ final: prev: let
       (self.generateOptparseApplicativeCompletions [ "taffybar" ])
       (overrideCabal (drv: {
         librarySystemDepends =
-          (drv.librarySystemDepends or []) ++ [ pkgs.gtk-layer-shell ];
+          (drv.librarySystemDepends or []) ++ [ pkgs.gtk4-layer-shell ];
       }))
       (with pkgs.xorg; addTestToolDepends [
         xorgserver   # Provides Xvfb
@@ -93,8 +93,8 @@ final: prev: let
   };
 
   fixDeps92 = self: super: lib.optionalAttrs (lib.versionOlder super.ghc.version "9.4") {
-    taffybar = super.taffybar.override { inherit (pkgs) gtk3; };
-    gtk-sni-tray = super.gtk-sni-tray.override { inherit (pkgs) gtk3; };
+    taffybar = super.taffybar.override { inherit (pkgs) gtk4; };
+    gtk4-sni-tray = super.gtk4-sni-tray.override { inherit (pkgs) gtk4; };
   };
 
 in

@@ -237,7 +237,7 @@ graphNew cfg = liftIO $ do
 
   Gtk.widgetSetVexpand drawArea True
   Gtk.widgetSetVexpand box True
-  Gtk.boxPackStart box drawArea True True 0
+  Gtk.boxAppend box drawArea True True 0
 
   widget <- case graphLabel cfg of
     Nothing  -> Gtk.toWidget box
@@ -249,6 +249,6 @@ graphNew cfg = liftIO $ do
       Gtk.overlayAddOverlay overlay label
       Gtk.toWidget overlay
 
-  Gtk.widgetShowAll widget
+  Gtk.widgetShow widget
 
   return (widget, GH mv)

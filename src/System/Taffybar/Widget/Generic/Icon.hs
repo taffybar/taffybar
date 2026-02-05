@@ -102,8 +102,8 @@ pollingIcon interval doUpdateName doInitImage doSetImage = liftIO $ do
 putInBox :: IsWidget child => child -> IO Widget
 putInBox icon = do
   box <- boxNew OrientationHorizontal 0
-  boxPackStart box icon False False 0
-  widgetShowAll box
+  boxAppend box icon False False 0
+  widgetShow box
   toWidget box
 
 ignoreIOException :: IOException -> IO ()

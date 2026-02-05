@@ -85,7 +85,7 @@ import           Data.Tuple.Sequence
 import           Data.Unique
 import qualified GI.Gdk
 import qualified GI.GdkX11 as GdkX11
-import qualified GI.GtkLayerShell as GtkLayerShell
+import qualified GI.Gtk4LayerShell as GtkLayerShell
 import           GI.GdkX11.Objects.X11Window
 import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
@@ -255,8 +255,7 @@ buildContext TaffybarConfig
                 , contextBarConfig = Nothing
                 }
   _ <- runMaybeT $ MaybeT GI.Gdk.displayGetDefault >>=
-              (lift . GI.Gdk.displayGetDefaultScreen) >>=
-              (lift . flip GI.Gdk.afterScreenMonitorsChanged
+              (lift . flip GI.Gdk.afterDisplayMonitorsChanged
                -- XXX: We have to do a force refresh here because there is no
                -- way to reliably move windows, since the window manager can do
                -- whatever it pleases.
@@ -289,7 +288,7 @@ buildBarWindow context barConfig = do
       (showBarId barConfig)
       (show $ strutConfig barConfig)
 
-  window <- Gtk.windowNew Gtk.WindowTypeToplevel
+  window <- Gtk.windowNew Nothing
 
   void $ Gtk.onWidgetDestroy window $ do
     let bId = showBarId barConfig
@@ -310,7 +309,7 @@ buildBarWindow context barConfig = do
   Gtk.boxSetCenterWidget box (Just centerBox)
 
   setupBarWindow context (strutConfig barConfig) window
-  Gtk.containerAdd window box
+  Gtk.windowSetChild window (Just box)
 
   _ <- widgetSetClassGI window "taffy-window"
 
@@ -318,13 +317,13 @@ buildBarWindow context barConfig = do
         runReaderT buildWidget thisContext >>= widgetAdd count
       addToStart count widget = do
         _ <- widgetSetClassGI widget $ T.pack $ printf "left-%d" (count :: Int)
-        Gtk.boxPackStart box widget False False 0
+        Gtk.boxAppend box widget False False 0
       addToEnd count widget = do
         _ <- widgetSetClassGI widget $ T.pack $ printf "right-%d" (count :: Int)
-        Gtk.boxPackEnd box widget False False 0
+        Gtk.boxAppend box widget False False 0
       addToCenter count widget = do
         _ <- widgetSetClassGI widget $ T.pack $ printf "center-%d" (count :: Int)
-        Gtk.boxPackStart centerBox widget False False 0
+        Gtk.boxAppend centerBox widget False False 0
 
   logIO DEBUG "Building start widgets"
   mapM_ (addWidgetWith addToStart) $ zip [1..] (startWidgets barConfig)

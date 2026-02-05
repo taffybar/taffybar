@@ -175,7 +175,7 @@ verticalBarNew cfg = liftIO $ do
   widgetSetSizeRequest drawArea (fromIntegral $ barWidth cfg) (-1)
   _ <- onWidgetDraw drawArea $ \ctx -> renderWithContext (drawBar mv drawArea) ctx >> return True
   box <- boxNew OrientationHorizontal 1
-  boxPackStart box drawArea True True 0
-  widgetShowAll box
+  boxAppend box drawArea True True 0
+  widgetShow box
   giBox <- toWidget box
   return (giBox, VBH mv)

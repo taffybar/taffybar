@@ -20,7 +20,7 @@ dynamicMenuNew DynamicMenuConfig
 
   _ <- Gtk.onButtonPressed button $ emptyMenu menu >> populateMenu menu
 
-  Gtk.widgetShowAll button
+  Gtk.widgetShow button
 
   Gtk.toWidget button
 

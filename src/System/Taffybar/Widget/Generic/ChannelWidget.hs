@@ -19,5 +19,5 @@ channelWidgetNew widget channel updateWidget = do
     processingThreadId <- forkIO $ forever $
       atomically (readTChan ourChan) >>= updateWidget
     void $ onWidgetUnrealize widget $ killThread processingThreadId
-  widgetShowAll widget
+  widgetShow widget
   return widget

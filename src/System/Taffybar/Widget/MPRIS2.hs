@@ -165,7 +165,7 @@ simplePlayerWidget c addToParent Nothing
     addToParent ebox
     Gtk.widgetSetVexpand playerBox True
     Gtk.widgetSetName playerBox $ T.pack $ formatBusName busName
-    Gtk.widgetShowAll ebox
+    Gtk.widgetShow ebox
     Gtk.widgetHide ebox
     widget <- Gtk.toWidget ebox
     let widgetData =
@@ -182,7 +182,7 @@ simplePlayerWidget config _
   Gtk.labelSetMarkup label =<< setNowPlayingLabel config nowPlaying
   shouldShow <- showPlayerWidgetFn config nowPlaying
   if shouldShow
-  then Gtk.widgetShowAll widget
+  then Gtk.widgetShow widget
   else Gtk.widgetHide widget
   return w
 

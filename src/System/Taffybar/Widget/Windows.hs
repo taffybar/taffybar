@@ -83,12 +83,12 @@ windowsNew config = do
   refreshIcon <- case getActiveWindowIconPixbuf config of
     Just getIcon -> do
       (rf, icon) <- buildWindowsIcon getIcon
-      Gtk.boxPackStart hbox icon True True 0
+      Gtk.boxAppend hbox icon True True 0
       pure rf
     Nothing -> pure (pure ())
 
   (setLabelTitle, label) <- buildWindowsLabel
-  Gtk.boxPackStart hbox label True True 0
+  Gtk.boxAppend hbox label True True 0
   let refreshLabel = getActiveLabel config >>= lift . setLabelTitle
 
   subscription <- subscribeToPropertyEvents
@@ -97,7 +97,7 @@ windowsNew config = do
 
   void $ mapReaderT (Gtk.onWidgetUnrealize hbox) (unsubscribe subscription)
 
-  Gtk.widgetShowAll hbox
+  Gtk.widgetShow hbox
   boxWidget <- Gtk.toWidget hbox
 
   runTaffy <- asks (flip runReaderT)
