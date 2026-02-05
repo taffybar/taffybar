@@ -19,7 +19,7 @@ module System.Taffybar.Widget.HyprlandWorkspaces where
 import           Control.Applicative ((<|>))
 import           Control.Concurrent (forkIO, killThread)
 import           Control.Exception.Enclosed (catchAny)
-import           Control.Monad (foldM, forM_, when, (>=>))
+import           Control.Monad (foldM, forM_, void, when, (>=>))
 import           Control.Monad.IO.Class (MonadIO(liftIO))
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:), (.:?), (.!=))
@@ -55,6 +55,7 @@ import           System.Environment.XDG.DesktopEntry
   )
 import           System.Taffybar.Context
 import           System.Taffybar.Util
+import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
 import           System.Taffybar.Widget.Util
   ( buildContentsBox
   , getImageForDesktopEntry
@@ -349,16 +350,24 @@ updateIconsBox cfg ws iconsBox = do
 buildIconWidget ::
   HyprlandWorkspacesConfig -> Maybe HyprlandWindow -> ReaderT Context IO Gtk.Widget
 buildIconWidget cfg windowData = do
+  ctx <- ask
   iconButton <- liftIO Gtk.eventBoxNew
   icon <- liftIO Gtk.imageNew
   _ <- widgetSetClassGI icon "window-icon"
   _ <- widgetSetClassGI iconButton "window-icon-container"
   liftIO $ Gtk.containerAdd iconButton icon
-
-  pixbuf <- case windowData of
-    Nothing -> Just <$> pixBufFromColor (iconSize cfg) 0
-    Just w -> getWindowIconPixbuf cfg (iconSize cfg) w
-  liftIO $ Gtk.imageSetFromPixbuf icon pixbuf
+  liftIO $
+    Gtk.widgetSetSizeRequest
+      icon
+      (fromIntegral $ iconSize cfg)
+      (fromIntegral $ iconSize cfg)
+  let getPixbuf size =
+        runReaderT
+          (case windowData of
+             Nothing -> Just <$> pixBufFromColor size 0
+             Just w -> getWindowIconPixbuf cfg size w)
+          ctx
+  void $ autoSizeImage icon getPixbuf Gtk.OrientationHorizontal
 
   case windowData of
     Nothing -> return ()

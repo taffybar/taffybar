@@ -1,0 +1,9 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-Bus Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.freedesktop.NetworkManager.Connection.Active">
+    <property name="Type" type="s" access="read"/>
+    <property name="Id" type="s" access="read"/>
+    <property name="SpecificObject" type="o" access="read"/>
+  </interface>
+</node>

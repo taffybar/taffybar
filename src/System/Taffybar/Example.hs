@@ -1,3 +1,4 @@
+{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
@@ -25,6 +26,7 @@ import System.Taffybar.Information.Memory
 import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
 import System.Taffybar.Widget.Generic.PollingGraph
+import qualified System.Taffybar.Widget.Workspaces as Workspaces
 
 transparent, yellow1, yellow2, green1, green2, taffyBlue
   :: (Double, Double, Double, Double)
@@ -71,11 +73,12 @@ cpuCallback = do
 
 exampleTaffybarConfig :: TaffybarConfig
 exampleTaffybarConfig =
-  let myWorkspacesConfig =
+  let myWorkspacesConfig :: WorkspacesConfig
+      myWorkspacesConfig =
         def
-        { minIcons = 1
-        , widgetGap = 0
-        , showWorkspaceFn = hideEmpty
+        { Workspaces.minIcons = 1
+        , Workspaces.widgetGap = 0
+        , Workspaces.showWorkspaceFn = hideEmpty
         }
       workspaces = workspacesNew myWorkspacesConfig
       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback

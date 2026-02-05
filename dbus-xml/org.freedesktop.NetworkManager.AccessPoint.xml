@@ -1,0 +1,8 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-Bus Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.freedesktop.NetworkManager.AccessPoint">
+    <property name="Ssid" type="ay" access="read"/>
+    <property name="Strength" type="y" access="read"/>
+  </interface>
+</node>

@@ -13,6 +13,39 @@ playerGenerationParams = defaultGenerationParams
   , genObjectPath = Just "/org/mpris/MediaPlayer2"
   }
 
+-- | The bus name for NetworkManager.
+nmBusName :: BusName
+nmBusName = "org.freedesktop.NetworkManager"
+
+-- | The base object path for NetworkManager.
+nmObjectPath :: ObjectPath
+nmObjectPath = "/org/freedesktop/NetworkManager"
+
+nmInterfaceName :: InterfaceName
+nmInterfaceName = "org.freedesktop.NetworkManager"
+
+nmActiveConnectionInterfaceName :: InterfaceName
+nmActiveConnectionInterfaceName =
+  "org.freedesktop.NetworkManager.Connection.Active"
+
+nmAccessPointInterfaceName :: InterfaceName
+nmAccessPointInterfaceName =
+  "org.freedesktop.NetworkManager.AccessPoint"
+
+nmActiveConnectionPathNamespace :: ObjectPath
+nmActiveConnectionPathNamespace =
+  "/org/freedesktop/NetworkManager/ActiveConnection"
+
+nmAccessPointPathNamespace :: ObjectPath
+nmAccessPointPathNamespace =
+  "/org/freedesktop/NetworkManager/AccessPoint"
+
+nmGenerationParams :: GenerationParams
+nmGenerationParams = defaultGenerationParams
+  { genTakeSignalErrorHandler = True
+  , genBusName = Just nmBusName
+  }
+
 
 -- | The base object path for the UPower interface
 uPowerBaseObjectPath :: ObjectPath
@@ -30,6 +63,7 @@ uPowerGenerationParams = defaultGenerationParams
   { genTakeSignalErrorHandler = True
   , genBusName = Just uPowerBusName
   }
+
 -- | The bus name for PulseAudio's server lookup on the session bus.
 paServerLookupBusName :: BusName
 paServerLookupBusName = "org.PulseAudio1"
@@ -68,7 +102,6 @@ paDeviceGenerationParams :: GenerationParams
 paDeviceGenerationParams = defaultGenerationParams
   { genTakeSignalErrorHandler = True
   }
-
 
 data BatteryType
   = BatteryTypeUnknown

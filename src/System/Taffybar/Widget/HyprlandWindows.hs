@@ -23,7 +23,7 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Maybe
 import           Data.Default (Default(..))
-import           Data.Maybe (fromMaybe, listToMaybe)
+import           Data.Maybe (listToMaybe)
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import           System.Log.Logger (Priority(..))

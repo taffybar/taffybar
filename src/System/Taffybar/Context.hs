@@ -499,7 +499,10 @@ detectBackend :: IO Backend
 detectBackend = do
   sessionType <- lookupEnv "XDG_SESSION_TYPE"
   waylandDisplay <- lookupEnv "WAYLAND_DISPLAY"
-  if sessionType == Just "wayland" || isJust waylandDisplay
+  hyprlandSignature <- lookupEnv "HYPRLAND_INSTANCE_SIGNATURE"
+  if sessionType == Just "wayland"
+     || isJust waylandDisplay
+     || isJust hyprlandSignature
     then return BackendWayland
     else return BackendX11
 

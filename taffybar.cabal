@@ -21,6 +21,9 @@ extra-source-files:
   dbus-xml/org.freedesktop.UPower.xml
   dbus-xml/org.mpris.MediaPlayer2.Player.xml
   dbus-xml/org.mpris.MediaPlayer2.xml
+  dbus-xml/org.freedesktop.NetworkManager.xml
+  dbus-xml/org.freedesktop.NetworkManager.Connection.Active.xml
+  dbus-xml/org.freedesktop.NetworkManager.AccessPoint.xml
   test/data/*.golden
 extra-doc-files:
   README.md
@@ -36,6 +39,7 @@ common haskell
     GeneralizedNewtypeDeriving
     LambdaCase
     NumericUnderscores
+    ScopedTypeVariables
     StandaloneDeriving
     TupleSections
   default-language: Haskell2010
@@ -119,6 +123,7 @@ library
                  , System.Taffybar.Example
                  , System.Taffybar.Hooks
                  , System.Taffybar.Information.Audio
+                 , System.Taffybar.Information.Backlight
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.CPU
                  , System.Taffybar.Information.CPU2
@@ -129,6 +134,7 @@ library
                  , System.Taffybar.Information.MPRIS2
                  , System.Taffybar.Information.Memory
                  , System.Taffybar.Information.Network
+                 , System.Taffybar.Information.NetworkManager
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.StreamInfo
                  , System.Taffybar.Information.X11DesktopInfo
@@ -138,6 +144,7 @@ library
                  , System.Taffybar.Util
                  , System.Taffybar.Widget
                  , System.Taffybar.Widget.Audio
+                 , System.Taffybar.Widget.Backlight
                  , System.Taffybar.Widget.Battery
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
@@ -160,6 +167,7 @@ library
                  , System.Taffybar.Widget.Layout
                  , System.Taffybar.Widget.MPRIS2
                  , System.Taffybar.Widget.NetworkGraph
+                 , System.Taffybar.Widget.Wifi
                  , System.Taffybar.Widget.SNITray
                  , System.Taffybar.Widget.SimpleClock
                  , System.Taffybar.Widget.SimpleCommandButton
@@ -182,6 +190,9 @@ library
 
   other-modules: Paths_taffybar
                , System.Taffybar.DBus.Client.MPRIS2
+               , System.Taffybar.DBus.Client.NetworkManager
+               , System.Taffybar.DBus.Client.NetworkManagerAccessPoint
+               , System.Taffybar.DBus.Client.NetworkManagerActiveConnection
                , System.Taffybar.DBus.Client.Params
                , System.Taffybar.DBus.Client.PulseAudioCore
                , System.Taffybar.DBus.Client.PulseAudioDevice
