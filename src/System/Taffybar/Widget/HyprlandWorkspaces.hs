@@ -19,7 +19,7 @@ module System.Taffybar.Widget.HyprlandWorkspaces where
 import           Control.Applicative ((<|>))
 import           Control.Concurrent (forkIO, killThread)
 import           Control.Exception.Enclosed (catchAny)
-import           Control.Monad (forM_, unless, when, (>=>))
+import           Control.Monad (foldM, forM_, unless, when, (>=>))
 import           Control.Monad.IO.Class (MonadIO(liftIO))
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:), (.:?), (.!=))
@@ -80,6 +80,11 @@ stripSuffix suffix value =
 cssWorkspaceStates :: [T.Text]
 cssWorkspaceStates = map getCSSClass [Active, Visible, Hidden, Empty, Urgent]
 
+isSpecialHyprWorkspace :: HyprlandWorkspace -> Bool
+isSpecialHyprWorkspace ws =
+  let name = T.toLower $ T.pack $ workspaceName ws
+  in T.isPrefixOf "special" name || workspaceIdx ws < 0
+
 data HyprlandWindow = HyprlandWindow
   { windowAddress :: Text
   , windowTitle :: String
@@ -98,6 +103,9 @@ data HyprlandWorkspace = HyprlandWorkspace
   } deriving (Show, Eq)
 
 newtype HyprlandWorkspaceCache = HyprlandWorkspaceCache [HyprlandWorkspace]
+
+newtype HyprlandWorkspaceWidgetCache =
+  HyprlandWorkspaceWidgetCache (M.Map Int (HyprlandWorkspace, Gtk.Widget))
 
 type HyprlandWindowIconPixbufGetter =
   Int32 -> HyprlandWindow -> TaffyIO (Maybe Gdk.Pixbuf)
@@ -130,7 +138,8 @@ defaultHyprlandWorkspacesConfig =
   , iconSize = 16
   , getWindowIconPixbuf = defaultHyprlandGetWindowIconPixbuf
   , labelSetter = return . workspaceName
-  , showWorkspaceFn = const True
+  , showWorkspaceFn = \ws ->
+      workspaceState ws /= Empty && not (isSpecialHyprWorkspace ws)
   , iconSort = return
   , urgentWorkspaceState = False
   }
@@ -244,13 +253,27 @@ refreshWorkspaces cfg cont = do
 renderWorkspaces ::
   HyprlandWorkspacesConfig -> Gtk.Box -> [HyprlandWorkspace] -> ReaderT Context IO ()
 renderWorkspaces cfg cont workspaces = do
-  liftIO $ Gtk.containerForeach cont (Gtk.containerRemove cont)
   let visibleWorkspaces =
         map (applyUrgentState cfg) $ filter (showWorkspaceFn cfg) workspaces
-  forM_ visibleWorkspaces $ \ws -> do
-    widget <- buildWorkspaceWidget cfg ws
+  HyprlandWorkspaceWidgetCache widgetCache <-
+    getStateDefault $ return (HyprlandWorkspaceWidgetCache M.empty)
+  let buildWidget oldCache (newCache, widgets) ws = do
+        let idx = workspaceIdx ws
+        widget <- case M.lookup idx oldCache of
+          Just (prevWs, prevWidget) | prevWs == ws -> return prevWidget
+          _ -> buildWorkspaceWidget cfg ws
+        let cache' = M.insert idx (ws, widget) newCache
+        return (cache', widget:widgets)
+  (newCache, widgetsRev) <- foldM
+    (buildWidget widgetCache)
+    (M.empty, [])
+    visibleWorkspaces
+  liftIO $ Gtk.containerForeach cont (Gtk.containerRemove cont)
+  forM_ (reverse widgetsRev) $ \widget ->
     liftIO $ Gtk.containerAdd cont widget
   liftIO $ Gtk.widgetShowAll cont
+  _ <- putState $ return (HyprlandWorkspaceWidgetCache newCache)
+  return ()
 
 applyUrgentState :: HyprlandWorkspacesConfig -> HyprlandWorkspace -> HyprlandWorkspace
 applyUrgentState cfg ws
