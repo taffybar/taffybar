@@ -1,0 +1,8 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-Bus Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.freedesktop.NetworkManager">
+    <property name="WirelessEnabled" type="b" access="read"/>
+    <property name="ActiveConnections" type="ao" access="read"/>
+  </interface>
+</node>
