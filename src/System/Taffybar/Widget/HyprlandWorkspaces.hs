@@ -19,7 +19,7 @@ module System.Taffybar.Widget.HyprlandWorkspaces where
 import           Control.Applicative ((<|>))
 import           Control.Concurrent (killThread)
 import           Control.Exception.Enclosed (catchAny)
-import           Control.Monad (forM_, unless, when)
+import           Control.Monad (forM_, unless, when, (>=>))
 import           Control.Monad.IO.Class (MonadIO(liftIO))
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:), (.:?), (.!=))
@@ -27,7 +27,7 @@ import           Data.Char (toLower)
 import qualified Data.ByteString.Lazy.Char8 as BL
 import           Data.Default (Default(..))
 import           Data.Int (Int32)
-import           Data.List (foldl', sortOn, stripSuffix)
+import           Data.List (foldl', sortOn, stripPrefix)
 import           Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Map.Strict as M
 import qualified Data.MultiMap as MM
@@ -44,11 +44,14 @@ import           System.Environment.XDG.DesktopEntry
   ( DesktopEntry
   , deFilename
   , getDirectoryEntriesDefault
-  , getImageForDesktopEntry
   )
 import           System.Taffybar.Context
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Util (buildContentsBox, widgetSetClassGI)
+import           System.Taffybar.Widget.Util
+  ( buildContentsBox
+  , getImageForDesktopEntry
+  , widgetSetClassGI
+  )
 import           System.Taffybar.WindowIcon (getWindowIconFromClasses, pixBufFromColor)
 
 data WorkspaceState
@@ -61,6 +64,10 @@ data WorkspaceState
 
 getCSSClass :: (Show s) => s -> T.Text
 getCSSClass = T.toLower . T.pack . show
+
+stripSuffix :: Eq a => [a] -> [a] -> Maybe [a]
+stripSuffix suffix value =
+  reverse <$> stripPrefix (reverse suffix) (reverse value)
 
 cssWorkspaceStates :: [T.Text]
 cssWorkspaceStates = map getCSSClass [Active, Visible, Hidden, Empty, Urgent]
@@ -316,7 +323,8 @@ getWindowIconFromDesktopEntryByAppId size appId = do
     [] -> return Nothing
     (entry:_) -> do
       liftIO $ logM "System.Taffybar.Widget.HyprlandWorkspaces" DEBUG $
-        printf "Using desktop entry for icon %s" (deFilename entry, appId)
+        printf "Using desktop entry for icon %s (appId=%s)"
+               (deFilename entry) appId
       liftIO $ getImageForDesktopEntry size entry
 
 -- Hyprland backend

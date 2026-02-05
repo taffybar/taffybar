@@ -58,9 +58,6 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.Windows"
   , module System.Taffybar.Widget.Windows
 
-  -- * "System.Taffybar.Widget.HyprlandWorkspaces"
-  , module System.Taffybar.Widget.HyprlandWorkspaces
-
   -- * "System.Taffybar.Widget.Workspaces"
   , module System.Taffybar.Widget.Workspaces
 
@@ -88,7 +85,6 @@ import System.Taffybar.Widget.Text.MemoryMonitor
 import System.Taffybar.Widget.Text.NetworkMonitor
 import System.Taffybar.Widget.Util
 import System.Taffybar.Widget.Weather
-import System.Taffybar.Widget.HyprlandWorkspaces
 import System.Taffybar.Widget.Windows
 import System.Taffybar.Widget.Workspaces
 import System.Taffybar.Widget.XDGMenu.MenuWidget
