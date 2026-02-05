@@ -19,7 +19,7 @@ import           Control.Applicative ((<|>))
 import           Control.Concurrent (forkIO, killThread)
 import qualified Control.Concurrent.MVar as MV
 import           Control.Exception.Enclosed (catchAny)
-import           Control.Monad (foldM, forM_, void, when, (>=>))
+import           Control.Monad (foldM, forM_, when, (>=>))
 import           Control.Monad.IO.Class (MonadIO(liftIO))
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:), (.:?), (.!=))
@@ -184,12 +184,16 @@ hyprlandUpdateLoop _cfg refresh = do
   mHandle <- connectHyprlandEventSocket
   case mHandle of
     Nothing ->
-      logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING
+      logM
+        "System.Taffybar.Widget.HyprlandWorkspaces"
+        WARNING
         "Hyprland event socket unavailable; workspace updates disabled"
     Just handle ->
       eventLoop handle `catchAny` \e -> do
         logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING $
-          printf "Hyprland event socket failed (%s); workspace updates disabled" (show e)
+          printf
+            "Hyprland event socket failed (%s); workspace updates disabled"
+            (show e)
         hClose handle
   where
     eventLoop handle = do
