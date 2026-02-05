@@ -555,6 +555,15 @@ setupLayerShellWindow StrutConfig
                     RightPos -> width + 2 * xpadding
 
             Gtk.windowSetDefaultSize window (fromIntegral width) (fromIntegral height)
+            let (reqWidth, reqHeight) =
+                  case position of
+                    TopPos -> (-1, height)
+                    BottomPos -> (-1, height)
+                    LeftPos -> (width, -1)
+                    RightPos -> (width, -1)
+            Gtk.widgetSetSizeRequest window
+              (fromIntegral reqWidth)
+              (fromIntegral reqHeight)
 
             GtkLayerShell.initForWindow window
             GtkLayerShell.setKeyboardMode window GtkLayerShell.KeyboardModeNone

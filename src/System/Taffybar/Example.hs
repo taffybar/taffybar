@@ -115,7 +115,7 @@ exampleWaylandTaffybarConfig =
         , endWidgets = [ clock, cpu ]
         , barPosition = Top
         , barHeight = ExactSize 28
-        , barPadding = 8
+        , barPadding = 0
         , widgetSpacing = 8
         , monitorsAction = usePrimaryMonitor
         }
