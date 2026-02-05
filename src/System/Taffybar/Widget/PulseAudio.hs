@@ -23,7 +23,7 @@ module System.Taffybar.Widget.PulseAudio
   , pulseAudioLabelNewWith
   ) where
 
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Control.Monad.IO.Class
 import Data.Char (ord)
 import Data.Default (Default(..))
@@ -82,12 +82,11 @@ pulseAudioLabelNewWith config = liftIO $ do
     refreshNow = getPulseAudioInfo sinkSpec >>= updateLabel
 
     whenToggleMute widget =
-      if pulseAudioToggleMuteOnClick config
-        then void $ Gtk.onWidgetButtonPressEvent widget $ \_ -> do
+      when (pulseAudioToggleMuteOnClick config) $
+        void $ Gtk.onWidgetButtonPressEvent widget $ \_ -> do
           void $ togglePulseAudioMute sinkSpec
           refreshNow
           return True
-        else return ()
 
     whenScrollAdjust widget =
       case pulseAudioScrollStepPercent config of
@@ -123,9 +122,7 @@ formatPulseAudioWidget
   -> Maybe PulseAudioInfo
   -> IO (T.Text, Maybe T.Text)
 formatPulseAudioWidget config info = do
-  attrs <- case info of
-    Nothing -> buildUnknownAttrs
-    Just audio -> buildAttrs audio
+  attrs <- maybe buildUnknownAttrs buildAttrs info
   let
     labelTemplate =
       case info of
@@ -191,16 +188,17 @@ escapeText input = T.unpack <$> G.markupEscapeText input (-1)
 -- selected. Enlarge only the PUA glyphs so digits/letters remain untouched.
 escapeIconText :: T.Text -> IO String
 escapeIconText input =
-  fmap concat $
-    mapM
-      (\c -> do
-          esc <- escapeText (T.singleton c)
-          pure $
-            if isPUA c
-              then "<span size=\"large\">" ++ esc ++ "</span>"
-              else esc
-      )
-      (T.unpack input)
+  concat
+    <$>
+      mapM
+        (\c -> do
+            esc <- escapeText (T.singleton c)
+            pure $
+              if isPUA c
+                then "<span size=\"large\">" ++ esc ++ "</span>"
+                else esc
+        )
+        (T.unpack input)
 
 isPUA :: Char -> Bool
 isPUA c =

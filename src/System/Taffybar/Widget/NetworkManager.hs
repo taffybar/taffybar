@@ -279,16 +279,17 @@ escapeText input = T.unpack <$> G.markupEscapeText input (-1)
 -- other plain text) remain at the normal size.
 escapeIconText :: T.Text -> IO String
 escapeIconText input =
-  fmap concat $
-    mapM
-      (\c -> do
-          esc <- escapeText (T.singleton c)
-          pure $
-            if isPUA c
-              then "<span size=\"large\">" ++ esc ++ "</span>"
-              else esc
-      )
-      (T.unpack input)
+  concat
+    <$>
+      mapM
+        (\c -> do
+            esc <- escapeText (T.singleton c)
+            pure $
+              if isPUA c
+                then "<span size=\"large\">" ++ esc ++ "</span>"
+                else esc
+        )
+        (T.unpack input)
 
 isPUA :: Char -> Bool
 isPUA c =

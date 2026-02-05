@@ -271,7 +271,7 @@ buildHyprlandEventChan client = do
   pure $ HyprlandEventChan chan
   where
     logH :: Priority -> String -> IO ()
-    logH p msg = logM "System.Taffybar.Information.Hyprland" p msg
+    logH = logM "System.Taffybar.Information.Hyprland"
 
     retryDelayMicros :: Int
     retryDelayMicros = 1 * 1000000
@@ -287,7 +287,7 @@ buildHyprlandEventChan client = do
                 hGetLine handle >>= (atomically . writeTChan chan . T.pack) >> loop
           loop `catchAny` \e ->
             logH WARNING $ printf "Hyprland event socket failed: %s" (show e)
-          void $ (hClose handle) `catchAny` \_ -> pure ()
+          void $ hClose handle `catchAny` \_ -> pure ()
           threadDelay retryDelayMicros
 
 data HyprlandCommand = HyprlandCommand

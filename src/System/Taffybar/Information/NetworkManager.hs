@@ -219,9 +219,8 @@ getProperties client path iface = runExceptT $ do
   reply <- ExceptT $ getAllProperties client $
     (methodCall path iface "FakeMethod")
       { methodCallDestination = Just nmBusName }
-  dict <- ExceptT $ return $ maybeToEither dummyMethodError $
+  ExceptT $ return $ maybeToEither dummyMethodError $
     listToMaybe (methodReturnBody reply) >>= fromVariant
-  return dict
 
 getWifiInfo :: TaffyIO WifiInfo
 getWifiInfo = asks systemDBusClient >>= liftIO . getWifiInfoFromClient

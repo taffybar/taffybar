@@ -48,7 +48,7 @@ import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.List (isInfixOf)
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe, isNothing, listToMaybe)
 import Data.Text (Text)
 import Data.Word (Word32)
 import System.Environment (lookupEnv)
@@ -405,7 +405,7 @@ setDeviceMute client path muteState = do
           { methodCallDestination = Nothing
           }
   err <- setPropertyValue client muteCall muteState
-  return $ err == Nothing
+  pure $ isNothing err
 
 setDeviceVolume :: Client -> ObjectPath -> Word32 -> [Word32] -> Int -> IO Bool
 setDeviceVolume client path maxVol volumes deltaPercent = do
@@ -417,7 +417,7 @@ setDeviceVolume client path maxVol volumes deltaPercent = do
           { methodCallDestination = Nothing
           }
   err <- setPropertyValue client volCall newVolumes
-  return $ err == Nothing
+  pure $ isNothing err
 
 clamp :: Int -> Int -> Int -> Int
 clamp low high value = max low (min high value)
@@ -450,12 +450,10 @@ getProperties client destination path iface = runExceptT $ do
         (methodCall path iface "FakeMethod")
           { methodCallDestination = destination
           }
-  dict <-
-    ExceptT $
-      return $
-        maybeToEither dummyMethodError $
-          listToMaybe (methodReturnBody reply) >>= fromVariant
-  return dict
+  ExceptT $
+    return $
+      maybeToEither dummyMethodError $
+        listToMaybe (methodReturnBody reply) >>= fromVariant
 
 -- XXX: Remove this once it is exposed in haskell-dbus
 -- Same workaround pattern used elsewhere in Taffybar.

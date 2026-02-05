@@ -23,7 +23,7 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Maybe
 import           Data.Default (Default(..))
-import           Data.Maybe (listToMaybe)
+import           Data.List (find)
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import           System.Log.Logger (Priority(..))
@@ -132,9 +132,8 @@ buildWindowsIcon windowIconPixbufGetter = do
   (postGUIASync updateImage,) <$> Gtk.toWidget icon
 
 getActiveHyprlandWindow :: TaffyIO (Maybe HyprlandWindow)
-getActiveHyprlandWindow = do
-  windows <- getHyprlandWindows
-  return $ listToMaybe $ filter windowActive windows
+getActiveHyprlandWindow =
+  find windowActive <$> getHyprlandWindows
 
 getHyprlandWindows :: TaffyIO [HyprlandWindow]
 getHyprlandWindows = do

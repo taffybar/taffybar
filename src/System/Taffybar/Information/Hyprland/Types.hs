@@ -30,7 +30,7 @@ import           Data.Aeson (FromJSON(..), withObject, (.:), (.:?), (.!=))
 import           Data.Aeson.Types (Parser)
 import           Data.Text (Text)
 
-parseOptionalAt :: (Maybe [Int]) -> Parser (Maybe (Int, Int))
+parseOptionalAt :: Maybe [Int] -> Parser (Maybe (Int, Int))
 parseOptionalAt mAt =
   case mAt of
     Nothing -> pure Nothing

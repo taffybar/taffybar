@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      : System.Taffybar.Hyprland
