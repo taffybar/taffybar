@@ -104,8 +104,16 @@ data HyprlandWorkspace = HyprlandWorkspace
 
 newtype HyprlandWorkspaceCache = HyprlandWorkspaceCache [HyprlandWorkspace]
 
+data HyprlandWorkspaceWidgetState = HyprlandWorkspaceWidgetState
+  { workspaceWidget :: Gtk.Widget
+  , workspaceContents :: Gtk.Widget
+  , workspaceLabel :: Gtk.Label
+  , workspaceIconsBox :: Gtk.Box
+  , workspaceLast :: HyprlandWorkspace
+  }
+
 newtype HyprlandWorkspaceWidgetCache =
-  HyprlandWorkspaceWidgetCache (M.Map Int (HyprlandWorkspace, Gtk.Widget))
+  HyprlandWorkspaceWidgetCache (M.Map Int HyprlandWorkspaceWidgetState)
 
 type HyprlandWindowIconPixbufGetter =
   Int32 -> HyprlandWindow -> TaffyIO (Maybe Gdk.Pixbuf)
@@ -259,11 +267,13 @@ renderWorkspaces cfg cont workspaces = do
     getStateDefault $ return (HyprlandWorkspaceWidgetCache M.empty)
   let buildWidget oldCache (newCache, widgets) ws = do
         let idx = workspaceIdx ws
-        widget <- case M.lookup idx oldCache of
-          Just (prevWs, prevWidget) | prevWs == ws -> return prevWidget
-          _ -> buildWorkspaceWidget cfg ws
-        let cache' = M.insert idx (ws, widget) newCache
-        return (cache', widget:widgets)
+        state <- case M.lookup idx oldCache of
+          Just prevState
+            | workspaceLast prevState == ws -> return prevState
+            | otherwise -> updateWorkspaceWidgetState cfg ws prevState
+          Nothing -> buildWorkspaceWidgetState cfg ws
+        let cache' = M.insert idx state newCache
+        return (cache', workspaceWidget state : widgets)
   (newCache, widgetsRev) <- foldM
     (buildWidget widgetCache)
     (M.empty, [])
@@ -283,24 +293,16 @@ applyUrgentState cfg ws
       ws { workspaceState = Urgent }
   | otherwise = ws
 
-buildWorkspaceWidget ::
-  HyprlandWorkspacesConfig -> HyprlandWorkspace -> ReaderT Context IO Gtk.Widget
-buildWorkspaceWidget cfg ws = do
+buildWorkspaceWidgetState ::
+  HyprlandWorkspacesConfig -> HyprlandWorkspace -> ReaderT Context IO HyprlandWorkspaceWidgetState
+buildWorkspaceWidgetState cfg ws = do
   ctx <- ask
   labelText <- labelSetter cfg ws
   label <- liftIO $ Gtk.labelNew (Just $ T.pack labelText)
   _ <- widgetSetClassGI label "workspace-label"
 
   iconsBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
-  sortedWindows <- iconSort cfg $ windows ws
-  let windowCount = length sortedWindows
-      maxNeeded = maybe windowCount (min windowCount) (maxIcons cfg)
-      shownWindows = map Just $ take maxNeeded sortedWindows
-      paddedWindows =
-        shownWindows ++ replicate (max 0 (minIcons cfg - length shownWindows)) Nothing
-  forM_ paddedWindows $ \windowData -> do
-    iconWidget <- buildIconWidget cfg windowData
-    liftIO $ Gtk.containerAdd iconsBox iconWidget
+  updateIconsBox cfg ws iconsBox
 
   inner <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
   liftIO $ Gtk.containerAdd inner label
@@ -315,7 +317,41 @@ buildWorkspaceWidget cfg ws = do
        Gtk.onWidgetButtonPressEvent ebox $ const $ do
          runReaderT (switchToWorkspace cfg ws) ctx
          return True
-  Gtk.toWidget ebox
+  widget <- Gtk.toWidget ebox
+  return HyprlandWorkspaceWidgetState
+    { workspaceWidget = widget
+    , workspaceContents = contents
+    , workspaceLabel = label
+    , workspaceIconsBox = iconsBox
+    , workspaceLast = ws
+    }
+
+updateWorkspaceWidgetState ::
+  HyprlandWorkspacesConfig
+  -> HyprlandWorkspace
+  -> HyprlandWorkspaceWidgetState
+  -> ReaderT Context IO HyprlandWorkspaceWidgetState
+updateWorkspaceWidgetState cfg ws state = do
+  labelText <- labelSetter cfg ws
+  liftIO $ Gtk.labelSetText (workspaceLabel state) (T.pack labelText)
+  when (windows ws /= windows (workspaceLast state)) $
+    updateIconsBox cfg ws (workspaceIconsBox state)
+  setWorkspaceWidgetStatusClass ws (workspaceContents state)
+  return state { workspaceLast = ws }
+
+updateIconsBox ::
+  HyprlandWorkspacesConfig -> HyprlandWorkspace -> Gtk.Box -> ReaderT Context IO ()
+updateIconsBox cfg ws iconsBox = do
+  liftIO $ Gtk.containerForeach iconsBox (Gtk.containerRemove iconsBox)
+  sortedWindows <- iconSort cfg $ windows ws
+  let windowCount = length sortedWindows
+      maxNeeded = maybe windowCount (min windowCount) (maxIcons cfg)
+      shownWindows = map Just $ take maxNeeded sortedWindows
+      paddedWindows =
+        shownWindows ++ replicate (max 0 (minIcons cfg - length shownWindows)) Nothing
+  forM_ paddedWindows $ \windowData -> do
+    iconWidget <- buildIconWidget cfg windowData
+    liftIO $ Gtk.containerAdd iconsBox iconWidget
 
 buildIconWidget ::
   HyprlandWorkspacesConfig -> Maybe HyprlandWindow -> ReaderT Context IO Gtk.Widget
