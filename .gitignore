@@ -13,3 +13,4 @@ cabal.sandbox.config
 /test/data/*.actual
 /.hspec
 /.hspec-failures
+.worktrees/
