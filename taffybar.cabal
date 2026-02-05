@@ -14,6 +14,9 @@ data-files:
   taffybar.css
   icons/*.svg
 extra-source-files:
+  dbus-xml/org.PulseAudio.ServerLookup1.xml
+  dbus-xml/org.PulseAudio.Core1.xml
+  dbus-xml/org.PulseAudio.Core1.Device.xml
   dbus-xml/org.freedesktop.UPower.Device.xml
   dbus-xml/org.freedesktop.UPower.xml
   dbus-xml/org.mpris.MediaPlayer2.Player.xml
@@ -115,6 +118,7 @@ library
                  , System.Taffybar.DBus.Toggle
                  , System.Taffybar.Example
                  , System.Taffybar.Hooks
+                 , System.Taffybar.Information.Audio
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.CPU
                  , System.Taffybar.Information.CPU2
@@ -133,6 +137,7 @@ library
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Util
                  , System.Taffybar.Widget
+                 , System.Taffybar.Widget.Audio
                  , System.Taffybar.Widget.Battery
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
@@ -178,6 +183,9 @@ library
   other-modules: Paths_taffybar
                , System.Taffybar.DBus.Client.MPRIS2
                , System.Taffybar.DBus.Client.Params
+               , System.Taffybar.DBus.Client.PulseAudioCore
+               , System.Taffybar.DBus.Client.PulseAudioDevice
+               , System.Taffybar.DBus.Client.PulseAudioServerLookup
                , System.Taffybar.DBus.Client.UPower
                , System.Taffybar.DBus.Client.UPowerDevice
                , System.Taffybar.DBus.Client.Util

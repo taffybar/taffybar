@@ -30,6 +30,45 @@ uPowerGenerationParams = defaultGenerationParams
   { genTakeSignalErrorHandler = True
   , genBusName = Just uPowerBusName
   }
+-- | The bus name for PulseAudio's server lookup on the session bus.
+paServerLookupBusName :: BusName
+paServerLookupBusName = "org.PulseAudio1"
+
+-- | The object path for PulseAudio's server lookup object.
+paServerLookupObjectPath :: ObjectPath
+paServerLookupObjectPath = "/org/pulseaudio/server_lookup1"
+
+-- | The object path for PulseAudio's core object.
+paCoreObjectPath :: ObjectPath
+paCoreObjectPath = "/org/pulseaudio/core1"
+
+paServerLookupInterfaceName :: InterfaceName
+paServerLookupInterfaceName = "org.PulseAudio.ServerLookup1"
+
+paCoreInterfaceName :: InterfaceName
+paCoreInterfaceName = "org.PulseAudio.Core1"
+
+paDeviceInterfaceName :: InterfaceName
+paDeviceInterfaceName = "org.PulseAudio.Core1.Device"
+
+paServerLookupGenerationParams :: GenerationParams
+paServerLookupGenerationParams = defaultGenerationParams
+  { genTakeSignalErrorHandler = True
+  , genBusName = Just paServerLookupBusName
+  , genObjectPath = Just paServerLookupObjectPath
+  }
+
+paCoreGenerationParams :: GenerationParams
+paCoreGenerationParams = defaultGenerationParams
+  { genTakeSignalErrorHandler = True
+  , genObjectPath = Just paCoreObjectPath
+  }
+
+paDeviceGenerationParams :: GenerationParams
+paDeviceGenerationParams = defaultGenerationParams
+  { genTakeSignalErrorHandler = True
+  }
+
 
 data BatteryType
   = BatteryTypeUnknown
