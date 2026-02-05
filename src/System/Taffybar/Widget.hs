@@ -3,8 +3,8 @@
 
 module System.Taffybar.Widget
   ( module System.Taffybar.Widget.Util
-  -- * "System.Taffybar.Widget.Audio"
-  , module System.Taffybar.Widget.Audio
+  -- * "System.Taffybar.Widget.PulseAudio"
+  , module System.Taffybar.Widget.PulseAudio
 
   -- * "System.Taffybar.Widget.Backlight"
   , module System.Taffybar.Widget.Backlight
@@ -110,7 +110,7 @@ import System.Taffybar.Widget.Text.CPUMonitor
 import System.Taffybar.Widget.Text.MemoryMonitor
 import System.Taffybar.Widget.Text.NetworkMonitor
 import System.Taffybar.Widget.Util
-import System.Taffybar.Widget.Audio
+import System.Taffybar.Widget.PulseAudio
 import System.Taffybar.Widget.Backlight
 import System.Taffybar.Widget.Weather
 import System.Taffybar.Widget.Windows
