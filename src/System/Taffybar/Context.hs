@@ -57,6 +57,9 @@ module System.Taffybar.Context
 
   -- * Threading
   , taffyFork
+  -- * Backend
+  , Backend(..)
+  , detectBackend
   ) where
 
 import           Control.Arrow ((&&&), (***))
@@ -75,6 +78,7 @@ import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
 import           Data.List
 import qualified Data.Map as M
+import           Data.Maybe (isJust)
 import qualified Data.Text as T
 import           Data.Tuple.Select
 import           Data.Tuple.Sequence
@@ -495,7 +499,7 @@ detectBackend :: IO Backend
 detectBackend = do
   sessionType <- lookupEnv "XDG_SESSION_TYPE"
   waylandDisplay <- lookupEnv "WAYLAND_DISPLAY"
-  if sessionType == Just "wayland" || waylandDisplay /= Nothing
+  if sessionType == Just "wayland" || isJust waylandDisplay
     then return BackendWayland
     else return BackendX11
 
@@ -513,13 +517,13 @@ setupLayerShellWindow StrutConfig
                       , strutYPadding = ypadding
                       , strutMonitor = monitorNumber
                       , strutPosition = position
-                      , strutDisplayName = displayName
+                      , strutDisplayName = maybeDisplayName
                       } window = do
   supported <- GtkLayerShell.isSupported
   unless supported $
     logIO WARNING "Wayland backend selected, but gtk-layer-shell is not supported"
   when supported $ do
-    maybeDisplay <- maybe GI.Gdk.displayGetDefault GI.Gdk.displayOpen displayName
+    maybeDisplay <- maybe GI.Gdk.displayGetDefault GI.Gdk.displayOpen maybeDisplayName
     case maybeDisplay of
       Nothing -> logIO WARNING "Failed to get GDK display for layer-shell"
       Just display -> do
@@ -564,8 +568,7 @@ setupLayerShellWindow StrutConfig
 
             GtkLayerShell.setLayer window GtkLayerShell.LayerTop
 
-            let setAnchor edge anchored =
-                  GtkLayerShell.setAnchor window edge anchored
+            let setAnchor = GtkLayerShell.setAnchor window
 
             case position of
               TopPos -> do

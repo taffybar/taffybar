@@ -135,6 +135,7 @@ import qualified Config.Dyre as Dyre
 import qualified Config.Dyre.Params as Dyre
 import           Control.Exception ( finally )
 import           Data.Function ( on )
+import           Data.Maybe (isJust)
 import           Control.Monad
 import qualified Data.GI.Gtk.Threading as GIThreading
 import           Data.List ( groupBy, sort, isPrefixOf )
@@ -331,7 +332,7 @@ shouldInitX11 :: IO Bool
 shouldInitX11 = do
   sessionType <- lookupEnv "XDG_SESSION_TYPE"
   waylandDisplay <- lookupEnv "WAYLAND_DISPLAY"
-  return $ not (sessionType == Just "wayland" || waylandDisplay /= Nothing)
+  return $ not (sessionType == Just "wayland" || isJust waylandDisplay)
 
 logTaffy :: Priority -> String -> IO ()
 logTaffy = logM "System.Taffybar"

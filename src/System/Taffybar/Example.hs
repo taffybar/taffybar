@@ -105,3 +105,18 @@ exampleTaffybarConfig =
         , widgetSpacing = 0
         }
   in withLogServer $ withToggleServer $ toTaffybarConfig myConfig
+
+exampleWaylandTaffybarConfig :: TaffybarConfig
+exampleWaylandTaffybarConfig =
+  let clock = textClockNewWith def
+      cpu = pollingGraphNew cpuCfg 1 cpuCallback
+      myConfig = def
+        { startWidgets = []
+        , endWidgets = [ clock, cpu ]
+        , barPosition = Top
+        , barHeight = ExactSize 28
+        , barPadding = 8
+        , widgetSpacing = 8
+        , monitorsAction = usePrimaryMonitor
+        }
+  in withLogServer $ withToggleServer $ toTaffybarConfig myConfig

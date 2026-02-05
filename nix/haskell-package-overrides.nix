@@ -19,6 +19,10 @@ final: prev: let
     ];
     taffybar = lib.pipe super.taffybar [
       (self.generateOptparseApplicativeCompletions [ "taffybar" ])
+      (overrideCabal (drv: {
+        librarySystemDepends =
+          (drv.librarySystemDepends or []) ++ [ pkgs.gtk-layer-shell ];
+      }))
       (with pkgs.xorg; addTestToolDepends [
         xorgserver   # Provides Xvfb
         xprop        # Used for test assertions

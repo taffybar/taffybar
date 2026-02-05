@@ -20,9 +20,7 @@ module System.Taffybar.Test.DBusSpec
 
 import Control.Monad (forM_, void, when)
 import Control.Monad.IO.Unlift (MonadUnliftIO (..))
-import Data.ByteString.Char8 qualified as B8
 import Data.Function ((&))
-import Data.List (sort)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Int (Int64)
@@ -271,16 +269,6 @@ spec = logSetup $ around_ (laxTimeout' 1_000_000) $ around (withSystemTempDirect
       it "simple" $ \_ -> pendingWith "python-dbusmock fails to start in CI"
 
       it "UPower" $ \_ -> pendingWith "python-dbusmock fails to start in CI"
-
-upowerDumpModels :: Address -> IO [String]
-upowerDumpModels addr = parse <$> readProcessStdout_ cfg
-  where
-    cfg = proc "upower" ["--dump"] & setDBusEnv System addr
-    parse = map (B8.unpack . B8.dropSpace . B8.drop 1 . snd)
-      . filter ((== "model") . fst)
-      . map (B8.break (== ':') . B8.dropSpace)
-      . B8.lines
-      . B8.toStrict
 
 gdbusPing :: Bus -> ProcessConfig () () ()
 gdbusPing bus = proc "gdbus" ["call", "--" ++ busName bus, "--dest", "org.freedesktop.DBus", "--object-path", "/org/freedesktop/DBus", "--method", "org.freedesktop.DBus.Peer.Ping"]
