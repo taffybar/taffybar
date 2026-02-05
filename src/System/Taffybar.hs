@@ -212,7 +212,9 @@ getCSSPaths TaffybarConfig{cssPaths} = sequence (defaultCSS:userCSS)
 -- just use the provided minimal theme to set the background and text
 -- colors.
 startCSS :: [FilePath] -> IO (IO (), Gtk.CssProvider)
-startCSS = startCSS' 800
+-- Use a higher priority than GTK's user stylesheet (800) so taffybar's CSS can
+-- override theme/user rules for things like menu backgrounds.
+startCSS = startCSS' 900
 
 -- | Installs a GTK style provider at a certain priority and loads it
 -- with styles from a list of CSS files (if they exist).
