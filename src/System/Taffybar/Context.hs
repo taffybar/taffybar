@@ -509,6 +509,44 @@ setupBarWindow context config window =
     BackendX11 -> setupStrutWindow config window
     BackendWayland -> setupLayerShellWindow config window
 
+-- | Remove the listener associated with the provided "Unique" from the
+-- collection of listeners.
+unsubscribe :: Unique -> Taffy IO ()
+unsubscribe identifier = do
+  listenersVar <- asks listeners
+  lift $ MV.modifyMVar_ listenersVar $ return . filter ((== identifier) . fst)
+
+-- | Subscribe to all incoming events on the X11 event loop. The returned
+-- "Unique" value can be used to unregister the listener using "unsuscribe".
+subscribeToAll :: Listener -> Taffy IO Unique
+subscribeToAll listener = do
+  identifier <- lift newUnique
+  listenersVar <- asks listeners
+  let
+    -- XXX: This type annotation probably has something to do with the warnings
+    -- that occur without MonoLocalBinds, but it still seems to be necessary
+    addListener :: SubscriptionList -> SubscriptionList
+    addListener = ((identifier, listener):)
+  lift $ MV.modifyMVar_ listenersVar (return . addListener)
+  return identifier
+
+-- | Subscribe to X11 "PropertyEvent"s where the property changed is in the
+-- provided list.
+subscribeToPropertyEvents :: [String] -> Listener -> Taffy IO Unique
+subscribeToPropertyEvents eventNames listener = do
+  eventAtoms <- mapM (runX11 . getAtom) eventNames
+  let filteredListener event@PropertyEvent { ev_atom = atom } =
+        when (atom `elem` eventAtoms) $
+             catchAny (listener event) (const $ return ())
+      filteredListener _ = return ()
+  subscribeToAll filteredListener
+
+handleX11Event :: Event -> Taffy IO ()
+handleX11Event event =
+  asksContextVar listeners >>= mapM_ applyListener
+  where applyListener :: (Unique, Listener) -> Taffy IO ()
+        applyListener (_, listener) = taffyFork $ listener event
+
 setupLayerShellWindow :: StrutConfig -> Gtk.Window -> IO ()
 setupLayerShellWindow StrutConfig
                       { strutWidth = widthSize
@@ -602,41 +640,3 @@ setupLayerShellWindow StrutConfig
                 setAnchor GtkLayerShell.EdgeBottom True
 
             GtkLayerShell.setExclusiveZone window exclusive
-
--- | Remove the listener associated with the provided "Unique" from the
--- collection of listeners.
-unsubscribe :: Unique -> Taffy IO ()
-unsubscribe identifier = do
-  listenersVar <- asks listeners
-  lift $ MV.modifyMVar_ listenersVar $ return . filter ((== identifier) . fst)
-
--- | Subscribe to all incoming events on the X11 event loop. The returned
--- "Unique" value can be used to unregister the listener using "unsuscribe".
-subscribeToAll :: Listener -> Taffy IO Unique
-subscribeToAll listener = do
-  identifier <- lift newUnique
-  listenersVar <- asks listeners
-  let
-    -- XXX: This type annotation probably has something to do with the warnings
-    -- that occur without MonoLocalBinds, but it still seems to be necessary
-    addListener :: SubscriptionList -> SubscriptionList
-    addListener = ((identifier, listener):)
-  lift $ MV.modifyMVar_ listenersVar (return . addListener)
-  return identifier
-
--- | Subscribe to X11 "PropertyEvent"s where the property changed is in the
--- provided list.
-subscribeToPropertyEvents :: [String] -> Listener -> Taffy IO Unique
-subscribeToPropertyEvents eventNames listener = do
-  eventAtoms <- mapM (runX11 . getAtom) eventNames
-  let filteredListener event@PropertyEvent { ev_atom = atom } =
-        when (atom `elem` eventAtoms) $
-             catchAny (listener event) (const $ return ())
-      filteredListener _ = return ()
-  subscribeToAll filteredListener
-
-handleX11Event :: Event -> Taffy IO ()
-handleX11Event event =
-  asksContextVar listeners >>= mapM_ applyListener
-  where applyListener :: (Unique, Listener) -> Taffy IO ()
-        applyListener (_, listener) = taffyFork $ listener event
