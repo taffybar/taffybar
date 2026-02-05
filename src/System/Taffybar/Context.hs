@@ -42,6 +42,7 @@ module System.Taffybar.Context
   , getState
   , getStateDefault
   , putState
+  , setState
 
   -- * Control
   , refreshTaffyWindows
@@ -92,7 +93,7 @@ import           Graphics.UI.GIGtkStrut
 import           StatusNotifier.TransparentWindow
 import           System.Environment (lookupEnv)
 import           System.Log.Logger (Priority(..), logM)
-import           System.Taffybar.Information.SafeX11
+import           System.Taffybar.Information.SafeX11 hiding (setState)
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
@@ -479,6 +480,17 @@ putState getValue = do
          (insertAndReturn  <$> getValue)
          (return . (contextStateMap,))
          (currentValue >>= fromValue)
+
+-- | Overwrite a state value by type in the 'contextState' field of 'Context'.
+-- 'putState'/'getStateDefault' are intentionally "set-once" helpers; widgets
+-- that maintain mutable caches should use this to update them.
+setState :: forall t. Typeable t => t -> Taffy IO t
+setState value = do
+  contextVar <- asks contextState
+  let theType = typeRep (Proxy :: Proxy t)
+  lift $ MV.modifyMVar_ contextVar $ \contextStateMap ->
+    return $ M.insert theType (Value value) contextStateMap
+  return value
 
 -- | A version of 'forkIO' in 'TaffyIO'.
 taffyFork :: ReaderT r IO () -> ReaderT r IO ()

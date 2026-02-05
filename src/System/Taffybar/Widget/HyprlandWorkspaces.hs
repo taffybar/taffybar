@@ -17,6 +17,7 @@ module System.Taffybar.Widget.HyprlandWorkspaces where
 
 import           Control.Applicative ((<|>))
 import           Control.Concurrent (forkIO, killThread)
+import qualified Control.Concurrent.MVar as MV
 import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad (foldM, forM_, void, when, (>=>))
 import           Control.Monad.IO.Class (MonadIO(liftIO))
@@ -27,11 +28,13 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString as BS
 import           Data.Default (Default(..))
+import qualified Data.Foldable as F
 import           Data.Int (Int32)
-import           Data.List (sortOn, stripPrefix)
+import           Data.List (intercalate, sortOn, stripPrefix)
 import           Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Map.Strict as M
 import qualified Data.MultiMap as MM
+import           Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -97,16 +100,29 @@ data HyprlandWorkspace = HyprlandWorkspace
 
 newtype HyprlandWorkspaceCache = HyprlandWorkspaceCache [HyprlandWorkspace]
 
+newtype HyprlandWorkspaceWidgetCache
+  = HyprlandWorkspaceWidgetCache (M.Map Int HyprlandWorkspaceWidgetState)
+
+newtype HyprlandWorkspaceOrderCache
+  = HyprlandWorkspaceOrderCache [Int]
+
 data HyprlandWorkspaceWidgetState = HyprlandWorkspaceWidgetState
-  { workspaceWidget :: Gtk.Widget
+  { workspaceWrapper :: Gtk.Widget
+  , workspaceButton :: Gtk.EventBox
+  , workspaceRef :: IORef HyprlandWorkspace
   , workspaceContents :: Gtk.Widget
   , workspaceLabel :: Gtk.Label
   , workspaceIconsBox :: Gtk.Box
+  , workspaceIcons :: [HyprlandIconWidget]
   , workspaceLast :: HyprlandWorkspace
   }
 
-newtype HyprlandWorkspaceWidgetCache =
-  HyprlandWorkspaceWidgetCache (M.Map Int HyprlandWorkspaceWidgetState)
+data HyprlandIconWidget = HyprlandIconWidget
+  { iconContainer :: Gtk.EventBox
+  , iconImage :: Gtk.Image
+  , iconWindow :: MV.MVar (Maybe HyprlandWindow)
+  , iconForceUpdate :: IO ()
+  }
 
 type HyprlandWindowIconPixbufGetter =
   Int32 -> HyprlandWindow -> TaffyIO (Maybe Gdk.Pixbuf)
@@ -155,7 +171,10 @@ hyprlandWorkspacesNew cfg = do
   _ <- widgetSetClassGI cont "workspaces"
   ctx <- ask
   let refresh = runReaderT (refreshWorkspaces cfg cont) ctx
-  _ <- liftIO refresh
+  liftIO refresh
+  -- Ensure this top-level container is visible when packed into the bar.
+  -- Otherwise the start widget area can appear blank under Wayland/Hyprland.
+  liftIO $ Gtk.widgetShowAll cont
   tid <- liftIO $ forkIO $ hyprlandUpdateLoop cfg refresh
   _ <- liftIO $ Gtk.onWidgetUnrealize cont $ killThread tid
   Gtk.toWidget cont
@@ -247,36 +266,108 @@ refreshWorkspaces cfg cont = do
   ws <- getWorkspaces cfg
   HyprlandWorkspaceCache prev <- getStateDefault $ return (HyprlandWorkspaceCache [])
   when (ws /= prev) $ do
-    _ <- putState $ return (HyprlandWorkspaceCache ws)
+    liftIO $ wLog DEBUG $
+      printf "Hyprland workspaces refresh: total=%d shown=%d (minIcons=%d maxIcons=%s) %s"
+        (length ws)
+        (length (filter (showWorkspaceFn cfg) ws))
+        (minIcons cfg)
+        (show (maxIcons cfg))
+        (summarizeWorkspaces ws)
+    _ <- setState (HyprlandWorkspaceCache ws)
     ctx <- ask
     liftIO $ postGUIASync $ runReaderT (renderWorkspaces cfg cont ws) ctx
 
 renderWorkspaces ::
   HyprlandWorkspacesConfig -> Gtk.Box -> [HyprlandWorkspace] -> ReaderT Context IO ()
 renderWorkspaces cfg cont workspaces = do
-  let visibleWorkspaces =
-        map (applyUrgentState cfg) $ filter (showWorkspaceFn cfg) workspaces
+  let workspaces' = map (applyUrgentState cfg) workspaces
   HyprlandWorkspaceWidgetCache widgetCache <-
     getStateDefault $ return (HyprlandWorkspaceWidgetCache M.empty)
-  let buildWidget oldCache (newCache, widgets) ws = do
+  HyprlandWorkspaceOrderCache prevOrder <-
+    getStateDefault $ return (HyprlandWorkspaceOrderCache [])
+  let oldCache = widgetCache
+      buildOrUpdate newCache ws = do
         let idx = workspaceIdx ws
         state <- case M.lookup idx oldCache of
           Just prevState
             | workspaceLast prevState == ws -> return prevState
             | otherwise -> updateWorkspaceWidgetState cfg ws prevState
           Nothing -> buildWorkspaceWidgetState cfg ws
-        let cache' = M.insert idx state newCache
-        return (cache', workspaceWidget state : widgets)
-  (newCache, widgetsRev) <- foldM
-    (buildWidget widgetCache)
-    (M.empty, [])
-    visibleWorkspaces
-  liftIO $ Gtk.containerForeach cont (Gtk.containerRemove cont)
-  forM_ (reverse widgetsRev) $ \widget ->
-    liftIO $ Gtk.containerAdd cont widget
-  liftIO $ Gtk.widgetShowAll cont
-  _ <- putState $ return (HyprlandWorkspaceWidgetCache newCache)
+        return (M.insert idx state newCache, state)
+
+  (newCache, orderedStatesRev) <-
+    foldM
+      (\(cacheAcc, statesAcc) ws -> do
+          (cacheAcc', st) <- buildOrUpdate cacheAcc ws
+          return (cacheAcc', (ws, st) : statesAcc)
+      )
+      (M.empty, [])
+      workspaces'
+  let orderedStates = reverse orderedStatesRev
+
+  let primaryShowFn = showWorkspaceFn cfg
+      primaryShownCount = length $ filter (primaryShowFn . fst) orderedStates
+      fallbackShowFn ws = workspaceState ws /= Empty
+      fallbackShownCount = length $ filter (fallbackShowFn . fst) orderedStates
+      (finalShowFn, finalShownCount, fallbackUsed) =
+        if primaryShownCount == 0 && fallbackShownCount > 0
+          then (fallbackShowFn, fallbackShownCount, True)
+          else (primaryShowFn, primaryShownCount, False)
+
+  when (fallbackUsed && not (null orderedStates)) $
+    liftIO $ wLog WARNING $
+      printf
+        "Hyprland workspaces: showWorkspaceFn hid all %d workspaces; falling back to showing non-empty workspaces (including special:*). %s"
+        (length orderedStates)
+        (summarizeWorkspaces (map fst orderedStates))
+  when (finalShownCount == 0 && not (null orderedStates)) $
+    liftIO $ wLog WARNING $
+      printf
+        "Hyprland workspaces widget is blank: no workspaces passed the show filter (total=%d). %s"
+        (length orderedStates)
+        (summarizeWorkspaces (map fst orderedStates))
+
+  -- Remove wrappers for workspaces that disappeared.
+  let removed = M.difference oldCache newCache
+  forM_ (M.elems removed) $ \st ->
+    liftIO $ Gtk.containerRemove cont (workspaceWrapper st)
+
+  -- Add wrappers for newly created workspaces.
+  let added = M.difference newCache oldCache
+  forM_ (M.elems added) $ \st -> do
+    liftIO $ Gtk.containerAdd cont (workspaceWrapper st)
+    liftIO $ Gtk.widgetShowAll (workspaceWrapper st)
+
+  let desiredOrder = map (workspaceIdx . fst) orderedStates
+      needsReorder =
+        desiredOrder /= prevOrder || not (M.null added) || not (M.null removed)
+  when needsReorder $ do
+    -- Reorder wrappers to match the order returned by hyprctl.
+    forM_ (zip [0 :: Int ..] orderedStates) $ \(pos, (_ws, st)) ->
+      liftIO $ Gtk.boxReorderChild cont (workspaceWrapper st) (fromIntegral pos)
+
+  -- Show/hide the clickable workspace widget without removing it from the box.
+  forM_ orderedStates $ \(ws, st) ->
+    if finalShowFn ws
+      then liftIO $ Gtk.widgetShow (workspaceButton st)
+      else liftIO $ Gtk.widgetHide (workspaceButton st)
+
+  _ <- setState (HyprlandWorkspaceWidgetCache newCache)
+  _ <- setState (HyprlandWorkspaceOrderCache desiredOrder)
   return ()
+
+summarizeWorkspaces :: [HyprlandWorkspace] -> String
+summarizeWorkspaces wss =
+  let summarizeOne ws =
+        printf "%d:%s:%s(wins=%d)"
+          (workspaceIdx ws)
+          (workspaceName ws)
+          (show (workspaceState ws))
+          (length (windows ws))
+      maxShown = 12
+      body = intercalate ", " $ map summarizeOne (take maxShown wss)
+      suffix = if length wss > maxShown then ", ..." else ""
+   in "workspaces=[" ++ body ++ suffix ++ "]"
 
 applyUrgentState :: HyprlandWorkspacesConfig -> HyprlandWorkspace -> HyprlandWorkspace
 applyUrgentState cfg ws
@@ -295,7 +386,8 @@ buildWorkspaceWidgetState cfg ws = do
   _ <- widgetSetClassGI label "workspace-label"
 
   iconsBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
-  updateIconsBox cfg ws iconsBox
+  wsRef <- liftIO $ newIORef ws
+  icons <- updateIcons cfg ws iconsBox []
 
   inner <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
   liftIO $ Gtk.containerAdd inner label
@@ -308,14 +400,20 @@ buildWorkspaceWidgetState cfg ws = do
   liftIO $ Gtk.containerAdd ebox contents
   _ <- liftIO $
        Gtk.onWidgetButtonPressEvent ebox $ const $ do
-         runReaderT (switchToWorkspace cfg ws) ctx
+         wsCurrent <- readIORef wsRef
+         runReaderT (switchToWorkspace cfg wsCurrent) ctx
          return True
-  widget <- Gtk.toWidget ebox
+  wrapperBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
+  liftIO $ Gtk.containerAdd wrapperBox =<< Gtk.toWidget ebox
+  wrapperWidget <- Gtk.toWidget wrapperBox
   return HyprlandWorkspaceWidgetState
-    { workspaceWidget = widget
+    { workspaceWrapper = wrapperWidget
+    , workspaceButton = ebox
+    , workspaceRef = wsRef
     , workspaceContents = contents
     , workspaceLabel = label
     , workspaceIconsBox = iconsBox
+    , workspaceIcons = icons
     , workspaceLast = ws
     }
 
@@ -327,57 +425,112 @@ updateWorkspaceWidgetState ::
 updateWorkspaceWidgetState cfg ws state = do
   labelText <- labelSetter cfg ws
   liftIO $ Gtk.labelSetText (workspaceLabel state) (T.pack labelText)
-  when (windows ws /= windows (workspaceLast state)) $
-    updateIconsBox cfg ws (workspaceIconsBox state)
+  liftIO $ writeIORef (workspaceRef state) ws
+  icons <-
+    if windows ws /= windows (workspaceLast state)
+      then updateIcons cfg ws (workspaceIconsBox state) (workspaceIcons state)
+      else return (workspaceIcons state)
   setWorkspaceWidgetStatusClass ws (workspaceContents state)
-  return state { workspaceLast = ws }
+  return state { workspaceLast = ws, workspaceIcons = icons }
 
-updateIconsBox ::
-  HyprlandWorkspacesConfig -> HyprlandWorkspace -> Gtk.Box -> ReaderT Context IO ()
-updateIconsBox cfg ws iconsBox = do
-  liftIO $ Gtk.containerForeach iconsBox (Gtk.containerRemove iconsBox)
+updateIcons ::
+  HyprlandWorkspacesConfig
+  -> HyprlandWorkspace
+  -> Gtk.Box
+  -> [HyprlandIconWidget]
+  -> ReaderT Context IO [HyprlandIconWidget]
+updateIcons cfg ws iconsBox iconWidgets = do
   sortedWindows <- iconSort cfg $ windows ws
   let windowCount = length sortedWindows
       maxNeeded = maybe windowCount (min windowCount) (maxIcons cfg)
-      shownWindows = map Just $ take maxNeeded sortedWindows
+      effectiveMinIcons = maybe (minIcons cfg) (min (minIcons cfg)) (maxIcons cfg)
+      targetLen = max effectiveMinIcons maxNeeded
+      shownWindows = take maxNeeded sortedWindows
       paddedWindows =
-        shownWindows ++ replicate (max 0 (minIcons cfg - length shownWindows)) Nothing
-  forM_ paddedWindows $ \windowData -> do
-    iconWidget <- buildIconWidget cfg windowData
-    liftIO $ Gtk.containerAdd iconsBox iconWidget
+        map Just shownWindows ++ replicate (targetLen - length shownWindows) Nothing
 
-buildIconWidget ::
-  HyprlandWorkspacesConfig -> Maybe HyprlandWindow -> ReaderT Context IO Gtk.Widget
-buildIconWidget cfg windowData = do
+  -- Grow the icon widget pool if needed. We never shrink the pool; instead we
+  -- hide extras.
+  icons' <-
+    if length iconWidgets >= targetLen
+      then return iconWidgets
+      else do
+        let start = length iconWidgets
+            mkOne i = do
+              iw <- buildIconWidget (i < effectiveMinIcons) cfg
+              liftIO $ Gtk.containerAdd iconsBox (iconContainer iw)
+              return iw
+        newOnes <- mapM mkOne [start .. targetLen - 1]
+        liftIO $ Gtk.widgetShowAll iconsBox
+        return (iconWidgets ++ newOnes)
+
+  forM_ (zip [0 :: Int ..] icons') $ \(i, iw) ->
+    if i < targetLen
+      then do
+        liftIO $ Gtk.widgetShow (iconContainer iw)
+        updateIconWidget iw (paddedWindows !! i)
+      else do
+        updateIconWidget iw Nothing
+        liftIO $ Gtk.widgetHide (iconContainer iw)
+
+  return icons'
+
+buildIconWidget :: Bool -> HyprlandWorkspacesConfig -> ReaderT Context IO HyprlandIconWidget
+buildIconWidget transparentOnNone cfg = do
   ctx <- ask
-  iconButton <- liftIO Gtk.eventBoxNew
-  icon <- liftIO Gtk.imageNew
-  _ <- widgetSetClassGI icon "window-icon"
-  _ <- widgetSetClassGI iconButton "window-icon-container"
-  liftIO $ Gtk.containerAdd iconButton icon
-  liftIO $
+  liftIO $ do
+    windowVar <- MV.newMVar Nothing
+    img <- Gtk.imageNew
+    iconButton <- Gtk.eventBoxNew
+    _ <- widgetSetClassGI img "window-icon"
+    _ <- widgetSetClassGI iconButton "window-icon-container"
+    Gtk.containerAdd iconButton img
     Gtk.widgetSetSizeRequest
-      icon
+      img
       (fromIntegral $ iconSize cfg)
       (fromIntegral $ iconSize cfg)
-  let getPixbuf size =
-        runReaderT
-          (case windowData of
-             Nothing -> Just <$> pixBufFromColor size 0
-             Just w -> getWindowIconPixbuf cfg size w)
-          ctx
-  void $ autoSizeImage icon getPixbuf Gtk.OrientationHorizontal
+    let getPixbuf size =
+          runReaderT
+            (do
+                mWin <- liftIO $ MV.readMVar windowVar
+                let transparent = Just <$> pixBufFromColor size 0
+                case mWin of
+                  Nothing ->
+                    if transparentOnNone
+                      then transparent
+                      else return Nothing
+                  Just w -> do
+                    pb <- getWindowIconPixbuf cfg size w
+                    case pb of
+                      Just _ -> return pb
+                      Nothing ->
+                        if transparentOnNone
+                          then transparent
+                          else return Nothing
+            )
+            ctx
+    refreshImage <- autoSizeImage img getPixbuf Gtk.OrientationHorizontal
+    return
+      HyprlandIconWidget
+      { iconContainer = iconButton
+      , iconImage = img
+      , iconWindow = windowVar
+      , iconForceUpdate = refreshImage
+      }
 
-  case windowData of
-    Nothing -> return ()
-    Just w -> liftIO $ Gtk.widgetSetTooltipText iconButton $
-              Just $ T.pack $ windowTitle w
-
+updateIconWidget :: HyprlandIconWidget -> Maybe HyprlandWindow -> ReaderT Context IO ()
+updateIconWidget HyprlandIconWidget
+  { iconContainer = iconButton
+  , iconWindow = windowRef
+  , iconForceUpdate = refreshImage
+  } windowData = do
+  _ <- liftIO $ MV.swapMVar windowRef windowData
+  liftIO $ Gtk.widgetSetTooltipText iconButton $
+    T.pack . windowTitle <$> windowData
   let statusString =
         maybe "inactive" getWindowStatusString windowData
+  liftIO refreshImage
   updateWidgetClasses iconButton [statusString] possibleStatusStrings
-
-  Gtk.toWidget iconButton
 
 setWorkspaceWidgetStatusClass ::
   (MonadIO m, Gtk.IsWidget a) => HyprlandWorkspace -> a -> m ()
@@ -441,7 +594,7 @@ readDirectoryEntriesByAppId =
 
 indexDesktopEntriesByAppId :: [DesktopEntry] -> MM.MultiMap String DesktopEntry
 indexDesktopEntriesByAppId =
-  foldl' (\m de -> MM.insert (normalizeAppId $ deFilename de) de m) MM.empty
+  F.foldl' (\m de -> MM.insert (normalizeAppId $ deFilename de) de m) MM.empty
 
 normalizeAppId :: String -> String
 normalizeAppId name =
@@ -673,7 +826,7 @@ buildWorkspacesFromHyprland workspaces clients monitors activeWorkspace activeWi
 
 collectWorkspaceWindows :: Maybe Text -> [HyprlandClient] -> M.Map Int [HyprlandWindow]
 collectWorkspaceWindows activeWindowAddress =
-  foldl' (addWindow activeWindowAddress) M.empty
+  F.foldl' (addWindow activeWindowAddress) M.empty
   where
     addWindow activeAddr windowsMap client =
       let wsId = hwrId (hcWorkspace client)
