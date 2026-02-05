@@ -149,6 +149,8 @@ library
                  , System.Taffybar.Widget.Generic.PollingGraph
                  , System.Taffybar.Widget.Generic.PollingLabel
                  , System.Taffybar.Widget.Generic.VerticalBar
+                 , System.Taffybar.Widget.HyprlandLayout
+                 , System.Taffybar.Widget.HyprlandWindows
                  , System.Taffybar.Widget.Layout
                  , System.Taffybar.Widget.MPRIS2
                  , System.Taffybar.Widget.NetworkGraph
