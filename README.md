@@ -4,11 +4,16 @@
 
 ## Summary
  
-Taffybar is a desktop
-information bar, intended primarily for use with [XMonad][], though it can also
-function alongside other EWMH compliant window managers. It is similar in spirit
-to [xmobar][], but it differs in that it gives up some simplicity for a reasonable
-helping of [GTK 3][] eye candy.
+Taffybar is a desktop information bar, intended primarily for use with
+[XMonad][], though it can also function alongside other EWMH compliant window
+managers. It is similar in spirit to [xmobar][], but it differs in that it gives
+up some simplicity for a reasonable helping of [GTK 3][] eye candy.
+
+Taffybar also supports running under Wayland via `gtk-layer-shell`. Wayland
+support is currently compositor-specific for some widgets, with Hyprland
+workspaces, windows, and layout widgets available. Many widgets still rely on
+X11/EWMH, so check the widget docs and examples (including
+`example/taffybar-wayland.hs`) for what works on your setup.
 
 [![Screenshot](https://raw.githubusercontent.com/taffybar/taffybar/master/doc/screenshot.png)](https://github.com/taffybar/taffybar/blob/master/doc/screenshot.png)
 
