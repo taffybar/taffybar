@@ -15,10 +15,17 @@
 module System.Taffybar.Information.NetworkManager
   ( WifiInfo(..)
   , WifiState(..)
+  , NetworkInfo(..)
+  , NetworkState(..)
+  , NetworkType(..)
   , getWifiInfo
   , getWifiInfoFromClient
   , getWifiInfoChan
   , getWifiInfoState
+  , getNetworkInfo
+  , getNetworkInfoFromClient
+  , getNetworkInfoChan
+  , getNetworkInfoState
   ) where
 
 import           Control.Concurrent.MVar
@@ -33,10 +40,12 @@ import           DBus.Client
 import           DBus.Internal.Types (Serial(..))
 import qualified DBus.TH as DBus
 import qualified Data.ByteString as BS
+import           Data.List (minimumBy)
 import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.Maybe (fromMaybe, listToMaybe)
 import           Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TEE
 import           Data.Word (Word8)
@@ -57,6 +66,28 @@ data WifiInfo = WifiInfo
   , wifiSsid :: Maybe Text
   , wifiStrength :: Maybe Int
   , wifiConnectionId :: Maybe Text
+  } deriving (Eq, Show)
+
+data NetworkState
+  = NetworkConnected
+  | NetworkDisconnected
+  | NetworkUnknown
+  deriving (Eq, Show)
+
+data NetworkType
+  = NetworkWifi
+  | NetworkWired
+  | NetworkVpn
+  | NetworkOther Text
+  deriving (Eq, Show)
+
+data NetworkInfo = NetworkInfo
+  { networkState :: NetworkState
+  , networkType :: Maybe NetworkType
+  , networkSsid :: Maybe Text
+  , networkStrength :: Maybe Int
+  , networkConnectionId :: Maybe Text
+  , networkWirelessEnabled :: Maybe Bool
   } deriving (Eq, Show)
 
 wifiLogPath :: String
@@ -267,3 +298,147 @@ decodeSsid :: [Word8] -> Maybe Text
 decodeSsid bytes
   | null bytes = Nothing
   | otherwise = Just $ TE.decodeUtf8With TEE.lenientDecode (BS.pack bytes)
+
+-- Network info (WiFi + wired + VPN + disconnected)
+
+newtype NetworkInfoChanVar = NetworkInfoChanVar (TChan NetworkInfo, MVar NetworkInfo)
+
+networkUnknownInfo :: NetworkInfo
+networkUnknownInfo =
+  NetworkInfo
+    { networkState = NetworkUnknown
+    , networkType = Nothing
+    , networkSsid = Nothing
+    , networkStrength = Nothing
+    , networkConnectionId = Nothing
+    , networkWirelessEnabled = Nothing
+    }
+
+getNetworkInfoState :: TaffyIO NetworkInfo
+getNetworkInfoState = do
+  NetworkInfoChanVar (_, theVar) <- getNetworkInfoChanVar
+  lift $ readMVar theVar
+
+getNetworkInfoChan :: TaffyIO (TChan NetworkInfo)
+getNetworkInfoChan = do
+  NetworkInfoChanVar (chan, _) <- getNetworkInfoChanVar
+  return chan
+
+getNetworkInfoChanVar :: TaffyIO NetworkInfoChanVar
+getNetworkInfoChanVar =
+  getStateDefault $ NetworkInfoChanVar <$> monitorNetworkInfo
+
+monitorNetworkInfo :: TaffyIO (TChan NetworkInfo, MVar NetworkInfo)
+monitorNetworkInfo = do
+  infoVar <- lift $ newMVar networkUnknownInfo
+  chan <- liftIO newBroadcastTChanIO
+  taffyFork $ do
+    ctx <- ask
+    let updateInfo = updateNetworkInfo chan infoVar
+        signalCallback _ _ _ _ = runReaderT updateInfo ctx
+    _ <- registerForNetworkManagerPropertiesChanged signalCallback
+    _ <- registerForActiveConnectionPropertiesChanged signalCallback
+    _ <- registerForAccessPointPropertiesChanged signalCallback
+    updateInfo
+  return (chan, infoVar)
+
+updateNetworkInfo
+  :: TChan NetworkInfo
+  -> MVar NetworkInfo
+  -> TaffyIO ()
+updateNetworkInfo chan var = do
+  info <- getNetworkInfo
+  lift $ do
+    _ <- swapMVar var info
+    atomically $ writeTChan chan info
+
+getNetworkInfo :: TaffyIO NetworkInfo
+getNetworkInfo = asks systemDBusClient >>= liftIO . getNetworkInfoFromClient
+
+data ActiveConnectionInfo = ActiveConnectionInfo
+  { activeConnectionPath :: ObjectPath
+  , activeConnectionType :: Text
+  , activeConnectionId :: Maybe Text
+  , activeConnectionSpecificObject :: Maybe ObjectPath
+  } deriving (Eq, Show)
+
+getNetworkInfoFromClient :: Client -> IO NetworkInfo
+getNetworkInfoFromClient client = do
+  nmPropsResult <- getProperties client nmObjectPath nmInterfaceName
+  case nmPropsResult of
+    Left err -> do
+      wifiLogF WARNING "Failed to read NetworkManager properties: %s" err
+      return networkUnknownInfo
+    Right nmProps -> do
+      let wirelessEnabled = readDictMaybe nmProps "WirelessEnabled" :: Maybe Bool
+          activeConnections =
+            readDictMaybe nmProps "ActiveConnections" :: Maybe [ObjectPath]
+
+      activeInfos <- maybe (return []) (mapM (getActiveConnectionInfo client)) activeConnections
+      let best = pickBestActiveConnection activeInfos
+
+      case best of
+        Nothing ->
+          return networkUnknownInfo
+            { networkState = NetworkDisconnected
+            , networkWirelessEnabled = wirelessEnabled
+            }
+        Just ac -> do
+          (ssid, strength) <-
+            if activeConnectionType ac == "802-11-wireless"
+              then getAccessPointInfo client (activeConnectionSpecificObject ac)
+              else return (Nothing, Nothing)
+          return networkUnknownInfo
+            { networkState = NetworkConnected
+            , networkType = Just $ toNetworkType (activeConnectionType ac)
+            , networkSsid = ssid
+            , networkStrength = strength
+            , networkConnectionId = activeConnectionId ac
+            , networkWirelessEnabled = wirelessEnabled
+            }
+
+getActiveConnectionInfo :: Client -> ObjectPath -> IO ActiveConnectionInfo
+getActiveConnectionInfo client path = do
+  connPropsResult <- getProperties client path nmActiveConnectionInterfaceName
+  case connPropsResult of
+    Left err -> do
+      wifiLogF DEBUG "Failed to read active connection %s" err
+      return ActiveConnectionInfo
+        { activeConnectionPath = path
+        , activeConnectionType = ""
+        , activeConnectionId = Nothing
+        , activeConnectionSpecificObject = Nothing
+        }
+    Right connProps -> do
+      let connType = fromMaybe "" (readDictMaybe connProps "Type" :: Maybe Text)
+          connId = readDictMaybe connProps "Id" :: Maybe Text
+          specificObject =
+            readDictMaybe connProps "SpecificObject" :: Maybe ObjectPath
+      return ActiveConnectionInfo
+        { activeConnectionPath = path
+        , activeConnectionType = connType
+        , activeConnectionId = connId
+        , activeConnectionSpecificObject = specificObject
+        }
+
+pickBestActiveConnection :: [ActiveConnectionInfo] -> Maybe ActiveConnectionInfo
+pickBestActiveConnection [] = Nothing
+pickBestActiveConnection infos =
+  let
+    rank t
+      | t == "802-3-ethernet" = 0 :: Int
+      | t == "802-11-wireless" = 1
+      | t == "vpn" = 2
+      | T.null t = 99
+      | otherwise = 50
+  in Just $
+     minimumBy
+       (\a b -> compare (rank (activeConnectionType a)) (rank (activeConnectionType b)))
+       infos
+
+toNetworkType :: Text -> NetworkType
+toNetworkType t
+  | t == "802-11-wireless" = NetworkWifi
+  | t == "802-3-ethernet" = NetworkWired
+  | t == "vpn" = NetworkVpn
+  | otherwise = NetworkOther t

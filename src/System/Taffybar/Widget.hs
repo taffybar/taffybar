@@ -41,8 +41,8 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.NetworkGraph"
   , module System.Taffybar.Widget.NetworkGraph
 
-  -- * "System.Taffybar.Widget.Wifi"
-  , module System.Taffybar.Widget.Wifi
+  -- * "System.Taffybar.Widget.NetworkManager"
+  , module System.Taffybar.Widget.NetworkManager
 
   -- * "System.Taffybar.Widget.SNITray"
   , module System.Taffybar.Widget.SNITray
@@ -102,7 +102,7 @@ import System.Taffybar.Widget.FreedesktopNotifications
 import System.Taffybar.Widget.Layout
 import System.Taffybar.Widget.MPRIS2
 import System.Taffybar.Widget.NetworkGraph
-import System.Taffybar.Widget.Wifi
+import System.Taffybar.Widget.NetworkManager
 import System.Taffybar.Widget.SNITray
 import System.Taffybar.Widget.SimpleClock
 import System.Taffybar.Widget.SimpleCommandButton
