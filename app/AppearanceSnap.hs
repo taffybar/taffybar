@@ -173,10 +173,14 @@ runUnderWm wmProc outPath cssPath = do
                 , strutMonitor = Just 0
                 , strutPosition = TopPos
                 }
-          , widgetSpacing = 0
+          , widgetSpacing = 8
           , startWidgets = [workspacesNew wsCfg]
           , centerWidgets = [testBoxWidget "test-center-box" 200 20]
-          , endWidgets = [testBoxWidget "test-right-box" 120 20]
+          , endWidgets =
+              [ testPillWidget "test-pill" "VOL 42"
+              , testPillWidget "test-pill" "12:34"
+              , testBoxWidget "test-right-box" 16 16
+              ]
           , barId = barUnique
           }
       cfg =
@@ -202,6 +206,21 @@ testBoxWidget klass w h = liftIO $ do
   Gtk.widgetSetSizeRequest widget (fromIntegral w) (fromIntegral h)
   sc <- Gtk.widgetGetStyleContext widget
   Gtk.styleContextAddClass sc klass
+  -- Taffybar does not automatically show arbitrary user widgets; most built-in
+  -- widgets call show/showAll themselves. For deterministic appearance tests,
+  -- ensure these test widgets are visible.
+  Gtk.widgetShowAll widget
+  pure widget
+
+testPillWidget :: T.Text -> T.Text -> TaffyIO Gtk.Widget
+testPillWidget klass txt = liftIO $ do
+  box <- Gtk.eventBoxNew
+  lbl <- Gtk.labelNew (Just txt)
+  Gtk.containerAdd box lbl
+  widget <- Gtk.toWidget box
+  sc <- Gtk.widgetGetStyleContext widget
+  Gtk.styleContextAddClass sc klass
+  Gtk.widgetShowAll widget
   pure widget
 
 withTestWindows :: IO a -> IO a
@@ -370,9 +389,10 @@ trySnapshotOnGuiThread ctx resultVar = do
       case mImg of
         Left _ -> pure ()
         Right img ->
-          -- Don't accept a snapshot until the workspace icons are actually
-          -- rendered, otherwise we can end up with a "blank" bar screenshot
-          -- that doesn't exercise the icon path.
+          -- Don't accept a snapshot until the workspace icons and basic bar
+          -- styling are actually rendered, otherwise we can end up with a
+          -- largely transparent screenshot that doesn't exercise much beyond
+          -- the icon path.
           when (imageHasTestIcons img) $
             void (tryPutMVar resultVar (Right (JP.encodePng img)))
 
@@ -380,6 +400,8 @@ imageHasTestIcons :: JP.Image JP.PixelRGBA8 -> Bool
 imageHasTestIcons img =
   let tol :: Int
       tol = 40
+      opaqueThreshold :: Int
+      opaqueThreshold = 5000
       near (JP.PixelRGBA8 r g b a) (tr, tg, tb) =
         a > 200 &&
         abs (fromIntegral r - tr) <= tol &&
@@ -391,18 +413,21 @@ imageHasTestIcons img =
       greenTarget = (58, 224, 106)
       w = JP.imageWidth img
       h = JP.imageHeight img
-      go y seenR seenG
-        | y >= h = seenR && seenG
+      go y seenR seenG opaqueCount
+        | y >= h = seenR && seenG && opaqueCount > opaqueThreshold
         | otherwise =
-            let goX x sr sg
-                  | x >= w = go (y + 1) sr sg
+            let goX x sr sg oc
+                  | x >= w = go (y + 1) sr sg oc
                   | otherwise =
                       let px = JP.pixelAt img x y
                           sr1 = sr || near px redTarget
                           sg1 = sg || near px greenTarget
-                       in (sr1 && sg1) || goX (x + 1) sr1 sg1
-             in goX 0 seenR seenG
-   in go 0 False False
+                          oc1 =
+                            oc
+                              + (case px of JP.PixelRGBA8 _ _ _ a -> if a > 200 then 1 else 0)
+                       in (sr1 && sg1 && oc1 > opaqueThreshold) || goX (x + 1) sr1 sg1 oc1
+             in goX 0 seenR seenG opaqueCount
+   in go 0 False False (0 :: Int)
 
 snapshotGtkWindowImageRGBA8 :: Gtk.Window -> IO (JP.Image JP.PixelRGBA8)
 snapshotGtkWindowImageRGBA8 win = do
