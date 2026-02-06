@@ -255,6 +255,24 @@ executable taffybar-appearance-snap
                , unix
                , unliftio
 
+executable taffybar-appearance-snap-hyprland
+  import: haskell, exe
+  hs-source-dirs: app
+  main-is: AppearanceSnapHyprland.hs
+  build-depends: JuicyPixels
+               , bytestring
+               , data-default
+               , directory
+               , filepath
+               , gi-gtk3
+               , gtk-strut
+               , taffybar
+               , text
+               , typed-process
+               , unix
+               , unliftio
+               , transformers
+
 common test
   default-extensions:
     ImportQualifiedPost
@@ -297,6 +315,7 @@ test-suite unit
   other-modules: UnitSpec
                , System.Taffybar.AuthSpec
                , System.Taffybar.AppearanceSpec
+               , System.Taffybar.AppearanceHyprlandSpec
                , System.Taffybar.ContextSpec
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.SimpleConfigSpec
@@ -319,6 +338,7 @@ test-suite unit
   build-tool-depends: hspec-discover:hspec-discover == 2.*
                    , taffybar:taffybar-test-wm
                    , taffybar:taffybar-appearance-snap
+                   , taffybar:taffybar-appearance-snap-hyprland
 
 source-repository head
   type: git
