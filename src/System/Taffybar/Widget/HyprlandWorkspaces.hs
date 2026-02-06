@@ -16,9 +16,10 @@
 module System.Taffybar.Widget.HyprlandWorkspaces where
 
 import           Control.Applicative ((<|>))
-import           Control.Concurrent (forkIO, killThread)
+import           Control.Concurrent (forkIO, killThread, threadDelay)
 import           Control.Concurrent.STM.TChan (TChan, readTChan)
-import           Control.Monad (foldM, forM_, when)
+import qualified Control.Concurrent.MVar as MV
+import           Control.Monad (foldM, forM_, forever, when)
 import           Control.Monad.IO.Class (MonadIO(liftIO))
 import           Control.Monad.STM (atomically)
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
@@ -170,15 +171,27 @@ hyprlandWorkspacesNew cfg = do
           fromIntegral (widgetGap cfg)
   _ <- widgetSetClassGI cont "workspaces"
   ctx <- ask
-  let refresh = runReaderT (refreshWorkspaces cfg cont) ctx
+  refreshLock <- liftIO $ MV.newMVar ()
+  let refresh0 = runReaderT (refreshWorkspaces cfg cont) ctx
+      -- Avoid concurrent refreshes from the event thread + polling thread.
+      refresh = MV.withMVar refreshLock $ const refresh0
   liftIO refresh
   -- Ensure this top-level container is visible when packed into the bar.
   -- Otherwise the start widget area can appear blank under Wayland/Hyprland.
   liftIO $ Gtk.widgetShowAll cont
   eventChan <- getHyprlandEventChan
   events <- liftIO $ Hypr.subscribeHyprlandEvents eventChan
-  tid <- liftIO $ forkIO $ hyprlandUpdateLoop refresh events
-  _ <- liftIO $ Gtk.onWidgetUnrealize cont $ killThread tid
+  tidEvents <- liftIO $ forkIO $ hyprlandUpdateLoop refresh events
+  mTidPolling <-
+    if updateIntervalSeconds cfg <= 0
+      then pure Nothing
+      else do
+        let intervalMicros =
+              max 100000 $ floor $ updateIntervalSeconds cfg * 1000000
+        Just <$> liftIO (forkIO $ forever $ threadDelay intervalMicros >> refresh)
+  _ <- liftIO $ Gtk.onWidgetUnrealize cont $ do
+    killThread tidEvents
+    forM_ mTidPolling killThread
   Gtk.toWidget cont
 
 hyprlandUpdateLoop :: IO () -> TChan T.Text -> IO ()
@@ -212,7 +225,13 @@ refreshWorkspaces :: HyprlandWorkspacesConfig -> Gtk.Box -> ReaderT Context IO (
 refreshWorkspaces cfg cont = do
   ws <- getWorkspaces cfg
   HyprlandWorkspaceCache prev <- getStateDefault $ return (HyprlandWorkspaceCache [])
-  when (ws /= prev) $ do
+  let ignoreEmptyResult = null ws && not (null prev)
+  when ignoreEmptyResult $
+    liftIO $ wLog WARNING $
+      printf
+        "Hyprland workspaces refresh returned empty list; retaining previous state (prevTotal=%d)."
+        (length prev)
+  when (ws /= prev && not ignoreEmptyResult) $ do
     liftIO $ wLog DEBUG $
       printf "Hyprland workspaces refresh: total=%d shown=%d (minIcons=%d maxIcons=%s) %s"
         (length ws)
@@ -603,9 +622,18 @@ getHyprlandWorkspaces = do
     Left err -> wLog WARNING (printf "hyprctl workspaces failed: %s" err) >> return []
     Right ws -> return ws
 
-  clients <- case clientsResult of
-    Left err -> wLog WARNING (printf "hyprctl clients failed: %s" err) >> return []
-    Right cs -> return cs
+  let workspacesCount = length workspaces
+      workspacesWindowsSum = sum (map hwiWindows workspaces)
+  (clientsOk, clients) <- case clientsResult of
+    Left err -> do
+      wLog WARNING $
+        printf
+          "hyprctl clients failed: %s (workspaces=%d windowsSum=%d)"
+          err
+          workspacesCount
+          workspacesWindowsSum
+      return (False, [])
+    Right cs -> return (True, cs)
 
   monitors <- case monitorsResult of
     Left err -> wLog WARNING (printf "hyprctl monitors failed: %s" err) >> return []
@@ -617,6 +645,7 @@ getHyprlandWorkspaces = do
 
   buildWorkspacesFromHyprland
     workspaces
+    clientsOk
     clients
     monitors
     activeWorkspace
@@ -631,12 +660,13 @@ getActiveWindowAddress = do
 
 buildWorkspacesFromHyprland ::
   [HyprlandWorkspaceInfo]
+  -> Bool
   -> [HyprlandClient]
   -> [HyprlandMonitorInfo]
   -> Maybe HyprlandWorkspaceRef
   -> Maybe Text
   -> TaffyIO [HyprlandWorkspace]
-buildWorkspacesFromHyprland workspaces clients monitors activeWorkspace activeWindowAddress = do
+buildWorkspacesFromHyprland workspaces clientsOk clients monitors activeWorkspace activeWindowAddress = do
   let windowsByWorkspace = collectWorkspaceWindows activeWindowAddress clients
       sortedWorkspaces = sortOn hwiId workspaces
       visibleWorkspaceIds =
@@ -660,7 +690,9 @@ buildWorkspacesFromHyprland workspaces clients monitors activeWorkspace activeWi
           state
             | Just wsId == activeId = Active
             | wsId `elem` visibleIds = Visible
-            | not hasWindows = Empty
+            -- If we couldn't fetch clients, don't aggressively hide workspaces.
+            -- This prevents "invisible" workspaces on transient Hyprland restarts.
+            | not hasWindows && clientsOk = Empty
             | otherwise = Hidden
       in HyprlandWorkspace
            { workspaceIdx = wsId
