@@ -14,10 +14,16 @@ data-files:
   taffybar.css
   icons/*.svg
 extra-source-files:
+  dbus-xml/org.PulseAudio.ServerLookup1.xml
+  dbus-xml/org.PulseAudio.Core1.xml
+  dbus-xml/org.PulseAudio.Core1.Device.xml
   dbus-xml/org.freedesktop.UPower.Device.xml
   dbus-xml/org.freedesktop.UPower.xml
   dbus-xml/org.mpris.MediaPlayer2.Player.xml
   dbus-xml/org.mpris.MediaPlayer2.xml
+  dbus-xml/org.freedesktop.NetworkManager.xml
+  dbus-xml/org.freedesktop.NetworkManager.Connection.Active.xml
+  dbus-xml/org.freedesktop.NetworkManager.AccessPoint.xml
   test/data/*.golden
   test/data/*.png
   test/data/appearance-test.css
@@ -35,6 +41,7 @@ common haskell
     GeneralizedNewtypeDeriving
     LambdaCase
     NumericUnderscores
+    ScopedTypeVariables
     StandaloneDeriving
     TupleSections
   default-language: Haskell2010
@@ -65,9 +72,10 @@ library
                , enclosed-exceptions >= 1.0.0.1
                , filepath
                , fsnotify >= 0.4 && < 0.5
+               , monad-control
                , gi-cairo-connector
                , gi-cairo-render
-               , gi-gdk3 >=3.0.30 && <3.1
+                , gi-gdk3 >=3.0.30 && <3.1
                , gi-gdkpixbuf >=2.0.6 && <2.1
                , gi-gdkx113 >=3.0.17 && < 4
                , gi-glib
@@ -116,7 +124,11 @@ library
                  , System.Taffybar.DBus
                  , System.Taffybar.DBus.Toggle
                  , System.Taffybar.Example
+                 , System.Taffybar.Hyprland
                  , System.Taffybar.Hooks
+                 , System.Taffybar.Information.Hyprland
+                 , System.Taffybar.Information.PulseAudio
+                 , System.Taffybar.Information.Backlight
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.CPU
                  , System.Taffybar.Information.CPU2
@@ -127,6 +139,7 @@ library
                  , System.Taffybar.Information.MPRIS2
                  , System.Taffybar.Information.Memory
                  , System.Taffybar.Information.Network
+                 , System.Taffybar.Information.NetworkManager
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.StreamInfo
                  , System.Taffybar.Information.X11DesktopInfo
@@ -135,6 +148,8 @@ library
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Util
                  , System.Taffybar.Widget
+                 , System.Taffybar.Widget.PulseAudio
+                 , System.Taffybar.Widget.Backlight
                  , System.Taffybar.Widget.Battery
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
@@ -157,6 +172,7 @@ library
                  , System.Taffybar.Widget.Layout
                  , System.Taffybar.Widget.MPRIS2
                  , System.Taffybar.Widget.NetworkGraph
+                 , System.Taffybar.Widget.NetworkManager
                  , System.Taffybar.Widget.SNITray
                  , System.Taffybar.Widget.SimpleClock
                  , System.Taffybar.Widget.SimpleCommandButton
@@ -168,6 +184,7 @@ library
                  , System.Taffybar.Widget.HyprlandWorkspaces
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
+                 , System.Taffybar.Widget.Workspaces.Shared
                  , System.Taffybar.Widget.WttrIn
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
@@ -179,7 +196,13 @@ library
 
   other-modules: Paths_taffybar
                , System.Taffybar.DBus.Client.MPRIS2
+               , System.Taffybar.DBus.Client.NetworkManager
+               , System.Taffybar.DBus.Client.NetworkManagerAccessPoint
+               , System.Taffybar.DBus.Client.NetworkManagerActiveConnection
                , System.Taffybar.DBus.Client.Params
+               , System.Taffybar.DBus.Client.PulseAudioCore
+               , System.Taffybar.DBus.Client.PulseAudioDevice
+               , System.Taffybar.DBus.Client.PulseAudioServerLookup
                , System.Taffybar.DBus.Client.UPower
                , System.Taffybar.DBus.Client.UPowerDevice
                , System.Taffybar.DBus.Client.Util

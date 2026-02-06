@@ -25,7 +25,7 @@ import           Control.Concurrent (killThread)
 import           Control.Monad (void)
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
-import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:?))
+import           Data.Aeson (FromJSON(..), withObject, (.:?))
 import           Data.Default (Default(..))
 import           Data.Maybe (fromMaybe)
 import           Data.Text (Text)
@@ -34,10 +34,13 @@ import           GI.Gdk
 import qualified GI.Gtk as Gtk
 import           System.Log.Logger (Priority(..))
 import           System.Taffybar.Context
+import           System.Taffybar.Hyprland
+  ( runHyprlandCommandJsonT
+  , runHyprlandCommandRawT
+  )
+import qualified System.Taffybar.Information.Hyprland as Hypr
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
-
-import qualified Data.ByteString.Lazy.Char8 as BL
 
 data HyprlandLayoutConfig = HyprlandLayoutConfig
   { formatLayout :: T.Text -> TaffyIO T.Text
@@ -100,11 +103,11 @@ dispatchMaybe maybeArgs =
   case maybeArgs of
     Nothing -> return ()
     Just args -> do
-      result <- runCommand "hyprctl" ("dispatch" : args)
+      result <- runHyprlandCommandRawT (Hypr.hyprCommand ("dispatch" : args))
       case result of
         Left err ->
           logPrintF "System.Taffybar.Widget.HyprlandLayout" WARNING
-            "Failed to run hyprctl dispatch: %s" err
+            "Failed to dispatch Hyprland command: %s" (show err)
         Right _ -> return ()
 
 -- Hyprland JSON helpers
@@ -131,8 +134,11 @@ getHyprlandLayoutText = do
 
 runHyprctlJson :: FromJSON a => [String] -> TaffyIO (Either String a)
 runHyprctlJson args = do
-  result <- runCommand "hyprctl" args
-  return $ case result of
-    Left err -> Left err
-    Right out ->
-      eitherDecode' (BL.pack out)
+  let args' =
+        case args of
+          ("-j":rest) -> rest
+          _ -> args
+  result <- runHyprlandCommandJsonT (Hypr.hyprCommandJson args')
+  pure $ case result of
+    Left err -> Left (show err)
+    Right out -> Right out

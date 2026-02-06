@@ -1,0 +1,6 @@
+<node>
+  <interface name="org.PulseAudio.Core1">
+    <property type="ao" name="Sinks" access="read"/>
+    <property type="o" name="FallbackSink" access="read"/>
+  </interface>
+</node>

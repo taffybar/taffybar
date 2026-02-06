@@ -17,36 +17,29 @@ module System.Taffybar.Widget.HyprlandWorkspaces where
 
 import           Control.Applicative ((<|>))
 import           Control.Concurrent (forkIO, killThread)
-import           Control.Exception.Enclosed (catchAny)
-import           Control.Monad (foldM, forM_, when, (>=>))
+import           Control.Concurrent.STM.TChan (TChan, readTChan)
+import           Control.Monad (foldM, forM_, when)
 import           Control.Monad.IO.Class (MonadIO(liftIO))
+import           Control.Monad.STM (atomically)
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
-import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:), (.:?), (.!=))
+import           Data.Aeson (FromJSON(..), withObject, (.:), (.:?), (.!=))
 import           Data.Char (toLower)
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString as BS
 import           Data.Default (Default(..))
 import qualified Data.Foldable as F
 import           Data.Int (Int32)
-import           Data.List (sortOn, stripPrefix)
+import           Data.List (intercalate, sortOn, stripPrefix)
 import           Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Map.Strict as M
 import qualified Data.MultiMap as MM
+import           Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import           Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Network.Socket as NS
-import qualified Network.Socket.ByteString as NSB
-import           System.Environment (lookupEnv)
 import           System.Log.Logger (Priority(..), logM)
-import           System.IO (BufferMode(LineBuffering), Handle, IOMode(ReadWriteMode), hClose,
-                            hGetLine, hSetBuffering)
 import           Text.Printf (printf)
 
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import           StatusNotifier.Tray (scalePixbufToSize)
 
 import           System.Environment.XDG.DesktopEntry
   ( DesktopEntry
@@ -54,18 +47,33 @@ import           System.Environment.XDG.DesktopEntry
   , getDirectoryEntriesDefault
   )
 import           System.Taffybar.Context
+import           System.Taffybar.Hyprland
+  ( getHyprlandEventChan
+  , runHyprlandCommandJsonT
+  , runHyprlandCommandRawT
+  )
+import qualified System.Taffybar.Information.Hyprland as Hypr
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
-  ( buildContentsBox
+  ( WindowIconWidget(..)
+  , computeIconStripLayout
   , getImageForDesktopEntry
+  , handlePixbufGetterException
+  , scaledPixbufGetter
+  , syncWidgetPool
+  , updateWidgetClasses
+  , updateWindowIconWidgetState
   , widgetSetClassGI
+  , windowStatusClassFromFlags
+  )
+import           System.Taffybar.Widget.Workspaces.Shared
+  ( buildWorkspaceIconLabelOverlay
+  , mkWorkspaceIconWidget
   )
 import           System.Taffybar.Widget.Workspaces
   ( WorkspaceState(..)
   , cssWorkspaceStates
   , getCSSClass
-  , possibleStatusStrings
-  , updateWidgetClasses
   )
 import           System.Taffybar.WindowIcon (getWindowIconFromClasses, pixBufFromColor)
 
@@ -97,16 +105,24 @@ data HyprlandWorkspace = HyprlandWorkspace
 
 newtype HyprlandWorkspaceCache = HyprlandWorkspaceCache [HyprlandWorkspace]
 
+newtype HyprlandWorkspaceWidgetCache
+  = HyprlandWorkspaceWidgetCache (M.Map Int HyprlandWorkspaceWidgetState)
+
+newtype HyprlandWorkspaceOrderCache
+  = HyprlandWorkspaceOrderCache [Int]
+
 data HyprlandWorkspaceWidgetState = HyprlandWorkspaceWidgetState
-  { workspaceWidget :: Gtk.Widget
+  { workspaceWrapper :: Gtk.Widget
+  , workspaceButton :: Gtk.EventBox
+  , workspaceRef :: IORef HyprlandWorkspace
   , workspaceContents :: Gtk.Widget
   , workspaceLabel :: Gtk.Label
   , workspaceIconsBox :: Gtk.Box
+  , workspaceIcons :: [HyprlandIconWidget]
   , workspaceLast :: HyprlandWorkspace
   }
 
-newtype HyprlandWorkspaceWidgetCache =
-  HyprlandWorkspaceWidgetCache (M.Map Int HyprlandWorkspaceWidgetState)
+type HyprlandIconWidget = WindowIconWidget HyprlandWindow
 
 type HyprlandWindowIconPixbufGetter =
   Int32 -> HyprlandWindow -> TaffyIO (Maybe Gdk.Pixbuf)
@@ -116,6 +132,10 @@ data HyprlandWorkspacesConfig =
   { getWorkspaces :: TaffyIO [HyprlandWorkspace]
   , switchToWorkspace :: HyprlandWorkspace -> TaffyIO ()
   , updateIntervalSeconds :: Double
+  -- | Build the per-workspace widget from the icon strip widget and the label
+  -- widget. This allows X11 and Hyprland workspaces to share the same CSS and
+  -- layout logic.
+  , widgetBuilder :: Gtk.Widget -> Gtk.Widget -> TaffyIO Gtk.Widget
   , widgetGap :: Int
   , maxIcons :: Maybe Int
   , minIcons :: Int
@@ -133,6 +153,7 @@ defaultHyprlandWorkspacesConfig =
   { getWorkspaces = getHyprlandWorkspaces
   , switchToWorkspace = hyprlandSwitchToWorkspace
   , updateIntervalSeconds = 1
+  , widgetBuilder = buildWorkspaceIconLabelOverlay
   , widgetGap = 0
   , maxIcons = Nothing
   , minIcons = 0
@@ -155,71 +176,21 @@ hyprlandWorkspacesNew cfg = do
   _ <- widgetSetClassGI cont "workspaces"
   ctx <- ask
   let refresh = runReaderT (refreshWorkspaces cfg cont) ctx
-  _ <- liftIO refresh
-  tid <- liftIO $ forkIO $ hyprlandUpdateLoop cfg refresh
+  liftIO refresh
+  -- Ensure this top-level container is visible when packed into the bar.
+  -- Otherwise the start widget area can appear blank under Wayland/Hyprland.
+  liftIO $ Gtk.widgetShowAll cont
+  eventChan <- getHyprlandEventChan
+  events <- liftIO $ Hypr.subscribeHyprlandEvents eventChan
+  tid <- liftIO $ forkIO $ hyprlandUpdateLoop refresh events
   _ <- liftIO $ Gtk.onWidgetUnrealize cont $ killThread tid
   Gtk.toWidget cont
 
-hyprlandUpdateLoop :: HyprlandWorkspacesConfig -> IO () -> IO ()
-hyprlandUpdateLoop _cfg refresh = do
-  mHandle <- connectHyprlandEventSocket
-  case mHandle of
-    Nothing ->
-      logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING
-        "Hyprland event socket unavailable; workspace updates disabled"
-    Just handle ->
-      eventLoop handle `catchAny` \e -> do
-        logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING $
-          printf "Hyprland event socket failed (%s); workspace updates disabled" (show e)
-        hClose handle
-  where
-    eventLoop handle = do
-      line <- hGetLine handle
-      when (isRelevantHyprEvent line) refresh
-      eventLoop handle
-
-connectHyprlandEventSocket :: IO (Maybe Handle)
-connectHyprlandEventSocket = do
-  mSock <- connectHyprlandSocket ".socket2.sock"
-  case mSock of
-    Nothing -> return Nothing
-    Just sock -> do
-      handle <- NS.socketToHandle sock ReadWriteMode
-      hSetBuffering handle LineBuffering
-      return (Just handle)
-
-connectHyprlandSocket :: FilePath -> IO (Maybe NS.Socket)
-connectHyprlandSocket socketName = do
-  paths <- hyprlandSocketPaths socketName
-  tryPaths paths
-  where
-    tryPaths [] = return Nothing
-    tryPaths (path:rest) = do
-      result <- connectToSocket path
-      case result of
-        Nothing -> tryPaths rest
-        Just sock -> return (Just sock)
-
-hyprlandSocketPaths :: FilePath -> IO [FilePath]
-hyprlandSocketPaths socketName = do
-  mSig <- lookupEnv "HYPRLAND_INSTANCE_SIGNATURE"
-  case mSig of
-    Nothing -> return []
-    Just sig -> do
-      mRuntime <- lookupEnv "XDG_RUNTIME_DIR"
-      let paths =
-            case mRuntime of
-              Just runtime -> [runtime ++ "/hypr/" ++ sig ++ "/" ++ socketName]
-              Nothing -> []
-      return $ paths ++ ["/tmp/hypr/" ++ sig ++ "/" ++ socketName]
-
-connectToSocket :: FilePath -> IO (Maybe NS.Socket)
-connectToSocket path =
-  (do
-      sock <- NS.socket NS.AF_UNIX NS.Stream NS.defaultProtocol
-      NS.connect sock (NS.SockAddrUnix path)
-      return (Just sock)
-    ) `catchAny` \_ -> return Nothing
+hyprlandUpdateLoop :: IO () -> TChan T.Text -> IO ()
+hyprlandUpdateLoop refresh events = do
+  line <- atomically $ readTChan events
+  when (isRelevantHyprEvent (T.unpack line)) refresh
+  hyprlandUpdateLoop refresh events
 
 isRelevantHyprEvent :: String -> Bool
 isRelevantHyprEvent line =
@@ -240,43 +211,125 @@ isRelevantHyprEvent line =
      , "destroyworkspace"
      , "monitoradded"
      , "monitorremoved"
+     -- Synthetic "event" emitted by our event reader thread whenever it
+     -- (re)connects to Hyprland. This lets us refresh after a compositor
+     -- restart without polling.
+     , "taffybar-hyprland-connected"
      ]
 
 refreshWorkspaces :: HyprlandWorkspacesConfig -> Gtk.Box -> ReaderT Context IO ()
 refreshWorkspaces cfg cont = do
   ws <- getWorkspaces cfg
   HyprlandWorkspaceCache prev <- getStateDefault $ return (HyprlandWorkspaceCache [])
-  when (ws /= prev) $ do
-    _ <- putState $ return (HyprlandWorkspaceCache ws)
+  let ignoreEmptyResult = null ws && not (null prev)
+  when ignoreEmptyResult $
+    liftIO $ wLog WARNING $
+      printf
+        "Hyprland workspaces refresh returned empty list; retaining previous state (prevTotal=%d)."
+        (length prev)
+  when (ws /= prev && not ignoreEmptyResult) $ do
+    liftIO $ wLog DEBUG $
+      printf "Hyprland workspaces refresh: total=%d shown=%d (minIcons=%d maxIcons=%s) %s"
+        (length ws)
+        (length (filter (showWorkspaceFn cfg) ws))
+        (minIcons cfg)
+        (show (maxIcons cfg))
+        (summarizeWorkspaces ws)
+    _ <- setState (HyprlandWorkspaceCache ws)
     ctx <- ask
     liftIO $ postGUIASync $ runReaderT (renderWorkspaces cfg cont ws) ctx
 
 renderWorkspaces ::
   HyprlandWorkspacesConfig -> Gtk.Box -> [HyprlandWorkspace] -> ReaderT Context IO ()
 renderWorkspaces cfg cont workspaces = do
-  let visibleWorkspaces =
-        map (applyUrgentState cfg) $ filter (showWorkspaceFn cfg) workspaces
+  let workspaces' = map (applyUrgentState cfg) workspaces
   HyprlandWorkspaceWidgetCache widgetCache <-
     getStateDefault $ return (HyprlandWorkspaceWidgetCache M.empty)
-  let buildWidget oldCache (newCache, widgets) ws = do
+  HyprlandWorkspaceOrderCache prevOrder <-
+    getStateDefault $ return (HyprlandWorkspaceOrderCache [])
+  let oldCache = widgetCache
+      buildOrUpdate newCache ws = do
         let idx = workspaceIdx ws
         state <- case M.lookup idx oldCache of
           Just prevState
             | workspaceLast prevState == ws -> return prevState
             | otherwise -> updateWorkspaceWidgetState cfg ws prevState
           Nothing -> buildWorkspaceWidgetState cfg ws
-        let cache' = M.insert idx state newCache
-        return (cache', workspaceWidget state : widgets)
-  (newCache, widgetsRev) <- foldM
-    (buildWidget widgetCache)
-    (M.empty, [])
-    visibleWorkspaces
-  liftIO $ Gtk.containerForeach cont (Gtk.containerRemove cont)
-  forM_ (reverse widgetsRev) $ \widget ->
-    liftIO $ Gtk.containerAdd cont widget
-  liftIO $ Gtk.widgetShowAll cont
-  _ <- putState $ return (HyprlandWorkspaceWidgetCache newCache)
+        return (M.insert idx state newCache, state)
+
+  (newCache, orderedStatesRev) <-
+    foldM
+      (\(cacheAcc, statesAcc) ws -> do
+          (cacheAcc', st) <- buildOrUpdate cacheAcc ws
+          return (cacheAcc', (ws, st) : statesAcc)
+      )
+      (M.empty, [])
+      workspaces'
+  let orderedStates = reverse orderedStatesRev
+
+  let primaryShowFn = showWorkspaceFn cfg
+      primaryShownCount = length $ filter (primaryShowFn . fst) orderedStates
+      fallbackShowFn ws = workspaceState ws /= Empty
+      fallbackShownCount = length $ filter (fallbackShowFn . fst) orderedStates
+      (finalShowFn, finalShownCount, fallbackUsed) =
+        if primaryShownCount == 0 && fallbackShownCount > 0
+          then (fallbackShowFn, fallbackShownCount, True)
+          else (primaryShowFn, primaryShownCount, False)
+
+  when (fallbackUsed && not (null orderedStates)) $
+    liftIO $ wLog WARNING $
+      printf
+        "Hyprland workspaces: showWorkspaceFn hid all %d workspaces; falling back to showing non-empty workspaces (including special:*). %s"
+        (length orderedStates)
+        (summarizeWorkspaces (map fst orderedStates))
+  when (finalShownCount == 0 && not (null orderedStates)) $
+    liftIO $ wLog WARNING $
+      printf
+        "Hyprland workspaces widget is blank: no workspaces passed the show filter (total=%d). %s"
+        (length orderedStates)
+        (summarizeWorkspaces (map fst orderedStates))
+
+  -- Remove wrappers for workspaces that disappeared.
+  let removed = M.difference oldCache newCache
+  forM_ (M.elems removed) $ \st ->
+    liftIO $ Gtk.containerRemove cont (workspaceWrapper st)
+
+  -- Add wrappers for newly created workspaces.
+  let added = M.difference newCache oldCache
+  forM_ (M.elems added) $ \st -> do
+    liftIO $ Gtk.containerAdd cont (workspaceWrapper st)
+    liftIO $ Gtk.widgetShowAll (workspaceWrapper st)
+
+  let desiredOrder = map (workspaceIdx . fst) orderedStates
+      needsReorder =
+        desiredOrder /= prevOrder || not (M.null added) || not (M.null removed)
+  when needsReorder $ do
+    -- Reorder wrappers to match the order returned by hyprctl.
+    forM_ (zip [0 :: Int ..] orderedStates) $ \(pos, (_ws, st)) ->
+      liftIO $ Gtk.boxReorderChild cont (workspaceWrapper st) (fromIntegral pos)
+
+  -- Show/hide the clickable workspace widget without removing it from the box.
+  forM_ orderedStates $ \(ws, st) ->
+    if finalShowFn ws
+      then liftIO $ Gtk.widgetShow (workspaceButton st)
+      else liftIO $ Gtk.widgetHide (workspaceButton st)
+
+  _ <- setState (HyprlandWorkspaceWidgetCache newCache)
+  _ <- setState (HyprlandWorkspaceOrderCache desiredOrder)
   return ()
+
+summarizeWorkspaces :: [HyprlandWorkspace] -> String
+summarizeWorkspaces wss =
+  let summarizeOne ws =
+        printf "%d:%s:%s(wins=%d)"
+          (workspaceIdx ws)
+          (workspaceName ws)
+          (show (workspaceState ws))
+          (length (windows ws))
+      maxShown = 12
+      body = intercalate ", " $ map summarizeOne (take maxShown wss)
+      suffix = if length wss > maxShown then ", ..." else ""
+   in "workspaces=[" ++ body ++ suffix ++ "]"
 
 applyUrgentState :: HyprlandWorkspacesConfig -> HyprlandWorkspace -> HyprlandWorkspace
 applyUrgentState cfg ws
@@ -291,31 +344,42 @@ buildWorkspaceWidgetState ::
 buildWorkspaceWidgetState cfg ws = do
   ctx <- ask
   labelText <- labelSetter cfg ws
-  label <- liftIO $ Gtk.labelNew (Just $ T.pack labelText)
+  label <- liftIO $ Gtk.labelNew Nothing
   _ <- widgetSetClassGI label "workspace-label"
+  liftIO $ Gtk.labelSetMarkup label (T.pack labelText)
 
   iconsBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
-  updateIconsBox cfg ws iconsBox
+  wsRef <- liftIO $ newIORef ws
+  icons <- updateIcons cfg ws iconsBox []
 
-  inner <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
-  liftIO $ Gtk.containerAdd inner label
-  liftIO $ Gtk.containerAdd inner iconsBox
-  contents <- buildContentsBox =<< Gtk.toWidget inner
-  setWorkspaceWidgetStatusClass ws contents
+  -- Match the X11 Workspaces widget's overlay layout:
+  -- icons are the main contents and the label is overlaid bottom-left.
+  iconsWidget <- liftIO $ Gtk.toWidget iconsBox
+  labelWidget <- liftIO $ Gtk.toWidget label
+  overlayWidget <- widgetBuilder cfg iconsWidget labelWidget
+  setWorkspaceWidgetStatusClass ws overlayWidget
+  -- X11 Workspaces applies workspace state classes to the label too.
+  setWorkspaceWidgetStatusClass ws label
 
   ebox <- liftIO Gtk.eventBoxNew
   Gtk.eventBoxSetVisibleWindow ebox False
-  liftIO $ Gtk.containerAdd ebox contents
+  liftIO $ Gtk.containerAdd ebox overlayWidget
   _ <- liftIO $
        Gtk.onWidgetButtonPressEvent ebox $ const $ do
-         runReaderT (switchToWorkspace cfg ws) ctx
+         wsCurrent <- readIORef wsRef
+         runReaderT (switchToWorkspace cfg wsCurrent) ctx
          return True
-  widget <- Gtk.toWidget ebox
+  wrapperBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
+  liftIO $ Gtk.containerAdd wrapperBox =<< Gtk.toWidget ebox
+  wrapperWidget <- Gtk.toWidget wrapperBox
   return HyprlandWorkspaceWidgetState
-    { workspaceWidget = widget
-    , workspaceContents = contents
+    { workspaceWrapper = wrapperWidget
+    , workspaceButton = ebox
+    , workspaceRef = wsRef
+    , workspaceContents = overlayWidget
     , workspaceLabel = label
     , workspaceIconsBox = iconsBox
+    , workspaceIcons = icons
     , workspaceLast = ws
     }
 
@@ -326,50 +390,46 @@ updateWorkspaceWidgetState ::
   -> ReaderT Context IO HyprlandWorkspaceWidgetState
 updateWorkspaceWidgetState cfg ws state = do
   labelText <- labelSetter cfg ws
-  liftIO $ Gtk.labelSetText (workspaceLabel state) (T.pack labelText)
-  when (windows ws /= windows (workspaceLast state)) $
-    updateIconsBox cfg ws (workspaceIconsBox state)
+  liftIO $ Gtk.labelSetMarkup (workspaceLabel state) (T.pack labelText)
+  liftIO $ writeIORef (workspaceRef state) ws
+  icons <-
+    if windows ws /= windows (workspaceLast state)
+      then updateIcons cfg ws (workspaceIconsBox state) (workspaceIcons state)
+      else return (workspaceIcons state)
   setWorkspaceWidgetStatusClass ws (workspaceContents state)
-  return state { workspaceLast = ws }
+  setWorkspaceWidgetStatusClass ws (workspaceLabel state)
+  return state { workspaceLast = ws, workspaceIcons = icons }
 
-updateIconsBox ::
-  HyprlandWorkspacesConfig -> HyprlandWorkspace -> Gtk.Box -> ReaderT Context IO ()
-updateIconsBox cfg ws iconsBox = do
-  liftIO $ Gtk.containerForeach iconsBox (Gtk.containerRemove iconsBox)
+updateIcons ::
+  HyprlandWorkspacesConfig
+  -> HyprlandWorkspace
+  -> Gtk.Box
+  -> [HyprlandIconWidget]
+  -> ReaderT Context IO [HyprlandIconWidget]
+updateIcons cfg ws iconsBox iconWidgets = do
   sortedWindows <- iconSort cfg $ windows ws
-  let windowCount = length sortedWindows
-      maxNeeded = maybe windowCount (min windowCount) (maxIcons cfg)
-      shownWindows = map Just $ take maxNeeded sortedWindows
-      paddedWindows =
-        shownWindows ++ replicate (max 0 (minIcons cfg - length shownWindows)) Nothing
-  forM_ paddedWindows $ \windowData -> do
-    iconWidget <- buildIconWidget cfg windowData
-    liftIO $ Gtk.containerAdd iconsBox iconWidget
+  let (effectiveMinIcons, _targetLen, paddedWindows) =
+        computeIconStripLayout (minIcons cfg) (maxIcons cfg) sortedWindows
+      buildOne i = buildIconWidget (i < effectiveMinIcons) cfg
+  syncWidgetPool iconsBox iconWidgets paddedWindows buildOne iconContainer updateIconWidget
 
-buildIconWidget ::
-  HyprlandWorkspacesConfig -> Maybe HyprlandWindow -> ReaderT Context IO Gtk.Widget
-buildIconWidget cfg windowData = do
-  iconButton <- liftIO Gtk.eventBoxNew
-  icon <- liftIO Gtk.imageNew
-  _ <- widgetSetClassGI icon "window-icon"
-  _ <- widgetSetClassGI iconButton "window-icon-container"
-  liftIO $ Gtk.containerAdd iconButton icon
+buildIconWidget :: Bool -> HyprlandWorkspacesConfig -> ReaderT Context IO HyprlandIconWidget
+buildIconWidget transparentOnNone cfg = do
+  ctx <- ask
+  liftIO $
+    mkWorkspaceIconWidget
+      (Just $ iconSize cfg)
+      transparentOnNone
+      (\size w -> runReaderT (getWindowIconPixbuf cfg size w) ctx)
+      (\size -> pixBufFromColor size 0)
 
-  pixbuf <- case windowData of
-    Nothing -> Just <$> pixBufFromColor (iconSize cfg) 0
-    Just w -> getWindowIconPixbuf cfg (iconSize cfg) w
-  liftIO $ Gtk.imageSetFromPixbuf icon pixbuf
-
-  case windowData of
-    Nothing -> return ()
-    Just w -> liftIO $ Gtk.widgetSetTooltipText iconButton $
-              Just $ T.pack $ windowTitle w
-
-  let statusString =
-        maybe "inactive" getWindowStatusString windowData
-  updateWidgetClasses iconButton [statusString] possibleStatusStrings
-
-  Gtk.toWidget iconButton
+updateIconWidget :: HyprlandIconWidget -> Maybe HyprlandWindow -> ReaderT Context IO ()
+updateIconWidget iconWidget windowData =
+  updateWindowIconWidgetState
+    iconWidget
+    windowData
+    (T.pack . windowTitle)
+    getWindowStatusString
 
 setWorkspaceWidgetStatusClass ::
   (MonadIO m, Gtk.IsWidget a) => HyprlandWorkspace -> a -> m ()
@@ -380,12 +440,11 @@ setWorkspaceWidgetStatusClass workspace widget =
     cssWorkspaceStates
 
 getWindowStatusString :: HyprlandWindow -> T.Text
-getWindowStatusString windowData = T.toLower $ T.pack $
-  case windowData of
-    HyprlandWindow { windowMinimized = True } -> "minimized"
-    HyprlandWindow { windowActive = True } -> show Active
-    HyprlandWindow { windowUrgent = True } -> show Urgent
-    _ -> "normal"
+getWindowStatusString windowData =
+  windowStatusClassFromFlags
+    (windowMinimized windowData)
+    (windowActive windowData)
+    (windowUrgent windowData)
 
 wLog :: MonadIO m => Priority -> String -> m ()
 wLog l s = liftIO $ logM "System.Taffybar.Widget.HyprlandWorkspaces" l s
@@ -394,17 +453,11 @@ wLog l s = liftIO $ logM "System.Taffybar.Widget.HyprlandWorkspaces" l s
 
 scaledWindowIconPixbufGetter ::
   HyprlandWindowIconPixbufGetter -> HyprlandWindowIconPixbufGetter
-scaledWindowIconPixbufGetter getter size =
-  getter size >=>
-  liftIO . traverse (scalePixbufToSize size Gtk.OrientationHorizontal)
+scaledWindowIconPixbufGetter = scaledPixbufGetter
 
 handleIconGetterException ::
   HyprlandWindowIconPixbufGetter -> HyprlandWindowIconPixbufGetter
-handleIconGetterException getter size windowData =
-  catchAny (getter size windowData) $ \e -> do
-    wLog WARNING $ printf "Failed to get window icon for %s: %s"
-                        (show windowData) (show e)
-    return Nothing
+handleIconGetterException = handlePixbufGetterException wLog
 
 defaultHyprlandGetWindowIconPixbuf :: HyprlandWindowIconPixbufGetter
 defaultHyprlandGetWindowIconPixbuf =
@@ -468,6 +521,7 @@ instance FromJSON HyprlandWorkspaceRef where
 data HyprlandWorkspaceInfo = HyprlandWorkspaceInfo
   { hwiId :: Int
   , hwiName :: Text
+  , hwiWindows :: Int
   } deriving (Show, Eq)
 
 instance FromJSON HyprlandWorkspaceInfo where
@@ -475,6 +529,7 @@ instance FromJSON HyprlandWorkspaceInfo where
     HyprlandWorkspaceInfo
       <$> v .: "id"
       <*> v .: "name"
+      <*> v .:? "windows" .!= 0
 
 data HyprlandMonitorInfo = HyprlandMonitorInfo
   { hmFocused :: Bool
@@ -524,60 +579,25 @@ instance FromJSON HyprlandActiveWindow where
 
 runHyprctlJson :: FromJSON a => [String] -> TaffyIO (Either String a)
 runHyprctlJson args = do
-  result <- runHyprlandCommandRaw args
-  return $ case result of
-    Left err -> Left err
-    Right out -> eitherDecode' (BL.fromStrict out)
+  let args' =
+        case args of
+          ("-j":rest) -> rest
+          _ -> args
+  result <- runHyprlandCommandJsonT (Hypr.hyprCommandJson args')
+  pure $ case result of
+    Left err -> Left (show err)
+    Right out -> Right out
 
 runHyprlandCommandRaw :: [String] -> TaffyIO (Either String BS.ByteString)
 runHyprlandCommandRaw args = do
-  let command = hyprlandSocketCommandFromArgs args
-  case command of
-    Left err -> return (Left err)
-    Right cmd -> do
-      socketResult <- liftIO $ runHyprlandCommandSocket cmd
-      case socketResult of
-        Right resp -> return (Right resp)
-        Left socketErr -> do
-          -- Fallback to hyprctl if the socket is unavailable
-          result <- runCommand "hyprctl" args
-          return $ case result of
-            Left err -> Left $ err ++ " (" ++ socketErr ++ ")"
-            Right out ->
-              Right $ TE.encodeUtf8 $ T.pack out
-
-hyprlandSocketCommandFromArgs :: [String] -> Either String String
-hyprlandSocketCommandFromArgs ("-j":rest) =
-  Right $ "j/" ++ unwords rest
-hyprlandSocketCommandFromArgs [] =
-  Left "No hyprland command provided"
-hyprlandSocketCommandFromArgs args =
-  Right $ unwords args
-
-runHyprlandCommandSocket :: String -> IO (Either String BS.ByteString)
-runHyprlandCommandSocket cmd = do
-  mSock <- connectHyprlandSocket ".socket.sock"
-  case mSock of
-    Nothing -> return (Left "Hyprland command socket unavailable")
-    Just sock ->
-      (do
-          NSB.sendAll sock (BS8.pack cmd)
-          NS.shutdown sock NS.ShutdownSend
-          resp <- recvAll sock
-          NS.close sock
-          return (Right resp)
-        ) `catchAny` \e -> do
-          NS.close sock
-          return (Left $ show e)
-
-recvAll :: NS.Socket -> IO BS.ByteString
-recvAll sock = go []
-  where
-    go acc = do
-      chunk <- NSB.recv sock 4096
-      if BS.null chunk
-        then return (BS.concat (reverse acc))
-        else go (chunk:acc)
+  let cmd =
+        case args of
+          ("-j":rest) -> Hypr.hyprCommandJson rest
+          _ -> Hypr.hyprCommand args
+  result <- runHyprlandCommandRawT cmd
+  pure $ case result of
+    Left err -> Left (show err)
+    Right out -> Right out
 
 hyprlandSwitchToWorkspace :: HyprlandWorkspace -> TaffyIO ()
 hyprlandSwitchToWorkspace ws = do
@@ -598,9 +618,18 @@ getHyprlandWorkspaces = do
     Left err -> wLog WARNING (printf "hyprctl workspaces failed: %s" err) >> return []
     Right ws -> return ws
 
-  clients <- case clientsResult of
-    Left err -> wLog WARNING (printf "hyprctl clients failed: %s" err) >> return []
-    Right cs -> return cs
+  let workspacesCount = length workspaces
+      workspacesWindowsSum = sum (map hwiWindows workspaces)
+  (clientsOk, clients) <- case clientsResult of
+    Left err -> do
+      wLog WARNING $
+        printf
+          "hyprctl clients failed: %s (workspaces=%d windowsSum=%d)"
+          err
+          workspacesCount
+          workspacesWindowsSum
+      return (False, [])
+    Right cs -> return (True, cs)
 
   monitors <- case monitorsResult of
     Left err -> wLog WARNING (printf "hyprctl monitors failed: %s" err) >> return []
@@ -612,6 +641,7 @@ getHyprlandWorkspaces = do
 
   buildWorkspacesFromHyprland
     workspaces
+    clientsOk
     clients
     monitors
     activeWorkspace
@@ -626,12 +656,13 @@ getActiveWindowAddress = do
 
 buildWorkspacesFromHyprland ::
   [HyprlandWorkspaceInfo]
+  -> Bool
   -> [HyprlandClient]
   -> [HyprlandMonitorInfo]
   -> Maybe HyprlandWorkspaceRef
   -> Maybe Text
   -> TaffyIO [HyprlandWorkspace]
-buildWorkspacesFromHyprland workspaces clients monitors activeWorkspace activeWindowAddress = do
+buildWorkspacesFromHyprland workspaces clientsOk clients monitors activeWorkspace activeWindowAddress = do
   let windowsByWorkspace = collectWorkspaceWindows activeWindowAddress clients
       sortedWorkspaces = sortOn hwiId workspaces
       visibleWorkspaceIds =
@@ -651,10 +682,13 @@ buildWorkspacesFromHyprland workspaces clients monitors activeWorkspace activeWi
       let wsId = hwiId wsInfo
           wsName = hwiName wsInfo
           wins = M.findWithDefault [] wsId windowsMap
+          hasWindows = not (null wins) || hwiWindows wsInfo > 0
           state
             | Just wsId == activeId = Active
             | wsId `elem` visibleIds = Visible
-            | null wins = Empty
+            -- If we couldn't fetch clients, don't aggressively hide workspaces.
+            -- This prevents "invisible" workspaces on transient Hyprland restarts.
+            | not hasWindows && clientsOk = Empty
             | otherwise = Hidden
       in HyprlandWorkspace
            { workspaceIdx = wsId

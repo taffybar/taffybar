@@ -1,7 +1,14 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module System.Taffybar.Widget
   ( module System.Taffybar.Widget.Util
+  -- * "System.Taffybar.Widget.PulseAudio"
+  , module System.Taffybar.Widget.PulseAudio
+
+  -- * "System.Taffybar.Widget.Backlight"
+  , module System.Taffybar.Widget.Backlight
+
   -- * "System.Taffybar.Widget.Battery"
   , module System.Taffybar.Widget.Battery
 
@@ -34,6 +41,9 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.NetworkGraph"
   , module System.Taffybar.Widget.NetworkGraph
 
+  -- * "System.Taffybar.Widget.NetworkManager"
+  , module System.Taffybar.Widget.NetworkManager
+
   -- * "System.Taffybar.Widget.SNITray"
   , module System.Taffybar.Widget.SNITray
 
@@ -58,6 +68,21 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.Windows"
   , module System.Taffybar.Widget.Windows
 
+  -- * "System.Taffybar.Widget.HyprlandWorkspaces"
+  , HyprlandWorkspacesConfig(..)
+  , defaultHyprlandWorkspacesConfig
+  , hyprlandWorkspacesNew
+  , HyprlandWorkspace(..)
+  , HyprlandWindow(..)
+  , HyprlandWindowIconPixbufGetter
+  , defaultHyprlandGetWindowIconPixbuf
+  , getHyprlandWorkspaces
+  , hyprlandSwitchToWorkspace
+  , getActiveWindowAddress
+  , runHyprctlJson
+  , HyprlandClient(..)
+  , windowFromClient
+
   -- * "System.Taffybar.Widget.Workspaces"
   , module System.Taffybar.Widget.Workspaces
 
@@ -77,6 +102,7 @@ import System.Taffybar.Widget.FreedesktopNotifications
 import System.Taffybar.Widget.Layout
 import System.Taffybar.Widget.MPRIS2
 import System.Taffybar.Widget.NetworkGraph
+import System.Taffybar.Widget.NetworkManager
 import System.Taffybar.Widget.SNITray
 import System.Taffybar.Widget.SimpleClock
 import System.Taffybar.Widget.SimpleCommandButton
@@ -84,7 +110,24 @@ import System.Taffybar.Widget.Text.CPUMonitor
 import System.Taffybar.Widget.Text.MemoryMonitor
 import System.Taffybar.Widget.Text.NetworkMonitor
 import System.Taffybar.Widget.Util
+import System.Taffybar.Widget.PulseAudio
+import System.Taffybar.Widget.Backlight
 import System.Taffybar.Widget.Weather
 import System.Taffybar.Widget.Windows
+import System.Taffybar.Widget.HyprlandWorkspaces
+  ( HyprlandWorkspacesConfig(..)
+  , defaultHyprlandWorkspacesConfig
+  , hyprlandWorkspacesNew
+  , HyprlandWorkspace(..)
+  , HyprlandWindow(..)
+  , HyprlandWindowIconPixbufGetter
+  , defaultHyprlandGetWindowIconPixbuf
+  , getHyprlandWorkspaces
+  , hyprlandSwitchToWorkspace
+  , getActiveWindowAddress
+  , runHyprctlJson
+  , HyprlandClient(..)
+  , windowFromClient
+  )
 import System.Taffybar.Widget.Workspaces
 import System.Taffybar.Widget.XDGMenu.MenuWidget

@@ -1,0 +1,9 @@
+<node>
+  <interface name="org.PulseAudio.Core1.Device">
+    <property type="s" name="Name" access="read"/>
+    <property type="s" name="Description" access="read"/>
+    <property type="b" name="Mute" access="readwrite"/>
+    <property type="au" name="Volume" access="readwrite"/>
+    <property type="u" name="MaxVolume" access="read"/>
+  </interface>
+</node>

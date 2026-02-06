@@ -1,3 +1,11 @@
+# Unreleased
+
+## Documentation
+
+ * Document that the PulseAudio Audio widget requires PulseAudio's DBus protocol
+   to be enabled (load @module-dbus-protocol@), otherwise it may display
+   @vol: n/a@.
+
 # 4.1.1
 
 ## Improvements

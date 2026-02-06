@@ -42,6 +42,7 @@ module System.Taffybar.Context
   , getState
   , getStateDefault
   , putState
+  , setState
 
   -- * Control
   , refreshTaffyWindows
@@ -94,7 +95,7 @@ import           System.FilePath ((</>))
 import           System.Environment (lookupEnv)
 import           System.Log.Logger (Priority(..), logM)
 import           System.Posix.Files (getFileStatus, isSocket)
-import           System.Taffybar.Information.SafeX11
+import           System.Taffybar.Information.SafeX11 hiding (setState)
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
@@ -482,6 +483,17 @@ putState getValue = do
          (return . (contextStateMap,))
          (currentValue >>= fromValue)
 
+-- | Overwrite a state value by type in the 'contextState' field of 'Context'.
+-- 'putState'/'getStateDefault' are intentionally "set-once" helpers; widgets
+-- that maintain mutable caches should use this to update them.
+setState :: forall t. Typeable t => t -> Taffy IO t
+setState value = do
+  contextVar <- asks contextState
+  let theType = typeRep (Proxy :: Proxy t)
+  lift $ MV.modifyMVar_ contextVar $ \contextStateMap ->
+    return $ M.insert theType (Value value) contextStateMap
+  return value
+
 -- | A version of 'forkIO' in 'TaffyIO'.
 taffyFork :: ReaderT r IO () -> ReaderT r IO ()
 taffyFork = void . mapReaderT forkIO
@@ -501,6 +513,7 @@ detectBackend :: IO Backend
 detectBackend = do
   sessionType <- lookupEnv "XDG_SESSION_TYPE"
   waylandDisplay <- lookupEnv "WAYLAND_DISPLAY"
+  hyprlandSignature <- lookupEnv "HYPRLAND_INSTANCE_SIGNATURE"
   xdgRuntimeDir <- lookupEnv "XDG_RUNTIME_DIR"
 
   -- `systemd --user` can keep WAYLAND_DISPLAY in its manager environment across
@@ -514,8 +527,11 @@ detectBackend = do
     -- If we can't validate the socket location, preserve the previous behavior.
     _ -> pure True
 
-  let wantsWayland = sessionType == Just "wayland" || isJust waylandDisplay
-  when (wantsWayland && not waylandOk) $
+  let wantsWayland =
+        sessionType == Just "wayland"
+          || isJust waylandDisplay
+          || isJust hyprlandSignature
+  when (wantsWayland && isJust waylandDisplay && not waylandOk) $
     logIO DEBUG "Wayland env detected, but Wayland socket missing; falling back to X11 backend"
 
   pure $ if wantsWayland && waylandOk then BackendWayland else BackendX11
