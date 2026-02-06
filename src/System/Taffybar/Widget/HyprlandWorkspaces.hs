@@ -27,6 +27,7 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString as BS
 import           Data.Default (Default(..))
+import qualified Data.Foldable as F
 import           Data.Int (Int32)
 import           Data.List (sortOn, stripPrefix)
 import           Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
@@ -432,7 +433,7 @@ readDirectoryEntriesByAppId =
 
 indexDesktopEntriesByAppId :: [DesktopEntry] -> MM.MultiMap String DesktopEntry
 indexDesktopEntriesByAppId =
-  foldl' (\m de -> MM.insert (normalizeAppId $ deFilename de) de m) MM.empty
+  F.foldl' (\m de -> MM.insert (normalizeAppId $ deFilename de) de m) MM.empty
 
 normalizeAppId :: String -> String
 normalizeAppId name =
@@ -664,7 +665,7 @@ buildWorkspacesFromHyprland workspaces clients monitors activeWorkspace activeWi
 
 collectWorkspaceWindows :: Maybe Text -> [HyprlandClient] -> M.Map Int [HyprlandWindow]
 collectWorkspaceWindows activeWindowAddress =
-  foldl' (addWindow activeWindowAddress) M.empty
+  F.foldl' (addWindow activeWindowAddress) M.empty
   where
     addWindow activeAddr windowsMap client =
       let wsId = hwrId (hcWorkspace client)
