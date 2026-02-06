@@ -17,15 +17,14 @@ module System.Taffybar.Widget.HyprlandWorkspaces where
 
 import           Control.Applicative ((<|>))
 import           Control.Concurrent (forkIO, killThread)
+import           Control.Concurrent.STM.TChan (TChan, readTChan)
 import qualified Control.Concurrent.MVar as MV
-import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad (foldM, forM_, when)
 import           Control.Monad.IO.Class (MonadIO(liftIO))
+import           Control.Monad.STM (atomically)
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
-import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:), (.:?), (.!=))
+import           Data.Aeson (FromJSON(..), withObject, (.:), (.:?), (.!=))
 import           Data.Char (toLower)
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString as BS
 import           Data.Default (Default(..))
 import qualified Data.Foldable as F
@@ -37,13 +36,7 @@ import qualified Data.MultiMap as MM
 import           Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import           Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Network.Socket as NS
-import qualified Network.Socket.ByteString as NSB
-import           System.Environment (lookupEnv)
 import           System.Log.Logger (Priority(..), logM)
-import           System.IO (BufferMode(LineBuffering), Handle, IOMode(ReadWriteMode), hClose,
-                            hGetLine, hSetBuffering)
 import           Text.Printf (printf)
 
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
@@ -55,6 +48,12 @@ import           System.Environment.XDG.DesktopEntry
   , getDirectoryEntriesDefault
   )
 import           System.Taffybar.Context
+import           System.Taffybar.Hyprland
+  ( getHyprlandEventChan
+  , runHyprlandCommandJsonT
+  , runHyprlandCommandRawT
+  )
+import qualified System.Taffybar.Information.Hyprland as Hypr
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
 import           System.Taffybar.Widget.Util
@@ -178,74 +177,17 @@ hyprlandWorkspacesNew cfg = do
   -- Ensure this top-level container is visible when packed into the bar.
   -- Otherwise the start widget area can appear blank under Wayland/Hyprland.
   liftIO $ Gtk.widgetShowAll cont
-  tid <- liftIO $ forkIO $ hyprlandUpdateLoop cfg refresh
+  eventChan <- getHyprlandEventChan
+  events <- liftIO $ Hypr.subscribeHyprlandEvents eventChan
+  tid <- liftIO $ forkIO $ hyprlandUpdateLoop refresh events
   _ <- liftIO $ Gtk.onWidgetUnrealize cont $ killThread tid
   Gtk.toWidget cont
 
-hyprlandUpdateLoop :: HyprlandWorkspacesConfig -> IO () -> IO ()
-hyprlandUpdateLoop _cfg refresh = do
-  mHandle <- connectHyprlandEventSocket
-  case mHandle of
-    Nothing ->
-      logM
-        "System.Taffybar.Widget.HyprlandWorkspaces"
-        WARNING
-        "Hyprland event socket unavailable; workspace updates disabled"
-    Just handle ->
-      eventLoop handle `catchAny` \e -> do
-        logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING $
-          printf
-            "Hyprland event socket failed (%s); workspace updates disabled"
-            (show e)
-        hClose handle
-  where
-    eventLoop handle = do
-      line <- hGetLine handle
-      when (isRelevantHyprEvent line) refresh
-      eventLoop handle
-
-connectHyprlandEventSocket :: IO (Maybe Handle)
-connectHyprlandEventSocket = do
-  mSock <- connectHyprlandSocket ".socket2.sock"
-  case mSock of
-    Nothing -> return Nothing
-    Just sock -> do
-      handle <- NS.socketToHandle sock ReadWriteMode
-      hSetBuffering handle LineBuffering
-      return (Just handle)
-
-connectHyprlandSocket :: FilePath -> IO (Maybe NS.Socket)
-connectHyprlandSocket socketName = do
-  paths <- hyprlandSocketPaths socketName
-  tryPaths paths
-  where
-    tryPaths [] = return Nothing
-    tryPaths (path:rest) = do
-      result <- connectToSocket path
-      case result of
-        Nothing -> tryPaths rest
-        Just sock -> return (Just sock)
-
-hyprlandSocketPaths :: FilePath -> IO [FilePath]
-hyprlandSocketPaths socketName = do
-  mSig <- lookupEnv "HYPRLAND_INSTANCE_SIGNATURE"
-  case mSig of
-    Nothing -> return []
-    Just sig -> do
-      mRuntime <- lookupEnv "XDG_RUNTIME_DIR"
-      let paths =
-            case mRuntime of
-              Just runtime -> [runtime ++ "/hypr/" ++ sig ++ "/" ++ socketName]
-              Nothing -> []
-      return $ paths ++ ["/tmp/hypr/" ++ sig ++ "/" ++ socketName]
-
-connectToSocket :: FilePath -> IO (Maybe NS.Socket)
-connectToSocket path =
-  (do
-      sock <- NS.socket NS.AF_UNIX NS.Stream NS.defaultProtocol
-      NS.connect sock (NS.SockAddrUnix path)
-      return (Just sock)
-    ) `catchAny` \_ -> return Nothing
+hyprlandUpdateLoop :: IO () -> TChan T.Text -> IO ()
+hyprlandUpdateLoop refresh events = do
+  line <- atomically $ readTChan events
+  when (isRelevantHyprEvent (T.unpack line)) refresh
+  hyprlandUpdateLoop refresh events
 
 isRelevantHyprEvent :: String -> Bool
 isRelevantHyprEvent line =
@@ -590,6 +532,7 @@ instance FromJSON HyprlandWorkspaceRef where
 data HyprlandWorkspaceInfo = HyprlandWorkspaceInfo
   { hwiId :: Int
   , hwiName :: Text
+  , hwiWindows :: Int
   } deriving (Show, Eq)
 
 instance FromJSON HyprlandWorkspaceInfo where
@@ -597,6 +540,7 @@ instance FromJSON HyprlandWorkspaceInfo where
     HyprlandWorkspaceInfo
       <$> v .: "id"
       <*> v .: "name"
+      <*> v .:? "windows" .!= 0
 
 data HyprlandMonitorInfo = HyprlandMonitorInfo
   { hmFocused :: Bool
@@ -646,60 +590,25 @@ instance FromJSON HyprlandActiveWindow where
 
 runHyprctlJson :: FromJSON a => [String] -> TaffyIO (Either String a)
 runHyprctlJson args = do
-  result <- runHyprlandCommandRaw args
-  return $ case result of
-    Left err -> Left err
-    Right out -> eitherDecode' (BL.fromStrict out)
+  let args' =
+        case args of
+          ("-j":rest) -> rest
+          _ -> args
+  result <- runHyprlandCommandJsonT (Hypr.hyprCommandJson args')
+  pure $ case result of
+    Left err -> Left (show err)
+    Right out -> Right out
 
 runHyprlandCommandRaw :: [String] -> TaffyIO (Either String BS.ByteString)
 runHyprlandCommandRaw args = do
-  let command = hyprlandSocketCommandFromArgs args
-  case command of
-    Left err -> return (Left err)
-    Right cmd -> do
-      socketResult <- liftIO $ runHyprlandCommandSocket cmd
-      case socketResult of
-        Right resp -> return (Right resp)
-        Left socketErr -> do
-          -- Fallback to hyprctl if the socket is unavailable
-          result <- runCommand "hyprctl" args
-          return $ case result of
-            Left err -> Left $ err ++ " (" ++ socketErr ++ ")"
-            Right out ->
-              Right $ TE.encodeUtf8 $ T.pack out
-
-hyprlandSocketCommandFromArgs :: [String] -> Either String String
-hyprlandSocketCommandFromArgs ("-j":rest) =
-  Right $ "j/" ++ unwords rest
-hyprlandSocketCommandFromArgs [] =
-  Left "No hyprland command provided"
-hyprlandSocketCommandFromArgs args =
-  Right $ unwords args
-
-runHyprlandCommandSocket :: String -> IO (Either String BS.ByteString)
-runHyprlandCommandSocket cmd = do
-  mSock <- connectHyprlandSocket ".socket.sock"
-  case mSock of
-    Nothing -> return (Left "Hyprland command socket unavailable")
-    Just sock ->
-      (do
-          NSB.sendAll sock (BS8.pack cmd)
-          NS.shutdown sock NS.ShutdownSend
-          resp <- recvAll sock
-          NS.close sock
-          return (Right resp)
-        ) `catchAny` \e -> do
-          NS.close sock
-          return (Left $ show e)
-
-recvAll :: NS.Socket -> IO BS.ByteString
-recvAll sock = go []
-  where
-    go acc = do
-      chunk <- NSB.recv sock 4096
-      if BS.null chunk
-        then return (BS.concat (reverse acc))
-        else go (chunk:acc)
+  let cmd =
+        case args of
+          ("-j":rest) -> Hypr.hyprCommandJson rest
+          _ -> Hypr.hyprCommand args
+  result <- runHyprlandCommandRawT cmd
+  pure $ case result of
+    Left err -> Left (show err)
+    Right out -> Right out
 
 hyprlandSwitchToWorkspace :: HyprlandWorkspace -> TaffyIO ()
 hyprlandSwitchToWorkspace ws = do
@@ -773,10 +682,11 @@ buildWorkspacesFromHyprland workspaces clients monitors activeWorkspace activeWi
       let wsId = hwiId wsInfo
           wsName = hwiName wsInfo
           wins = M.findWithDefault [] wsId windowsMap
+          hasWindows = not (null wins) || hwiWindows wsInfo > 0
           state
             | Just wsId == activeId = Active
             | wsId `elem` visibleIds = Visible
-            | null wins = Empty
+            | not hasWindows = Empty
             | otherwise = Hidden
       in HyprlandWorkspace
            { workspaceIdx = wsId

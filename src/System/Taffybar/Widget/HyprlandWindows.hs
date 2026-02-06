@@ -28,6 +28,8 @@ import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import           System.Log.Logger (Priority(..))
 import           System.Taffybar.Context
+import           System.Taffybar.Hyprland (runHyprlandCommandRawT)
+import qualified System.Taffybar.Information.Hyprland as Hypr
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.DynamicMenu
@@ -162,9 +164,15 @@ fillMenu config menu = ask >>= \context -> do
 
 focusHyprlandWindow :: HyprlandWindow -> TaffyIO ()
 focusHyprlandWindow windowData = do
-  result <- runCommand "hyprctl" ["dispatch", "focuswindow", "address:" <> T.unpack (windowAddress windowData)]
+  result <-
+    runHyprlandCommandRawT $
+      Hypr.hyprCommand
+        [ "dispatch"
+        , "focuswindow"
+        , "address:" <> T.unpack (windowAddress windowData)
+        ]
   case result of
     Left err ->
       logPrintF "System.Taffybar.Widget.HyprlandWindows" WARNING
-        "Failed to focus window: %s" err
+        "Failed to focus window: %s" (show err)
     Right _ -> return ()
