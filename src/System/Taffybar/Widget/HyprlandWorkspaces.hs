@@ -418,10 +418,10 @@ buildIconWidget transparentOnNone cfg = do
   ctx <- ask
   liftIO $
     mkWorkspaceIconWidget
-	      (Just $ iconSize cfg)
-	      transparentOnNone
-	      (\size w -> runReaderT (getWindowIconPixbuf cfg size w) ctx)
-	      (`pixBufFromColor` 0)
+      (Just $ iconSize cfg)
+      transparentOnNone
+      (\size w -> runReaderT (getWindowIconPixbuf cfg size w) ctx)
+      (`pixBufFromColor` 0)
 
 updateIconWidget :: HyprlandIconWidget -> Maybe HyprlandWindow -> ReaderT Context IO ()
 updateIconWidget iconWidget windowData =
