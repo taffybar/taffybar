@@ -150,7 +150,8 @@
         "nixpkgs": "nixpkgs",
         "status-notifier-item": "status-notifier-item",
         "weeder-nix": "weeder-nix",
-        "xmonad": "xmonad"
+        "xmonad": "xmonad",
+        "xmonad-contrib": "xmonad-contrib"
       }
     },
     "status-notifier-item": {
@@ -219,6 +220,23 @@
         "owner": "xmonad",
         "ref": "master",
         "repo": "xmonad",
+        "type": "github"
+      }
+    },
+    "xmonad-contrib": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1769258911,
+        "narHash": "sha256-YGEKXs4UmS5QOIELJTdCiMzTktuue+Bd3yFoIKSHuBU=",
+        "owner": "xmonad",
+        "repo": "xmonad-contrib",
+        "rev": "803bc3d12bdcc512ec06856c4f119d37de1ba338",
+        "type": "github"
+      },
+      "original": {
+        "owner": "xmonad",
+        "ref": "master",
+        "repo": "xmonad-contrib",
         "type": "github"
       }
     }

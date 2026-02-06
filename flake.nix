@@ -14,6 +14,10 @@
       url = "github:xmonad/xmonad/master";
       flake = false;
     };
+    xmonad-contrib = {
+      url = "github:xmonad/xmonad-contrib/master";
+      flake = false;
+    };
     status-notifier-item = {
       url = "github:taffybar/status-notifier-item";
       flake = false;
@@ -24,7 +28,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, gtk-sni-tray, gtk-strut, status-notifier-item, xmonad, weeder-nix }: let
+  outputs = { self, nixpkgs, flake-utils, gtk-sni-tray, gtk-strut, status-notifier-item, xmonad, xmonad-contrib, weeder-nix }: let
     inherit (self) lib;
     inherit (nixpkgs.lib) composeExtensions;
     inherit (flake-utils.lib) eachSystem;
@@ -44,7 +48,7 @@
         taffybar = prev.taffybar.extend (final: prev: {
           sourceOverrides = prev.sourceOverrides // {
             # Flake input dependencies which we want to build from source.
-            inherit gtk-strut gtk-sni-tray status-notifier-item xmonad;
+            inherit gtk-strut gtk-sni-tray status-notifier-item xmonad xmonad-contrib;
           };
         });
       }));
@@ -89,6 +93,7 @@
     checks = {
       hlint = pkgs.haskellPackages.taffybar.hlint;
       ghc-warnings = pkgs.haskellPackages.taffybar.fail-on-all-warnings;
+      tests = pkgs.haskellPackages.taffybar;
     } // lib.optionalAttrs (system == "x86_64-linux") {
       dependency-graph = weeder-nix.lib.${system}.makeWeederCheck {
         weederToml = ./weeder.toml;
