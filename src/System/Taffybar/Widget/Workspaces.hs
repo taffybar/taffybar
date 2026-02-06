@@ -577,10 +577,10 @@ buildIconWidget transparentOnNone ws = do
   lift $ do
     iconWidget <-
       mkWorkspaceIconWidget
-	        Nothing
-	        transparentOnNone
-	        getPB
-	        (`pixBufFromColor` 0)
+        Nothing
+        transparentOnNone
+        getPB
+        (`pixBufFromColor` 0)
     _ <-
       Gtk.onWidgetButtonPressEvent (iconContainer iconWidget) $
       const $ liftIO $ do
