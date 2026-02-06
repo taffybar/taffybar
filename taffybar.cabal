@@ -245,6 +245,7 @@ executable taffybar-appearance-snap
                , gi-gtk3
                , gtk-strut
                , taffybar
+               , text
                , typed-process
                , unix
                , unliftio
