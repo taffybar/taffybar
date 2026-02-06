@@ -19,7 +19,7 @@ import           Control.Applicative ((<|>))
 import           Control.Concurrent (forkIO, killThread)
 import qualified Control.Concurrent.MVar as MV
 import           Control.Exception.Enclosed (catchAny)
-import           Control.Monad (foldM, forM_, when, (>=>))
+import           Control.Monad (foldM, forM_, when)
 import           Control.Monad.IO.Class (MonadIO(liftIO))
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:), (.:?), (.!=))
@@ -48,7 +48,6 @@ import           Text.Printf (printf)
 
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import           StatusNotifier.Tray (scalePixbufToSize)
 
 import           System.Environment.XDG.DesktopEntry
   ( DesktopEntry
@@ -59,17 +58,25 @@ import           System.Taffybar.Context
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
 import           System.Taffybar.Widget.Util
-  ( buildPadBox
+  ( WindowIconWidget(..)
+  , buildBottomLeftAlignedBox
+  , buildPadBox
   , buildOverlayWithPassThrough
+  , computeIconStripLayout
   , getImageForDesktopEntry
+  , handlePixbufGetterException
+  , mkWindowIconWidgetBase
+  , scaledPixbufGetter
+  , syncWidgetPool
+  , updateWidgetClasses
+  , updateWindowIconWidgetState
   , widgetSetClassGI
+  , windowStatusClassFromFlags
   )
 import           System.Taffybar.Widget.Workspaces
   ( WorkspaceState(..)
   , cssWorkspaceStates
   , getCSSClass
-  , possibleStatusStrings
-  , updateWidgetClasses
   )
 import           System.Taffybar.WindowIcon (getWindowIconFromClasses, pixBufFromColor)
 
@@ -118,12 +125,7 @@ data HyprlandWorkspaceWidgetState = HyprlandWorkspaceWidgetState
   , workspaceLast :: HyprlandWorkspace
   }
 
-data HyprlandIconWidget = HyprlandIconWidget
-  { iconContainer :: Gtk.EventBox
-  , iconImage :: Gtk.Image
-  , iconWindow :: MV.MVar (Maybe HyprlandWindow)
-  , iconForceUpdate :: IO ()
-  }
+type HyprlandIconWidget = WindowIconWidget HyprlandWindow
 
 type HyprlandWindowIconPixbufGetter =
   Int32 -> HyprlandWindow -> TaffyIO (Maybe Gdk.Pixbuf)
@@ -387,8 +389,9 @@ buildWorkspaceWidgetState ::
 buildWorkspaceWidgetState cfg ws = do
   ctx <- ask
   labelText <- labelSetter cfg ws
-  label <- liftIO $ Gtk.labelNew (Just $ T.pack labelText)
+  label <- liftIO $ Gtk.labelNew Nothing
   _ <- widgetSetClassGI label "workspace-label"
+  liftIO $ Gtk.labelSetMarkup label (T.pack labelText)
 
   iconsBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
   wsRef <- liftIO $ newIORef ws
@@ -396,18 +399,13 @@ buildWorkspaceWidgetState cfg ws = do
 
   -- Match the X11 Workspaces widget's overlay layout:
   -- icons are the main contents and the label is overlaid bottom-left.
-  overlayLabelBox <- liftIO Gtk.eventBoxNew
-  _ <- widgetSetClassGI overlayLabelBox "overlay-box"
-  liftIO $ Gtk.widgetSetHalign overlayLabelBox Gtk.AlignStart
-  liftIO $ Gtk.widgetSetValign overlayLabelBox Gtk.AlignEnd
-  liftIO $ Gtk.containerAdd overlayLabelBox label
-
   mainContents <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
   liftIO $ Gtk.containerAdd mainContents iconsBox
   _ <- widgetSetClassGI mainContents "contents"
 
   outerBox <- buildPadBox =<< Gtk.toWidget mainContents
-  overlayLabelWidget <- liftIO $ Gtk.toWidget overlayLabelBox
+  labelWidget <- liftIO $ Gtk.toWidget label
+  overlayLabelWidget <- buildBottomLeftAlignedBox "overlay-box" labelWidget
   overlayWidget <- buildOverlayWithPassThrough outerBox [overlayLabelWidget]
   setWorkspaceWidgetStatusClass ws overlayWidget
   -- X11 Workspaces applies workspace state classes to the label too.
@@ -442,7 +440,7 @@ updateWorkspaceWidgetState ::
   -> ReaderT Context IO HyprlandWorkspaceWidgetState
 updateWorkspaceWidgetState cfg ws state = do
   labelText <- labelSetter cfg ws
-  liftIO $ Gtk.labelSetText (workspaceLabel state) (T.pack labelText)
+  liftIO $ Gtk.labelSetMarkup (workspaceLabel state) (T.pack labelText)
   liftIO $ writeIORef (workspaceRef state) ws
   icons <-
     if windows ws /= windows (workspaceLast state)
@@ -460,58 +458,20 @@ updateIcons ::
   -> ReaderT Context IO [HyprlandIconWidget]
 updateIcons cfg ws iconsBox iconWidgets = do
   sortedWindows <- iconSort cfg $ windows ws
-  let windowCount = length sortedWindows
-      maxNeeded = maybe windowCount (min windowCount) (maxIcons cfg)
-      effectiveMinIcons = maybe (minIcons cfg) (min (minIcons cfg)) (maxIcons cfg)
-      targetLen = max effectiveMinIcons maxNeeded
-      shownWindows = take maxNeeded sortedWindows
-      paddedWindows =
-        map Just shownWindows ++ replicate (targetLen - length shownWindows) Nothing
-
-  -- Grow the icon widget pool if needed. We never shrink the pool; instead we
-  -- hide extras.
-  icons' <-
-    if length iconWidgets >= targetLen
-      then return iconWidgets
-      else do
-        let start = length iconWidgets
-            mkOne i = do
-              iw <- buildIconWidget (i < effectiveMinIcons) cfg
-              liftIO $ Gtk.containerAdd iconsBox (iconContainer iw)
-              return iw
-        newOnes <- mapM mkOne [start .. targetLen - 1]
-        liftIO $ Gtk.widgetShowAll iconsBox
-        return (iconWidgets ++ newOnes)
-
-  forM_ (zip [0 :: Int ..] icons') $ \(i, iw) ->
-    if i < targetLen
-      then do
-        liftIO $ Gtk.widgetShow (iconContainer iw)
-        updateIconWidget iw (paddedWindows !! i)
-      else do
-        updateIconWidget iw Nothing
-        liftIO $ Gtk.widgetHide (iconContainer iw)
-
-  return icons'
+  let (effectiveMinIcons, _targetLen, paddedWindows) =
+        computeIconStripLayout (minIcons cfg) (maxIcons cfg) sortedWindows
+      buildOne i = buildIconWidget (i < effectiveMinIcons) cfg
+  syncWidgetPool iconsBox iconWidgets paddedWindows buildOne iconContainer updateIconWidget
 
 buildIconWidget :: Bool -> HyprlandWorkspacesConfig -> ReaderT Context IO HyprlandIconWidget
 buildIconWidget transparentOnNone cfg = do
   ctx <- ask
   liftIO $ do
-    windowVar <- MV.newMVar Nothing
-    img <- Gtk.imageNew
-    iconButton <- Gtk.eventBoxNew
-    _ <- widgetSetClassGI img "window-icon"
-    _ <- widgetSetClassGI iconButton "window-icon-container"
-    Gtk.containerAdd iconButton img
-    Gtk.widgetSetSizeRequest
-      img
-      (fromIntegral $ iconSize cfg)
-      (fromIntegral $ iconSize cfg)
+    base <- mkWindowIconWidgetBase (Just $ iconSize cfg)
     let getPixbuf size =
           runReaderT
             (do
-                mWin <- liftIO $ MV.readMVar windowVar
+                mWin <- liftIO $ MV.readMVar (iconWindow base)
                 let transparent = Just <$> pixBufFromColor size 0
                 case mWin of
                   Nothing ->
@@ -528,28 +488,17 @@ buildIconWidget transparentOnNone cfg = do
                           else return Nothing
             )
             ctx
-    refreshImage <- autoSizeImage img getPixbuf Gtk.OrientationHorizontal
-    return
-      HyprlandIconWidget
-      { iconContainer = iconButton
-      , iconImage = img
-      , iconWindow = windowVar
-      , iconForceUpdate = refreshImage
-      }
+    refreshImage <-
+      autoSizeImage (iconImage base) getPixbuf Gtk.OrientationHorizontal
+    return base { iconForceUpdate = refreshImage }
 
 updateIconWidget :: HyprlandIconWidget -> Maybe HyprlandWindow -> ReaderT Context IO ()
-updateIconWidget HyprlandIconWidget
-  { iconContainer = iconButton
-  , iconWindow = windowRef
-  , iconForceUpdate = refreshImage
-  } windowData = do
-  _ <- liftIO $ MV.swapMVar windowRef windowData
-  liftIO $ Gtk.widgetSetTooltipText iconButton $
-    T.pack . windowTitle <$> windowData
-  let statusString =
-        maybe "inactive" getWindowStatusString windowData
-  liftIO refreshImage
-  updateWidgetClasses iconButton [statusString] possibleStatusStrings
+updateIconWidget iconWidget windowData =
+  updateWindowIconWidgetState
+    iconWidget
+    windowData
+    (T.pack . windowTitle)
+    getWindowStatusString
 
 setWorkspaceWidgetStatusClass ::
   (MonadIO m, Gtk.IsWidget a) => HyprlandWorkspace -> a -> m ()
@@ -560,12 +509,11 @@ setWorkspaceWidgetStatusClass workspace widget =
     cssWorkspaceStates
 
 getWindowStatusString :: HyprlandWindow -> T.Text
-getWindowStatusString windowData = T.toLower $ T.pack $
-  case windowData of
-    HyprlandWindow { windowMinimized = True } -> "minimized"
-    HyprlandWindow { windowActive = True } -> show Active
-    HyprlandWindow { windowUrgent = True } -> show Urgent
-    _ -> "normal"
+getWindowStatusString windowData =
+  windowStatusClassFromFlags
+    (windowMinimized windowData)
+    (windowActive windowData)
+    (windowUrgent windowData)
 
 wLog :: MonadIO m => Priority -> String -> m ()
 wLog l s = liftIO $ logM "System.Taffybar.Widget.HyprlandWorkspaces" l s
@@ -574,17 +522,11 @@ wLog l s = liftIO $ logM "System.Taffybar.Widget.HyprlandWorkspaces" l s
 
 scaledWindowIconPixbufGetter ::
   HyprlandWindowIconPixbufGetter -> HyprlandWindowIconPixbufGetter
-scaledWindowIconPixbufGetter getter size =
-  getter size >=>
-  liftIO . traverse (scalePixbufToSize size Gtk.OrientationHorizontal)
+scaledWindowIconPixbufGetter = scaledPixbufGetter
 
 handleIconGetterException ::
   HyprlandWindowIconPixbufGetter -> HyprlandWindowIconPixbufGetter
-handleIconGetterException getter size windowData =
-  catchAny (getter size windowData) $ \e -> do
-    wLog WARNING $ printf "Failed to get window icon for %s: %s"
-                        (show windowData) (show e)
-    return Nothing
+handleIconGetterException = handlePixbufGetterException wLog
 
 defaultHyprlandGetWindowIconPixbuf :: HyprlandWindowIconPixbufGetter
 defaultHyprlandGetWindowIconPixbuf =

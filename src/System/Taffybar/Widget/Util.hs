@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -18,6 +19,8 @@
 module System.Taffybar.Widget.Util where
 
 import           Control.Concurrent ( forkIO )
+import qualified Control.Concurrent.MVar as MV
+import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Bifunctor ( first )
@@ -30,12 +33,97 @@ import qualified GI.GdkPixbuf.Objects.Pixbuf as GI
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 import           GI.Gtk as Gtk
 import           StatusNotifier.Tray (scalePixbufToSize)
+import           System.Log.Logger (Priority(..))
 import           System.Environment.XDG.DesktopEntry
 import           System.FilePath.Posix
 import           System.Taffybar.Util
 import           Text.Printf
 
 import           Paths_taffybar ( getDataDir )
+
+-- | Common record used for window icon widgets in workspace switchers.
+data WindowIconWidget a = WindowIconWidget
+  { iconContainer :: Gtk.EventBox
+  , iconImage :: Gtk.Image
+  , iconWindow :: MV.MVar (Maybe a)
+  , iconForceUpdate :: IO ()
+  }
+
+-- | Construct the GTK widgets and CSS classes for a window icon widget, leaving
+-- 'iconForceUpdate' as a placeholder to be filled in after calling
+-- 'autoSizeImage'.
+mkWindowIconWidgetBase :: MonadIO m => Maybe Int32 -> m (WindowIconWidget a)
+mkWindowIconWidgetBase mSize = liftIO $ do
+  windowVar <- MV.newMVar Nothing
+  img <- Gtk.imageNew
+  ebox <- Gtk.eventBoxNew
+  _ <- widgetSetClassGI img "window-icon"
+  _ <- widgetSetClassGI ebox "window-icon-container"
+  Gtk.containerAdd ebox img
+  forM_ mSize $ \s ->
+    Gtk.widgetSetSizeRequest img (fromIntegral s) (fromIntegral s)
+  return
+    WindowIconWidget
+      { iconContainer = ebox
+      , iconImage = img
+      , iconWindow = windowVar
+      , iconForceUpdate = return ()
+      }
+
+-- | List of possible status class names for window icon widgets.
+--
+-- This is used to keep the style context clean by removing stale classes.
+possibleStatusStrings :: [T.Text]
+possibleStatusStrings = ["active", "urgent", "minimized", "normal", "inactive"]
+
+-- | Add/remove classes on a widget while removing stale classes.
+updateWidgetClasses ::
+  (Foldable t1, Foldable t, Gtk.IsWidget a, MonadIO m)
+  => a
+  -> t1 T.Text
+  -> t T.Text
+  -> m ()
+updateWidgetClasses widget toAdd toRemove = do
+  context <- Gtk.widgetGetStyleContext widget
+  let hasClass = Gtk.styleContextHasClass context
+      addIfMissing klass =
+        hasClass klass >>= (`when` Gtk.styleContextAddClass context klass) . not
+      removeIfPresent klass = unless (klass `elem` toAdd) $
+        hasClass klass >>= (`when` Gtk.styleContextRemoveClass context klass)
+  mapM_ removeIfPresent toRemove
+  mapM_ addIfMissing toAdd
+
+-- | Update a 'WindowIconWidget' with new per-slot data.
+updateWindowIconWidgetState ::
+  (MonadIO m) =>
+  WindowIconWidget a ->
+  Maybe a ->
+  (a -> T.Text) ->
+  (a -> T.Text) ->
+  m ()
+updateWindowIconWidgetState iconWidget windowData titleFn statusFn = do
+  _ <- liftIO $ MV.swapMVar (iconWindow iconWidget) windowData
+  Gtk.widgetSetTooltipText (iconContainer iconWidget) (titleFn <$> windowData)
+  liftIO $ iconForceUpdate iconWidget
+  let statusString = maybe "inactive" statusFn windowData
+  updateWidgetClasses
+    (iconContainer iconWidget)
+    [statusString]
+    possibleStatusStrings
+
+scaledPixbufGetter ::
+  (MonadIO m) =>
+  (Int32 -> a -> m (Maybe GI.Pixbuf)) ->
+  (Int32 -> a -> m (Maybe GI.Pixbuf))
+scaledPixbufGetter getter size windowData =
+  getter size windowData >>=
+  traverse (liftIO . scalePixbufToSize size Gtk.OrientationHorizontal)
+
+handlePixbufGetterException logFn getter size windowData =
+  catchAny (getter size windowData) $ \e -> do
+    _ <- logFn WARNING $ printf "Failed to get window icon for %s: %s"
+                               (show windowData) (show e)
+    return Nothing
 
 -- | Execute the given action as a response to any of the given types
 -- of mouse button clicks.
@@ -229,3 +317,84 @@ buildOverlayWithPassThrough base overlays = liftIO $ do
     Gtk.overlayAddOverlay overlay w
     Gtk.overlaySetOverlayPassThrough overlay w True
   Gtk.toWidget overlay
+
+-- | Wrap a widget in an event box aligned to the bottom-left.
+--
+-- This is used by workspace widgets to overlay a label on top of icons in a
+-- consistent way across different backends.
+buildBottomLeftAlignedBox :: MonadIO m => T.Text -> Gtk.Widget -> m Gtk.Widget
+buildBottomLeftAlignedBox boxClass child = liftIO $ do
+  ebox <- Gtk.eventBoxNew
+  _ <- widgetSetClassGI ebox boxClass
+  Gtk.widgetSetHalign ebox Gtk.AlignStart
+  Gtk.widgetSetValign ebox Gtk.AlignEnd
+  Gtk.containerAdd ebox child
+  Gtk.toWidget ebox
+
+-- | Compute a window icon strip layout given min/max icon config and a sorted
+-- list of items.
+--
+-- Returns (effectiveMinIcons, targetLen, paddedItems) where:
+-- - effectiveMinIcons is @min minIcons maxIcons@ when maxIcons is set
+-- - targetLen is at least effectiveMinIcons and large enough for shown items
+-- - paddedItems is exactly targetLen elements long (Just items, then Nothings)
+computeIconStripLayout :: Int -> Maybe Int -> [a] -> (Int, Int, [Maybe a])
+computeIconStripLayout minIcons maxIcons items =
+  let itemCount = length items
+      maxNeeded = maybe itemCount (min itemCount) maxIcons
+      effectiveMinIcons = maybe minIcons (min minIcons) maxIcons
+      targetLen = max effectiveMinIcons maxNeeded
+      shownItems = take maxNeeded items
+      paddedItems =
+        map Just shownItems ++ replicate (targetLen - length shownItems) Nothing
+  in (effectiveMinIcons, targetLen, paddedItems)
+
+-- | CSS class name for a window icon given its state.
+--
+-- This matches the classes used by the workspaces widgets: `active`, `urgent`,
+-- `minimized`, `normal` (and `inactive` when there is no window).
+windowStatusClassFromFlags :: Bool -> Bool -> Bool -> T.Text
+windowStatusClassFromFlags minimized active urgent
+  | minimized = "minimized"
+  | active = "active"
+  | urgent = "urgent"
+  | otherwise = "normal"
+
+-- | Keep a pool of widget "slots" in sync with a desired list of per-slot data.
+--
+-- The pool is only grown (never shrunk). Widgets within the desired length are
+-- shown and updated; widgets beyond it are updated with 'Nothing' and hidden.
+syncWidgetPool ::
+  (MonadIO m, Gtk.IsWidget child) =>
+  Gtk.Box ->
+  [w] ->
+  [Maybe a] ->
+  (Int -> m w) ->
+  (w -> child) ->
+  (w -> Maybe a -> m ()) ->
+  m [w]
+syncWidgetPool container pool desired mkOne getChild updateOne = do
+  let targetLen = length desired
+
+  pool' <-
+    if length pool >= targetLen
+      then return pool
+      else do
+        let start = length pool
+        newOnes <- forM [start .. targetLen - 1] $ \i -> do
+          w <- mkOne i
+          liftIO $ Gtk.containerAdd container (getChild w)
+          return w
+        liftIO $ Gtk.widgetShowAll container
+        return (pool ++ newOnes)
+
+  forM_ (zip3 [0 :: Int ..] pool' (desired ++ repeat Nothing)) $ \(i, w, payload) ->
+    if i < targetLen
+      then do
+        liftIO $ Gtk.widgetShow (getChild w)
+        updateOne w payload
+      else do
+        updateOne w Nothing
+        liftIO $ Gtk.widgetHide (getChild w)
+
+  return pool'

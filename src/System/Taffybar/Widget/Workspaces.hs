@@ -16,7 +16,6 @@ module System.Taffybar.Widget.Workspaces where
 import           Control.Arrow ((&&&))
 import           Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
-import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -40,7 +39,6 @@ import qualified GI.Gdk.Enums as Gdk
 import qualified GI.Gdk.Structs.EventScroll as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Log.Logger
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
@@ -107,22 +105,6 @@ setWorkspaceWidgetStatusClass workspace widget =
     widget
     [getCSSClass $ workspaceState workspace]
     cssWorkspaceStates
-
-updateWidgetClasses ::
-  (Foldable t1, Foldable t, Gtk.IsWidget a, MonadIO m)
-  => a
-  -> t1 T.Text
-  -> t T.Text
-  -> m ()
-updateWidgetClasses widget toAdd toRemove = do
-  context <- Gtk.widgetGetStyleContext widget
-  let hasClass = Gtk.styleContextHasClass context
-      addIfMissing klass =
-        hasClass klass >>= (`when` Gtk.styleContextAddClass context klass) . not
-      removeIfPresent klass = unless (klass `elem` toAdd) $
-        hasClass klass >>= (`when` Gtk.styleContextRemoveClass context klass)
-  mapM_ removeIfPresent toRemove
-  mapM_ addIfMissing toAdd
 
 class WorkspaceWidgetController wc where
   getWidget :: wc -> WorkspacesIO Gtk.Widget
@@ -502,12 +484,7 @@ bottomLeftAlignedBoxWrapper :: T.Text -> ControllerConstructor -> ControllerCons
 bottomLeftAlignedBoxWrapper boxClass constructor ws = do
   controller <- constructor ws
   widget <- getWidget controller
-  ebox <- Gtk.eventBoxNew
-  _ <- widgetSetClassGI ebox boxClass
-  Gtk.widgetSetHalign ebox Gtk.AlignStart
-  Gtk.widgetSetValign ebox Gtk.AlignEnd
-  Gtk.containerAdd ebox widget
-  wrapped <- Gtk.toWidget ebox
+  wrapped <- lift $ buildBottomLeftAlignedBox boxClass widget
   let wrappingController = WrappingController
                            { wrappedWidget = wrapped
                            , wrappedController = controller
@@ -576,12 +553,7 @@ instance WorkspaceWidgetController LabelController where
     return lc
   updateWidget lc _ = return lc
 
-data IconWidget = IconWidget
-  { iconContainer :: Gtk.EventBox
-  , iconImage :: Gtk.Image
-  , iconWindow :: MV.MVar (Maybe WindowData)
-  , iconForceUpdate :: IO ()
-  }
+type IconWidget = WindowIconWidget WindowData
 
 getPixbufForIconWidget :: Bool
                        -> MV.MVar (Maybe WindowData)
@@ -602,33 +574,25 @@ buildIconWidget :: Bool -> Workspace -> WorkspacesIO IconWidget
 buildIconWidget transparentOnNone ws = do
   ctx <- ask
   lift $ do
-    windowVar <- MV.newMVar Nothing
-    img <- Gtk.imageNew
+    base <- mkWindowIconWidgetBase Nothing
     refreshImage <-
-      autoSizeImage img
-        (flip runReaderT ctx . getPixbufForIconWidget transparentOnNone windowVar)
+      autoSizeImage
+        (iconImage base)
+        (flip runReaderT ctx .
+         getPixbufForIconWidget transparentOnNone (iconWindow base))
         Gtk.OrientationHorizontal
-    ebox <- Gtk.eventBoxNew
-    _ <- widgetSetClassGI img "window-icon"
-    _ <- widgetSetClassGI ebox "window-icon-container"
-    Gtk.containerAdd ebox img
+    let iconWidget = base { iconForceUpdate = refreshImage }
     _ <-
-      Gtk.onWidgetButtonPressEvent ebox $
+      Gtk.onWidgetButtonPressEvent (iconContainer iconWidget) $
       const $ liftIO $ do
-        info <- MV.readMVar windowVar
+        info <- MV.readMVar (iconWindow iconWidget)
         case info of
           Just updatedInfo ->
             flip runReaderT ctx $
             liftX11Def () $ focusWindow $ windowId updatedInfo
           _ -> liftIO $ void $ switch ctx (workspaceIdx ws)
         return True
-    return
-      IconWidget
-      { iconContainer = ebox
-      , iconImage = img
-      , iconWindow = windowVar
-      , iconForceUpdate = refreshImage
-      }
+    return iconWidget
 
 data IconController = IconController
   { iconsContainer :: Gtk.Box
@@ -666,9 +630,7 @@ updateWindowIconsById ic windowIds =
          updateIconWidget ic widget info
 
 scaledWindowIconPixbufGetter :: WindowIconPixbufGetter -> WindowIconPixbufGetter
-scaledWindowIconPixbufGetter getter size =
-  getter size >=>
-  lift . traverse (scalePixbufToSize size Gtk.OrientationHorizontal)
+scaledWindowIconPixbufGetter = scaledPixbufGetter
 
 constantScaleWindowIconPixbufGetter ::
   Int32 -> WindowIconPixbufGetter -> WindowIconPixbufGetter
@@ -676,10 +638,7 @@ constantScaleWindowIconPixbufGetter constantSize getter =
   const $ scaledWindowIconPixbufGetter getter constantSize
 
 handleIconGetterException :: WindowIconPixbufGetter -> WindowIconPixbufGetter
-handleIconGetterException getter size windowData =
-  catchAny (getter size windowData) $ \e -> do
-    wLog WARNING $ printf "Failed to get window icon for %s: %s" (show windowData) (show e)
-    return Nothing
+handleIconGetterException = handlePixbufGetterException wLog
 
 getWindowIconPixbufFromEWMH :: WindowIconPixbufGetter
 getWindowIconPixbufFromEWMH = handleIconGetterException $ \size windowData ->
@@ -764,72 +723,30 @@ updateImages ic ws = do
   WorkspacesContext {workspacesConfig = cfg} <- ask
   sortedWindows <- iconSort cfg $ windows ws
   wLog DEBUG $ printf "Updating images for %s" (show ws)
-  let updateIconWidget' getImageAction wdata = do
-        iconWidget <- getImageAction
-        _ <- updateIconWidget ic iconWidget wdata
-        return iconWidget
-      existingImages = map return $ iconImages ic
-      buildAndAddIconWidget transparentOnNone = do
-        iw <- buildIconWidget transparentOnNone ws
-        lift $ Gtk.containerAdd (iconsContainer ic) $ iconContainer iw
-        return iw
-      infiniteImages =
-        existingImages ++
-        replicate (minIcons cfg - length existingImages)
-                  (buildAndAddIconWidget True) ++
-        repeat (buildAndAddIconWidget False)
-      windowCount = length $ windows ws
-      maxNeeded = maybe windowCount (min windowCount) $ maxIcons cfg
-      newImagesNeeded = length existingImages < max (minIcons cfg) maxNeeded
-      -- XXX: Only one of the two things being zipped can be an infinite list,
-      -- which is why this newImagesNeeded contortion is needed.
-      imgSrcs =
-        if newImagesNeeded
-          then infiniteImages
-          else existingImages
-      getImgs = maybe imgSrcs (`take` imgSrcs) $ maxIcons cfg
-      justWindows = map Just sortedWindows
-      windowDatas =
-        if newImagesNeeded
-          then justWindows ++
-               replicate (minIcons cfg - length justWindows) Nothing
-          else justWindows ++ repeat Nothing
-  newImgs <-
-    zipWithM updateIconWidget' getImgs windowDatas
-  when newImagesNeeded $ lift $ Gtk.widgetShowAll $ iconsContainer ic
-  return newImgs
+  let (effectiveMinIcons, _targetLen, paddedWindows) =
+        computeIconStripLayout (minIcons cfg) (maxIcons cfg) sortedWindows
+      buildOne i = buildIconWidget (i < effectiveMinIcons) ws
+      updateOne iw wdata = updateIconWidget ic iw wdata
+  syncWidgetPool (iconsContainer ic) (iconImages ic) paddedWindows buildOne iconContainer updateOne
 
 getWindowStatusString :: WindowData -> T.Text
-getWindowStatusString windowData = T.toLower $ T.pack $
-  case windowData of
-    WindowData { windowMinimized = True } -> "minimized"
-    WindowData { windowActive = True } -> show Active
-    WindowData { windowUrgent = True } -> show Urgent
-    _ -> "normal"
-
-possibleStatusStrings :: [T.Text]
-possibleStatusStrings =
-  map
-    (T.toLower . T.pack)
-    [show Active, show Urgent, "minimized", "normal", "inactive"]
+getWindowStatusString windowData =
+  windowStatusClassFromFlags
+    (windowMinimized windowData)
+    (windowActive windowData)
+    (windowUrgent windowData)
 
 updateIconWidget
   :: IconController
   -> IconWidget
   -> Maybe WindowData
   -> WorkspacesIO ()
-updateIconWidget _ IconWidget
-                   { iconContainer = iconButton
-                   , iconWindow = windowRef
-                   , iconForceUpdate = updateIcon
-                   } windowData = do
-  let statusString = maybe "inactive" getWindowStatusString windowData :: T.Text
-      title = T.pack . windowTitle <$> windowData
-      setIconWidgetProperties =
-        updateWidgetClasses iconButton [statusString] possibleStatusStrings
-  void $ updateVar windowRef $ const $ return windowData
-  Gtk.widgetSetTooltipText iconButton title
-  lift $ updateIcon >> setIconWidgetProperties
+updateIconWidget _ iconWidget windowData =
+  updateWindowIconWidgetState
+    iconWidget
+    windowData
+    (T.pack . windowTitle)
+    getWindowStatusString
 
 data WorkspaceButtonController = WorkspaceButtonController
   { button :: Gtk.EventBox
