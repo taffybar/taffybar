@@ -532,12 +532,8 @@ buildOverlayContentsController mainConstructors overlayConstructors ws = do
         controllers
     outerBox <- Gtk.toWidget mainContents >>= buildPadBox
     _ <- widgetSetClassGI mainContents "contents"
-    overlay <- Gtk.overlayNew
-    Gtk.containerAdd overlay outerBox
-    mapM_ (flip runReaderT ctx . getWidget >=>
-                Gtk.overlayAddOverlay overlay) overlayControllers
-
-    widget <- Gtk.toWidget overlay
+    overlayWidgets <- mapM (flip runReaderT ctx . getWidget) overlayControllers
+    widget <- buildOverlayWithPassThrough outerBox overlayWidgets
     return
       WorkspaceContentsController
       { containerWidget = widget
