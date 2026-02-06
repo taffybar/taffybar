@@ -253,10 +253,9 @@ discoverHyprlandSocketPaths _client sock = do
         -- bring down widgets if this scan races a restart.
         sigEntries <- listDirectory base `catchAny` \_ -> pure []
         let candidates = map (\sig -> base </> sig </> name) sigEntries
-        existing <- fmap concat $ forM candidates $ \p -> do
+        fmap concat $ forM candidates $ \p -> do
           mTime <- socketPathMTime p
           pure $ maybe [] (\t -> [(t, p)]) mTime
-        pure existing
 
   -- Prefer the newest sockets first to minimize binding to a stale instance.
   pure $ map snd $ sortOn (Down . fst) pathsWithTimes
@@ -417,7 +416,7 @@ runHyprlandCommandHyprctl :: HyprlandClient -> FilePath -> HyprlandCommand -> IO
 runHyprlandCommandHyprctl client hyprctl HyprlandCommand { commandArgs = args, commandJson = isJson } = do
   mSig <- pickHyprlandInstanceSignature client
   let flags =
-        (if isJson then ["-j"] else []) ++
+        ["-j" | isJson] ++
         maybe [] (\sig -> ["-i", sig]) mSig
   result <- runCommand hyprctl (flags ++ args)
   pure $ case result of
