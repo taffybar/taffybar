@@ -3,8 +3,10 @@
  * Keep this minimal: any theme/font dependence will churn goldens.
  */
 
-window.taffy-window {
+window.taffy-window,
+.taffy-box {
   background-image: linear-gradient(to bottom, #2b2b2b, #1e1e1e);
+  background-color: #1e1e1e;
 }
 
 .taffy-box {
@@ -41,4 +43,12 @@ window.taffy-window {
 .test-right-box {
   background-color: #3a5a7a;
   border-radius: 5px;
+}
+
+.test-pill {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #f0f0f0;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
 }
