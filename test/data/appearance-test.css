@@ -11,3 +11,14 @@ window.taffy-window {
   padding: 0px;
 }
 
+/* Keep workspace icon layout stable and large enough to be visible. */
+.window-icon-container {
+  min-width: 16px;
+  min-height: 16px;
+  padding: 2px;
+}
+
+.window-icon {
+  min-width: 16px;
+  min-height: 16px;
+}

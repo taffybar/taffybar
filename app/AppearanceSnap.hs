@@ -10,10 +10,11 @@ module Main (main) where
 
 import Control.Concurrent (MVar, forkIO, newEmptyMVar, threadDelay, takeMVar)
 import Control.Concurrent.MVar (readMVar, tryPutMVar, tryReadMVar)
-import Control.Exception (SomeException, try)
+import Control.Exception (SomeException, bracket, try)
 import Control.Monad (filterM, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
+import Data.Bits ((.|.), shiftL)
 import Data.Default (def)
 import Data.Maybe (listToMaybe)
 import Data.Unique (newUnique)
@@ -23,6 +24,7 @@ import System.Exit (ExitCode (..), exitWith)
 import System.FilePath (takeDirectory, (</>))
 import System.Info (arch, os)
 import System.IO (hPutStrLn, stderr)
+import Data.Word (Word32)
 
 import UnliftIO.Temporary (withSystemTempDirectory)
 
@@ -38,8 +40,26 @@ import qualified GI.Gdk as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 import qualified GI.Gtk as Gtk
 
-import Graphics.X11.Xlib (Atom, Display, Window, closeDisplay, defaultRootWindow, internAtom, openDisplay)
-import Graphics.X11.Xlib.Extras (getWindowProperty32)
+import Graphics.X11.Xlib
+  ( Atom
+  , Display
+  , Window
+  , closeDisplay
+  , createSimpleWindow
+  , defaultRootWindow
+  , internAtom
+  , mapWindow
+  , openDisplay
+  , storeName
+  , sync
+  )
+import Graphics.X11.Xlib.Extras
+  ( ClassHint (..)
+  , changeProperty32
+  , getWindowProperty32
+  , propModeReplace
+  , setClassHint
+  )
 
 import Graphics.UI.GIGtkStrut
   ( StrutConfig (..)
@@ -59,7 +79,12 @@ import System.Taffybar.Context
   , exitTaffybar
   )
 import System.Taffybar.Util (postGUIASync)
-import System.Taffybar.Widget.Workspaces (WorkspacesConfig (..), workspacesNew)
+import System.Taffybar.Widget.Workspaces
+  ( WorkspacesConfig (..)
+  , getWindowIconPixbufFromEWMH
+  , sortWindowsByStackIndex
+  , workspacesNew
+  )
 
 data Args = Args
   { outFile :: FilePath
@@ -129,7 +154,14 @@ runUnderWm wmProc outPath cssPath = do
   void $ forkIO $ watchdogThread wmProc ctxVar resultVar doneVar 30_000_000
 
   barUnique <- newUnique
-  let wsCfg = (def :: WorkspacesConfig) { labelSetter = const (pure "") }
+  let wsCfg =
+        (def :: WorkspacesConfig)
+          { labelSetter = const (pure "")
+          , maxIcons = Just 1
+          , minIcons = 1
+          , getWindowIconPixbuf = getWindowIconPixbufFromEWMH
+          , iconSort = sortWindowsByStackIndex
+          }
       barCfg =
         BarConfig
           { strutConfig =
@@ -153,11 +185,65 @@ runUnderWm wmProc outPath cssPath = do
           , errorMsg = Nothing
           }
 
-  -- Blocks in Gtk.main until we request shutdown.
-  startTaffybar cfg
+  withTestWindows $ do
+    -- Blocks in Gtk.main until we request shutdown.
+    startTaffybar cfg
 
-  -- Should have been set by finalizeThread or watchdogThread.
-  takeMVar doneVar
+    -- Should have been set by finalizeThread or watchdogThread.
+    takeMVar doneVar
+
+withTestWindows :: IO a -> IO a
+withTestWindows action =
+  bracket setup closeDisplay (const action)
+  where
+    setup :: IO Display
+    setup = do
+      d <- openDisplay ""
+      let root = defaultRootWindow d
+      iconAtom <- internAtom d "_NET_WM_ICON" False
+      cardinalAtom <- internAtom d "CARDINAL" False
+
+      -- Create two managed windows with deterministic EWMH icons so the
+      -- workspaces widget exercises its icon rendering path in CI.
+      --
+      -- Important: keep the X11 connection open until the snapshot is taken.
+      -- X11 resources are owned by the client; closing the Display would
+      -- destroy the windows.
+      w1 <- createSimpleWindow d root 10 60 150 100 0 0 0
+      w2 <- createSimpleWindow d root 170 60 150 100 0 0 0
+      storeName d w1 "taffybar-test-1"
+      storeName d w2 "taffybar-test-2"
+      setClassHint d w1 (ClassHint "redwin" "RedWin")
+      setClassHint d w2 (ClassHint "greenwin" "GreenWin")
+
+      let setIcon win px =
+            changeProperty32
+              d
+              win
+              iconAtom
+              cardinalAtom
+              propModeReplace
+              (ewmhIconDataSolid 16 16 px)
+
+      setIcon w1 (argb 0xFF 0xE0 0x3A 0x3A) -- red
+      setIcon w2 (argb 0xFF 0x3A 0xE0 0x6A) -- green
+
+      mapWindow d w1
+      mapWindow d w2
+      sync d False
+
+      -- Give the WM a moment to manage/map and publish EWMH properties.
+      threadDelay 300_000
+      pure d
+
+argb :: Word32 -> Word32 -> Word32 -> Word32 -> Word32
+argb a r g b = shiftL a 24 .|. shiftL r 16 .|. shiftL g 8 .|. b
+
+ewmhIconDataSolid :: Int -> Int -> Word32 -> [CLong]
+ewmhIconDataSolid w h px =
+  let header = [fromIntegral w, fromIntegral h]
+      pixels = replicate (w * h) (fromIntegral px)
+   in header ++ pixels
 
 scheduleSnapshot :: MVar Context -> MVar (Either String BL.ByteString) -> TaffyIO ()
 scheduleSnapshot ctxVar resultVar = do
@@ -268,13 +354,46 @@ trySnapshotOnGuiThread ctx resultVar = do
   case listToMaybe ws of
     Nothing -> pure ()
     Just (_, win) -> do
-      mPng <- try (snapshotGtkWindowPng win) :: IO (Either SomeException BL.ByteString)
-      case mPng of
+      mImg <- try (snapshotGtkWindowImageRGBA8 win) :: IO (Either SomeException (JP.Image JP.PixelRGBA8))
+      case mImg of
         Left _ -> pure ()
-        Right png -> void (tryPutMVar resultVar (Right png))
+        Right img ->
+          -- Don't accept a snapshot until the workspace icons are actually
+          -- rendered, otherwise we can end up with a "blank" bar screenshot
+          -- that doesn't exercise the icon path.
+          when (imageHasTestIcons img) $
+            void (tryPutMVar resultVar (Right (JP.encodePng img)))
 
-snapshotGtkWindowPng :: Gtk.Window -> IO BL.ByteString
-snapshotGtkWindowPng win = do
+imageHasTestIcons :: JP.Image JP.PixelRGBA8 -> Bool
+imageHasTestIcons img =
+  let tol :: Int
+      tol = 40
+      near (JP.PixelRGBA8 r g b a) (tr, tg, tb) =
+        a > 200 &&
+        abs (fromIntegral r - tr) <= tol &&
+        abs (fromIntegral g - tg) <= tol &&
+        abs (fromIntegral b - tb) <= tol
+      redTarget :: (Int, Int, Int)
+      redTarget = (224, 58, 58)
+      greenTarget :: (Int, Int, Int)
+      greenTarget = (58, 224, 106)
+      w = JP.imageWidth img
+      h = JP.imageHeight img
+      go y seenR seenG
+        | y >= h = seenR && seenG
+        | otherwise =
+            let goX x sr sg
+                  | x >= w = go (y + 1) sr sg
+                  | otherwise =
+                      let px = JP.pixelAt img x y
+                          sr1 = sr || near px redTarget
+                          sg1 = sg || near px greenTarget
+                       in (sr1 && sg1) || goX (x + 1) sr1 sg1
+             in goX 0 seenR seenG
+   in go 0 False False
+
+snapshotGtkWindowImageRGBA8 :: Gtk.Window -> IO (JP.Image JP.PixelRGBA8)
+snapshotGtkWindowImageRGBA8 win = do
   drainGtkEvents 200
 
   mw <- Gtk.widgetGetWindow win
@@ -287,8 +406,7 @@ snapshotGtkWindowPng win = do
   mpb <- Gdk.pixbufGetFromWindow gdkWindow 0 0 w h
   pb <- maybe (fail "Failed to capture pixbuf from window") pure mpb
 
-  img <- pixbufToImageRGBA8 pb
-  pure (JP.encodePng img)
+  pixbufToImageRGBA8 pb
 
 pixbufToImageRGBA8 :: PB.Pixbuf -> IO (JP.Image JP.PixelRGBA8)
 pixbufToImageRGBA8 pb = do
