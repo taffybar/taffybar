@@ -10,6 +10,9 @@ final: prev: let
   inherit (pkgs) lib;
 
   haskellLib = pkgs.haskell.lib.compose;
+  fontsConf = pkgs.makeFontsConf {
+    fontDirectories = [ pkgs.dejavu_fonts ];
+  };
 
   # Add further customization of haskellPackages here
   configuration = with haskellLib; self: super: {
@@ -38,9 +41,16 @@ final: prev: let
       (overrideCabal (drv: {
         # This is required so that "cabal repl" and haskell-language-server
         # can find non-pkgconfig dependencies.
+        preCheck = ''
+          ${drv.preCheck or ""}
+          export FONTCONFIG_FILE=${fontsConf}
+          export FONTCONFIG_PATH=${pkgs.fontconfig.out}/etc/fonts
+        '';
         shellHook = ''
           ${drv.shellHook or ""}
           export LD_LIBRARY_PATH=${lib.makeLibraryPath [ pkgs.zlib ]}:$LD_LIBRARY_PATH
+          export FONTCONFIG_FILE=${fontsConf}
+          export FONTCONFIG_PATH=${pkgs.fontconfig.out}/etc/fonts
         '';
       }))
 

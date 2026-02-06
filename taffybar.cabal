@@ -25,6 +25,8 @@ extra-source-files:
   dbus-xml/org.freedesktop.NetworkManager.Connection.Active.xml
   dbus-xml/org.freedesktop.NetworkManager.AccessPoint.xml
   test/data/*.golden
+  test/data/*.png
+  test/data/appearance-test.css
 extra-doc-files:
   README.md
   CHANGELOG.md
@@ -225,6 +227,34 @@ executable taffybar
   main-is: Main.hs
   pkgconfig-depends: gtk+-3.0
 
+executable taffybar-test-wm
+  import: haskell, exe
+  hs-source-dirs: app
+  main-is: TestWM.hs
+  build-depends: xmonad
+               , xmonad-contrib
+
+executable taffybar-appearance-snap
+  import: haskell, exe
+  hs-source-dirs: app
+  main-is: AppearanceSnap.hs
+  build-depends: JuicyPixels
+               , X11
+               , bytestring
+               , data-default
+               , directory
+               , filepath
+               , gi-gdk3
+               , gi-gdkpixbuf
+	               , gi-gtk3
+	               , gtk-strut
+	               , taffybar
+	               , text
+	               , transformers
+	               , typed-process
+	               , unix
+	               , unliftio
+
 common test
   default-extensions:
     ImportQualifiedPost
@@ -266,11 +296,14 @@ test-suite unit
   main-is: unit-tests.hs
   other-modules: UnitSpec
                , System.Taffybar.AuthSpec
+               , System.Taffybar.AppearanceSpec
                , System.Taffybar.ContextSpec
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.SimpleConfigSpec
   build-depends: data-default
+               , bytestring
                , directory
+               , JuicyPixels
                , filepath
                , gi-gtk3
                , hspec
@@ -278,9 +311,14 @@ test-suite unit
                , hspec-golden
                , taffybar
                , taffybar:testlib
+               , typed-process
+               , unix
+               , unliftio
                , transformers
                , QuickCheck
   build-tool-depends: hspec-discover:hspec-discover == 2.*
+                   , taffybar:taffybar-test-wm
+                   , taffybar:taffybar-appearance-snap
 
 source-repository head
   type: git
