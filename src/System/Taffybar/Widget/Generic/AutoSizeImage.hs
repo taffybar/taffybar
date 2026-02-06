@@ -26,6 +26,14 @@ borderFunctions =
   , Gtk.styleContextGetBorder
   ]
 
+-- Insets that are inside a widget's allocation and should be respected when
+-- drawing inside it.
+insetFunctions :: [Gtk.StyleContext -> [Gtk.StateFlags] -> IO Gtk.Border]
+insetFunctions =
+  [ Gtk.styleContextGetPadding
+  , Gtk.styleContextGetBorder
+  ]
+
 data BorderInfo = BorderInfo
   { borderTop :: Int16
   , borderBottom :: Int16
@@ -67,6 +75,19 @@ getBorderInfo widget = liftIO $ do
         addBorderInfo lastSum <$> getBorderInfoFor fn
 
   foldM combineBorderInfo borderInfoZero borderFunctions
+
+-- | Get the size of the padding+border drawn inside a widget's allocation.
+getInsetInfo :: (MonadIO m, Gtk.IsWidget a) => a -> m BorderInfo
+getInsetInfo widget = liftIO $ do
+  stateFlags <- Gtk.widgetGetStateFlags widget
+  styleContext <- Gtk.widgetGetStyleContext widget
+
+  let getBorderInfoFor borderFn =
+        borderFn styleContext stateFlags >>= toBorderInfo
+      combineBorderInfo lastSum fn =
+        addBorderInfo lastSum <$> getBorderInfoFor fn
+
+  foldM combineBorderInfo borderInfoZero insetFunctions
 
 -- | Get the actual allocation for a "Gtk.Widget", accounting for the size of
 -- its CSS assined margin, border and padding values.
