@@ -255,6 +255,24 @@ executable taffybar-appearance-snap
                , unix
                , unliftio
 
+executable taffybar-appearance-snap-hyprland
+  import: haskell, exe
+  hs-source-dirs: app
+  main-is: AppearanceSnapHyprland.hs
+  build-depends: JuicyPixels
+               , bytestring
+               , data-default
+               , directory
+               , filepath
+               , gi-gtk3
+               , gtk-strut
+               , taffybar
+               , text
+               , typed-process
+               , unix
+               , unliftio
+               , transformers
+
 common test
   default-extensions:
     ImportQualifiedPost
