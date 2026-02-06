@@ -333,6 +333,9 @@ buildHyprlandEventChan client = do
           logH WARNING $ printf "Hyprland event socket unavailable: %s" (show err)
           threadDelay retryDelayMicros
         Right handle -> do
+          -- Emit a synthetic event on (re)connect so widgets can refresh their
+          -- state after Hyprland restarts without resorting to polling.
+          atomically $ writeTChan chan "taffybar-hyprland-connected>>"
           let loop =
                 hGetLine handle >>= (atomically . writeTChan chan . T.pack) >> loop
           loop `catchAny` \e ->

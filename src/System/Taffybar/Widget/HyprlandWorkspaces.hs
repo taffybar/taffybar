@@ -16,10 +16,9 @@
 module System.Taffybar.Widget.HyprlandWorkspaces where
 
 import           Control.Applicative ((<|>))
-import           Control.Concurrent (forkIO, killThread, threadDelay)
+import           Control.Concurrent (forkIO, killThread)
 import           Control.Concurrent.STM.TChan (TChan, readTChan)
-import qualified Control.Concurrent.MVar as MV
-import           Control.Monad (foldM, forM_, forever, when)
+import           Control.Monad (foldM, forM_, when)
 import           Control.Monad.IO.Class (MonadIO(liftIO))
 import           Control.Monad.STM (atomically)
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
@@ -176,27 +175,15 @@ hyprlandWorkspacesNew cfg = do
           fromIntegral (widgetGap cfg)
   _ <- widgetSetClassGI cont "workspaces"
   ctx <- ask
-  refreshLock <- liftIO $ MV.newMVar ()
-  let refresh0 = runReaderT (refreshWorkspaces cfg cont) ctx
-      -- Avoid concurrent refreshes from the event thread + polling thread.
-      refresh = MV.withMVar refreshLock $ const refresh0
+  let refresh = runReaderT (refreshWorkspaces cfg cont) ctx
   liftIO refresh
   -- Ensure this top-level container is visible when packed into the bar.
   -- Otherwise the start widget area can appear blank under Wayland/Hyprland.
   liftIO $ Gtk.widgetShowAll cont
   eventChan <- getHyprlandEventChan
   events <- liftIO $ Hypr.subscribeHyprlandEvents eventChan
-  tidEvents <- liftIO $ forkIO $ hyprlandUpdateLoop refresh events
-  mTidPolling <-
-    if updateIntervalSeconds cfg <= 0
-      then pure Nothing
-      else do
-        let intervalMicros =
-              max 100000 $ floor $ updateIntervalSeconds cfg * 1000000
-        Just <$> liftIO (forkIO $ forever $ threadDelay intervalMicros >> refresh)
-  _ <- liftIO $ Gtk.onWidgetUnrealize cont $ do
-    killThread tidEvents
-    forM_ mTidPolling killThread
+  tid <- liftIO $ forkIO $ hyprlandUpdateLoop refresh events
+  _ <- liftIO $ Gtk.onWidgetUnrealize cont $ killThread tid
   Gtk.toWidget cont
 
 hyprlandUpdateLoop :: IO () -> TChan T.Text -> IO ()
@@ -224,6 +211,10 @@ isRelevantHyprEvent line =
      , "destroyworkspace"
      , "monitoradded"
      , "monitorremoved"
+     -- Synthetic "event" emitted by our event reader thread whenever it
+     -- (re)connects to Hyprland. This lets us refresh after a compositor
+     -- restart without polling.
+     , "taffybar-hyprland-connected"
      ]
 
 refreshWorkspaces :: HyprlandWorkspacesConfig -> Gtk.Box -> ReaderT Context IO ()
