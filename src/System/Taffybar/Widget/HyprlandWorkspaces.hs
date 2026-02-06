@@ -133,6 +133,10 @@ data HyprlandWorkspacesConfig =
   { getWorkspaces :: TaffyIO [HyprlandWorkspace]
   , switchToWorkspace :: HyprlandWorkspace -> TaffyIO ()
   , updateIntervalSeconds :: Double
+  -- | Build the per-workspace widget from the icon strip widget and the label
+  -- widget. This allows X11 and Hyprland workspaces to share the same CSS and
+  -- layout logic.
+  , widgetBuilder :: Gtk.Widget -> Gtk.Widget -> TaffyIO Gtk.Widget
   , widgetGap :: Int
   , maxIcons :: Maybe Int
   , minIcons :: Int
@@ -150,6 +154,7 @@ defaultHyprlandWorkspacesConfig =
   { getWorkspaces = getHyprlandWorkspaces
   , switchToWorkspace = hyprlandSwitchToWorkspace
   , updateIntervalSeconds = 1
+  , widgetBuilder = buildWorkspaceIconLabelOverlay
   , widgetGap = 0
   , maxIcons = Nothing
   , minIcons = 0
@@ -360,7 +365,7 @@ buildWorkspaceWidgetState cfg ws = do
   -- icons are the main contents and the label is overlaid bottom-left.
   iconsWidget <- liftIO $ Gtk.toWidget iconsBox
   labelWidget <- liftIO $ Gtk.toWidget label
-  overlayWidget <- buildWorkspaceIconLabelOverlay iconsWidget labelWidget
+  overlayWidget <- widgetBuilder cfg iconsWidget labelWidget
   setWorkspaceWidgetStatusClass ws overlayWidget
   -- X11 Workspaces applies workspace state classes to the label too.
   setWorkspaceWidgetStatusClass ws label
