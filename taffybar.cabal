@@ -223,14 +223,14 @@ executable taffybar-appearance-snap
                , filepath
                , gi-gdk3
                , gi-gdkpixbuf
-               , gi-gtk3
-               , gtk-strut
-               , taffybar
-               , text
-               , transformers
-               , typed-process
-               , unix
-               , unliftio
+	               , gi-gtk3
+	               , gtk-strut
+	               , taffybar
+	               , text
+	               , transformers
+	               , typed-process
+	               , unix
+	               , unliftio
 
 common test
   default-extensions:

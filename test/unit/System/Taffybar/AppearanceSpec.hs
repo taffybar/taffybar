@@ -37,13 +37,21 @@ spec = aroundAll withIntegrationEnv $ do
 
     shouldUpdate <- lookupEnv "TAFFYBAR_UPDATE_GOLDENS"
     case shouldUpdate of
-      Just _ -> BL.writeFile goldenFile actualPng
+      Just _ -> do
+        BL.writeFile goldenFile actualPng
+        createDirectoryIfMissing True "dist"
+        BL.writeFile "dist/appearance-actual.png" actualPng
       Nothing -> do
         goldenPng <- BL.readFile goldenFile
         let actualImg = decodePngRGBA8 "actual" actualPng
             goldenImg = decodePngRGBA8 "golden" goldenPng
-        when (actualImg /= goldenImg) $
-          expectationFailure ("Appearance golden mismatch: " ++ goldenFile)
+        when (actualImg /= goldenImg) $ do
+          createDirectoryIfMissing True "dist"
+          BL.writeFile "dist/appearance-actual.png" actualPng
+          BL.writeFile "dist/appearance-golden.png" goldenPng
+          expectationFailure $
+            "Appearance golden mismatch: " ++ goldenFile ++
+            " (wrote dist/appearance-actual.png and dist/appearance-golden.png)"
 
 newtype Env = Env
   { envTmpDir :: FilePath
@@ -63,11 +71,12 @@ withIntegrationEnv action =
             [ ("WAYLAND_DISPLAY", const Nothing)
             , ("HYPRLAND_INSTANCE_SIGNATURE", const Nothing)
             ] $
-            withSetEnv
+              withSetEnv
               [ ("GDK_BACKEND", "x11")
               , ("GDK_SCALE", "1")
               , ("GDK_DPI_SCALE", "1")
               , ("GTK_CSD", "0")
+              , ("GTK_THEME", "Adwaita")
               , ("XDG_SESSION_TYPE", "x11")
               , ("XDG_RUNTIME_DIR", runtimeDir)
               , ("NO_AT_BRIDGE", "1")

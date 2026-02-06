@@ -18,6 +18,7 @@ import Data.Bits ((.|.), shiftL)
 import Data.Default (def)
 import Data.Maybe (listToMaybe)
 import Data.Unique (newUnique)
+import qualified Data.Text as T
 import System.Directory (createDirectoryIfMissing, doesFileExist, findExecutable, makeAbsolute)
 import System.Environment (getArgs, setEnv, unsetEnv)
 import System.Exit (ExitCode (..), exitWith)
@@ -83,6 +84,7 @@ import System.Taffybar.Widget.Workspaces
   ( WorkspacesConfig (..)
   , getWindowIconPixbufFromEWMH
   , sortWindowsByStackIndex
+  , workspaceName
   , workspacesNew
   )
 
@@ -103,6 +105,7 @@ main = do
   setEnv "GDK_SCALE" "1"
   setEnv "GDK_DPI_SCALE" "1"
   setEnv "GTK_CSD" "0"
+  setEnv "GTK_THEME" "Adwaita"
   setEnv "NO_AT_BRIDGE" "1"
   setEnv "GSETTINGS_BACKEND" "memory"
 
@@ -156,7 +159,7 @@ runUnderWm wmProc outPath cssPath = do
   barUnique <- newUnique
   let wsCfg =
         (def :: WorkspacesConfig)
-          { labelSetter = const (pure "")
+          { labelSetter = pure . workspaceName
           , maxIcons = Just 1
           , minIcons = 1
           , getWindowIconPixbuf = getWindowIconPixbufFromEWMH
@@ -172,8 +175,8 @@ runUnderWm wmProc outPath cssPath = do
                 }
           , widgetSpacing = 0
           , startWidgets = [workspacesNew wsCfg]
-          , centerWidgets = []
-          , endWidgets = []
+          , centerWidgets = [testBoxWidget "test-center-box" 200 20]
+          , endWidgets = [testBoxWidget "test-right-box" 120 20]
           , barId = barUnique
           }
       cfg =
@@ -191,6 +194,15 @@ runUnderWm wmProc outPath cssPath = do
 
     -- Should have been set by finalizeThread or watchdogThread.
     takeMVar doneVar
+
+testBoxWidget :: T.Text -> Int -> Int -> TaffyIO Gtk.Widget
+testBoxWidget klass w h = liftIO $ do
+  box <- Gtk.eventBoxNew
+  widget <- Gtk.toWidget box
+  Gtk.widgetSetSizeRequest widget (fromIntegral w) (fromIntegral h)
+  sc <- Gtk.widgetGetStyleContext widget
+  Gtk.styleContextAddClass sc klass
+  pure widget
 
 withTestWindows :: IO a -> IO a
 withTestWindows action =
