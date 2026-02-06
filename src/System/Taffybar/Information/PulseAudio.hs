@@ -37,7 +37,7 @@ import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, finally, throwIO, try)
-import Control.Monad (forever, guard, join)
+import Control.Monad (forever, guard, join, void, when)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Except
@@ -51,7 +51,9 @@ import qualified Data.Map as M
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
 import Data.Text (Text)
 import Data.Word (Word32)
+import System.Directory (doesPathExist)
 import System.Environment (lookupEnv)
+import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import System.Log.Logger (Priority (..))
 import System.Taffybar.DBus.Client.Params
@@ -122,18 +124,11 @@ monitorPulseAudioInfo ::
   IO ()
 monitorPulseAudioInfo sinkSpec chan var = do
   refreshLock <- newMVar ()
-  -- PulseAudio's DBus server is typically a peer-to-peer connection (the address
-  -- is discovered via ServerLookup1, then connected directly). In that mode
-  -- there is no bus daemon to service org.freedesktop.DBus.AddMatch, so the
-  -- haskell-dbus 'addMatch' helper can fail with an UnknownMethod error.
-  --
-  -- When that happens, keep the initial state, avoid spamming warnings, and
-  -- rely on explicit refreshes (e.g. widget click/scroll) rather than polling.
-  addMatchSupportedRef <- newIORef True
   let writeInfo info = do
         _ <- swapMVar var info
         atomically $ writeTChan chan info
-      refreshWithClient client = withMVar refreshLock $ \_ -> do
+
+      refreshWithClientUnlocked client = do
         result <- try $ getPulseAudioInfoFromClient client sinkSpec
         case result of
           Left (e :: SomeException) -> do
@@ -141,11 +136,91 @@ monitorPulseAudioInfo sinkSpec chan var = do
             writeInfo Nothing
             pure $ Left e
           Right info -> writeInfo info >> pure (Right info)
-      matcher =
+
+      refreshWithClient client = withMVar refreshLock $ \_ -> refreshWithClientUnlocked client
+
+      -- PulseAudio's DBus interface is usually exposed via a peer-to-peer
+      -- connection (unix:path=$XDG_RUNTIME_DIR/pulse/dbus-socket). In that mode
+      -- there is no bus daemon, so org.freedesktop.DBus.AddMatch/RemoveMatch do
+      -- not exist.
+      --
+      -- Instead, PulseAudio provides org.PulseAudio.Core1.ListenForSignal which
+      -- must be called to enable emission of signals like:
+      --   org.PulseAudio.Core1.Device.VolumeUpdated
+      --   org.PulseAudio.Core1.Device.MuteUpdated
+      --
+      -- We still use haskell-dbus 'addMatch' to register local handlers. When
+      -- AddMatch fails (peer-to-peer), we ignore the exception; the handler is
+      -- registered locally before the failing bus call.
+
+      isMissingAddMatch :: ClientError -> Bool
+      isMissingAddMatch e =
+        let msg = clientErrorMessage e
+         in "AddMatch" `isInfixOf` msg
+              && ("doesn't exist" `isInfixOf` msg || "UnknownMethod" `isInfixOf` msg)
+
+      addMatchP2P :: Client -> MatchRule -> (Signal -> IO ()) -> IO (Maybe SignalHandler)
+      addMatchP2P client rule callback = do
+        result <- try (addMatch client rule callback)
+        case result of
+          Right handler -> pure (Just handler)
+          Left (e :: ClientError)
+            | isMissingAddMatch e -> pure Nothing
+            | otherwise -> throwIO e
+
+      listenForSignal :: Client -> String -> [ObjectPath] -> IO ()
+      listenForSignal client signalName objects = do
+        let callMsg =
+              (methodCall paCorePath paCoreInterfaceName "ListenForSignal")
+                { methodCallDestination = Nothing
+                , methodCallBody = [toVariant signalName, toVariant objects]
+                }
+        reply <- call client callMsg
+        case reply of
+          Left err -> audioLogF WARNING "PulseAudio ListenForSignal failed: %s" err
+          Right _ -> pure ()
+
+      paCoreInterfaceNameStr :: String
+      paCoreInterfaceNameStr = "org.PulseAudio.Core1"
+
+      paDeviceInterfaceNameStr :: String
+      paDeviceInterfaceNameStr = "org.PulseAudio.Core1.Device"
+
+      volumeUpdatedSignal :: String
+      volumeUpdatedSignal = paDeviceInterfaceNameStr ++ ".VolumeUpdated"
+
+      muteUpdatedSignal :: String
+      muteUpdatedSignal = paDeviceInterfaceNameStr ++ ".MuteUpdated"
+
+      coreSignalName :: String -> String
+      coreSignalName memberName = paCoreInterfaceNameStr ++ "." ++ memberName
+
+      coreFallbackUpdatedMember :: MemberName
+      coreFallbackUpdatedMember = "FallbackSinkUpdated"
+
+      coreFallbackUnsetMember :: MemberName
+      coreFallbackUnsetMember = "FallbackSinkUnset"
+
+      coreNewSinkMember :: MemberName
+      coreNewSinkMember = "NewSink"
+
+      coreSinkRemovedMember :: MemberName
+      coreSinkRemovedMember = "SinkRemoved"
+
+      deviceSignalMatcher :: MemberName -> MatchRule
+      deviceSignalMatcher memberName =
         matchAny
-          { matchPathNamespace = Just paCoreObjectPath,
-            matchInterface = Just "org.freedesktop.DBus.Properties",
-            matchMember = Just "PropertiesChanged"
+          { matchPathNamespace = Just paCoreObjectPath
+          , matchInterface = Just paDeviceInterfaceName
+          , matchMember = Just memberName
+          }
+
+      coreSignalMatcher :: MemberName -> MatchRule
+      coreSignalMatcher memberName =
+        matchAny
+          { matchPath = Just paCoreObjectPath
+          , matchInterface = Just paCoreInterfaceName
+          , matchMember = Just memberName
           }
 
       loop = do
@@ -158,32 +233,58 @@ monitorPulseAudioInfo sinkSpec chan var = do
             loop
           Just client -> do
             let runWithClient = do
-                  -- Ensure we have an initial value as soon as we connect.
-                  _ <- refreshWithClient client
-                  addMatchSupported <- readIORef addMatchSupportedRef
-                  if addMatchSupported
-                    then do
-                      eHandler <- try $ addMatch client matcher $ const $ do
-                        _ <- refreshWithClient client
-                        pure ()
-                      case eHandler of
-                        Right handler -> do
-                          -- Block forever; updates come from PropertiesChanged.
-                          --
-                          -- NB: 'takeMVar =<< newEmptyMVar' will eventually throw
-                          -- BlockedIndefinitelyOnMVar (because no other thread can
-                          -- ever fill that MVar), which ends up spamming logs.
-                          blockForever `finally` removeMatch client handler
-                        Left (e :: ClientError)
-                          | isMissingAddMatch e -> do
-                              writeIORef addMatchSupportedRef False
-                              audioLogF
-                                INFO
-                                "PulseAudio DBus server does not support org.freedesktop.DBus.AddMatch; disabling signal-based refresh (%s)"
-                                (clientErrorMessage e)
-                              idleForever
-                          | otherwise -> throwIO e
-                    else idleForever
+                  subscribedSinksRef <- newIORef ([] :: [ObjectPath])
+
+                  let getSinksUnlocked = do
+                        corePropsResult <- getProperties client Nothing paCorePath paCoreInterfaceName
+                        case corePropsResult of
+                          Left err -> do
+                            audioLogF WARNING "Failed to read PulseAudio Core1 properties: %s" err
+                            pure []
+                          Right coreProps ->
+                            pure $ fromMaybe [] (readDictMaybe coreProps "Sinks")
+
+                      updateDeviceSignalSubscriptionsUnlocked = do
+                        sinks <- getSinksUnlocked
+                        prev <- readIORef subscribedSinksRef
+                        when (sinks /= prev && not (null sinks)) $ do
+                          writeIORef subscribedSinksRef sinks
+                          listenForSignal client volumeUpdatedSignal sinks
+                          listenForSignal client muteUpdatedSignal sinks
+
+                      resubscribeAndRefresh = withMVar refreshLock $ \_ -> do
+                        updateDeviceSignalSubscriptionsUnlocked
+                        void $ refreshWithClientUnlocked client
+
+                  -- Ask PulseAudio to emit the signals we care about.
+                  listenForSignal client (coreSignalName "FallbackSinkUpdated") [paCorePath]
+                  listenForSignal client (coreSignalName "FallbackSinkUnset") [paCorePath]
+                  listenForSignal client (coreSignalName "NewSink") [paCorePath]
+                  listenForSignal client (coreSignalName "SinkRemoved") [paCorePath]
+
+                  -- Emit device signals for the current set of sinks.
+                  resubscribeAndRefresh
+
+                  -- Install signal handlers. In peer-to-peer mode this will
+                  -- throw a ClientError due to missing AddMatch, but the handler
+                  -- remains registered locally and still works.
+                  hVol <- addMatchP2P client (deviceSignalMatcher "VolumeUpdated") $ const resubscribeAndRefresh
+                  hMute <- addMatchP2P client (deviceSignalMatcher "MuteUpdated") $ const resubscribeAndRefresh
+                  hFallbackUpdated <- addMatchP2P client (coreSignalMatcher coreFallbackUpdatedMember) $ const resubscribeAndRefresh
+                  hFallbackUnset <- addMatchP2P client (coreSignalMatcher coreFallbackUnsetMember) $ const resubscribeAndRefresh
+                  hNewSink <- addMatchP2P client (coreSignalMatcher coreNewSinkMember) $ const resubscribeAndRefresh
+                  hSinkRemoved <- addMatchP2P client (coreSignalMatcher coreSinkRemovedMember) $ const resubscribeAndRefresh
+
+                  let cleanup = do
+                        let removeIfJust = maybe (pure ()) (removeMatch client)
+                        removeIfJust hVol
+                        removeIfJust hMute
+                        removeIfJust hFallbackUpdated
+                        removeIfJust hFallbackUnset
+                        removeIfJust hNewSink
+                        removeIfJust hSinkRemoved
+
+                  blockForever `finally` cleanup
             result <- try runWithClient
             case result of
               Left (e :: SomeException) ->
@@ -192,19 +293,9 @@ monitorPulseAudioInfo sinkSpec chan var = do
             disconnect client
             loop
 
-      idleForever =
-        -- Keep this thread alive without busy looping.
-        blockForever
-
       -- Avoid BlockedIndefinitelyOnMVar exceptions from the "empty mvar trick".
       blockForever =
         forever $ threadDelay 1000000000 -- ~1000s; interruptible by async exceptions.
-
-      isMissingAddMatch :: ClientError -> Bool
-      isMissingAddMatch e =
-        let msg = clientErrorMessage e
-         in "AddMatch" `isInfixOf` msg
-              && ("doesn't exist" `isInfixOf` msg || "UnknownMethod" `isInfixOf` msg)
 
   loop
 
@@ -304,11 +395,29 @@ getPulseAudioAddress = do
     _ -> do
       result <- try connectSession
       case result of
-        Left (_ :: SomeException) -> return Nothing
+        Left (_ :: SomeException) -> runtimeDirFallback
         Right client -> do
           pulseAddr <- getServerLookupAddress client
           disconnect client
-          return pulseAddr
+          case pulseAddr of
+            Just _ -> return pulseAddr
+            Nothing -> runtimeDirFallback
+
+-- Many setups (notably pipewire-pulse) have the peer-to-peer PulseAudio DBus
+-- socket available at $XDG_RUNTIME_DIR/pulse/dbus-socket but do not expose a
+-- ServerLookup1 entry on the session bus. Fall back to the well-known socket.
+runtimeDirFallback :: IO (Maybe String)
+runtimeDirFallback = do
+  mRuntimeDir <- lookupEnv "XDG_RUNTIME_DIR"
+  case mRuntimeDir of
+    Nothing -> return Nothing
+    Just runtimeDir -> do
+      let sockPath = runtimeDir </> "pulse" </> "dbus-socket"
+      exists <- doesPathExist sockPath
+      return $
+        if exists
+          then Just ("unix:path=" ++ sockPath)
+          else Nothing
 
 getServerLookupAddress :: Client -> IO (Maybe String)
 getServerLookupAddress client = do
