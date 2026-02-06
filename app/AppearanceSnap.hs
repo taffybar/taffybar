@@ -84,7 +84,6 @@ import System.Taffybar.Widget.Workspaces
   ( WorkspacesConfig (..)
   , getWindowIconPixbufFromEWMH
   , sortWindowsByStackIndex
-  , workspaceName
   , workspacesNew
   )
 
@@ -159,7 +158,9 @@ runUnderWm wmProc outPath cssPath = do
   barUnique <- newUnique
   let wsCfg =
         (def :: WorkspacesConfig)
-          { labelSetter = pure . workspaceName
+          -- Avoid font-dependent output in the appearance golden: we only care
+          -- that icons/layout render deterministically.
+          { labelSetter = const (pure "")
           , maxIcons = Just 1
           , minIcons = 1
           , getWindowIconPixbuf = getWindowIconPixbufFromEWMH
@@ -177,8 +178,8 @@ runUnderWm wmProc outPath cssPath = do
           , startWidgets = [workspacesNew wsCfg]
           , centerWidgets = [testBoxWidget "test-center-box" 200 20]
           , endWidgets =
-              [ testPillWidget "test-pill" "VOL 42"
-              , testPillWidget "test-pill" "12:34"
+              [ testBoxWidget "test-pill" 52 20
+              , testBoxWidget "test-pill" 52 20
               , testBoxWidget "test-right-box" 16 16
               ]
           , barId = barUnique
@@ -209,17 +210,6 @@ testBoxWidget klass w h = liftIO $ do
   -- Taffybar does not automatically show arbitrary user widgets; most built-in
   -- widgets call show/showAll themselves. For deterministic appearance tests,
   -- ensure these test widgets are visible.
-  Gtk.widgetShowAll widget
-  pure widget
-
-testPillWidget :: T.Text -> T.Text -> TaffyIO Gtk.Widget
-testPillWidget klass txt = liftIO $ do
-  box <- Gtk.eventBoxNew
-  lbl <- Gtk.labelNew (Just txt)
-  Gtk.containerAdd box lbl
-  widget <- Gtk.toWidget box
-  sc <- Gtk.widgetGetStyleContext widget
-  Gtk.styleContextAddClass sc klass
   Gtk.widgetShowAll widget
   pure widget
 

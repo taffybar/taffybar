@@ -421,7 +421,7 @@ buildIconWidget transparentOnNone cfg = do
       (Just $ iconSize cfg)
       transparentOnNone
       (\size w -> runReaderT (getWindowIconPixbuf cfg size w) ctx)
-      (\size -> pixBufFromColor size 0)
+      (`pixBufFromColor` 0)
 
 updateIconWidget :: HyprlandIconWidget -> Maybe HyprlandWindow -> ReaderT Context IO ()
 updateIconWidget iconWidget windowData =
