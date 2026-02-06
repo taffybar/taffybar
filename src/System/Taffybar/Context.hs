@@ -95,6 +95,12 @@ import           System.FilePath ((</>))
 import           System.Environment (lookupEnv)
 import           System.Log.Logger (Priority(..), logM)
 import           System.Posix.Files (getFileStatus, isSocket)
+import           System.Taffybar.Information.Hyprland
+  ( HyprlandClient
+  , HyprlandEventChan
+  , defaultHyprlandClientConfig
+  , newHyprlandClient
+  )
 import           System.Taffybar.Information.SafeX11 hiding (setState)
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
@@ -218,6 +224,15 @@ data Context = Context
   -- | The action that will be evaluated to get the bar configs associated with
   -- each active monitor taffybar should run on.
   , getBarConfigs :: BarConfigGetter
+  -- | A Hyprland client initialized at startup (used by Hyprland widgets).
+  --
+  -- Stored directly on 'Context' to avoid deadlocks from nested
+  -- 'getStateDefault' usage during widget initialization.
+  , hyprlandClient :: HyprlandClient
+  -- | Lazily-initialized shared Hyprland event channel (socket reader thread).
+  --
+  -- Stored outside of 'contextState' for the same reason as 'hyprlandClient'.
+  , hyprlandEventChanVar :: MV.MVar (Maybe HyprlandEventChan)
   -- | The backend taffybar is running on.
   , backend :: Backend
   -- | Populated with the BarConfig that resulted in the creation of a given
@@ -242,6 +257,8 @@ buildContext TaffybarConfig
   backendType <- detectBackend
   listenersVar <- MV.newMVar []
   state <- MV.newMVar M.empty
+  hyprClient <- newHyprlandClient defaultHyprlandClientConfig
+  hyprEventChanVar <- MV.newMVar Nothing
   x11Context <- case backendType of
     BackendX11 -> Just <$> (getX11Context def >>= MV.newMVar)
     BackendWayland -> return Nothing
@@ -253,6 +270,8 @@ buildContext TaffybarConfig
                 , sessionDBusClient = dbusC
                 , systemDBusClient = sDBusC
                 , getBarConfigs = barConfigGetter
+                , hyprlandClient = hyprClient
+                , hyprlandEventChanVar = hyprEventChanVar
                 , existingWindows = windowsVar
                 , backend = backendType
                 , contextBarConfig = Nothing

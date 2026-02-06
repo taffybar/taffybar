@@ -10,10 +10,9 @@
 --
 -- Context-integrated helpers for the Hyprland client.
 --
--- This module follows the existing taffybar pattern of storing shared runtime
--- resources in 'Context' state via 'getStateDefault'. It lets multiple widgets
--- share a single Hyprland client instance and (optionally) a single event socket
--- reader thread that broadcasts events over a 'TChan'.
+-- Hyprland resources are stored directly on 'Context' (not in 'contextState')
+-- to avoid deadlocks from nested 'getStateDefault' usage during widget
+-- initialization.
 -----------------------------------------------------------------------------
 
 module System.Taffybar.Hyprland
@@ -34,13 +33,14 @@ module System.Taffybar.Hyprland
   , runHyprlandCommandJsonT
   ) where
 
+import qualified Control.Concurrent.MVar as MV
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson (FromJSON)
 import qualified Data.ByteString as BS
 
-import           Control.Monad.Trans.Reader (ReaderT)
+import           Control.Monad.Trans.Reader (ReaderT, asks)
 
-import           System.Taffybar.Context (Context, TaffyIO, getStateDefault)
+import           System.Taffybar.Context (Context(..), TaffyIO)
 import           System.Taffybar.Information.Hyprland
   ( HyprlandClient
   , HyprlandClientConfig
@@ -50,7 +50,6 @@ import           System.Taffybar.Information.Hyprland
   , HyprlandT
   , buildHyprlandEventChan
   , defaultHyprlandClientConfig
-  , newHyprlandClient
   , runHyprlandCommandJson
   , runHyprlandCommandRaw
   , runHyprlandT
@@ -68,8 +67,7 @@ getHyprlandClient = getHyprlandClientWith defaultHyprlandClientConfig
 -- The config is only used if the client has not already been created and
 -- stored in the 'Context' state.
 getHyprlandClientWith :: HyprlandClientConfig -> TaffyIO HyprlandClient
-getHyprlandClientWith cfg =
-  getStateDefault $ liftIO $ newHyprlandClient cfg
+getHyprlandClientWith _cfg = asks hyprlandClient
 
 -- | Hyprland actions in the 'TaffyIO' context.
 --
@@ -92,10 +90,15 @@ getHyprlandEventChan = getHyprlandEventChanWith defaultHyprlandClientConfig
 -- The config is only used if the channel has not already been created and
 -- stored in the 'Context' state.
 getHyprlandEventChanWith :: HyprlandClientConfig -> TaffyIO HyprlandEventChan
-getHyprlandEventChanWith cfg =
-  getStateDefault $ do
-    client <- getHyprlandClientWith cfg
-    liftIO $ buildHyprlandEventChan client
+getHyprlandEventChanWith cfg = do
+  client <- getHyprlandClientWith cfg
+  chanVar <- asks hyprlandEventChanVar
+  liftIO $ MV.modifyMVar chanVar $ \existing ->
+    case existing of
+      Just c -> pure (existing, c)
+      Nothing -> do
+        c <- buildHyprlandEventChan client
+        pure (Just c, c)
 
 runHyprlandCommandRawT :: HyprlandCommand -> TaffyIO (Either HyprlandError BS.ByteString)
 runHyprlandCommandRawT cmd =
