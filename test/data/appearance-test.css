@@ -1,0 +1,13 @@
+/* Deterministic styling for CI appearance snapshots.
+ *
+ * Keep this minimal: any theme/font dependence will churn goldens.
+ */
+
+window.taffy-window {
+  background-color: #202020;
+}
+
+.taffy-box {
+  padding: 0px;
+}
+
