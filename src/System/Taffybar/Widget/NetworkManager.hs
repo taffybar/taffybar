@@ -70,10 +70,12 @@ data WifiWidgetConfig = WifiWidgetConfig
 defaultWifiWidgetConfig :: WifiWidgetConfig
 defaultWifiWidgetConfig =
   WifiWidgetConfig
-    { wifiConnectedFormat = "$icon$ $ssid$ $strength$%"
-    , wifiDisconnectedFormat = "$icon$ disconnected"
-    , wifiDisabledFormat = "$icon$ off"
-    , wifiUnknownFormat = "$icon$ unknown"
+    -- Spacing after $icon$ is handled inside escapeIconText so the gap scales
+    -- with the icon's (larger) font size.
+    { wifiConnectedFormat = "$icon$$ssid$ $strength$%"
+    , wifiDisconnectedFormat = "$icon$disconnected"
+    , wifiDisabledFormat = "$icon$off"
+    , wifiUnknownFormat = "$icon$unknown"
     , wifiTooltipFormat =
         Just "SSID: $ssid$\nStrength: $strength$%\nConnection: $connection$\nState: $state$"
     }
@@ -279,17 +281,27 @@ escapeText input = T.unpack <$> G.markupEscapeText input (-1)
 -- other plain text) remain at the normal size.
 escapeIconText :: T.Text -> IO String
 escapeIconText input =
-  concat
-    <$>
-      mapM
-        (\c -> do
-            esc <- escapeText (T.singleton c)
-            pure $
-              if isPUA c
-                then "<span size=\"large\">" ++ esc ++ "</span>"
-                else esc
-        )
-        (T.unpack input)
+  let
+    iconSpan s =
+      "<span font_family=\"Iosevka Nerd Font\" font_weight=\"normal\" size=\"large\">" ++ s ++ "</span>"
+  in do
+    rendered <-
+      concat
+        <$>
+          mapM
+            (\c -> do
+                esc <- escapeText (T.singleton c)
+                pure $
+                  if isPUA c
+                    then iconSpan esc
+                    else esc
+            )
+            (T.unpack input)
+    -- Add a trailing space in the icon's font/size so it doesn't look cramped.
+    pure $
+      if any isPUA (T.unpack input)
+        then rendered ++ iconSpan "&#x2004;" -- three-per-em space
+        else rendered
 
 isPUA :: Char -> Bool
 isPUA c =
@@ -302,28 +314,15 @@ wifiStateText WifiDisconnected = "disconnected"
 wifiStateText WifiConnected = "connected"
 wifiStateText WifiUnknown = "unknown"
 
--- | A text "icon" intended for label widgets. Uses Font Awesome-ish codepoints
--- plus a bar whose height varies with strength. If your font lacks the FA glyph
--- it will degrade to just showing the bar.
+-- | A text "icon" intended for label widgets. Uses Font Awesome-ish codepoints.
 wifiTextIcon :: WifiInfo -> T.Text
 wifiTextIcon info =
   case wifiState info of
     WifiConnected ->
-      T.pack "\xF1EB" <> wifiStrengthBar (wifiStrength info) -- 
+      T.pack "\xF1EB" -- 
     WifiDisconnected -> T.pack "\xF05E" -- 
     WifiDisabled -> T.pack "\xF05E" -- 
     WifiUnknown -> T.pack "\xF059" -- 
-
-wifiStrengthBar :: Maybe Int -> T.Text
-wifiStrengthBar strength =
-  T.pack $
-    case strength of
-      Nothing -> "\x2591" -- ░
-      Just s
-        | s < 20 -> "\x2581" -- ▁
-        | s < 40 -> "\x2583" -- ▃
-        | s < 70 -> "\x2586" -- ▆
-        | otherwise -> "\x2588" -- █
 
 -- Network (WiFi + wired + vpn + disconnected)
 
@@ -341,13 +340,15 @@ data NetworkWidgetConfig = NetworkWidgetConfig
 defaultNetworkWidgetConfig :: NetworkWidgetConfig
 defaultNetworkWidgetConfig =
   NetworkWidgetConfig
-    { networkWifiFormat = "$icon$ $ssid$ $strength$%"
-    , networkWiredFormat = "$icon$ $connection$"
-    , networkVpnFormat = "$icon$ $connection$"
-    , networkOtherFormat = "$icon$ $type$ $connection$"
-    , networkDisconnectedFormat = "$icon$ disconnected"
-    , networkWifiDisabledFormat = "$icon$ disconnected (wifi off)"
-    , networkUnknownFormat = "$icon$ unknown"
+    -- Spacing after $icon$ is handled inside escapeIconText so the gap scales
+    -- with the icon's (larger) font size.
+    { networkWifiFormat = "$icon$$ssid$ $strength$%"
+    , networkWiredFormat = "$icon$$connection$"
+    , networkVpnFormat = "$icon$$connection$"
+    , networkOtherFormat = "$icon$$type$ $connection$"
+    , networkDisconnectedFormat = "$icon$disconnected"
+    , networkWifiDisabledFormat = "$icon$disconnected (wifi off)"
+    , networkUnknownFormat = "$icon$unknown"
     , networkTooltipFormat =
         Just "Type: $type$\nConnection: $connection$\nSSID: $ssid$\nStrength: $strength$%\nState: $state$"
     }
@@ -595,7 +596,7 @@ networkTextIcon info =
     NetworkConnected ->
       case networkType info of
         Just NetworkWifi ->
-          T.pack "\xF1EB" <> wifiStrengthBar (networkStrength info) -- 
+          T.pack "\xF1EB" -- 
         Just NetworkWired -> T.pack "\xF1E6" -- 
         Just NetworkVpn -> T.pack "\xF023" -- 
         Just (NetworkOther _) -> T.pack "\xF0AC" -- 
