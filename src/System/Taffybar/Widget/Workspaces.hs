@@ -577,10 +577,10 @@ buildIconWidget transparentOnNone ws = do
   lift $ do
     iconWidget <-
       mkWorkspaceIconWidget
-        Nothing
-        transparentOnNone
-        getPB
-        (\size -> pixBufFromColor size 0)
+	        Nothing
+	        transparentOnNone
+	        getPB
+	        (`pixBufFromColor` 0)
     _ <-
       Gtk.onWidgetButtonPressEvent (iconContainer iconWidget) $
       const $ liftIO $ do
@@ -725,7 +725,7 @@ updateImages ic ws = do
   let (effectiveMinIcons, _targetLen, paddedWindows) =
         computeIconStripLayout (minIcons cfg) (maxIcons cfg) sortedWindows
       buildOne i = buildIconWidget (i < effectiveMinIcons) ws
-      updateOne iw wdata = updateIconWidget ic iw wdata
+      updateOne = updateIconWidget ic
   syncWidgetPool (iconsContainer ic) (iconImages ic) paddedWindows buildOne iconContainer updateOne
 
 getWindowStatusString :: WindowData -> T.Text
