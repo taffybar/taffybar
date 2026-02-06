@@ -70,6 +70,17 @@
       config.allowBroken = true;
     };
 
+    mkHyprlandAppearanceVmTest =
+      { compare ? false
+      , goldenFile ? null
+      }:
+      import ./nix/appearance-hyprland-vm-test.nix {
+        inherit pkgs;
+        taffybarPackage = pkgs.haskellPackages.taffybar;
+        cssFile = ./test/data/appearance-test.css;
+        inherit compare goldenFile;
+      };
+
   in {
     devShells = {
       default = import ./nix/shell.nix { inherit pkgs; };
@@ -88,6 +99,8 @@
       tested-with = pkgs.runCommand "taffybar-tested-with.cabal" {} ''
         echo "tested-with: ${lib.concatMapStringsSep ", " (c: "GHC == ${pkgs.haskell.compiler.${c}.version}") supportedCompilers}" > $out
       '';
+    } // lib.optionalAttrs (system == "x86_64-linux") {
+      appearance-hyprland-snapshot = mkHyprlandAppearanceVmTest { };
     };
 
     checks = {
@@ -101,6 +114,11 @@
         packages = [ "taffybar" ];
         # Never fail - too many false positives at the moment.
         reportOnly = true;
+      };
+
+      appearance-hyprland = mkHyprlandAppearanceVmTest {
+        compare = true;
+        goldenFile = ./test/data/appearance-hyprland-bar.png;
       };
     };
   });

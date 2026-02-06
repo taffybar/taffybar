@@ -315,7 +315,6 @@ test-suite unit
   other-modules: UnitSpec
                , System.Taffybar.AuthSpec
                , System.Taffybar.AppearanceSpec
-               , System.Taffybar.AppearanceHyprlandSpec
                , System.Taffybar.ContextSpec
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.SimpleConfigSpec
@@ -338,7 +337,6 @@ test-suite unit
   build-tool-depends: hspec-discover:hspec-discover == 2.*
                    , taffybar:taffybar-test-wm
                    , taffybar:taffybar-appearance-snap
-                   , taffybar:taffybar-appearance-snap-hyprland
 
 source-repository head
   type: git

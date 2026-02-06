@@ -4,38 +4,29 @@
 --
 -- This is intentionally a separate process from the Hspec runner because
 -- 'startTaffybar' enters the GTK main loop (an FFI call) and is not reliably
--- interruptible by async exceptions. The Hspec test can always timeout/kill
+-- interruptible by async exceptions. The VM harness can always timeout/kill
 -- this executable in CI.
 module Main (main) where
 
 import Control.Concurrent (MVar, forkIO, newEmptyMVar, threadDelay, takeMVar)
 import Control.Concurrent.MVar (tryPutMVar, tryReadMVar)
-import Control.Exception (SomeException, bracket, try)
-import Control.Monad (unless, void, when)
+import Control.Exception (SomeException, try)
+import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
 import Data.Default (def)
-import Data.List (isInfixOf, isPrefixOf, sortOn)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Unique (newUnique)
-import Data.Word (Word32)
 import System.Directory
   ( createDirectoryIfMissing
-  , doesDirectoryExist
-  , doesFileExist
   , findExecutable
-  , listDirectory
   , makeAbsolute
-  , removePathForcibly
   )
-import System.Environment (getArgs, setEnv, unsetEnv)
+import System.Environment (getArgs, lookupEnv, setEnv, unsetEnv)
 import System.Exit (ExitCode (..), exitWith)
 import System.FilePath (takeDirectory, (</>))
 import System.IO (hPutStrLn, stderr)
-import System.Posix.Files (getFileStatus, isSocket, setFileMode)
 import System.Posix.Process (exitImmediately)
-import System.Posix.Signals (signalProcess, sigKILL, sigTERM)
-import System.Posix.Types (FileMode)
-import System.Posix.Temp (mkdtemp)
 
 import qualified Codec.Picture as JP
 import qualified Data.ByteString as B
@@ -44,14 +35,8 @@ import qualified Data.Text as T
 import UnliftIO.Temporary (withSystemTempDirectory)
 
 import System.Process.Typed
-  ( Process
-  , getPid
-  , inherit
-  , proc
+  ( proc
   , readProcess
-  , setStderr
-  , setStdout
-  , startProcess
   )
 
 import qualified GI.Gtk as Gtk
@@ -71,13 +56,6 @@ import System.Taffybar.Context
   , TaffybarConfig (..)
   , exitTaffybar
   )
-import System.Taffybar.Util (postGUIASync)
-import System.Taffybar.Widget.HyprlandWorkspaces
-  ( HyprlandWindow (..)
-  , HyprlandWorkspacesConfig (..)
-  , hyprlandWorkspacesNew
-  )
-import System.Taffybar.WindowIcon (pixBufFromColor)
 
 data Args = Args
   { outFile :: FilePath
@@ -88,23 +66,25 @@ main :: IO ()
 main = do
   Args { outFile = outPath, cssFile = cssPath } <- parseArgs =<< getArgs
 
-  -- Keep host session variables from leaking into this nested compositor run.
+  -- Reduce variability (but do not clobber WAYLAND_DISPLAY / XDG_RUNTIME_DIR /
+  -- HYPRLAND_INSTANCE_SIGNATURE; those are provided by the compositor session).
   unsetEnv "DISPLAY"
-  unsetEnv "WAYLAND_DISPLAY"
-  unsetEnv "HYPRLAND_INSTANCE_SIGNATURE"
-  unsetEnv "XDG_RUNTIME_DIR"
-
-  -- Reduce variability.
   setEnv "GDK_BACKEND" "wayland"
   setEnv "XDG_SESSION_TYPE" "wayland"
   setEnv "GDK_SCALE" "1"
   setEnv "GDK_DPI_SCALE" "1"
   setEnv "GTK_CSD" "0"
+  setEnv "GTK_THEME" "Adwaita"
   setEnv "NO_AT_BRIDGE" "1"
   setEnv "GSETTINGS_BACKEND" "memory"
 
-  ec <- withSystemTempDirectory "tb" $ \tmp -> do
-    let homeDir = tmp </> "h"
+  _ <- requireEnv "XDG_RUNTIME_DIR"
+  _ <- requireEnv "WAYLAND_DISPLAY"
+  _ <- requireEnv "HYPRLAND_INSTANCE_SIGNATURE"
+  _ <- requireExe "grim"
+
+  ec <- withSystemTempDirectory "tb-hyprland" $ \tmp -> do
+    let homeDir = tmp </> "home"
         xdgCfg = homeDir </> "xdg-config"
         xdgCache = homeDir </> "xdg-cache"
         xdgData = homeDir </> "xdg-data"
@@ -121,109 +101,26 @@ main = do
 
     createDirectoryIfMissing True (takeDirectory outPath)
 
-    -- Hyprland's IPC sockets have a hard path length limit. TMPDIR is often long
-    -- in CI / nix builds, so we always create a short XDG_RUNTIME_DIR under /tmp.
-    withShortRuntimeDir $ \runtimeDir -> do
-      setEnv "XDG_RUNTIME_DIR" runtimeDir
-
-      let westonSock = "weston"
-          westonSockPath = runtimeDir </> westonSock
-
-      -- Start Weston headless as the parent Wayland compositor.
-      westonExe <- requireExe "weston"
-      let westonLog = tmp </> "weston.log"
-          westonCfg =
-            setStdout inherit $
-              setStderr inherit $
-                proc
-                  westonExe
-                  [ "--backend=headless"
-                  , "--renderer=pixman"
-                  , "--width=1024"
-                  , "--height=200"
-                  , "--socket=" ++ westonSock
-                  , "--idle-time=0"
-                  , "--no-config"
-                  , "--log=" ++ westonLog
-                  ]
-      bracket
-        (startProcess westonCfg)
-        killProcessNoWait
-        $ \_westonProc -> do
-          waitForSocket 10_000_000 westonSockPath
-
-          -- Start Hyprland nested on the parent compositor.
-          hyprExe <- requireExe "Hyprland"
-          hyprConf <- writeHyprlandConfig tmp
-          setEnv "WAYLAND_DISPLAY" westonSock
-          let hyprCfg =
-                setStdout inherit $
-                  setStderr inherit $
-                    proc hyprExe ["--config", hyprConf]
-          bracket
-            (startProcess hyprCfg)
-            killProcessNoWait
-            $ \hyprProc -> do
-
-              -- Wait for Hyprland runtime directory and IPC sockets.
-              sig <- waitForHyprlandSignature 15_000_000 runtimeDir
-              waitForSocket 15_000_000 (runtimeDir </> "hypr" </> sig </> ".socket.sock")
-              waitForSocket 15_000_000 (runtimeDir </> "hypr" </> sig </> ".socket2.sock")
-
-              -- Find Hyprland's display socket. It should create a new wayland-* socket in
-              -- XDG_RUNTIME_DIR (weston uses a non-standard socket name to avoid collisions).
-              hyprSock <- waitForWaylandSocket 15_000_000 runtimeDir
-              setEnv "WAYLAND_DISPLAY" hyprSock
-              setEnv "HYPRLAND_INSTANCE_SIGNATURE" sig
-
-              runUnderHyprland hyprProc outPath cssPath
+    runUnderHyprland outPath cssPath
 
   exitWith ec
 
-runUnderHyprland :: Process () () () -> FilePath -> FilePath -> IO ExitCode
-runUnderHyprland hyprProc outPath cssPath = do
+runUnderHyprland :: FilePath -> FilePath -> IO ExitCode
+runUnderHyprland outPath cssPath = do
   ctxVar :: MVar Context <- newEmptyMVar
   resultVar :: MVar (Either String BL.ByteString) <- newEmptyMVar
   doneVar :: MVar ExitCode <- newEmptyMVar
+  lastShotRef :: IORef (Maybe BL.ByteString) <- newIORef Nothing
 
   -- Writes the result out and requests bar shutdown.
   void $ forkIO $ finalizeThread ctxVar resultVar doneVar outPath
 
   -- Hard watchdog for CI stability: always tries to end the GTK loop.
-  void $ forkIO $ watchdogThread hyprProc ctxVar resultVar doneVar 45_000_000
+  void $ forkIO $ watchdogThread ctxVar resultVar doneVar lastShotRef 30_000_000
 
   barUnique <- newUnique
 
-  let testRed :: Word32
-      testRed = 0xFFE03A3A
-      testGreen :: Word32
-      testGreen = 0xFF3AE06A
-
-      windowIconGetter size win =
-        let t = map toLowerAscii (windowTitle win)
-         in if "red" `isInfixOf` t
-              then Just <$> pixBufFromColor size testRed
-            else if "green" `isInfixOf` t
-              then Just <$> pixBufFromColor size testGreen
-              else pure Nothing
-
-      sortByTitle = pure . sortOn (map toLowerAscii . windowTitle)
-
-      wsCfg =
-        (def :: HyprlandWorkspacesConfig)
-          { labelSetter = const (pure "")
-          , maxIcons = Just 2
-          , minIcons = 2
-          , iconSize = 16
-          , getWindowIconPixbuf = windowIconGetter
-          , iconSort = sortByTitle
-          , widgetGap = 0
-          , urgentWorkspaceState = False
-          -- Show everything to avoid a blank widget if Hyprland reports only empty workspaces initially.
-          , showWorkspaceFn = const True
-          }
-
-      barCfg =
+  let barCfg =
         BarConfig
           { strutConfig =
               defaultStrutConfig
@@ -231,10 +128,14 @@ runUnderHyprland hyprProc outPath cssPath = do
                 , strutMonitor = Just 0
                 , strutPosition = TopPos
                 }
-          , widgetSpacing = 0
-          , startWidgets = [hyprlandWorkspacesNew wsCfg]
-          , centerWidgets = []
-          , endWidgets = []
+          , widgetSpacing = 8
+          , startWidgets = [testPillBoxWidget "test-pill" 56 20]
+          , centerWidgets = [testBoxWidget "test-center-box" 200 20]
+          , endWidgets =
+              [ testPillBoxWidget "test-pill" 52 20
+              , testPillBoxWidget "test-pill" 46 20
+              , testBoxWidget "test-right-box" 16 16
+              ]
           , barId = barUnique
           }
 
@@ -243,7 +144,7 @@ runUnderHyprland hyprProc outPath cssPath = do
           { dbusClientParam = Nothing
           , cssPaths = [cssPath]
           , getBarConfigsParam = pure [barCfg]
-          , startupHook = startup ctxVar resultVar
+          , startupHook = scheduleSnapshot ctxVar resultVar lastShotRef
           , errorMsg = Nothing
           }
 
@@ -253,44 +154,65 @@ runUnderHyprland hyprProc outPath cssPath = do
   -- Should have been set by finalizeThread or watchdogThread.
   takeMVar doneVar
 
-startup :: MVar Context -> MVar (Either String BL.ByteString) -> TaffyIO ()
-startup ctxVar resultVar = do
+testBoxWidget :: T.Text -> Int -> Int -> TaffyIO Gtk.Widget
+testBoxWidget klass w h = liftIO $ do
+  box <- Gtk.eventBoxNew
+  widget <- Gtk.toWidget box
+  Gtk.widgetSetSizeRequest widget (fromIntegral w) (fromIntegral h)
+  sc <- Gtk.widgetGetStyleContext widget
+  Gtk.styleContextAddClass sc klass
+  Gtk.widgetShowAll widget
+  pure widget
+
+testPillBoxWidget :: T.Text -> Int -> Int -> TaffyIO Gtk.Widget
+testPillBoxWidget klass w h = liftIO $ do
+  box <- Gtk.eventBoxNew
+  widget <- Gtk.toWidget box
+  Gtk.widgetSetSizeRequest widget (fromIntegral w) (fromIntegral h)
+  sc <- Gtk.widgetGetStyleContext widget
+  Gtk.styleContextAddClass sc klass
+  Gtk.widgetShowAll widget
+  pure widget
+
+scheduleSnapshot :: MVar Context -> MVar (Either String BL.ByteString) -> IORef (Maybe BL.ByteString) -> TaffyIO ()
+scheduleSnapshot ctxVar resultVar lastShotRef = do
   ctx <- ask
   liftIO $ void (tryPutMVar ctxVar ctx)
 
-  -- Create a couple of deterministic test windows so the workspaces widget has
-  -- something to render. These windows are outside the screenshot region (bar
-  -- is 40px tall).
-  liftIO $ postGUIASync createTestWindows
+  -- Delay slightly to give the compositor time to map the layer-surface and
+  -- for widgets to render.
+  liftIO $ void $ forkIO $ do
+    threadDelay 2_000_000
+    -- Require two consecutive identical frames to avoid capturing during
+    -- initial GTK/compositor settling (animations, late mapping, etc).
+    takeSnapshotWithRetries lastShotRef resultVar 60
 
-  -- Poll for a screenshot until the expected test icons appear.
-  liftIO $ void $ forkIO pollLoop
-  where
-    pollLoop = do
-      done <- tryReadMVar resultVar
-      case done of
-        Just _ -> pure ()
-        Nothing -> do
-          trySnapshot resultVar
-          threadDelay 100_000
-          pollLoop
+takeSnapshotWithRetries :: IORef (Maybe BL.ByteString) -> MVar (Either String BL.ByteString) -> Int -> IO ()
+takeSnapshotWithRetries _ resultVar 0 =
+  void $ tryPutMVar resultVar (Left "Failed to capture Hyprland appearance snapshot")
+takeSnapshotWithRetries lastShotRef resultVar n = do
+  done <- tryReadMVar resultVar
+  case done of
+    Just _ -> pure ()
+    Nothing -> do
+      shot <- takeSnapshot
+      case shot of
+        Left _ -> do
+          threadDelay 200_000
+          takeSnapshotWithRetries lastShotRef resultVar (n - 1)
+        Right encoded -> do
+          prev <- readIORef lastShotRef
+          writeIORef lastShotRef (Just encoded)
+          case prev of
+            Just prevEncoded | prevEncoded == encoded ->
+              void $ tryPutMVar resultVar (Right encoded)
+            _ -> do
+              threadDelay 200_000
+              takeSnapshotWithRetries lastShotRef resultVar (n - 1)
 
-createTestWindows :: IO ()
-createTestWindows = do
-  w1 <- Gtk.windowNew Gtk.WindowTypeToplevel
-  Gtk.windowSetTitle w1 ("taffybar-test-red" :: T.Text)
-  Gtk.windowSetDefaultSize w1 150 100
-  Gtk.widgetShowAll w1
-
-  w2 <- Gtk.windowNew Gtk.WindowTypeToplevel
-  Gtk.windowSetTitle w2 ("taffybar-test-green" :: T.Text)
-  Gtk.windowSetDefaultSize w2 150 100
-  Gtk.widgetShowAll w2
-
-trySnapshot :: MVar (Either String BL.ByteString) -> IO ()
-trySnapshot resultVar = do
-  -- Screenshot the bar region. We keep this constant to make goldens stable.
-  out <- (withSystemTempDirectory "tbshot" $ \tmp -> do
+takeSnapshot :: IO (Either String BL.ByteString)
+takeSnapshot =
+  withSystemTempDirectory "tbshot" $ \tmp -> do
     let shotPath = tmp </> "shot.png"
     e <-
       try (readProcess (proc "grim" ["-s", "1", "-l", "1", "-g", "0,0 1024x40", shotPath]))
@@ -300,47 +222,38 @@ trySnapshot resultVar = do
       Right (ec, _stdout, _stderr) ->
         case ec of
           ExitFailure _ -> pure (Left ("grim failed" :: String))
-          ExitSuccess -> Right <$> BL.readFile shotPath
-    ) :: IO (Either String BL.ByteString)
-  case out of
-    Left _ -> pure ()
-    Right png ->
-      case JP.decodePng (BL.toStrict png) of
-        Left _ -> pure ()
-        Right dyn ->
-          let img = JP.convertRGBA8 dyn
-           in when (imageHasTestIcons img) $
-                void (tryPutMVar resultVar (Right (JP.encodePng img)))
+          ExitSuccess -> do
+            png <- BL.readFile shotPath
+            case JP.decodePng (BL.toStrict png) of
+              Left _ -> pure (Left "PNG decode failed")
+              Right dyn ->
+                let img = JP.convertRGBA8 dyn
+                 in
+                  if hasExpectedMarkers img
+                    then pure (Right (JP.encodePng img))
+                    else pure (Left "Expected marker colors not present (bar likely not rendered yet)")
 
-imageHasTestIcons :: JP.Image JP.PixelRGBA8 -> Bool
-imageHasTestIcons img =
-  let tol :: Int
-      tol = 40
-      near (JP.PixelRGBA8 r g b a) (tr, tg, tb) =
-        a > 200 &&
-        abs (fromIntegral r - tr) <= tol &&
-        abs (fromIntegral g - tg) <= tol &&
-        abs (fromIntegral b - tb) <= tol
-      redTarget :: (Int, Int, Int)
-      redTarget = (224, 58, 58)
-      greenTarget :: (Int, Int, Int)
-      greenTarget = (58, 224, 106)
-      w = JP.imageWidth img
+hasExpectedMarkers :: JP.Image JP.PixelRGBA8 -> Bool
+hasExpectedMarkers img =
+  -- These solid colors come from test/data/appearance-test.css and are chosen
+  -- specifically so we can detect when the bar has actually rendered.
+  let centerBox = JP.PixelRGBA8 0x3a 0x3a 0x3a 0xff
+      rightBox = JP.PixelRGBA8 0x3a 0x5a 0x7a 0xff
+      centerCount = countColor img centerBox
+      rightCount = countColor img rightBox
+   in centerCount >= 200 && rightCount >= 50
+
+countColor :: JP.Image JP.PixelRGBA8 -> JP.PixelRGBA8 -> Int
+countColor img needle =
+  let w = JP.imageWidth img
       h = JP.imageHeight img
-      go y seenR seenG
-        | y >= h = seenR && seenG
-        | otherwise =
-            let goX x sr sg
-                  | x >= w = go (y + 1) sr sg
-                  | otherwise =
-                      let px = JP.pixelAt img x y
-                          sr' = sr || near px redTarget
-                          sg' = sg || near px greenTarget
-                       in if sr' && sg'
-                            then True
-                            else goX (x + 1) sr' sg'
-             in goX 0 seenR seenG
-   in go 0 False False
+   in
+    length
+      [ ()
+      | y <- [0 .. h - 1]
+      , x <- [0 .. w - 1]
+      , JP.pixelAt img x y == needle
+      ]
 
 finalizeThread
   :: MVar Context
@@ -365,160 +278,41 @@ finalizeThread ctxVar resultVar doneVar outPath = do
     Just ctx -> void (try (exitTaffybar ctx) :: IO (Either SomeException ()))
 
 watchdogThread
-  :: Process () () ()
-  -> MVar Context
+  :: MVar Context
   -> MVar (Either String BL.ByteString)
   -> MVar ExitCode
+  -> IORef (Maybe BL.ByteString)
   -> Int
   -> IO ()
-watchdogThread hyprProc ctxVar resultVar doneVar usec = do
+watchdogThread ctxVar resultVar doneVar lastShotRef usec = do
   threadDelay usec
-  didSet <- tryPutMVar resultVar (Left "Timed out waiting for Hyprland appearance snapshot")
-  when didSet $ void $ tryPutMVar doneVar (ExitFailure 124)
+  void $ tryPutMVar doneVar (ExitFailure 124)
+  lastShot <- readIORef lastShotRef
+  let payload =
+        case lastShot of
+          Just png -> Right png
+          Nothing -> Left "Timed out waiting for Hyprland appearance snapshot"
+  void $ tryPutMVar resultVar payload
   mCtx <- tryReadMVar ctxVar
   case mCtx of
     Nothing -> pure ()
     Just ctx -> void (try (exitTaffybar ctx) :: IO (Either SomeException ()))
-  killProcessNoWait hyprProc
   -- If the GTK loop doesn't exit promptly, force the process to end so the
-  -- Hspec runner never hangs.
+  -- harness never hangs.
   threadDelay 2_000_000
   exitImmediately (ExitFailure 124)
-
-killProcessNoWait :: Process () () () -> IO ()
-killProcessNoWait p = do
-  mpid <- getPid p
-  case mpid of
-    Nothing -> pure ()
-    Just pid -> do
-      void (try (signalProcess sigTERM pid) :: IO (Either SomeException ()))
-      threadDelay 250_000
-      void (try (signalProcess sigKILL pid) :: IO (Either SomeException ()))
 
 requireExe :: String -> IO FilePath
 requireExe name = do
   mexe <- findExecutable name
   maybe (fail (name ++ " not found on PATH")) makeAbsolute mexe
 
-writeHyprlandConfig :: FilePath -> IO FilePath
-writeHyprlandConfig dir = do
-  let path = dir </> "hyprland.conf"
-  writeFile path $
-    unlines
-      [ "monitor=,1024x200@60,0x0,1"
-      , "misc {"
-      , "  disable_hyprland_logo = true"
-      , "  disable_splash_rendering = true"
-      , "}"
-      , "animations {"
-      , "  enabled = false"
-      , "}"
-      , "decoration {"
-      , "  rounding = 0"
-      , "  blur { enabled = false }"
-      , "}"
-      , "debug {"
-      , "  disable_logs = false"
-      , "}"
-      ]
-  pure path
-
-waitForSocket :: Int -> FilePath -> IO ()
-waitForSocket maxUsec path = do
-  let stepUsec = 50_000
-      maxSteps = maxUsec `div` stepUsec
-  ok <- go 0 maxSteps
-  unless ok $ fail ("Timed out waiting for socket: " ++ path)
-  where
-    go n maxSteps' = do
-      exists <- doesFileExist path
-      sock <- if exists then isSocket <$> getFileStatus path else pure False
-      if sock
-        then pure True
-        else if n >= maxSteps'
-          then pure False
-          else threadDelay 50_000 >> go (n + 1) maxSteps'
-
-waitForWaylandSocket :: Int -> FilePath -> IO FilePath
-waitForWaylandSocket maxUsec runtimeDir = do
-  let maxSteps = maxUsec `div` 50_000
-  ok <- go 0 maxSteps
-  maybe (fail "Timed out waiting for Hyprland wayland socket") pure ok
-  where
-    go n maxSteps' = do
-      sockets <- listWaylandSockets runtimeDir
-      case sockets of
-        (s:_) -> pure (Just s)
-        [] ->
-          if n >= maxSteps'
-            then pure Nothing
-            else threadDelay 50_000 >> go (n + 1) maxSteps'
-
-listWaylandSockets :: FilePath -> IO [FilePath]
-listWaylandSockets runtimeDir = do
-  entries <- listDirectory runtimeDir
-  let candidates = filter ("wayland-" `isPrefixOf`) entries
-  existing <- filterMIO (\n -> pathIsSocket (runtimeDir </> n)) candidates
-  pure (sortOn id existing)
-
-waitForHyprlandSignature :: Int -> FilePath -> IO String
-waitForHyprlandSignature maxUsec runtimeDir = do
-  let maxSteps = maxUsec `div` 50_000
-      hyprDir = runtimeDir </> "hypr"
-  ok <- go hyprDir 0 maxSteps
-  case ok of
-    Nothing -> fail "Timed out waiting for HYPRLAND_INSTANCE_SIGNATURE directory"
-    Just sig -> pure sig
-  where
-    go hyprDir n maxSteps' = do
-      exists <- doesDirectoryExist hyprDir
-      if not exists
-        then retry hyprDir n maxSteps'
-        else do
-          sigs <- listDirectory hyprDir
-          case sigs of
-            [] -> retry hyprDir n maxSteps'
-            _ ->
-              case sortOn id sigs of
-                (sig:_) -> pure (Just sig)
-                [] -> retry hyprDir n maxSteps'
-
-    retry hyprDir n maxSteps' =
-      if n >= maxSteps'
-        then pure Nothing
-        else threadDelay 50_000 >> go hyprDir (n + 1) maxSteps'
-
-setPrivateDir :: FilePath -> IO ()
-setPrivateDir dir = do
-  setFileMode dir privateDirMode
-  where
-    privateDirMode :: FileMode
-    privateDirMode = 0o700
-
-withShortRuntimeDir :: (FilePath -> IO a) -> IO a
-withShortRuntimeDir action = bracket acquire removePathForcibly action
-  where
-    acquire = do
-      dir <- mkdtemp "/tmp/tb-rt-XXXXXX"
-      setPrivateDir dir
-      pure dir
-
-pathIsSocket :: FilePath -> IO Bool
-pathIsSocket p = do
-  exists <- doesFileExist p
-  if not exists then pure False else isSocket <$> getFileStatus p
-
-filterMIO :: (a -> IO Bool) -> [a] -> IO [a]
-filterMIO _ [] = pure []
-filterMIO p (x:xs) = do
-  ok <- p x
-  rest <- filterMIO p xs
-  pure (if ok then x : rest else rest)
-
-toLowerAscii :: Char -> Char
-toLowerAscii c
-  | 'A' <= c && c <= 'Z' = toEnum (fromEnum c + 32)
-  | otherwise = c
+requireEnv :: String -> IO String
+requireEnv name = do
+  v <- lookupEnv name
+  case v of
+    Nothing -> die ("Required environment variable missing: " ++ name)
+    Just s -> pure s
 
 parseArgs :: [String] -> IO Args
 parseArgs args =
@@ -526,3 +320,8 @@ parseArgs args =
     ["--out", outPath, "--css", cssPath] -> pure Args { outFile = outPath, cssFile = cssPath }
     ["--css", cssPath, "--out", outPath] -> pure Args { outFile = outPath, cssFile = cssPath }
     _ -> fail "usage: taffybar-appearance-snap-hyprland --out OUT.png --css appearance-test.css"
+
+die :: String -> IO a
+die msg = do
+  hPutStrLn stderr msg
+  fail msg

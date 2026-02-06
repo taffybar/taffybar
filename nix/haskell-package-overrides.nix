@@ -32,9 +32,6 @@ final: prev: let
         xrandr       # Used for test setup
         pkgs.xdummy  # Wrapper script and config for Xserver
         pkgs.xterm   # An X client
-        pkgs.weston  # Headless Wayland compositor for Hyprland appearance tests
-        pkgs.hyprland  # Hyprland compositor + hyprctl
-        pkgs.grim    # Wayland screenshot utility
         pkgs.dbus    # dbus-daemon for test environment
         (pkgs.python3.withPackages (ps: with ps; [
           python-dbusmock  # Mock system bus services such as UPower
