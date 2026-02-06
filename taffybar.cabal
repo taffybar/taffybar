@@ -70,9 +70,10 @@ library
                , enclosed-exceptions >= 1.0.0.1
                , filepath
                , fsnotify >= 0.4 && < 0.5
+               , monad-control
                , gi-cairo-connector
                , gi-cairo-render
-               , gi-gdk3 >=3.0.30 && <3.1
+                , gi-gdk3 >=3.0.30 && <3.1
                , gi-gdkpixbuf >=2.0.6 && <2.1
                , gi-gdkx113 >=3.0.17 && < 4
                , gi-glib
@@ -121,7 +122,9 @@ library
                  , System.Taffybar.DBus
                  , System.Taffybar.DBus.Toggle
                  , System.Taffybar.Example
+                 , System.Taffybar.Hyprland
                  , System.Taffybar.Hooks
+                 , System.Taffybar.Information.Hyprland
                  , System.Taffybar.Information.PulseAudio
                  , System.Taffybar.Information.Backlight
                  , System.Taffybar.Information.Battery
@@ -179,6 +182,7 @@ library
                  , System.Taffybar.Widget.HyprlandWorkspaces
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
+                 , System.Taffybar.Widget.Workspaces.Shared
                  , System.Taffybar.Widget.WttrIn
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget

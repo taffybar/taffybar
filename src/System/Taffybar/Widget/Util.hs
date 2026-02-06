@@ -23,6 +23,7 @@ import qualified Control.Concurrent.MVar as MV
 import           Control.Exception.Enclosed (catchAny)
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Bifunctor ( first )
 import           Data.Functor ( ($>) )
 import           Data.GI.Base.Overloading (IsDescendantOf)
@@ -119,6 +120,13 @@ scaledPixbufGetter getter size windowData =
   getter size windowData >>=
   traverse (liftIO . scalePixbufToSize size Gtk.OrientationHorizontal)
 
+handlePixbufGetterException ::
+  (MonadBaseControl IO m, Show a) =>
+  (Priority -> String -> m ()) ->
+  (Int32 -> a -> m (Maybe GI.Pixbuf)) ->
+  Int32 ->
+  a ->
+  m (Maybe GI.Pixbuf)
 handlePixbufGetterException logFn getter size windowData =
   catchAny (getter size windowData) $ \e -> do
     _ <- logFn WARNING $ printf "Failed to get window icon for %s: %s"

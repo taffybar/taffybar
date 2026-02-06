@@ -18,7 +18,6 @@ module System.Taffybar.Widget.HyprlandWorkspaces where
 import           Control.Applicative ((<|>))
 import           Control.Concurrent (forkIO, killThread)
 import           Control.Concurrent.STM.TChan (TChan, readTChan)
-import qualified Control.Concurrent.MVar as MV
 import           Control.Monad (foldM, forM_, when)
 import           Control.Monad.IO.Class (MonadIO(liftIO))
 import           Control.Monad.STM (atomically)
@@ -55,22 +54,21 @@ import           System.Taffybar.Hyprland
   )
 import qualified System.Taffybar.Information.Hyprland as Hypr
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
 import           System.Taffybar.Widget.Util
   ( WindowIconWidget(..)
-  , buildBottomLeftAlignedBox
-  , buildPadBox
-  , buildOverlayWithPassThrough
   , computeIconStripLayout
   , getImageForDesktopEntry
   , handlePixbufGetterException
-  , mkWindowIconWidgetBase
   , scaledPixbufGetter
   , syncWidgetPool
   , updateWidgetClasses
   , updateWindowIconWidgetState
   , widgetSetClassGI
   , windowStatusClassFromFlags
+  )
+import           System.Taffybar.Widget.Workspaces.Shared
+  ( buildWorkspaceIconLabelOverlay
+  , mkWorkspaceIconWidget
   )
 import           System.Taffybar.Widget.Workspaces
   ( WorkspaceState(..)
@@ -341,14 +339,9 @@ buildWorkspaceWidgetState cfg ws = do
 
   -- Match the X11 Workspaces widget's overlay layout:
   -- icons are the main contents and the label is overlaid bottom-left.
-  mainContents <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
-  liftIO $ Gtk.containerAdd mainContents iconsBox
-  _ <- widgetSetClassGI mainContents "contents"
-
-  outerBox <- buildPadBox =<< Gtk.toWidget mainContents
+  iconsWidget <- liftIO $ Gtk.toWidget iconsBox
   labelWidget <- liftIO $ Gtk.toWidget label
-  overlayLabelWidget <- buildBottomLeftAlignedBox "overlay-box" labelWidget
-  overlayWidget <- buildOverlayWithPassThrough outerBox [overlayLabelWidget]
+  overlayWidget <- buildWorkspaceIconLabelOverlay iconsWidget labelWidget
   setWorkspaceWidgetStatusClass ws overlayWidget
   -- X11 Workspaces applies workspace state classes to the label too.
   setWorkspaceWidgetStatusClass ws label
@@ -408,31 +401,12 @@ updateIcons cfg ws iconsBox iconWidgets = do
 buildIconWidget :: Bool -> HyprlandWorkspacesConfig -> ReaderT Context IO HyprlandIconWidget
 buildIconWidget transparentOnNone cfg = do
   ctx <- ask
-  liftIO $ do
-    base <- mkWindowIconWidgetBase (Just $ iconSize cfg)
-    let getPixbuf size =
-          runReaderT
-            (do
-                mWin <- liftIO $ MV.readMVar (iconWindow base)
-                let transparent = Just <$> pixBufFromColor size 0
-                case mWin of
-                  Nothing ->
-                    if transparentOnNone
-                      then transparent
-                      else return Nothing
-                  Just w -> do
-                    pb <- getWindowIconPixbuf cfg size w
-                    case pb of
-                      Just _ -> return pb
-                      Nothing ->
-                        if transparentOnNone
-                          then transparent
-                          else return Nothing
-            )
-            ctx
-    refreshImage <-
-      autoSizeImage (iconImage base) getPixbuf Gtk.OrientationHorizontal
-    return base { iconForceUpdate = refreshImage }
+  liftIO $
+    mkWorkspaceIconWidget
+      (Just $ iconSize cfg)
+      transparentOnNone
+      (\size w -> runReaderT (getWindowIconPixbuf cfg size w) ctx)
+      (\size -> pixBufFromColor size 0)
 
 updateIconWidget :: HyprlandIconWidget -> Maybe HyprlandWindow -> ReaderT Context IO ()
 updateIconWidget iconWidget windowData =

@@ -19,7 +19,6 @@ import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.RateLimit
 import           Data.Default (Default(..))
@@ -45,8 +44,11 @@ import           System.Taffybar.Information.EWMHDesktopInfo
 import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
 import           System.Taffybar.Widget.Util
+import           System.Taffybar.Widget.Workspaces.Shared
+  ( buildWorkspaceIconLabelOverlay
+  , mkWorkspaceIconWidget
+  )
 import           System.Taffybar.WindowIcon
 import           Text.Printf
 
@@ -492,10 +494,20 @@ bottomLeftAlignedBoxWrapper boxClass constructor ws = do
   initializeWWC wrappingController ws
 
 buildLabelOverlayController :: ControllerConstructor
-buildLabelOverlayController =
-  buildOverlayContentsController
-  [buildIconController]
-  [bottomLeftAlignedBoxWrapper "overlay-box" buildLabelController]
+buildLabelOverlayController ws = do
+  iconController <- buildIconController ws
+  labelController <- buildLabelController ws
+  ctx <- ask
+  tempController <- lift $ do
+    iconWidget <- runReaderT (getWidget iconController) ctx
+    labelWidget <- runReaderT (getWidget labelController) ctx
+    widget <- buildWorkspaceIconLabelOverlay iconWidget labelWidget
+    return
+      WorkspaceContentsController
+      { containerWidget = widget
+      , contentsControllers = [iconController, labelController]
+      }
+  initializeWWC tempController ws
 
 buildOverlayContentsController ::
   [ControllerConstructor] -> [ControllerConstructor] -> ControllerConstructor
@@ -555,33 +567,20 @@ instance WorkspaceWidgetController LabelController where
 
 type IconWidget = WindowIconWidget WindowData
 
-getPixbufForIconWidget :: Bool
-                       -> MV.MVar (Maybe WindowData)
-                       -> Int32
-                       -> WorkspacesIO (Maybe Gdk.Pixbuf)
-getPixbufForIconWidget transparentOnNone dataVar size = do
-  ctx <- ask
-  let tContext = taffyContext ctx
-      getPBFromData = getWindowIconPixbuf $ workspacesConfig ctx
-      getPB' = runMaybeT $
-               MaybeT (lift $ MV.readMVar dataVar) >>= MaybeT . getPBFromData size
-      getPB = if transparentOnNone
-              then maybeTCombine getPB' (Just <$> pixBufFromColor size 0)
-              else getPB'
-  lift $ runReaderT getPB tContext
-
 buildIconWidget :: Bool -> Workspace -> WorkspacesIO IconWidget
 buildIconWidget transparentOnNone ws = do
   ctx <- ask
+  let tContext = taffyContext ctx
+      cfg = workspacesConfig ctx
+      getPB size windowData =
+        runReaderT (getWindowIconPixbuf cfg size windowData) tContext
   lift $ do
-    base <- mkWindowIconWidgetBase Nothing
-    refreshImage <-
-      autoSizeImage
-        (iconImage base)
-        (flip runReaderT ctx .
-         getPixbufForIconWidget transparentOnNone (iconWindow base))
-        Gtk.OrientationHorizontal
-    let iconWidget = base { iconForceUpdate = refreshImage }
+    iconWidget <-
+      mkWorkspaceIconWidget
+        Nothing
+        transparentOnNone
+        getPB
+        (\size -> pixBufFromColor size 0)
     _ <-
       Gtk.onWidgetButtonPressEvent (iconContainer iconWidget) $
       const $ liftIO $ do
