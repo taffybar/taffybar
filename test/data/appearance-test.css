@@ -3,6 +3,14 @@
  * Keep this minimal: any theme/font dependence will churn goldens.
  */
 
+/* Font rendering is otherwise host-dependent (e.g. Roboto vs DejaVu).
+ * Nix CI pins DejaVu via FONTCONFIG_FILE; do the same here so `cabal test`
+ * matches the committed golden on non-Nix systems too.
+ */
+* {
+  font-family: "DejaVu Sans";
+}
+
 window.taffy-window,
 .taffy-box {
   background-image: linear-gradient(to bottom, #2b2b2b, #1e1e1e);
@@ -51,4 +59,7 @@ window.taffy-window,
   border-radius: 999px;
   padding: 2px 8px;
   font-size: 12px;
+  /* Keep size stable even when pill contents are empty. */
+  min-width: 52px;
+  min-height: 20px;
 }
