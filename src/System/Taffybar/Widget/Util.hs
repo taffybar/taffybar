@@ -216,3 +216,16 @@ buildContentsBox widget = liftIO $ do
   _ <- widgetSetClassGI contents "contents"
   Gtk.widgetShowAll contents
   Gtk.toWidget contents >>= buildPadBox
+
+-- | Build a 'Gtk.Overlay' from a base widget plus one or more overlay widgets,
+-- and mark overlays as "pass through" so they don't capture clicks/scrolls.
+--
+-- This is useful for workspace widgets that overlay a label on top of icons.
+buildOverlayWithPassThrough :: MonadIO m => Gtk.Widget -> [Gtk.Widget] -> m Gtk.Widget
+buildOverlayWithPassThrough base overlays = liftIO $ do
+  overlay <- Gtk.overlayNew
+  Gtk.containerAdd overlay base
+  forM_ overlays $ \w -> do
+    Gtk.overlayAddOverlay overlay w
+    Gtk.overlaySetOverlayPassThrough overlay w True
+  Gtk.toWidget overlay

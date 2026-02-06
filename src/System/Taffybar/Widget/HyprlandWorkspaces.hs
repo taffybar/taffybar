@@ -59,7 +59,8 @@ import           System.Taffybar.Context
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
 import           System.Taffybar.Widget.Util
-  ( buildContentsBox
+  ( buildPadBox
+  , buildOverlayWithPassThrough
   , getImageForDesktopEntry
   , widgetSetClassGI
   )
@@ -393,15 +394,28 @@ buildWorkspaceWidgetState cfg ws = do
   wsRef <- liftIO $ newIORef ws
   icons <- updateIcons cfg ws iconsBox []
 
-  inner <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
-  liftIO $ Gtk.containerAdd inner label
-  liftIO $ Gtk.containerAdd inner iconsBox
-  contents <- buildContentsBox =<< Gtk.toWidget inner
-  setWorkspaceWidgetStatusClass ws contents
+  -- Match the X11 Workspaces widget's overlay layout:
+  -- icons are the main contents and the label is overlaid bottom-left.
+  overlayLabelBox <- liftIO Gtk.eventBoxNew
+  _ <- widgetSetClassGI overlayLabelBox "overlay-box"
+  liftIO $ Gtk.widgetSetHalign overlayLabelBox Gtk.AlignStart
+  liftIO $ Gtk.widgetSetValign overlayLabelBox Gtk.AlignEnd
+  liftIO $ Gtk.containerAdd overlayLabelBox label
+
+  mainContents <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
+  liftIO $ Gtk.containerAdd mainContents iconsBox
+  _ <- widgetSetClassGI mainContents "contents"
+
+  outerBox <- buildPadBox =<< Gtk.toWidget mainContents
+  overlayLabelWidget <- liftIO $ Gtk.toWidget overlayLabelBox
+  overlayWidget <- buildOverlayWithPassThrough outerBox [overlayLabelWidget]
+  setWorkspaceWidgetStatusClass ws overlayWidget
+  -- X11 Workspaces applies workspace state classes to the label too.
+  setWorkspaceWidgetStatusClass ws label
 
   ebox <- liftIO Gtk.eventBoxNew
   Gtk.eventBoxSetVisibleWindow ebox False
-  liftIO $ Gtk.containerAdd ebox contents
+  liftIO $ Gtk.containerAdd ebox overlayWidget
   _ <- liftIO $
        Gtk.onWidgetButtonPressEvent ebox $ const $ do
          wsCurrent <- readIORef wsRef
@@ -414,7 +428,7 @@ buildWorkspaceWidgetState cfg ws = do
     { workspaceWrapper = wrapperWidget
     , workspaceButton = ebox
     , workspaceRef = wsRef
-    , workspaceContents = contents
+    , workspaceContents = overlayWidget
     , workspaceLabel = label
     , workspaceIconsBox = iconsBox
     , workspaceIcons = icons
@@ -435,6 +449,7 @@ updateWorkspaceWidgetState cfg ws state = do
       then updateIcons cfg ws (workspaceIconsBox state) (workspaceIcons state)
       else return (workspaceIcons state)
   setWorkspaceWidgetStatusClass ws (workspaceContents state)
+  setWorkspaceWidgetStatusClass ws (workspaceLabel state)
   return state { workspaceLast = ws, workspaceIcons = icons }
 
 updateIcons ::
