@@ -91,6 +91,9 @@ data HyprlandWindow = HyprlandWindow
   , windowTitle :: String
   , windowClass :: Maybe String
   , windowInitialClass :: Maybe String
+  -- | The top-left position (x, y) of the window, as reported by
+  -- @hyprctl clients -j@. This is used for optional icon ordering.
+  , windowAt :: Maybe (Int, Int)
   , windowUrgent :: Bool
   , windowActive :: Bool
   , windowMinimized :: Bool
@@ -162,7 +165,8 @@ defaultHyprlandWorkspacesConfig =
   , labelSetter = return . workspaceName
   , showWorkspaceFn = \ws ->
       workspaceState ws /= Empty && not (isSpecialHyprWorkspace ws)
-  , iconSort = return
+  -- Match the X11 Workspaces widget default: order icons by window position.
+  , iconSort = pure . sortHyprlandWindowsByPosition
   , urgentWorkspaceState = False
   }
 
@@ -446,6 +450,17 @@ getWindowStatusString windowData =
     (windowActive windowData)
     (windowUrgent windowData)
 
+-- | Sort windows by their top-left corner position.
+--
+-- This mirrors the X11 Workspaces widget default ('sortWindowsByPosition'),
+-- but uses Hyprland's @at@ coordinate from @hyprctl clients -j@.
+sortHyprlandWindowsByPosition :: [HyprlandWindow] -> [HyprlandWindow]
+sortHyprlandWindowsByPosition =
+  sortOn $ \w ->
+    ( windowMinimized w
+    , fromMaybe (999999999, 999999999) (windowAt w)
+    )
+
 wLog :: MonadIO m => Priority -> String -> m ()
 wLog l s = liftIO $ logM "System.Taffybar.Widget.HyprlandWorkspaces" l s
 
@@ -548,6 +563,7 @@ data HyprlandClient = HyprlandClient
   , hcInitialTitle :: Maybe Text
   , hcClass :: Maybe Text
   , hcInitialClass :: Maybe Text
+  , hcAt :: Maybe (Int, Int)
   , hcWorkspace :: HyprlandWorkspaceRef
   , hcFocused :: Bool
   , hcHidden :: Bool
@@ -563,11 +579,16 @@ instance FromJSON HyprlandClient where
       <*> v .:? "initialTitle"
       <*> v .:? "class"
       <*> v .:? "initialClass"
+      <*> (vec2FromList <$> v .:? "at")
       <*> v .: "workspace"
       <*> v .:? "focused" .!= False
       <*> v .:? "hidden" .!= False
       <*> v .:? "mapped" .!= True
       <*> v .:? "urgent" .!= False
+    where
+      vec2FromList :: Maybe [Int] -> Maybe (Int, Int)
+      vec2FromList (Just [x, y]) = Just (x, y)
+      vec2FromList _ = Nothing
 
 newtype HyprlandActiveWindow = HyprlandActiveWindow
   { hawAddress :: Text
@@ -721,6 +742,7 @@ windowFromClient activeAddr client =
        , windowTitle = T.unpack titleText
        , windowClass = T.unpack <$> hcClass client
        , windowInitialClass = T.unpack <$> hcInitialClass client
+       , windowAt = hcAt client
        , windowUrgent = hcUrgent client
        , windowActive = active
        , windowMinimized = minimized

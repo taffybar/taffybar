@@ -318,11 +318,13 @@ test-suite unit
                , System.Taffybar.ContextSpec
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.SimpleConfigSpec
+               , System.Taffybar.Widget.HyprlandWorkspacesSpec
   build-depends: data-default
                , bytestring
                , directory
                , JuicyPixels
                , filepath
+               , text
                , gi-gtk3
                , hspec
                , hspec-core
