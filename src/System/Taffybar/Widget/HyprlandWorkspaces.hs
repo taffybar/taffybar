@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -----------------------------------------------------------------------------
@@ -29,7 +28,7 @@ import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString as BS
 import           Data.Default (Default(..))
 import           Data.Int (Int32)
-import           Data.List (foldl', sortOn, stripPrefix)
+import           Data.List (sortOn, stripPrefix)
 import           Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Map.Strict as M
 import qualified Data.MultiMap as MM
@@ -165,13 +164,13 @@ hyprlandUpdateLoop _cfg refresh = do
   mHandle <- connectHyprlandEventSocket
   case mHandle of
     Nothing ->
-      logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING $
+      logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING
         "Hyprland event socket unavailable; workspace updates disabled"
     Just handle ->
-      (eventLoop handle `catchAny` \e -> do
-          logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING $
-            printf "Hyprland event socket failed (%s); workspace updates disabled" (show e)
-          hClose handle)
+      eventLoop handle `catchAny` \e -> do
+        logM "System.Taffybar.Widget.HyprlandWorkspaces" WARNING $
+          printf "Hyprland event socket failed (%s); workspace updates disabled" (show e)
+        hClose handle
   where
     eventLoop handle = do
       line <- hGetLine handle
@@ -514,7 +513,7 @@ instance FromJSON HyprlandClient where
       <*> v .:? "mapped" .!= True
       <*> v .:? "urgent" .!= False
 
-data HyprlandActiveWindow = HyprlandActiveWindow
+newtype HyprlandActiveWindow = HyprlandActiveWindow
   { hawAddress :: Text
   } deriving (Show, Eq)
 
