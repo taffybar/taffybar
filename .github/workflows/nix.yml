@@ -23,6 +23,10 @@ jobs:
       - uses: DeterminateSystems/flake-checker-action@main
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
+        with:
+          # Avoid hard-failing CI for repos/orgs that haven't been set up on FlakeHub Cache.
+          # GitHub Actions cache remains enabled (default: true).
+          use-flakehub: false
       - name: Use ${{ matrix.nixpkgs }}
         if: matrix.nixpkgs != 'nixos-unstable'
         run: nix flake update nixpkgs --override-input nixpkgs github:NixOS/nixpkgs/${{ matrix.nixpkgs }}
@@ -53,6 +57,9 @@ jobs:
       - uses: actions/checkout@main
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
+        with:
+          # Avoid hard-failing CI for repos/orgs that haven't been set up on FlakeHub Cache.
+          use-flakehub: false
       - name: Nix build dependencies for ${{ matrix.compiler }}
         run: nix develop -L $drv --command ghc-pkg list
       - name: Nix build for ${{ matrix.compiler }}

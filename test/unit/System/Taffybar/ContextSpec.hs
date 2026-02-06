@@ -21,10 +21,13 @@ module System.Taffybar.ContextSpec
   ) where
 
 import Control.Monad.Trans.Reader (runReaderT)
+import Control.Exception (SomeException, catch)
 import Data.Default (def)
 import Data.Ratio ((%))
 import GHC.Generics (Generic)
 import GI.Gtk (Widget)
+import System.Directory (createDirectoryIfMissing, getTemporaryDirectory, removePathForcibly)
+import System.FilePath ((</>))
 
 import Test.Hspec hiding (context)
 import Test.Hspec.QuickCheck
@@ -37,11 +40,42 @@ import System.Taffybar.Widget.SimpleClock (textClockNewWith)
 import System.Taffybar.Widget.Workspaces (workspacesNew)
 
 import System.Taffybar.Test.DBusSpec (withTestDBus)
-import System.Taffybar.Test.UtilSpec (logSetup)
+import System.Taffybar.Test.UtilSpec (logSetup, withSetEnv)
 import System.Taffybar.Test.XvfbSpec (withXdummy, setDefaultDisplay_)
 
 spec :: Spec
 spec = logSetup $ sequential $ aroundAll_ withTestDBus $ aroundAll_ (withXdummy . flip setDefaultDisplay_) $ do
+  describe "detectBackend" $ do
+    it "falls back to X11 when WAYLAND_DISPLAY is set but the socket is missing" $ do
+      tmp <- getTemporaryDirectory
+      let runtime = tmp </> "taffybar-test-runtime-missing-socket"
+          wl = "wayland-stale"
+      removePathForcibly runtime `catch` (\(_ :: SomeException) -> pure ())
+      createDirectoryIfMissing True runtime
+      withSetEnv
+        [ ("XDG_RUNTIME_DIR", runtime)
+        , ("WAYLAND_DISPLAY", wl)
+        , ("XDG_SESSION_TYPE", "wayland")
+        ] $ do
+          detectBackend `shouldReturn` BackendX11
+      removePathForcibly runtime `catch` (\(_ :: SomeException) -> pure ())
+
+    it "falls back to X11 when WAYLAND_DISPLAY points at a non-socket path" $ do
+      tmp <- getTemporaryDirectory
+      let runtime = tmp </> "taffybar-test-runtime-non-socket"
+          wl = "wayland-stale"
+          wlPath = runtime </> wl
+      removePathForcibly runtime `catch` (\(_ :: SomeException) -> pure ())
+      createDirectoryIfMissing True runtime
+      writeFile wlPath "" -- exists but is not a socket
+      withSetEnv
+        [ ("XDG_RUNTIME_DIR", runtime)
+        , ("WAYLAND_DISPLAY", wl)
+        , ("XDG_SESSION_TYPE", "wayland")
+        ] $ do
+          detectBackend `shouldReturn` BackendX11
+      removePathForcibly runtime `catch` (\(_ :: SomeException) -> pure ())
+
   describe "Fuzz tests" $ do
     prop "eval generators" prop_genSimpleConfig
     xprop "TaffybarConfig" prop_taffybarConfig

@@ -270,6 +270,7 @@ test-suite unit
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.SimpleConfigSpec
   build-depends: data-default
+               , directory
                , filepath
                , gi-gtk3
                , hspec

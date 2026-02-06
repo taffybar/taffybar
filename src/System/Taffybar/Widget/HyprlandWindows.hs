@@ -134,8 +134,7 @@ buildWindowsIcon windowIconPixbufGetter = do
   (postGUIASync updateImage,) <$> Gtk.toWidget icon
 
 getActiveHyprlandWindow :: TaffyIO (Maybe HyprlandWindow)
-getActiveHyprlandWindow =
-  find windowActive <$> getHyprlandWindows
+getActiveHyprlandWindow = find windowActive <$> getHyprlandWindows
 
 getHyprlandWindows :: TaffyIO [HyprlandWindow]
 getHyprlandWindows = do
