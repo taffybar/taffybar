@@ -143,9 +143,9 @@ main = do
 
 runUnderWm :: Process () () () -> FilePath -> FilePath -> IO ExitCode
 runUnderWm wmProc outPath cssPath = do
-  ctxVar :: MVar Context <- newEmptyMVar
-  resultVar :: MVar (Either String BL.ByteString) <- newEmptyMVar
-  doneVar :: MVar ExitCode <- newEmptyMVar
+  ctxVar <- (newEmptyMVar :: IO (MVar Context))
+  resultVar <- (newEmptyMVar :: IO (MVar (Either String BL.ByteString)))
+  doneVar <- (newEmptyMVar :: IO (MVar ExitCode))
 
   createDirectoryIfMissing True (takeDirectory outPath)
 
