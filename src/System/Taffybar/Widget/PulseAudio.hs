@@ -32,6 +32,7 @@ import qualified GI.Gdk.Enums as Gdk
 import qualified GI.Gdk.Structs.EventScroll as GdkEvent
 import qualified GI.GLib as G
 import qualified GI.Gtk as Gtk
+import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.PulseAudio
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Generic.ChannelWidget
@@ -65,59 +66,60 @@ defaultPulseAudioWidgetConfig =
 instance Default PulseAudioWidgetConfig where
   def = defaultPulseAudioWidgetConfig
 
-pulseAudioLabelNew :: MonadIO m => m Gtk.Widget
+pulseAudioLabelNew :: TaffyIO Gtk.Widget
 pulseAudioLabelNew = pulseAudioLabelNewWith defaultPulseAudioWidgetConfig
 
-pulseAudioLabelNewWith :: MonadIO m => PulseAudioWidgetConfig -> m Gtk.Widget
-pulseAudioLabelNewWith config = liftIO $ do
-  label <- Gtk.labelNew Nothing
-
-  let
-    sinkSpec = pulseAudioSink config
-
-    updateLabel info = do
-      (labelText, tooltipText) <- formatPulseAudioWidget config info
-      postGUIASync $ do
-        Gtk.labelSetMarkup label labelText
-        Gtk.widgetSetTooltipMarkup label tooltipText
-
-    refreshNow = getPulseAudioInfo sinkSpec >>= updateLabel
-
-    whenToggleMute widget =
-      when (pulseAudioToggleMuteOnClick config) $
-        void $ Gtk.onWidgetButtonPressEvent widget $ \_ -> do
-          void $ togglePulseAudioMute sinkSpec
-          refreshNow
-          return True
-
-    whenScrollAdjust widget =
-      case pulseAudioScrollStepPercent config of
-        Nothing -> return ()
-        Just step | step <= 0 -> return ()
-        Just step -> do
-          _ <- Gtk.onWidgetScrollEvent widget $ \scrollEvent -> do
-            dir <- GdkEvent.getEventScrollDirection scrollEvent
-            let doAdjust delta = do
-                  void $ adjustPulseAudioVolume sinkSpec delta
-                  refreshNow
-                  return True
-            case dir of
-              Gdk.ScrollDirectionUp -> doAdjust step
-              Gdk.ScrollDirectionDown -> doAdjust (-step)
-              Gdk.ScrollDirectionLeft -> doAdjust step
-              Gdk.ScrollDirectionRight -> doAdjust (-step)
-              _ -> return False
-          return ()
-
+pulseAudioLabelNewWith :: PulseAudioWidgetConfig -> TaffyIO Gtk.Widget
+pulseAudioLabelNewWith config = do
+  let sinkSpec = pulseAudioSink config
   chan <- getPulseAudioInfoChan sinkSpec
   initialInfo <- getPulseAudioInfoState sinkSpec
-  void $ Gtk.onWidgetRealize label $ updateLabel initialInfo
 
-  whenToggleMute label
-  whenScrollAdjust label
+  liftIO $ do
+    label <- Gtk.labelNew Nothing
 
-  Gtk.widgetShowAll label
-  Gtk.toWidget =<< channelWidgetNew label chan updateLabel
+    let
+      updateLabel info = do
+        (labelText, tooltipText) <- formatPulseAudioWidget config info
+        postGUIASync $ do
+          Gtk.labelSetMarkup label labelText
+          Gtk.widgetSetTooltipMarkup label tooltipText
+
+      refreshNow = getPulseAudioInfo sinkSpec >>= updateLabel
+
+      whenToggleMute widget =
+        when (pulseAudioToggleMuteOnClick config) $
+          void $ Gtk.onWidgetButtonPressEvent widget $ \_ -> do
+            void $ togglePulseAudioMute sinkSpec
+            refreshNow
+            return True
+
+      whenScrollAdjust widget =
+        case pulseAudioScrollStepPercent config of
+          Nothing -> return ()
+          Just step | step <= 0 -> return ()
+          Just step -> do
+            _ <- Gtk.onWidgetScrollEvent widget $ \scrollEvent -> do
+              dir <- GdkEvent.getEventScrollDirection scrollEvent
+              let doAdjust delta = do
+                    void $ adjustPulseAudioVolume sinkSpec delta
+                    refreshNow
+                    return True
+              case dir of
+                Gdk.ScrollDirectionUp -> doAdjust step
+                Gdk.ScrollDirectionDown -> doAdjust (-step)
+                Gdk.ScrollDirectionLeft -> doAdjust step
+                Gdk.ScrollDirectionRight -> doAdjust (-step)
+                _ -> return False
+            return ()
+
+    void $ Gtk.onWidgetRealize label $ updateLabel initialInfo
+
+    whenToggleMute label
+    whenScrollAdjust label
+
+    Gtk.widgetShowAll label
+    Gtk.toWidget =<< channelWidgetNew label chan updateLabel
 
 formatPulseAudioWidget
   :: PulseAudioWidgetConfig

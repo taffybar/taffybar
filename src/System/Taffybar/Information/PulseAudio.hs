@@ -1,4 +1,9 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 -----------------------------------------------------------------------------
 
@@ -26,6 +31,8 @@ module System.Taffybar.Information.PulseAudio
     getPulseAudioInfoFromClient,
     getPulseAudioInfoChan,
     getPulseAudioInfoState,
+    getPulseAudioInfoChanFor,
+    getPulseAudioInfoStateFor,
     connectPulseAudio,
     togglePulseAudioMute,
     adjustPulseAudioVolume,
@@ -38,7 +45,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, finally, throwIO, try)
 import Control.Monad (forever, guard, join, void, when)
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Except
 import DBus
@@ -49,13 +56,15 @@ import Data.List (isInfixOf)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
+import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Word (Word32)
+import GHC.TypeLits (KnownSymbol, SomeSymbol (..), Symbol, someSymbolVal, symbolVal)
 import System.Directory (doesPathExist)
 import System.Environment (lookupEnv)
 import System.FilePath ((</>))
-import System.IO.Unsafe (unsafePerformIO)
 import System.Log.Logger (Priority (..))
+import System.Taffybar.Context (TaffyIO, getStateDefault)
 import System.Taffybar.DBus.Client.Params
   ( paCoreInterfaceName,
     paCoreObjectPath,
@@ -80,42 +89,54 @@ audioLogPath = "System.Taffybar.Information.PulseAudio"
 audioLogF :: (MonadIO m, Show t) => Priority -> String -> t -> m ()
 audioLogF = logPrintF audioLogPath
 
-newtype PulseAudioInfoChanVar
+newtype PulseAudioInfoChanVar (a :: Symbol)
   = PulseAudioInfoChanVar (TChan (Maybe PulseAudioInfo), MVar (Maybe PulseAudioInfo))
-
-{-# NOINLINE pulseAudioInfoChanVars #-}
-pulseAudioInfoChanVars :: MVar (M.Map String PulseAudioInfoChanVar)
-pulseAudioInfoChanVars = unsafePerformIO $ newMVar M.empty
 
 -- | Get a broadcast channel for PulseAudio info for the provided sink spec.
 --
 -- The first call for a given sink spec will start a monitoring thread that
 -- keeps a PulseAudio DBus connection open and refreshes on property changes.
 -- Subsequent calls return the already created channel.
-getPulseAudioInfoChan :: String -> IO (TChan (Maybe PulseAudioInfo))
-getPulseAudioInfoChan sinkSpec = do
-  PulseAudioInfoChanVar (chan, _) <- getPulseAudioInfoChanVar sinkSpec
-  pure chan
+getPulseAudioInfoChan :: String -> TaffyIO (TChan (Maybe PulseAudioInfo))
+getPulseAudioInfoChan sinkSpec =
+  case someSymbolVal sinkSpec of
+    SomeSymbol (Proxy :: Proxy sym) -> getPulseAudioInfoChanFor @sym
 
 -- | Read the current PulseAudio info state for the provided sink spec.
 --
 -- See 'getPulseAudioInfoChan' for monitoring behavior.
-getPulseAudioInfoState :: String -> IO (Maybe PulseAudioInfo)
-getPulseAudioInfoState sinkSpec = do
-  PulseAudioInfoChanVar (_, var) <- getPulseAudioInfoChanVar sinkSpec
-  readMVar var
+getPulseAudioInfoState :: String -> TaffyIO (Maybe PulseAudioInfo)
+getPulseAudioInfoState sinkSpec =
+  case someSymbolVal sinkSpec of
+    SomeSymbol (Proxy :: Proxy sym) -> getPulseAudioInfoStateFor @sym
 
-getPulseAudioInfoChanVar :: String -> IO PulseAudioInfoChanVar
-getPulseAudioInfoChanVar sinkSpec = do
-  modifyMVar pulseAudioInfoChanVars $ \m ->
-    case M.lookup sinkSpec m of
-      Just existing -> pure (m, existing)
-      Nothing -> do
-        chan <- newBroadcastTChanIO
-        var <- newMVar Nothing
-        let chanVar = PulseAudioInfoChanVar (chan, var)
-        _ <- forkIO $ monitorPulseAudioInfo sinkSpec chan var
-        pure (M.insert sinkSpec chanVar m, chanVar)
+-- | Get a broadcast channel for PulseAudio info for a sink spec given as a
+-- type-level string.
+--
+-- This is the closest analogue to 'System.Taffybar.Information.Crypto', where
+-- the type parameter provides a stable key for 'getStateDefault' so multiple
+-- parameterized versions can coexist in 'Context'.
+getPulseAudioInfoChanFor :: forall a. KnownSymbol a => TaffyIO (TChan (Maybe PulseAudioInfo))
+getPulseAudioInfoChanFor = do
+  PulseAudioInfoChanVar (chan, _) <- getPulseAudioInfoChanVarFor @a
+  pure chan
+
+-- | Read the current PulseAudio info state for a sink spec given as a
+-- type-level string.
+getPulseAudioInfoStateFor :: forall a. KnownSymbol a => TaffyIO (Maybe PulseAudioInfo)
+getPulseAudioInfoStateFor = do
+  PulseAudioInfoChanVar (_, var) <- getPulseAudioInfoChanVarFor @a
+  liftIO $ readMVar var
+
+getPulseAudioInfoChanVarFor :: forall a. KnownSymbol a => TaffyIO (PulseAudioInfoChanVar a)
+getPulseAudioInfoChanVarFor =
+  getStateDefault $ do
+    let sinkSpec = symbolVal (Proxy @a)
+    liftIO $ do
+      chan <- newBroadcastTChanIO
+      var <- newMVar Nothing
+      _ <- forkIO $ monitorPulseAudioInfo sinkSpec chan var
+      pure $ PulseAudioInfoChanVar (chan, var)
 
 monitorPulseAudioInfo ::
   String ->
@@ -136,8 +157,6 @@ monitorPulseAudioInfo sinkSpec chan var = do
             writeInfo Nothing
             pure $ Left e
           Right info -> writeInfo info >> pure (Right info)
-
-      refreshWithClient client = withMVar refreshLock $ \_ -> refreshWithClientUnlocked client
 
       -- PulseAudio's DBus interface is usually exposed via a peer-to-peer
       -- connection (unix:path=$XDG_RUNTIME_DIR/pulse/dbus-socket). In that mode
