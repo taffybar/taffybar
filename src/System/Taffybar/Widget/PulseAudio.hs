@@ -51,9 +51,11 @@ defaultPulseAudioWidgetConfig :: PulseAudioWidgetConfig
 defaultPulseAudioWidgetConfig =
   PulseAudioWidgetConfig
     { pulseAudioSink = "@DEFAULT_SINK@"
-    , pulseAudioFormat = "$icon$ $volume$%"
-    , pulseAudioMuteFormat = "$icon$ muted"
-    , pulseAudioUnknownFormat = "$icon$ n/a"
+    -- Spacing after $icon$ is handled inside escapeIconText so the gap scales
+    -- with the icon's (larger) font size.
+    , pulseAudioFormat = "$icon$$volume$%"
+    , pulseAudioMuteFormat = "$icon$muted"
+    , pulseAudioUnknownFormat = "$icon$n/a"
     , pulseAudioTooltipFormat =
         Just "Sink: $sink$\nVolume: $volume$%\nMuted: $muted$"
     , pulseAudioScrollStepPercent = Just 5
@@ -185,20 +187,31 @@ escapeText input = T.unpack <$> G.markupEscapeText input (-1)
 
 -- Font Awesome / Nerd Font glyphs live in the Private Use Area and can render
 -- much smaller than the surrounding text depending on which fallback font gets
--- selected. Enlarge only the PUA glyphs so digits/letters remain untouched.
+-- selected. Force a Nerd Font for PUA glyphs (and bump size slightly) so
+-- digits/letters remain untouched.
 escapeIconText :: T.Text -> IO String
 escapeIconText input =
-  concat
-    <$>
-      mapM
-        (\c -> do
-            esc <- escapeText (T.singleton c)
-            pure $
-              if isPUA c
-                then "<span size=\"large\">" ++ esc ++ "</span>"
-                else esc
-        )
-        (T.unpack input)
+  let
+    iconSpan s =
+      "<span font_family=\"Iosevka Nerd Font\" font_weight=\"normal\" size=\"large\">" ++ s ++ "</span>"
+  in do
+    rendered <-
+      concat
+        <$>
+          mapM
+            (\c -> do
+                esc <- escapeText (T.singleton c)
+                pure $
+                  if isPUA c
+                    then iconSpan esc
+                    else esc
+            )
+            (T.unpack input)
+    -- Add a trailing space in the icon's font/size so it doesn't look cramped.
+    pure $
+      if any isPUA (T.unpack input)
+        then rendered ++ iconSpan "&#x2004;" -- three-per-em space
+        else rendered
 
 isPUA :: Char -> Bool
 isPUA c =
