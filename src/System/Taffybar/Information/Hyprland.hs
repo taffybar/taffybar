@@ -68,7 +68,7 @@ import           Control.Concurrent.STM.TChan
   , writeTChan
   )
 import           Control.Exception.Enclosed (catchAny)
-import           Control.Monad (forever, void)
+import           Control.Monad (forM, forever, void)
 import           Control.Monad.IO.Class (MonadIO(..))
 import           Control.Monad.STM (atomically)
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
@@ -76,11 +76,15 @@ import           Data.Aeson (FromJSON, eitherDecode')
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
+import           Data.List (sortOn)
+import           Data.Ord (Down(..))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Network.Socket as NS
 import qualified Network.Socket.ByteString as NSB
+import           System.Directory (doesDirectoryExist, listDirectory)
 import           System.Environment (lookupEnv)
+import           System.FilePath ((</>), takeDirectory, takeFileName)
 import           System.IO
   ( BufferMode(LineBuffering)
   , Handle
@@ -90,6 +94,8 @@ import           System.IO
   , hSetBuffering
   )
 import           System.Log.Logger (Priority(..), logM)
+import           System.Posix.Files (getFileStatus, isSocket, modificationTime)
+import           System.Posix.Types (EpochTime)
 import           Text.Printf (printf)
 
 import           System.Taffybar.Util (runCommand)
@@ -206,28 +212,72 @@ hyprlandSocketPaths
 
 openHyprlandSocket :: HyprlandClient -> HyprlandSocket -> IO (Either HyprlandError NS.Socket)
 openHyprlandSocket client sock = do
-  case clientEnv client of
-    Nothing -> return $ Left $ HyprlandEnvMissing "HYPRLAND_INSTANCE_SIGNATURE"
-    Just _ -> do
-      let paths = hyprlandSocketPaths client sock
-      if null paths
-        then return $ Left $ HyprlandSocketUnavailable sock paths
-        else tryPaths paths
+  -- Prefer the instance signature from the process environment first. If that
+  -- fails (e.g. Hyprland restarted and the signature changed), fall back to
+  -- discovering currently-running instance sockets from the filesystem.
+  let envPaths = hyprlandSocketPaths client sock
+  envResult <- connectFirst envPaths
+  case envResult of
+    Just s -> pure (Right s)
+    Nothing -> do
+      discoveredPaths <- discoverHyprlandSocketPaths client sock
+      discResult <- connectFirst discoveredPaths
+      case discResult of
+        Just s -> pure (Right s)
+        Nothing ->
+          if null envPaths && null discoveredPaths
+            then pure $ Left $ HyprlandEnvMissing "HYPRLAND_INSTANCE_SIGNATURE"
+            else pure $ Left $ HyprlandSocketUnavailable sock (envPaths ++ discoveredPaths)
   where
-    tryPaths [] = return $ Left $ HyprlandSocketUnavailable sock (hyprlandSocketPaths client sock)
-    tryPaths (path:rest) = do
+    connectFirst :: [FilePath] -> IO (Maybe NS.Socket)
+    connectFirst [] = pure Nothing
+    connectFirst (path:rest) = do
       result <- connectToSocket path
       case result of
-        Left _ -> tryPaths rest
-        Right s -> return (Right s)
+        Left _ -> connectFirst rest
+        Right s -> pure (Just s)
+
+discoverHyprlandSocketPaths :: HyprlandClient -> HyprlandSocket -> IO [FilePath]
+discoverHyprlandSocketPaths _client sock = do
+  mRuntime <- lookupEnv "XDG_RUNTIME_DIR"
+  let bases =
+        maybe [] (\rd -> [rd </> "hypr"]) mRuntime ++
+        ["/tmp/hypr"]
+  let name = hyprlandSocketName sock
+  pathsWithTimes <- fmap concat $ forM bases $ \base -> do
+    baseExists <- doesDirectoryExist base
+    if not baseExists
+      then pure []
+      else do
+        -- Best-effort: Hyprland instances come and go and we don't want to
+        -- bring down widgets if this scan races a restart.
+        sigEntries <- listDirectory base `catchAny` \_ -> pure []
+        let candidates = map (\sig -> base </> sig </> name) sigEntries
+        existing <- fmap concat $ forM candidates $ \p -> do
+          mTime <- socketPathMTime p
+          pure $ maybe [] (\t -> [(t, p)]) mTime
+        pure existing
+
+  -- Prefer the newest sockets first to minimize binding to a stale instance.
+  pure $ map snd $ sortOn (Down . fst) pathsWithTimes
+
+socketPathMTime :: FilePath -> IO (Maybe EpochTime)
+socketPathMTime path =
+  (do
+      st <- getFileStatus path
+      if isSocket st
+        then pure $ Just $ modificationTime st
+        else pure Nothing
+    ) `catchAny` \_ -> pure Nothing
 
 connectToSocket :: FilePath -> IO (Either HyprlandError NS.Socket)
-connectToSocket path =
+connectToSocket path = do
+  sock <- NS.socket NS.AF_UNIX NS.Stream NS.defaultProtocol
   (do
-      sock <- NS.socket NS.AF_UNIX NS.Stream NS.defaultProtocol
       NS.connect sock (NS.SockAddrUnix path)
       return $ Right sock
-    ) `catchAny` \e ->
+    ) `catchAny` \e -> do
+      void $ NS.close sock `catchAny` \_ -> pure ()
       return $ Left $ HyprlandSocketException path (show e)
 
 openHyprlandEventSocket :: HyprlandClient -> IO (Either HyprlandError Handle)
@@ -331,7 +381,7 @@ runHyprlandCommandRaw
     Left sockErr ->
       if fallback
         then do
-          hyprctlResult <- runHyprlandCommandHyprctl hyprctl cmd
+          hyprctlResult <- runHyprlandCommandHyprctl client hyprctl cmd
           pure $ case hyprctlResult of
             Right out -> Right out
             Left hyprctlErr -> Left $ HyprlandHyprctlFailed $
@@ -360,13 +410,51 @@ runHyprlandCommandSocket client cmd = do
           NS.close sock
           pure $ Left $ HyprlandSocketException (show HyprlandCommandSocket) (show e)
 
-runHyprlandCommandHyprctl :: FilePath -> HyprlandCommand -> IO (Either String BS.ByteString)
-runHyprlandCommandHyprctl hyprctl HyprlandCommand { commandArgs = args, commandJson = isJson } = do
-  let args' = (if isJson then ("-j" :) else id) args
-  result <- runCommand hyprctl args'
+runHyprlandCommandHyprctl :: HyprlandClient -> FilePath -> HyprlandCommand -> IO (Either String BS.ByteString)
+runHyprlandCommandHyprctl client hyprctl HyprlandCommand { commandArgs = args, commandJson = isJson } = do
+  mSig <- pickHyprlandInstanceSignature client
+  let flags =
+        (if isJson then ["-j"] else []) ++
+        maybe [] (\sig -> ["-i", sig]) mSig
+  result <- runCommand hyprctl (flags ++ args)
   pure $ case result of
     Left err -> Left err
     Right out -> Right $ TE.encodeUtf8 $ T.pack out
+
+pickHyprlandInstanceSignature :: HyprlandClient -> IO (Maybe String)
+pickHyprlandInstanceSignature client =
+  case clientEnv client of
+    Just HyprlandClientEnv { instanceSignature = sig } -> do
+      -- Prefer the signature from the environment if we can actually connect
+      -- to the command socket. (After a Hyprland restart the old socket path
+      -- might still exist but be stale.)
+      envAlive <- anyM canConnectSocket $
+        hyprlandSocketPaths client HyprlandCommandSocket
+      if envAlive
+        then pure (Just sig)
+        else discover
+    Nothing -> discover
+  where
+    canConnectSocket path = do
+      result <- connectToSocket path
+      case result of
+        Left _ -> pure False
+        Right sock -> do
+          void $ NS.close sock `catchAny` \_ -> pure ()
+          pure True
+
+    discover = do
+      -- Use the newest discovered command socket.
+      paths <- discoverHyprlandSocketPaths client HyprlandCommandSocket
+      pure $ case paths of
+        p:_ -> Just $ takeFileName $ takeDirectory p
+        [] -> Nothing
+
+anyM :: Monad m => (a -> m Bool) -> [a] -> m Bool
+anyM _ [] = pure False
+anyM p (x:xs) = do
+  b <- p x
+  if b then pure True else anyM p xs
 
 recvAll :: NS.Socket -> IO BS.ByteString
 recvAll sock = go []
