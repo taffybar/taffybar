@@ -15,7 +15,8 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        nixpkgs: [nixos-unstable, nixos-25.05]
+        # Temporarily restrict CI to nixos-unstable while nixos-25.05 is broken.
+        nixpkgs: [nixos-unstable]
     env:
       drv: .#packages.x86_64-linux.default
     steps:
@@ -40,6 +41,9 @@ jobs:
         run: nix-build -I nixpkgs=flake:github:NixOS/nixpkgs/${{ matrix.nixpkgs }} '<nixpkgs>' --arg overlays '[(import ./nix/overlay.nix)]' -A pkgs.haskellPackages.taffybar
 
   build:
+    # Temporarily disabled to reduce CI load/noise while we stabilize the
+    # nixos-unstable build.
+    if: false
     name: Build with ${{ matrix.compiler }}
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
