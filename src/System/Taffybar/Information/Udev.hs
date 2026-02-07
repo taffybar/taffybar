@@ -15,7 +15,7 @@ module System.Taffybar.Information.Udev
   , drainBacklightMonitor
   ) where
 
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Control.Exception (bracketOnError, throwIO)
 import Foreign hiding (void)
 import Foreign.C
@@ -84,8 +84,8 @@ openBacklightMonitor = do
           , monitorFd = Fd fdC
           }
   where
-    whenNull p msg = if p == nullPtr then throwIO (userError msg) else pure ()
-    whenNeg rc msg = if rc < 0 then throwIO (userError msg) else pure ()
+    whenNull p msg = when (p == nullPtr) $ throwIO (userError msg)
+    whenNeg rc msg = when (rc < 0) $ throwIO (userError msg)
 
 closeBacklightMonitor :: UdevBacklightMonitor -> IO ()
 closeBacklightMonitor mon = do
