@@ -36,7 +36,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Data.List (sort, sortBy)
 import Data.Maybe (fromMaybe, listToMaybe)
-import Data.Ord (comparing)
+import Data.Ord (Down(..), comparing)
 import Data.Proxy (Proxy(..))
 import GHC.Conc (threadWaitRead)
 import GHC.TypeLits (KnownSymbol, SomeSymbol(..), Symbol, someSymbolVal)
@@ -206,7 +206,7 @@ selectDevice (Just device) = do
 selectDevice Nothing = do
   devices <- getBacklightDevices
   candidates <- mapM (\d -> (d,) . fromMaybe 0 <$> readMaxBrightness d) devices
-  pure $ fst <$> listToMaybe (sortBy (flip (comparing snd)) candidates)
+  pure $ fst <$> listToMaybe (sortBy (comparing (Down . snd)) candidates)
 
 readDevice :: FilePath -> IO (Maybe BacklightInfo)
 readDevice device = do
