@@ -19,6 +19,8 @@ module System.Taffybar.Widget.Backlight
   , defaultBacklightWidgetConfig
   , backlightLabelNew
   , backlightLabelNewWith
+  , backlightLabelNewChan
+  , backlightLabelNewChanWith
   ) where
 
 import Control.Exception (SomeException, catch)
@@ -30,8 +32,10 @@ import qualified GI.Gdk.Structs.EventScroll as GdkEvent
 import qualified GI.Gdk.Enums as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.GLib as G
+import System.Taffybar.Context (TaffyIO)
 import qualified System.Taffybar.Information.Backlight as BL
-import System.Taffybar.Util (runCommand)
+import System.Taffybar.Util (postGUIASync, runCommand)
+import System.Taffybar.Widget.Generic.ChannelWidget
 import System.Taffybar.Widget.Generic.PollingLabel
 import Text.StringTemplate
 
@@ -91,11 +95,68 @@ backlightLabelNewWith config = liftIO $ do
   Gtk.widgetShowAll widget
   return widget
 
+-- | Create a backlight widget driven by a 'TChan' (no polling in the widget).
+--
+-- Monitoring is handled in 'System.Taffybar.Information.Backlight' (udev when
+-- possible, with interval refresh as a fallback).
+backlightLabelNewChan :: TaffyIO Gtk.Widget
+backlightLabelNewChan = backlightLabelNewChanWith defaultBacklightWidgetConfig
+
+-- | Create a backlight widget driven by a 'TChan' (no polling in the widget).
+backlightLabelNewChanWith :: BacklightWidgetConfig -> TaffyIO Gtk.Widget
+backlightLabelNewChanWith config = do
+  chan <- BL.getBacklightInfoChanWithInterval
+    (backlightDevice config)
+    (backlightPollingInterval config)
+  initialInfo <- BL.getBacklightInfoState (backlightDevice config)
+
+  liftIO $ do
+    label <- Gtk.labelNew Nothing
+
+    let
+      updateLabel info = do
+        (labelText, tooltipText) <- formatBacklightWidgetFromInfo config info
+        postGUIASync $ do
+          Gtk.labelSetMarkup label labelText
+          Gtk.widgetSetTooltipMarkup label tooltipText
+
+      refreshNow = BL.getBacklightInfo (backlightDevice config) >>= updateLabel
+
+    void $ Gtk.onWidgetRealize label $ updateLabel initialInfo
+
+    case backlightScrollStepPercent config of
+      Nothing -> return ()
+      Just step | step <= 0 -> return ()
+      Just step -> do
+        _ <- Gtk.onWidgetScrollEvent label $ \scrollEvent -> do
+          dir <- GdkEvent.getEventScrollDirection scrollEvent
+          let doAdjust delta = do
+                adjustBacklight config delta
+                refreshNow
+                return True
+          case dir of
+            Gdk.ScrollDirectionUp -> doAdjust step
+            Gdk.ScrollDirectionDown -> doAdjust (-step)
+            Gdk.ScrollDirectionLeft -> doAdjust step
+            Gdk.ScrollDirectionRight -> doAdjust (-step)
+            _ -> return False
+        return ()
+
+    Gtk.widgetShowAll label
+    Gtk.toWidget =<< channelWidgetNew label chan updateLabel
+
 formatBacklightWidget
   :: BacklightWidgetConfig
   -> IO (T.Text, Maybe T.Text)
 formatBacklightWidget config = do
   info <- BL.getBacklightInfo (backlightDevice config)
+  formatBacklightWidgetFromInfo config info
+
+formatBacklightWidgetFromInfo
+  :: BacklightWidgetConfig
+  -> Maybe BL.BacklightInfo
+  -> IO (T.Text, Maybe T.Text)
+formatBacklightWidgetFromInfo config info =
   case info of
     Nothing -> return (T.pack $ backlightUnknownFormat config, Nothing)
     Just bl -> do

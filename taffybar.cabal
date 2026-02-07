@@ -118,6 +118,8 @@ library
 
   hs-source-dirs: src
   pkgconfig-depends: gtk+-3.0
+  if os(linux)
+    pkgconfig-depends: libudev
   exposed-modules: System.Taffybar
                  , System.Taffybar.Auth
                  , System.Taffybar.Context
@@ -206,6 +208,7 @@ library
                , System.Taffybar.DBus.Client.UPower
                , System.Taffybar.DBus.Client.UPowerDevice
                , System.Taffybar.DBus.Client.Util
+               , System.Taffybar.Information.Udev
 
   autogen-modules: Paths_taffybar
 
