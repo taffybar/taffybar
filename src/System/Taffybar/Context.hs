@@ -58,7 +58,7 @@ module System.Taffybar.Context
 
   -- * Threading
   , taffyFork
-  -- * Backend
+  -- * Backend (re-exported from "System.Taffybar.Context.Backend")
   , Backend(..)
   , detectBackend
   ) where
@@ -79,7 +79,6 @@ import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
 import           Data.List
 import qualified Data.Map as M
-import           Data.Maybe (isJust)
 import qualified Data.Text as T
 import           Data.Tuple.Select
 import           Data.Tuple.Sequence
@@ -91,10 +90,8 @@ import           GI.GdkX11.Objects.X11Window
 import qualified GI.Gtk as Gtk
 import           Graphics.UI.GIGtkStrut
 import           StatusNotifier.TransparentWindow
-import           System.FilePath ((</>))
-import           System.Environment (lookupEnv)
 import           System.Log.Logger (Priority(..), logM)
-import           System.Posix.Files (getFileStatus, isSocket)
+import           System.Taffybar.Context.Backend (Backend(..), detectBackend)
 import           System.Taffybar.Information.Hyprland
   ( HyprlandClient
   , HyprlandEventChan
@@ -124,11 +121,6 @@ type TaffyIO v = ReaderT Context IO v
 type Listener = Event -> Taffy IO ()
 type SubscriptionList = [(Unique, Listener)]
 data Value = forall t. Typeable t => Value t
-
-data Backend
-  = BackendX11
-  | BackendWayland
-  deriving (Eq, Show)
 
 fromValue :: forall t. Typeable t => Value -> Maybe t
 fromValue (Value v) =
@@ -527,33 +519,6 @@ startX11EventHandler = do
     -- from x11ContextVar here.
     lift $ withX11Context def $ eventLoop
            (\e -> runReaderT (handleX11Event e) c)
-
-detectBackend :: IO Backend
-detectBackend = do
-  sessionType <- lookupEnv "XDG_SESSION_TYPE"
-  waylandDisplay <- lookupEnv "WAYLAND_DISPLAY"
-  hyprlandSignature <- lookupEnv "HYPRLAND_INSTANCE_SIGNATURE"
-  xdgRuntimeDir <- lookupEnv "XDG_RUNTIME_DIR"
-
-  -- `systemd --user` can keep WAYLAND_DISPLAY in its manager environment across
-  -- logins, causing false Wayland detection (and breaking X11 strut behavior).
-  -- Only select the Wayland backend if the advertised socket actually exists.
-  waylandOk <- case (xdgRuntimeDir, waylandDisplay) of
-    (Just runtime, Just wl) ->
-      catchAny
-        (isSocket <$> getFileStatus (runtime </> wl))
-        (const $ pure False)
-    -- If we can't validate the socket location, preserve the previous behavior.
-    _ -> pure True
-
-  let wantsWayland =
-        sessionType == Just "wayland"
-          || isJust waylandDisplay
-          || isJust hyprlandSignature
-  when (wantsWayland && isJust waylandDisplay && not waylandOk) $
-    logIO DEBUG "Wayland env detected, but Wayland socket missing; falling back to X11 backend"
-
-  pure $ if wantsWayland && waylandOk then BackendWayland else BackendX11
 
 setupBarWindow :: Context -> StrutConfig -> Gtk.Window -> IO ()
 setupBarWindow context config window =
