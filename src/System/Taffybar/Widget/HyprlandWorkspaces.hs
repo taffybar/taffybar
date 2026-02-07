@@ -225,19 +225,29 @@ refreshWorkspaces :: HyprlandWorkspacesConfig -> Gtk.Box -> ReaderT Context IO (
 refreshWorkspaces cfg cont = do
   ws <- getWorkspaces cfg
   HyprlandWorkspaceCache prev <- getStateDefault $ return (HyprlandWorkspaceCache [])
+  -- Detect whether the cached widgets have been orphaned (e.g. the bar window
+  -- was destroyed and recreated after a compositor reload).  When the old GTK
+  -- objects are gone we must re-render even if the workspace data is unchanged.
+  HyprlandWorkspaceWidgetCache wc <-
+    getStateDefault $ return (HyprlandWorkspaceWidgetCache M.empty)
+  widgetsStale <- case M.elems wc of
+    [] -> return False
+    (first:_) -> liftIO $ not <$> Gtk.widgetGetRealized (workspaceWrapper first)
   let ignoreEmptyResult = null ws && not (null prev)
   when ignoreEmptyResult $
     liftIO $ wLog WARNING $
       printf
         "Hyprland workspaces refresh returned empty list; retaining previous state (prevTotal=%d)."
         (length prev)
-  when (ws /= prev && not ignoreEmptyResult) $ do
+  let needsRender = (ws /= prev || widgetsStale) && not ignoreEmptyResult
+  when needsRender $ do
     liftIO $ wLog DEBUG $
-      printf "Hyprland workspaces refresh: total=%d shown=%d (minIcons=%d maxIcons=%s) %s"
+      printf "Hyprland workspaces refresh: total=%d shown=%d (minIcons=%d maxIcons=%s) widgetsStale=%s %s"
         (length ws)
         (length (filter (showWorkspaceFn cfg) ws))
         (minIcons cfg)
         (show (maxIcons cfg))
+        (show widgetsStale)
         (summarizeWorkspaces ws)
     _ <- setState (HyprlandWorkspaceCache ws)
     ctx <- ask
@@ -251,8 +261,17 @@ renderWorkspaces cfg cont workspaces = do
     getStateDefault $ return (HyprlandWorkspaceWidgetCache M.empty)
   HyprlandWorkspaceOrderCache prevOrder <-
     getStateDefault $ return (HyprlandWorkspaceOrderCache [])
-  let oldCache = widgetCache
-      buildOrUpdate newCache ws = do
+  -- If any cached widget has been unrealized (e.g. because the bar window was
+  -- recreated after a compositor reload), the old GTK objects are dead and must
+  -- be discarded so that fresh widgets are built for the new container.
+  stale <- case M.elems widgetCache of
+    [] -> return False
+    (first:_) -> liftIO $ not <$> Gtk.widgetGetRealized (workspaceWrapper first)
+  let oldCache = if stale then M.empty else widgetCache
+      oldOrder = if stale then [] else prevOrder
+  when stale $
+    liftIO $ wLog DEBUG "renderWorkspaces: discarding stale widget cache (widgets unrealized)"
+  let buildOrUpdate newCache ws = do
         let idx = workspaceIdx ws
         state <- case M.lookup idx oldCache of
           Just prevState
@@ -306,7 +325,7 @@ renderWorkspaces cfg cont workspaces = do
 
   let desiredOrder = map (workspaceIdx . fst) orderedStates
       needsReorder =
-        desiredOrder /= prevOrder || not (M.null added) || not (M.null removed)
+        desiredOrder /= oldOrder || not (M.null added) || not (M.null removed)
   when needsReorder $ do
     -- Reorder wrappers to match the order returned by hyprctl.
     forM_ (zip [0 :: Int ..] orderedStates) $ \(pos, (_ws, st)) ->
