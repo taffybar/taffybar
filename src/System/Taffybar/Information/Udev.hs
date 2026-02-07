@@ -15,8 +15,9 @@ module System.Taffybar.Information.Udev
   , drainBacklightMonitor
   ) where
 
+import Control.Monad (void)
 import Control.Exception (bracketOnError, throwIO)
-import Foreign
+import Foreign hiding (void)
 import Foreign.C
 import System.Posix.Types (Fd(..))
 
@@ -83,7 +84,6 @@ openBacklightMonitor = do
           , monitorFd = Fd fdC
           }
   where
-    void = fmap (const ())
     whenNull p msg = if p == nullPtr then throwIO (userError msg) else pure ()
     whenNeg rc msg = if rc < 0 then throwIO (userError msg) else pure ()
 
@@ -91,8 +91,6 @@ closeBacklightMonitor :: UdevBacklightMonitor -> IO ()
 closeBacklightMonitor mon = do
   void $ c_udev_monitor_unref (monitorHandle mon)
   void $ c_udev_unref (monitorUdev mon)
-  where
-    void = fmap (const ())
 
 backlightMonitorFd :: UdevBacklightMonitor -> Fd
 backlightMonitorFd = monitorFd
@@ -108,5 +106,3 @@ drainBacklightMonitor mon = do
   if dev == nullPtr
     then pure ()
     else void $ c_udev_device_unref dev
-  where
-    void = fmap (const ())
