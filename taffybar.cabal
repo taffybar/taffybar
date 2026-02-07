@@ -123,6 +123,7 @@ library
   exposed-modules: System.Taffybar
                  , System.Taffybar.Auth
                  , System.Taffybar.Context
+                 , System.Taffybar.Context.Backend
                  , System.Taffybar.DBus
                  , System.Taffybar.DBus.Toggle
                  , System.Taffybar.Example
