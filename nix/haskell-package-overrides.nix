@@ -18,8 +18,15 @@ final: prev: let
   configuration = with haskellLib; self: super: {
     # Fix gtk3 build failure due to deprecated threading APIs being treated as errors
     gtk3 = lib.pipe super.gtk3 [
-      (appendConfigureFlags ["--ghc-option=-optc=-Wno-error=deprecated-declarations"])
+      # gtk2hs ships a C shim that still calls gdk_threads_* APIs which are
+      # deprecated in GTK3 headers. Some toolchains treat this warning as an
+      # error, so explicitly mark it as non-fatal.
+      #
+      # Note: The `-optc` flag must be passed as part of the same argument,
+      # i.e. `-optc-Wno-error=...` (not `-optc=-Wno-error=...`).
+      (appendConfigureFlags ["--ghc-option=-optc-Wno-error=deprecated-declarations"])
     ];
+
     taffybar = lib.pipe super.taffybar [
       (self.generateOptparseApplicativeCompletions [ "taffybar" ])
       (overrideCabal (drv: {
