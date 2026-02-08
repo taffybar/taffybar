@@ -43,7 +43,7 @@ data DiskUsageWidgetConfig = DiskUsageWidgetConfig
   , diskUsagePollInterval :: Double
   -- ^ Polling interval in seconds (default 60).
   , diskUsageFormat       :: String
-  -- ^ Label format string (default @\"$free$ free\"@).
+  -- ^ Label format string (default @\"$free$\"@).
   , diskUsageTooltipFormat :: Maybe String
   -- ^ Optional tooltip format string.
   }
@@ -52,7 +52,7 @@ defaultDiskUsageWidgetConfig :: DiskUsageWidgetConfig
 defaultDiskUsageWidgetConfig = DiskUsageWidgetConfig
   { diskUsagePath         = "/"
   , diskUsagePollInterval = 60
-  , diskUsageFormat       = "$free$ free"
+  , diskUsageFormat       = "$free$"
   , diskUsageTooltipFormat =
       Just "$path$: $used$ / $total$ ($usedPercent$% used)"
   }
