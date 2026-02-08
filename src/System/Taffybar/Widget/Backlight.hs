@@ -17,10 +17,16 @@
 module System.Taffybar.Widget.Backlight
   ( BacklightWidgetConfig(..)
   , defaultBacklightWidgetConfig
+  , backlightIconNew
+  , backlightIconNewWith
   , backlightLabelNew
   , backlightLabelNewWith
   , backlightLabelNewChan
   , backlightLabelNewChanWith
+  , backlightNew
+  , backlightNewWith
+  , backlightNewChan
+  , backlightNewChanWith
   ) where
 
 import Control.Exception (SomeException, catch)
@@ -37,6 +43,7 @@ import qualified System.Taffybar.Information.Backlight as BL
 import System.Taffybar.Util (postGUIASync, runCommand)
 import System.Taffybar.Widget.Generic.ChannelWidget
 import System.Taffybar.Widget.Generic.PollingLabel
+import System.Taffybar.Widget.Util (buildIconLabelBox)
 import Text.StringTemplate
 
 -- | Configuration for the backlight widget.
@@ -48,6 +55,8 @@ data BacklightWidgetConfig = BacklightWidgetConfig
   , backlightTooltipFormat :: Maybe String
   , backlightScrollStepPercent :: Maybe Int
   , backlightBrightnessctlPath :: FilePath
+  , backlightIcon :: T.Text
+  -- ^ Nerd font icon character (default U+F0EB, \xF0EB).
   }
 
 -- | Default backlight widget configuration.
@@ -62,10 +71,44 @@ defaultBacklightWidgetConfig =
         Just "Device: $device$\nBrightness: $brightness$/$max$ ($percent$%)"
     , backlightScrollStepPercent = Just 5
     , backlightBrightnessctlPath = "brightnessctl"
+    , backlightIcon = T.pack "\xF0EB"
     }
 
 instance Default BacklightWidgetConfig where
   def = defaultBacklightWidgetConfig
+
+-- | Create a backlight icon widget with default configuration.
+backlightIconNew :: MonadIO m => m Gtk.Widget
+backlightIconNew = backlightIconNewWith defaultBacklightWidgetConfig
+
+-- | Create a backlight icon widget with the provided configuration.
+backlightIconNewWith :: MonadIO m => BacklightWidgetConfig -> m Gtk.Widget
+backlightIconNewWith config = liftIO $ do
+  label <- Gtk.labelNew (Just (backlightIcon config))
+  Gtk.widgetShowAll label
+  Gtk.toWidget label
+
+-- | Create a combined icon+label backlight widget with default configuration.
+backlightNew :: MonadIO m => m Gtk.Widget
+backlightNew = backlightNewWith defaultBacklightWidgetConfig
+
+-- | Create a combined icon+label backlight widget.
+backlightNewWith :: MonadIO m => BacklightWidgetConfig -> m Gtk.Widget
+backlightNewWith config = liftIO $ do
+  iconWidget <- backlightIconNewWith config
+  labelWidget <- backlightLabelNewWith config
+  buildIconLabelBox iconWidget labelWidget
+
+-- | Create a combined icon+label backlight widget (channel-driven).
+backlightNewChan :: TaffyIO Gtk.Widget
+backlightNewChan = backlightNewChanWith defaultBacklightWidgetConfig
+
+-- | Create a combined icon+label backlight widget (channel-driven).
+backlightNewChanWith :: BacklightWidgetConfig -> TaffyIO Gtk.Widget
+backlightNewChanWith config = do
+  iconWidget <- liftIO $ backlightIconNewWith config
+  labelWidget <- backlightLabelNewChanWith config
+  liftIO $ buildIconLabelBox iconWidget labelWidget
 
 -- | Create a backlight widget with default configuration.
 backlightLabelNew :: MonadIO m => m Gtk.Widget
