@@ -21,8 +21,12 @@
 module System.Taffybar.Widget.DiskUsage
   ( DiskUsageWidgetConfig(..)
   , defaultDiskUsageWidgetConfig
+  , diskUsageIconNew
+  , diskUsageIconNewWith
   , diskUsageLabelNew
   , diskUsageLabelNewWith
+  , diskUsageNew
+  , diskUsageNewWith
   ) where
 
 import Control.Monad (void)
@@ -34,6 +38,7 @@ import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.DiskUsage
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Util (buildIconLabelBox)
 import Text.Printf (printf)
 import Text.StringTemplate
 
@@ -46,6 +51,8 @@ data DiskUsageWidgetConfig = DiskUsageWidgetConfig
   -- ^ Label format string (default @\"$free$\"@).
   , diskUsageTooltipFormat :: Maybe String
   -- ^ Optional tooltip format string.
+  , diskUsageIcon :: T.Text
+  -- ^ Nerd font icon character (default U+F0A0, ).
   }
 
 defaultDiskUsageWidgetConfig :: DiskUsageWidgetConfig
@@ -55,6 +62,7 @@ defaultDiskUsageWidgetConfig = DiskUsageWidgetConfig
   , diskUsageFormat       = "$free$"
   , diskUsageTooltipFormat =
       Just "$path$: $used$ / $total$ ($usedPercent$% used)"
+  , diskUsageIcon = T.pack "\xF0A0" --
   }
 
 instance Default DiskUsageWidgetConfig where
@@ -83,6 +91,28 @@ diskUsageLabelNewWith config = do
     void $ Gtk.onWidgetRealize label $ updateLabel initialInfo
     Gtk.widgetShowAll label
     Gtk.toWidget =<< channelWidgetNew label chan updateLabel
+
+-- | Create a disk usage icon widget with default configuration.
+diskUsageIconNew :: TaffyIO Gtk.Widget
+diskUsageIconNew = diskUsageIconNewWith defaultDiskUsageWidgetConfig
+
+-- | Create a disk usage icon widget with the provided configuration.
+diskUsageIconNewWith :: DiskUsageWidgetConfig -> TaffyIO Gtk.Widget
+diskUsageIconNewWith config = liftIO $ do
+  label <- Gtk.labelNew (Just (diskUsageIcon config))
+  Gtk.widgetShowAll label
+  Gtk.toWidget label
+
+-- | Create a combined icon+label disk usage widget with default configuration.
+diskUsageNew :: TaffyIO Gtk.Widget
+diskUsageNew = diskUsageNewWith defaultDiskUsageWidgetConfig
+
+-- | Create a combined icon+label disk usage widget.
+diskUsageNewWith :: DiskUsageWidgetConfig -> TaffyIO Gtk.Widget
+diskUsageNewWith config = do
+  iconWidget <- diskUsageIconNewWith config
+  labelWidget <- diskUsageLabelNewWith config
+  liftIO $ buildIconLabelBox iconWidget labelWidget
 
 -- --------------------------------------------------------------------------
 -- Formatting
