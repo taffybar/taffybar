@@ -50,6 +50,9 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.NetworkManager"
   , module System.Taffybar.Widget.NetworkManager
 
+  -- * "System.Taffybar.Widget.PowerProfiles"
+  , module System.Taffybar.Widget.PowerProfiles
+
   -- * "System.Taffybar.Widget.SNITray"
   , module System.Taffybar.Widget.SNITray
 
@@ -122,6 +125,7 @@ import System.Taffybar.Widget.Layout
 import System.Taffybar.Widget.MPRIS2
 import System.Taffybar.Widget.NetworkGraph
 import System.Taffybar.Widget.NetworkManager
+import System.Taffybar.Widget.PowerProfiles
 import System.Taffybar.Widget.SNITray
 import System.Taffybar.Widget.SimpleClock
 import System.Taffybar.Widget.SimpleCommandButton
