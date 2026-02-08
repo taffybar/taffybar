@@ -25,6 +25,13 @@ module System.Taffybar.Widget.NetworkManager
   , networkManagerWifiNew
   , networkManagerWifiNewWith
 
+  -- Wifi text icon (nerd font label)
+  , networkManagerWifiTextIconNew
+  , networkManagerWifiTextIconNewWith
+  -- Wifi combined icon-label
+  , networkManagerWifiIconLabelNew
+  , networkManagerWifiIconLabelNewWith
+
   , NetworkWidgetConfig(..)
   , defaultNetworkWidgetConfig
   , networkManagerNetworkLabelNew
@@ -37,6 +44,13 @@ module System.Taffybar.Widget.NetworkManager
 
   , networkManagerNetworkNew
   , networkManagerNetworkNewWith
+
+  -- Network text icon (nerd font label)
+  , networkManagerNetworkTextIconNew
+  , networkManagerNetworkTextIconNewWith
+  -- Network combined icon-label
+  , networkManagerNetworkIconLabelNew
+  , networkManagerNetworkIconLabelNewWith
   ) where
 
 import           Control.Applicative ((<|>))
@@ -44,7 +58,6 @@ import           Control.Concurrent.MVar
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
-import           Data.Char (ord)
 import           Data.Default (Default(..))
 import           Data.Int (Int32)
 import           Data.Maybe (fromMaybe)
@@ -57,6 +70,7 @@ import           System.Taffybar.Information.NetworkManager
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.ChannelWidget
+import           System.Taffybar.Widget.Util (buildIconLabelBox)
 import           Text.StringTemplate
 
 data WifiWidgetConfig = WifiWidgetConfig
@@ -70,12 +84,10 @@ data WifiWidgetConfig = WifiWidgetConfig
 defaultWifiWidgetConfig :: WifiWidgetConfig
 defaultWifiWidgetConfig =
   WifiWidgetConfig
-    -- Spacing after $icon$ is handled inside escapeIconText so the gap scales
-    -- with the icon's (larger) font size.
-    { wifiConnectedFormat = "$icon$$ssid$ $strength$%"
-    , wifiDisconnectedFormat = "$icon$disconnected"
-    , wifiDisabledFormat = "$icon$off"
-    , wifiUnknownFormat = "$icon$unknown"
+    { wifiConnectedFormat = "$ssid$ $strength$%"
+    , wifiDisconnectedFormat = "disconnected"
+    , wifiDisabledFormat = "off"
+    , wifiUnknownFormat = "unknown"
     , wifiTooltipFormat =
         Just "SSID: $ssid$\nStrength: $strength$%\nConnection: $connection$\nState: $state$"
     }
@@ -258,55 +270,20 @@ buildAttrs info = do
     strengthText = maybe "?" show (wifiStrength info)
     stateText = wifiStateText (wifiState info)
     connectionText = fromMaybe "" (wifiConnectionId info)
-    iconText = wifiTextIcon info
   ssid <- escapeText ssidText
   strength <- escapeText (T.pack strengthText)
   state <- escapeText (T.pack stateText)
   connection <- escapeText connectionText
-  icon <- escapeIconText iconText
   return
     [ ("ssid", ssid)
     , ("strength", strength)
     , ("state", state)
     , ("connection", connection)
-    , ("icon", icon)
     ]
 
 escapeText :: T.Text -> IO String
 escapeText input = T.unpack <$> G.markupEscapeText input (-1)
 
--- Font Awesome / Nerd Font glyphs live in the Private Use Area and can render
--- much smaller than the surrounding text depending on which fallback font gets
--- selected. Enlarge only the PUA glyphs so the "strength bar" characters (and
--- other plain text) remain at the normal size.
-escapeIconText :: T.Text -> IO String
-escapeIconText input =
-  let
-    iconSpan s =
-      "<span font_family=\"Iosevka Nerd Font\" font_weight=\"normal\" size=\"large\">" ++ s ++ "</span>"
-  in do
-    rendered <-
-      concat
-        <$>
-          mapM
-            (\c -> do
-                esc <- escapeText (T.singleton c)
-                pure $
-                  if isPUA c
-                    then iconSpan esc
-                    else esc
-            )
-            (T.unpack input)
-    -- Add a trailing space in the icon's font/size so it doesn't look cramped.
-    pure $
-      if any isPUA (T.unpack input)
-        then rendered ++ iconSpan "&#x2004;" -- three-per-em space
-        else rendered
-
-isPUA :: Char -> Bool
-isPUA c =
-  let o = ord c
-  in o >= 0xE000 && o <= 0xF8FF
 
 wifiStateText :: WifiState -> String
 wifiStateText WifiDisabled = "disabled"
@@ -340,15 +317,13 @@ data NetworkWidgetConfig = NetworkWidgetConfig
 defaultNetworkWidgetConfig :: NetworkWidgetConfig
 defaultNetworkWidgetConfig =
   NetworkWidgetConfig
-    -- Spacing after $icon$ is handled inside escapeIconText so the gap scales
-    -- with the icon's (larger) font size.
-    { networkWifiFormat = "$icon$$ssid$ $strength$%"
-    , networkWiredFormat = "$icon$$connection$"
-    , networkVpnFormat = "$icon$$connection$"
-    , networkOtherFormat = "$icon$$type$ $connection$"
-    , networkDisconnectedFormat = "$icon$disconnected"
-    , networkWifiDisabledFormat = "$icon$disconnected (wifi off)"
-    , networkUnknownFormat = "$icon$unknown"
+    { networkWifiFormat = "$ssid$ $strength$%"
+    , networkWiredFormat = "$connection$"
+    , networkVpnFormat = "$connection$"
+    , networkOtherFormat = "$type$ $connection$"
+    , networkDisconnectedFormat = "disconnected"
+    , networkWifiDisabledFormat = "disconnected (wifi off)"
+    , networkUnknownFormat = "unknown"
     , networkTooltipFormat =
         Just "Type: $type$\nConnection: $connection$\nSSID: $ssid$\nStrength: $strength$%\nState: $state$"
     }
@@ -557,20 +532,17 @@ buildNetworkAttrs info = do
     ssidText = if T.null displaySsid then "unknown" else displaySsid
     strengthText = maybe "?" show (networkStrength info)
     stateText = networkStateText (networkState info)
-    iconText = networkTextIcon info
   conn <- escapeText connText
   typ <- escapeText typeText
   ssid <- escapeText ssidText
   strength <- escapeText (T.pack strengthText)
   state <- escapeText (T.pack stateText)
-  icon <- escapeIconText iconText
   return
     [ ("connection", conn)
     , ("type", typ)
     , ("ssid", ssid)
     , ("strength", strength)
     , ("state", state)
-    , ("icon", icon)
     ]
 
 networkTypeText :: Maybe NetworkType -> T.Text
@@ -601,3 +573,65 @@ networkTextIcon info =
         Just NetworkVpn -> T.pack "\xF023" -- 
         Just (NetworkOther _) -> T.pack "\xF0AC" -- 
         Nothing -> T.pack "\xF0AC" -- 
+
+-- Wifi text icon
+
+networkManagerWifiTextIconNew :: TaffyIO Widget
+networkManagerWifiTextIconNew =
+  networkManagerWifiTextIconNewWith defaultWifiWidgetConfig
+
+networkManagerWifiTextIconNewWith :: WifiWidgetConfig -> TaffyIO Widget
+networkManagerWifiTextIconNewWith _config = do
+  chan <- getWifiInfoChan
+  ctx <- ask
+  liftIO $ do
+    label <- labelNew Nothing
+    let updateIcon info = do
+          let iconText = wifiTextIcon info
+          postGUIASync $ labelSetText label iconText
+    void $ onWidgetRealize label $
+      runReaderT getWifiInfoState ctx >>= updateIcon
+    toWidget =<< channelWidgetNew label chan updateIcon
+
+-- Wifi icon-label
+
+networkManagerWifiIconLabelNew :: TaffyIO Widget
+networkManagerWifiIconLabelNew =
+  networkManagerWifiIconLabelNewWith defaultWifiWidgetConfig
+
+networkManagerWifiIconLabelNewWith :: WifiWidgetConfig -> TaffyIO Widget
+networkManagerWifiIconLabelNewWith config = do
+  iconWidget <- networkManagerWifiTextIconNewWith config
+  labelWidget <- networkManagerWifiLabelNewWith config
+  liftIO $ buildIconLabelBox iconWidget labelWidget
+
+-- Network text icon
+
+networkManagerNetworkTextIconNew :: TaffyIO Widget
+networkManagerNetworkTextIconNew =
+  networkManagerNetworkTextIconNewWith defaultNetworkWidgetConfig
+
+networkManagerNetworkTextIconNewWith :: NetworkWidgetConfig -> TaffyIO Widget
+networkManagerNetworkTextIconNewWith _config = do
+  chan <- getNetworkInfoChan
+  ctx <- ask
+  liftIO $ do
+    label <- labelNew Nothing
+    let updateIcon info = do
+          let iconText = networkTextIcon info
+          postGUIASync $ labelSetText label iconText
+    void $ onWidgetRealize label $
+      runReaderT getNetworkInfoState ctx >>= updateIcon
+    toWidget =<< channelWidgetNew label chan updateIcon
+
+-- Network icon-label
+
+networkManagerNetworkIconLabelNew :: TaffyIO Widget
+networkManagerNetworkIconLabelNew =
+  networkManagerNetworkIconLabelNewWith defaultNetworkWidgetConfig
+
+networkManagerNetworkIconLabelNewWith :: NetworkWidgetConfig -> TaffyIO Widget
+networkManagerNetworkIconLabelNewWith config = do
+  iconWidget <- networkManagerNetworkTextIconNewWith config
+  labelWidget <- networkManagerNetworkLabelNewWith config
+  liftIO $ buildIconLabelBox iconWidget labelWidget
