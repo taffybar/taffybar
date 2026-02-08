@@ -148,6 +148,7 @@ library
                  , System.Taffybar.Information.Network
                  , System.Taffybar.Information.NetworkManager
                  , System.Taffybar.Information.SafeX11
+                 , System.Taffybar.Information.Systemd
                  , System.Taffybar.Information.StreamInfo
                  , System.Taffybar.Information.X11DesktopInfo
                  , System.Taffybar.Information.XDG.Protocol
@@ -186,6 +187,7 @@ library
                  , System.Taffybar.Widget.SNITray
                  , System.Taffybar.Widget.SimpleClock
                  , System.Taffybar.Widget.SimpleCommandButton
+                 , System.Taffybar.Widget.Systemd
                  , System.Taffybar.Widget.Text.CPUMonitor
                  , System.Taffybar.Widget.Text.MemoryMonitor
                  , System.Taffybar.Widget.Text.NetworkMonitor
