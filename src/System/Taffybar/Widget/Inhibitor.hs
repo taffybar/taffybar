@@ -32,6 +32,10 @@ module System.Taffybar.Widget.Inhibitor
   ( -- * Widget constructors
     inhibitorNew
   , inhibitorNewWithConfig
+  , inhibitorIconNew
+  , inhibitorIconNewWithConfig
+  , inhibitorLabelNew
+  , inhibitorLabelNewWithConfig
     -- * Configuration
   , InhibitorConfig(..)
   , defaultInhibitorConfig
@@ -59,6 +63,10 @@ data InhibitorConfig = InhibitorConfig
   , inhibitorActiveText :: T.Text
     -- | Text to display when inhibitor is inactive
   , inhibitorInactiveText :: T.Text
+    -- | Icon to display when inhibitor is active (default: U+F0F4, nf-fa-coffee)
+  , inhibitorActiveIcon :: T.Text
+    -- | Icon to display when inhibitor is inactive (default: U+F236, nf-fa-bed)
+  , inhibitorInactiveIcon :: T.Text
     -- | CSS class prefix (results in "prefix-active" and "prefix-inactive")
   , inhibitorCssPrefix :: T.Text
   } deriving (Eq, Show)
@@ -69,16 +77,74 @@ defaultInhibitorConfig = InhibitorConfig
   { inhibitWhat = [InhibitIdle]
   , inhibitorActiveText = "INHIBIT"
   , inhibitorInactiveText = "inhibit"
+  , inhibitorActiveIcon = T.pack "\xF0F4"
+  , inhibitorInactiveIcon = T.pack "\xF236"
   , inhibitorCssPrefix = "inhibitor"
   }
 
--- | Create an inhibitor widget with default configuration
+-- | Create a combined icon+label inhibitor widget with default configuration
 inhibitorNew :: TaffyIO Widget
 inhibitorNew = inhibitorNewWithConfig defaultInhibitorConfig
 
--- | Create an inhibitor widget with custom configuration
+-- | Create a combined icon+label inhibitor widget with custom configuration.
+-- The icon changes dynamically based on inhibitor state.
+-- Click to toggle the inhibitor on/off.
 inhibitorNewWithConfig :: InhibitorConfig -> TaffyIO Widget
 inhibitorNewWithConfig config = do
+  let types = inhibitWhat config
+  iconWidget <- inhibitorIconNewWithConfig config
+  labelWidget <- inhibitorLabelNewWithConfig config
+  ctx <- ask
+  liftIO $ do
+    box <- buildIconLabelBox iconWidget labelWidget
+    ebox <- eventBoxNew
+    containerAdd ebox box
+
+    _ <- widgetSetClassGI ebox "inhibitor"
+
+    _ <- onWidgetButtonPressEvent ebox $ \event -> do
+      button <- Gdk.getEventButtonButton event
+      when (button == 1) $
+        runReaderT (toggleInhibitor types) ctx
+      return True
+
+    widgetShowAll ebox
+    toWidget ebox
+
+-- | Create an icon-only inhibitor widget with default configuration
+inhibitorIconNew :: TaffyIO Widget
+inhibitorIconNew = inhibitorIconNewWithConfig defaultInhibitorConfig
+
+-- | Create an icon-only inhibitor widget with custom configuration.
+-- The icon changes dynamically based on inhibitor state.
+inhibitorIconNewWithConfig :: InhibitorConfig -> TaffyIO Widget
+inhibitorIconNewWithConfig config = do
+  let types = inhibitWhat config
+  chan <- getInhibitorChan types
+  ctx <- ask
+  liftIO $ do
+    label <- labelNew Nothing
+    let updateIcon state = postGUIASync $
+          labelSetText label $
+            if inhibitorActive state
+            then inhibitorActiveIcon config
+            else inhibitorInactiveIcon config
+    void $ onWidgetRealize label $ do
+      initialState <- runReaderT (getInhibitorState types) ctx
+      updateIcon initialState
+    widgetShowAll label
+    toWidget =<< channelWidgetNew label chan updateIcon
+
+-- | Create a label-only inhibitor widget with default configuration.
+-- Click to toggle the inhibitor on/off.
+inhibitorLabelNew :: TaffyIO Widget
+inhibitorLabelNew = inhibitorLabelNewWithConfig defaultInhibitorConfig
+
+-- | Create a label-only inhibitor widget with custom configuration.
+-- Displays text and CSS classes based on inhibitor state.
+-- Click to toggle the inhibitor on/off.
+inhibitorLabelNewWithConfig :: InhibitorConfig -> TaffyIO Widget
+inhibitorLabelNewWithConfig config = do
   let types = inhibitWhat config
   chan <- getInhibitorChan types
   ctx <- ask
