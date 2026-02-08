@@ -67,6 +67,7 @@ library
                , dbus >= 1.2.11 && < 2.0.0
                , dbus-hslogger >= 0.1.0.1 && < 0.2.0.0
                , directory
+               , disk-free-space >= 0.1.0.1
                , dyre >= 0.9.0 && < 0.10
                , either >= 4.0.0.0
                , enclosed-exceptions >= 1.0.0.1
@@ -138,6 +139,7 @@ library
                  , System.Taffybar.Information.Chrome
                  , System.Taffybar.Information.Crypto
                  , System.Taffybar.Information.DiskIO
+                 , System.Taffybar.Information.DiskUsage
                  , System.Taffybar.Information.EWMHDesktopInfo
                  , System.Taffybar.Information.MPRIS2
                  , System.Taffybar.Information.Memory
@@ -158,6 +160,7 @@ library
                  , System.Taffybar.Widget.CommandRunner
                  , System.Taffybar.Widget.Crypto
                  , System.Taffybar.Widget.DiskIOMonitor
+                 , System.Taffybar.Widget.DiskUsage
                  , System.Taffybar.Widget.FSMonitor
                  , System.Taffybar.Widget.FreedesktopNotifications
                  , System.Taffybar.Widget.Generic.AutoSizeImage

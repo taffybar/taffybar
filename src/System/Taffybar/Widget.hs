@@ -26,6 +26,9 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.DiskIOMonitor"
   , module System.Taffybar.Widget.DiskIOMonitor
 
+  -- * "System.Taffybar.Widget.DiskUsage"
+  , module System.Taffybar.Widget.DiskUsage
+
   -- * "System.Taffybar.Widget.FSMonitor"
   , module System.Taffybar.Widget.FSMonitor
 
@@ -108,6 +111,7 @@ import System.Taffybar.Widget.CommandRunner
 import System.Taffybar.Widget.Crypto
 #endif
 import System.Taffybar.Widget.DiskIOMonitor
+import System.Taffybar.Widget.DiskUsage
 import System.Taffybar.Widget.FSMonitor
 import System.Taffybar.Widget.FreedesktopNotifications
 import System.Taffybar.Widget.Layout
