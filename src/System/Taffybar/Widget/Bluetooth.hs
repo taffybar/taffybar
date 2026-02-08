@@ -18,13 +18,16 @@
 module System.Taffybar.Widget.Bluetooth
   ( BluetoothWidgetConfig(..)
   , defaultBluetoothWidgetConfig
+  , bluetoothIconNew
+  , bluetoothIconNewWith
+  , bluetoothLabelNew
+  , bluetoothLabelNewWith
   , bluetoothNew
   , bluetoothNewWith
   ) where
 
 import Control.Monad (void)
 import Control.Monad.IO.Class
-import Data.Char (ord)
 import Data.Default (Default(..))
 import Data.List (intercalate)
 import qualified Data.Text as T
@@ -34,13 +37,14 @@ import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.Bluetooth
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Util (buildIconLabelBox)
 import Text.StringTemplate
 
 -- | Configuration for the Bluetooth widget.
 data BluetoothWidgetConfig = BluetoothWidgetConfig
   { -- | Format string when Bluetooth is connected.
     -- Available variables: $status$, $device_alias$, $device_battery$,
-    -- $num_connections$, $controller_alias$, $icon$
+    -- $num_connections$, $controller_alias$
     bluetoothFormatConnected :: String
     -- | Format string when Bluetooth is on but not connected.
   , bluetoothFormatOn :: String
@@ -54,28 +58,65 @@ data BluetoothWidgetConfig = BluetoothWidgetConfig
     -- | Format for each device in the tooltip device list.
     -- Variables: $device_alias$, $device_battery$
   , bluetoothDeviceListFormat :: String
+    -- | Icon to display when Bluetooth is connected.
+  , bluetoothConnectedIcon :: T.Text
+    -- | Icon to display when Bluetooth is on but not connected.
+  , bluetoothOnIcon :: T.Text
+    -- | Icon to display when Bluetooth is off (powered down).
+  , bluetoothOffIcon :: T.Text
+    -- | Icon to display when no Bluetooth controller is found.
+  , bluetoothNoControllerIcon :: T.Text
   }
 
 defaultBluetoothWidgetConfig :: BluetoothWidgetConfig
 defaultBluetoothWidgetConfig = BluetoothWidgetConfig
-  { bluetoothFormatConnected = "$icon$ $device_alias$"
-  , bluetoothFormatOn = "$icon$"
-  , bluetoothFormatOff = "$icon$"
-  , bluetoothFormatNoController = "$icon$"
+  { bluetoothFormatConnected = "$device_alias$"
+  , bluetoothFormatOn = ""
+  , bluetoothFormatOff = ""
+  , bluetoothFormatNoController = ""
   , bluetoothTooltipFormat = Just "Bluetooth: $status$\nController: $controller_alias$\n$device_list$"
   , bluetoothDeviceListFormat = "$device_alias$ ($device_battery$%)"
+  , bluetoothConnectedIcon = T.pack "\xF293"
+  , bluetoothOnIcon = T.pack "\xF293"
+  , bluetoothOffIcon = T.pack "\xF294"
+  , bluetoothNoControllerIcon = T.pack "\xF294"
   }
 
 instance Default BluetoothWidgetConfig where
   def = defaultBluetoothWidgetConfig
 
--- | Create a new Bluetooth widget with default configuration.
-bluetoothNew :: TaffyIO Gtk.Widget
-bluetoothNew = bluetoothNewWith defaultBluetoothWidgetConfig
+-- | Create a Bluetooth icon widget with default configuration.
+bluetoothIconNew :: TaffyIO Gtk.Widget
+bluetoothIconNew = bluetoothIconNewWith defaultBluetoothWidgetConfig
 
--- | Create a new Bluetooth widget with custom configuration.
-bluetoothNewWith :: BluetoothWidgetConfig -> TaffyIO Gtk.Widget
-bluetoothNewWith config = do
+-- | Create a Bluetooth icon widget with custom configuration.
+-- The icon updates dynamically based on the current Bluetooth status.
+bluetoothIconNewWith :: BluetoothWidgetConfig -> TaffyIO Gtk.Widget
+bluetoothIconNewWith config = do
+  chan <- getBluetoothInfoChan
+  initialInfo <- getBluetoothInfoState
+  liftIO $ do
+    label <- Gtk.labelNew Nothing
+    let updateIcon info = postGUIASync $ do
+          let iconText = case bluetoothStatus info of
+                BluetoothConnected -> bluetoothConnectedIcon config
+                BluetoothOn -> bluetoothOnIcon config
+                BluetoothOff -> bluetoothOffIcon config
+                BluetoothNoController -> bluetoothNoControllerIcon config
+          Gtk.labelSetText label iconText
+          updateStyleClasses label info
+    void $ Gtk.onWidgetRealize label $ updateIcon initialInfo
+    Gtk.widgetShowAll label
+    Gtk.toWidget =<< channelWidgetNew label chan updateIcon
+
+-- | Create a Bluetooth label widget with default configuration.
+bluetoothLabelNew :: TaffyIO Gtk.Widget
+bluetoothLabelNew = bluetoothLabelNewWith defaultBluetoothWidgetConfig
+
+-- | Create a Bluetooth label widget with custom configuration.
+-- The label shows text information (device alias, status, etc.) but no icon.
+bluetoothLabelNewWith :: BluetoothWidgetConfig -> TaffyIO Gtk.Widget
+bluetoothLabelNewWith config = do
   chan <- getBluetoothInfoChan
   initialInfo <- getBluetoothInfoState
 
@@ -94,6 +135,17 @@ bluetoothNewWith config = do
 
     Gtk.widgetShowAll label
     Gtk.toWidget =<< channelWidgetNew label chan updateLabel
+
+-- | Create a combined icon+label Bluetooth widget with default configuration.
+bluetoothNew :: TaffyIO Gtk.Widget
+bluetoothNew = bluetoothNewWith defaultBluetoothWidgetConfig
+
+-- | Create a combined icon+label Bluetooth widget with custom configuration.
+bluetoothNewWith :: BluetoothWidgetConfig -> TaffyIO Gtk.Widget
+bluetoothNewWith config = do
+  iconWidget <- bluetoothIconNewWith config
+  labelWidget <- bluetoothLabelNewWith config
+  liftIO $ buildIconLabelBox iconWidget labelWidget
 
 -- | Update CSS classes on the widget based on Bluetooth status.
 updateStyleClasses :: Gtk.Label -> BluetoothInfo -> IO ()
@@ -156,14 +208,11 @@ buildAttrs info = do
         let battery = maybe "?" show (deviceBatteryPercentage dev)
         in deviceAlias dev ++ " (" ++ battery ++ "%)"
 
-      iconText = bluetoothTextIcon (bluetoothStatus info)
-
   status <- escapeText $ T.pack statusText
   deviceAliasEsc <- escapeText $ T.pack deviceAliasText
   deviceBatteryEsc <- escapeText $ T.pack deviceBatteryText
   controllerAliasEsc <- escapeText $ T.pack controllerAliasText
   deviceListEsc <- escapeText $ T.pack deviceListText
-  iconEsc <- escapeIconText iconText
 
   return
     [ ("status", status)
@@ -172,16 +221,7 @@ buildAttrs info = do
     , ("num_connections", show numConnections)
     , ("controller_alias", controllerAliasEsc)
     , ("device_list", deviceListEsc)
-    , ("icon", iconEsc)
     ]
-
--- | Get the appropriate icon for the Bluetooth status.
-bluetoothTextIcon :: BluetoothStatus -> T.Text
-bluetoothTextIcon status = case status of
-  BluetoothConnected -> T.pack "\xF293"  -- Bluetooth connected (nf-fa-bluetooth_b)
-  BluetoothOn -> T.pack "\xF293"         -- Bluetooth on
-  BluetoothOff -> T.pack "\xF294"        -- Bluetooth off (nf-fa-bluetooth)
-  BluetoothNoController -> T.pack "\xF294"
 
 -- | Render a template with the given attributes.
 renderTemplate :: String -> [(String, String)] -> String
@@ -190,34 +230,3 @@ renderTemplate template attrs = render $ setManyAttrib attrs (newSTMP template)
 -- | Escape text for Pango markup.
 escapeText :: T.Text -> IO String
 escapeText input = T.unpack <$> G.markupEscapeText input (-1)
-
--- | Escape icon text with special font handling for Private Use Area characters.
--- This ensures Nerd Font icons render at the correct size.
-escapeIconText :: T.Text -> IO String
-escapeIconText input =
-  let iconSpan s =
-        "<span font_family=\"Iosevka Nerd Font\" font_weight=\"normal\" size=\"large\">"
-        ++ s ++ "</span>"
-  in do
-    rendered <-
-      concat
-        <$> mapM
-          (\c -> do
-              esc <- escapeText (T.singleton c)
-              pure $
-                if isPUA c
-                  then iconSpan esc
-                  else esc
-          )
-          (T.unpack input)
-    -- Add a trailing space in the icon's font/size so it doesn't look cramped.
-    pure $
-      if any isPUA (T.unpack input)
-        then rendered ++ iconSpan "&#x2004;" -- three-per-em space
-        else rendered
-
--- | Check if a character is in the Private Use Area (PUA).
-isPUA :: Char -> Bool
-isPUA c =
-  let o = ord c
-  in o >= 0xE000 && o <= 0xF8FF
