@@ -19,6 +19,10 @@ module System.Taffybar.Widget.KeyboardState
   ( -- * Widget Constructors
     keyboardStateNew
   , keyboardStateNewWithConfig
+  , keyboardStateLabelNew
+  , keyboardStateLabelNewWithConfig
+  , keyboardStateIconNew
+  , keyboardStateIconNewWithConfig
     -- * Configuration
   , KeyboardStateConfig(..)
   , defaultKeyboardStateConfig
@@ -31,7 +35,7 @@ import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Information.KeyboardState
 import System.Taffybar.Widget.Generic.PollingLabel (pollingLabelNew)
-import System.Taffybar.Widget.Util (widgetSetClassGI)
+import System.Taffybar.Widget.Util (buildIconLabelBox, widgetSetClassGI)
 
 -- | Configuration for the keyboard state widget.
 data KeyboardStateConfig = KeyboardStateConfig
@@ -57,6 +61,8 @@ data KeyboardStateConfig = KeyboardStateConfig
     -- ^ Separator between lock indicators. Default: " "
   , kscPollingInterval :: Double
     -- ^ Polling interval in seconds. Default: 0.5
+  , kscIcon :: T.Text
+    -- ^ Icon text for the icon widget variant. Default: keyboard icon (nf-md-keyboard)
   } deriving (Eq, Show)
 
 -- | Default configuration for the keyboard state widget.
@@ -74,6 +80,7 @@ defaultKeyboardStateConfig = KeyboardStateConfig
   , kscShowScrollLock = False
   , kscSeparator = " "
   , kscPollingInterval = 0.5
+  , kscIcon = T.pack "\xF80B"
   }
 
 -- | Format the keyboard state according to the configuration.
@@ -98,18 +105,43 @@ formatKeyboardState cfg state =
         ]
   in T.intercalate (kscSeparator cfg) parts
 
--- | Create a keyboard state widget with default configuration.
+-- | Create a keyboard state label widget with default configuration.
 -- Shows Caps Lock status, polling every 0.5 seconds.
-keyboardStateNew :: MonadIO m => m Gtk.Widget
-keyboardStateNew = keyboardStateNewWithConfig defaultKeyboardStateConfig
+keyboardStateLabelNew :: MonadIO m => m Gtk.Widget
+keyboardStateLabelNew = keyboardStateLabelNewWithConfig defaultKeyboardStateConfig
 
--- | Create a keyboard state widget with custom configuration.
+-- | Create a keyboard state label widget with custom configuration.
 -- Uses PollingLabel to periodically update the display.
-keyboardStateNewWithConfig :: MonadIO m => KeyboardStateConfig -> m Gtk.Widget
-keyboardStateNewWithConfig cfg = liftIO $ do
+keyboardStateLabelNewWithConfig :: MonadIO m => KeyboardStateConfig -> m Gtk.Widget
+keyboardStateLabelNewWithConfig cfg = liftIO $ do
   widget <- pollingLabelNew (kscPollingInterval cfg) (getFormattedState cfg)
   _ <- widgetSetClassGI widget "keyboard-state"
   return widget
+
+-- | Create a keyboard state icon widget with default configuration.
+keyboardStateIconNew :: MonadIO m => m Gtk.Widget
+keyboardStateIconNew = keyboardStateIconNewWithConfig defaultKeyboardStateConfig
+
+-- | Create a keyboard state icon widget with custom configuration.
+-- Displays a static icon label.
+keyboardStateIconNewWithConfig :: MonadIO m => KeyboardStateConfig -> m Gtk.Widget
+keyboardStateIconNewWithConfig cfg = liftIO $ do
+  label <- Gtk.labelNew (Just (kscIcon cfg))
+  Gtk.widgetShowAll label
+  Gtk.toWidget label
+
+-- | Create a combined keyboard state widget (icon + label) with default
+-- configuration.
+keyboardStateNew :: MonadIO m => m Gtk.Widget
+keyboardStateNew = keyboardStateNewWithConfig defaultKeyboardStateConfig
+
+-- | Create a combined keyboard state widget (icon + label) with custom
+-- configuration.
+keyboardStateNewWithConfig :: MonadIO m => KeyboardStateConfig -> m Gtk.Widget
+keyboardStateNewWithConfig cfg = do
+  iconWidget <- keyboardStateIconNewWithConfig cfg
+  labelWidget <- keyboardStateLabelNewWithConfig cfg
+  liftIO $ buildIconLabelBox iconWidget labelWidget
 
 -- | Get the formatted keyboard state text.
 getFormattedState :: KeyboardStateConfig -> IO T.Text
