@@ -19,13 +19,16 @@
 module System.Taffybar.Widget.PulseAudio
   ( PulseAudioWidgetConfig(..)
   , defaultPulseAudioWidgetConfig
+  , pulseAudioIconNew
+  , pulseAudioIconNewWith
   , pulseAudioLabelNew
   , pulseAudioLabelNewWith
+  , pulseAudioNew
+  , pulseAudioNewWith
   ) where
 
 import Control.Monad (void, when)
 import Control.Monad.IO.Class
-import Data.Char (ord)
 import Data.Default (Default(..))
 import qualified Data.Text as T
 import qualified GI.Gdk.Enums as Gdk
@@ -36,6 +39,7 @@ import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.PulseAudio
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Util (buildIconLabelBox)
 import Text.StringTemplate
 
 data PulseAudioWidgetConfig = PulseAudioWidgetConfig
@@ -52,11 +56,9 @@ defaultPulseAudioWidgetConfig :: PulseAudioWidgetConfig
 defaultPulseAudioWidgetConfig =
   PulseAudioWidgetConfig
     { pulseAudioSink = "@DEFAULT_SINK@"
-    -- Spacing after $icon$ is handled inside escapeIconText so the gap scales
-    -- with the icon's (larger) font size.
-    , pulseAudioFormat = "$icon$$volume$%"
-    , pulseAudioMuteFormat = "$icon$muted"
-    , pulseAudioUnknownFormat = "$icon$n/a"
+    , pulseAudioFormat = "$volume$%"
+    , pulseAudioMuteFormat = "muted"
+    , pulseAudioUnknownFormat = "n/a"
     , pulseAudioTooltipFormat =
         Just "Sink: $sink$\nVolume: $volume$%\nMuted: $muted$"
     , pulseAudioScrollStepPercent = Just 5
@@ -65,6 +67,25 @@ defaultPulseAudioWidgetConfig =
 
 instance Default PulseAudioWidgetConfig where
   def = defaultPulseAudioWidgetConfig
+
+pulseAudioIconNew :: TaffyIO Gtk.Widget
+pulseAudioIconNew = pulseAudioIconNewWith defaultPulseAudioWidgetConfig
+
+pulseAudioIconNewWith :: PulseAudioWidgetConfig -> TaffyIO Gtk.Widget
+pulseAudioIconNewWith config = do
+  let sinkSpec = pulseAudioSink config
+  chan <- getPulseAudioInfoChan sinkSpec
+  initialInfo <- getPulseAudioInfoState sinkSpec
+  liftIO $ do
+    label <- Gtk.labelNew Nothing
+    let updateIcon info = do
+          let iconText = case info of
+                Nothing -> T.pack "\xF026"
+                Just i -> pulseAudioTextIcon (pulseAudioMuted i) (pulseAudioVolumePercent i)
+          postGUIASync $ Gtk.labelSetText label iconText
+    void $ Gtk.onWidgetRealize label $ updateIcon initialInfo
+    Gtk.widgetShowAll label
+    Gtk.toWidget =<< channelWidgetNew label chan updateIcon
 
 pulseAudioLabelNew :: TaffyIO Gtk.Widget
 pulseAudioLabelNew = pulseAudioLabelNewWith defaultPulseAudioWidgetConfig
@@ -121,6 +142,15 @@ pulseAudioLabelNewWith config = do
     Gtk.widgetShowAll label
     Gtk.toWidget =<< channelWidgetNew label chan updateLabel
 
+pulseAudioNew :: TaffyIO Gtk.Widget
+pulseAudioNew = pulseAudioNewWith defaultPulseAudioWidgetConfig
+
+pulseAudioNewWith :: PulseAudioWidgetConfig -> TaffyIO Gtk.Widget
+pulseAudioNewWith config = do
+  iconWidget <- pulseAudioIconNewWith config
+  labelWidget <- pulseAudioLabelNewWith config
+  liftIO $ buildIconLabelBox iconWidget labelWidget
+
 formatPulseAudioWidget
   :: PulseAudioWidgetConfig
   -> Maybe PulseAudioInfo
@@ -148,74 +178,36 @@ buildAttrs info = do
       Just False -> "no"
       Nothing -> "unknown"
     sinkText = pulseAudioSinkName info
-    iconText = pulseAudioTextIcon (pulseAudioMuted info) (pulseAudioVolumePercent info)
   volume <- escapeText $ T.pack volumeText
   muted <- escapeText $ T.pack mutedText
   sink <- escapeText $ T.pack sinkText
-  icon <- escapeIconText iconText
   return
     [ ("volume", volume)
     , ("muted", muted)
     , ("sink", sink)
-    , ("icon", icon)
     ]
 
 buildUnknownAttrs :: IO [(String, String)]
-buildUnknownAttrs = do
-  icon <- escapeIconText (T.pack "\xF026") -- 
+buildUnknownAttrs =
   return
     [ ("volume", "?")
     , ("muted", "unknown")
     , ("sink", "unknown")
-    , ("icon", icon)
     ]
 
 pulseAudioTextIcon :: Maybe Bool -> Maybe Int -> T.Text
 pulseAudioTextIcon muted volumePercent =
   case muted of
-    Just True -> T.pack "\xF026" -- 
+    Just True -> T.pack "\xF026" --
     _ ->
       case volumePercent of
-        Just v | v <= 0 -> T.pack "\xF026" -- 
-        Just v | v <= 33 -> T.pack "\xF027" -- 
-        Just _ -> T.pack "\xF028" -- 
-        Nothing -> T.pack "\xF028" -- 
+        Just v | v <= 0 -> T.pack "\xF026" --
+        Just v | v <= 33 -> T.pack "\xF027" --
+        Just _ -> T.pack "\xF028" --
+        Nothing -> T.pack "\xF028" --
 
 renderTemplate :: String -> [(String, String)] -> String
 renderTemplate template attrs = render $ setManyAttrib attrs (newSTMP template)
 
 escapeText :: T.Text -> IO String
 escapeText input = T.unpack <$> G.markupEscapeText input (-1)
-
--- Font Awesome / Nerd Font glyphs live in the Private Use Area and can render
--- much smaller than the surrounding text depending on which fallback font gets
--- selected. Force a Nerd Font for PUA glyphs (and bump size slightly) so
--- digits/letters remain untouched.
-escapeIconText :: T.Text -> IO String
-escapeIconText input =
-  let
-    iconSpan s =
-      "<span font_family=\"Iosevka Nerd Font\" font_weight=\"normal\" size=\"large\">" ++ s ++ "</span>"
-  in do
-    rendered <-
-      concat
-        <$>
-          mapM
-            (\c -> do
-                esc <- escapeText (T.singleton c)
-                pure $
-                  if isPUA c
-                    then iconSpan esc
-                    else esc
-            )
-            (T.unpack input)
-    -- Add a trailing space in the icon's font/size so it doesn't look cramped.
-    pure $
-      if any isPUA (T.unpack input)
-        then rendered ++ iconSpan "&#x2004;" -- three-per-em space
-        else rendered
-
-isPUA :: Char -> Bool
-isPUA c =
-  let o = ord c
-  in o >= 0xE000 && o <= 0xF8FF
