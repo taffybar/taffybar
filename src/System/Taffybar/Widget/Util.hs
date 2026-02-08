@@ -313,6 +313,20 @@ buildContentsBox widget = liftIO $ do
   Gtk.widgetShowAll contents
   Gtk.toWidget contents >>= buildPadBox
 
+-- | Combine an icon widget and a label widget in a horizontal box with
+-- standardised CSS classes. The box gets class @icon-label@, the first child
+-- gets @icon@, and the second child gets @label@.
+buildIconLabelBox :: MonadIO m => Gtk.Widget -> Gtk.Widget -> m Gtk.Widget
+buildIconLabelBox iconWidget labelWidget = liftIO $ do
+  box <- Gtk.boxNew Gtk.OrientationHorizontal 0
+  _ <- widgetSetClassGI iconWidget "icon"
+  _ <- widgetSetClassGI labelWidget "label"
+  Gtk.containerAdd box iconWidget
+  Gtk.containerAdd box labelWidget
+  _ <- widgetSetClassGI box "icon-label"
+  Gtk.widgetShowAll box
+  Gtk.toWidget box
+
 -- | Build a 'Gtk.Overlay' from a base widget plus one or more overlay widgets,
 -- and mark overlays as "pass through" so they don't capture clicks/scrolls.
 --
