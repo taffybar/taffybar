@@ -18,6 +18,9 @@
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.Battery
   ( batteryIconNew
+  , BatteryClassesConfig(..)
+  , defaultBatteryClassesConfig
+  , setBatteryStateClasses
   , textBatteryNew
   , textBatteryNewWithLabelAction
   ) where
@@ -26,6 +29,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
 import           Data.Default (Default(..))
+import           Data.GI.Base.Overloading (IsDescendantOf)
 import           Data.Int (Int64)
 import qualified Data.Text as T
 import           GI.Gtk as Gtk
@@ -112,15 +116,16 @@ instance Default BatteryClassesConfig where
   def = defaultBatteryClassesConfig
 
 setBatteryStateClasses ::
-  MonadIO m => BatteryClassesConfig -> Gtk.Label -> BatteryInfo -> m ()
-setBatteryStateClasses config label info = do
+  (IsDescendantOf Widget a, GObject a, MonadIO m) =>
+  BatteryClassesConfig -> a -> BatteryInfo -> m ()
+setBatteryStateClasses config widget info = do
   case batteryState info of
-    BatteryStateCharging -> addClassIfMissing "charging" label >>
-                            removeClassIfPresent "discharging" label
-    BatteryStateDischarging -> addClassIfMissing "discharging" label >>
-                               removeClassIfPresent "charging" label
-    _ -> removeClassIfPresent "charging" label >>
-         removeClassIfPresent "discharging" label
+    BatteryStateCharging -> addClassIfMissing "charging" widget >>
+                            removeClassIfPresent "discharging" widget
+    BatteryStateDischarging -> addClassIfMissing "discharging" widget >>
+                               removeClassIfPresent "charging" widget
+    _ -> removeClassIfPresent "charging" widget >>
+         removeClassIfPresent "discharging" widget
 
   classIf "high" $ percentage >= batteryHighThreshold config
   classIf "low" $ percentage <= batteryLowThreshold config
@@ -128,8 +133,8 @@ setBatteryStateClasses config label info = do
   where percentage = batteryPercentage info
         classIf klass condition =
           if condition
-          then addClassIfMissing klass label
-          else removeClassIfPresent klass label
+          then addClassIfMissing klass widget
+          else removeClassIfPresent klass widget
 
 -- | Like `textBatteryNew` but provides a more general way to update the label
 -- widget. The argument provided is an action that is used to update the text
