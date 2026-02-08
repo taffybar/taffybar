@@ -16,10 +16,20 @@
 -- This widget displays the current volume level and mute state, and supports
 -- scroll to adjust volume and click to toggle mute.
 --
+-- Three widget variants are provided:
+--
+-- * 'wirePlumberIconNew' – icon only (dynamic, updates with volume\/mute state)
+-- * 'wirePlumberLabelNew' – text label only (with scroll\/click interaction)
+-- * 'wirePlumberNew' – combined icon + label in a horizontal box
+--
 -- Note: Requires @wpctl@ to be available in PATH.
 module System.Taffybar.Widget.WirePlumber
   ( WirePlumberWidgetConfig (..),
     defaultWirePlumberWidgetConfig,
+    wirePlumberIconNew,
+    wirePlumberIconNewWith,
+    wirePlumberLabelNew,
+    wirePlumberLabelNewWith,
     wirePlumberNew,
     wirePlumberNewWith,
     wirePlumberSourceNew,
@@ -40,6 +50,7 @@ import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.WirePlumber
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Util (buildIconLabelBox)
 import Text.StringTemplate
 
 -- | Configuration for the WirePlumber widget.
@@ -70,9 +81,9 @@ defaultWirePlumberWidgetConfig :: WirePlumberWidgetConfig
 defaultWirePlumberWidgetConfig =
   WirePlumberWidgetConfig
     { wirePlumberNode = "@DEFAULT_AUDIO_SINK@",
-      wirePlumberFormat = "$icon$$volume$%",
-      wirePlumberMuteFormat = "$icon$muted",
-      wirePlumberUnknownFormat = "$icon$n/a",
+      wirePlumberFormat = "$volume$%",
+      wirePlumberMuteFormat = "muted",
+      wirePlumberUnknownFormat = "n/a",
       wirePlumberTooltipFormat =
         Just "Node: $node$\nVolume: $volume$%\nMuted: $muted$",
       wirePlumberScrollStepPercent = Just 5,
@@ -89,13 +100,39 @@ defaultWirePlumberSourceWidgetConfig =
 instance Default WirePlumberWidgetConfig where
   def = defaultWirePlumberWidgetConfig
 
--- | Create a new WirePlumber widget for the default audio sink.
-wirePlumberNew :: TaffyIO Gtk.Widget
-wirePlumberNew = wirePlumberNewWith defaultWirePlumberWidgetConfig
+-- | Create a WirePlumber icon-only widget for the default audio sink.
+-- The icon updates dynamically based on volume level and mute state.
+wirePlumberIconNew :: TaffyIO Gtk.Widget
+wirePlumberIconNew = wirePlumberIconNewWith defaultWirePlumberWidgetConfig
 
--- | Create a new WirePlumber widget with custom configuration.
-wirePlumberNewWith :: WirePlumberWidgetConfig -> TaffyIO Gtk.Widget
-wirePlumberNewWith config = do
+-- | Create a WirePlumber icon-only widget with custom configuration.
+wirePlumberIconNewWith :: WirePlumberWidgetConfig -> TaffyIO Gtk.Widget
+wirePlumberIconNewWith config = do
+  let nodeSpec = wirePlumberNode config
+  chan <- getWirePlumberInfoChan nodeSpec
+  initialInfo <- getWirePlumberInfoState nodeSpec
+  liftIO $ do
+    label <- Gtk.labelNew Nothing
+    let updateIcon info = do
+          let iconText = case info of
+                Nothing -> T.pack "\xF026"
+                Just i ->
+                  wirePlumberTextIcon
+                    (wirePlumberMuted i)
+                    (Just $ round (wirePlumberVolume i * 100))
+          postGUIASync $ Gtk.labelSetText label iconText
+    void $ Gtk.onWidgetRealize label $ updateIcon initialInfo
+    Gtk.widgetShowAll label
+    Gtk.toWidget =<< channelWidgetNew label chan updateIcon
+
+-- | Create a WirePlumber label-only widget for the default audio sink.
+-- Includes scroll-to-adjust and click-to-mute interaction.
+wirePlumberLabelNew :: TaffyIO Gtk.Widget
+wirePlumberLabelNew = wirePlumberLabelNewWith defaultWirePlumberWidgetConfig
+
+-- | Create a WirePlumber label-only widget with custom configuration.
+wirePlumberLabelNewWith :: WirePlumberWidgetConfig -> TaffyIO Gtk.Widget
+wirePlumberLabelNewWith config = do
   let nodeSpec = wirePlumberNode config
   chan <- getWirePlumberInfoChan nodeSpec
   initialInfo <- getWirePlumberInfoState nodeSpec
@@ -145,6 +182,17 @@ wirePlumberNewWith config = do
 
     Gtk.widgetShowAll label
     Gtk.toWidget =<< channelWidgetNew label chan updateLabel
+
+-- | Create a combined icon + label WirePlumber widget for the default audio sink.
+wirePlumberNew :: TaffyIO Gtk.Widget
+wirePlumberNew = wirePlumberNewWith defaultWirePlumberWidgetConfig
+
+-- | Create a combined icon + label WirePlumber widget with custom configuration.
+wirePlumberNewWith :: WirePlumberWidgetConfig -> TaffyIO Gtk.Widget
+wirePlumberNewWith config = do
+  iconWidget <- wirePlumberIconNewWith config
+  labelWidget <- wirePlumberLabelNewWith config
+  liftIO $ buildIconLabelBox iconWidget labelWidget
 
 -- | Create a new WirePlumber widget for the default audio source (microphone).
 wirePlumberSourceNew :: TaffyIO Gtk.Widget
