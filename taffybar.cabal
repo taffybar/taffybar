@@ -148,6 +148,7 @@ library
                  , System.Taffybar.Information.Memory
                  , System.Taffybar.Information.Network
                  , System.Taffybar.Information.NetworkManager
+                 , System.Taffybar.Information.PowerProfiles
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.Systemd
                  , System.Taffybar.Information.StreamInfo
@@ -186,6 +187,7 @@ library
                  , System.Taffybar.Widget.MPRIS2
                  , System.Taffybar.Widget.NetworkGraph
                  , System.Taffybar.Widget.NetworkManager
+                 , System.Taffybar.Widget.PowerProfiles
                  , System.Taffybar.Widget.SNITray
                  , System.Taffybar.Widget.SimpleClock
                  , System.Taffybar.Widget.SimpleCommandButton
