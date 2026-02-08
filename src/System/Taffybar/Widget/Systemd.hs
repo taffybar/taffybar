@@ -30,6 +30,10 @@
 module System.Taffybar.Widget.Systemd
   ( SystemdConfig(..)
   , defaultSystemdConfig
+  , systemdIconNew
+  , systemdIconNewWithConfig
+  , systemdLabelNew
+  , systemdLabelNewWithConfig
   , systemdNew
   , systemdNewWithConfig
   ) where
@@ -38,6 +42,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
 import           Data.Default (Default(..))
+import qualified Data.Text as T
 import           GI.Gtk as Gtk
 import           System.Taffybar.Context
 import           System.Taffybar.Information.Systemd
@@ -59,28 +64,31 @@ data SystemdConfig = SystemdConfig
   , systemdMonitorSystem :: Bool
     -- | Whether to monitor user units.
   , systemdMonitorUser :: Bool
+    -- | Nerd font icon character (default U+F071, warning triangle).
+  , systemdIcon :: T.Text
   } deriving (Eq, Show)
 
 -- | Default configuration for the systemd widget.
 defaultSystemdConfig :: SystemdConfig
 defaultSystemdConfig = SystemdConfig
-  { systemdFormat = "\x26a0 $count$"  -- Warning symbol + count
+  { systemdFormat = "$count$"
   , systemdFormatOk = "\x2713"        -- Check mark
   , systemdHideOnOk = True
   , systemdMonitorSystem = True
   , systemdMonitorUser = True
+  , systemdIcon = T.pack "\xF071"     -- Warning triangle
   }
 
 instance Default SystemdConfig where
   def = defaultSystemdConfig
 
--- | Create a systemd widget with default configuration.
-systemdNew :: TaffyIO Gtk.Widget
-systemdNew = systemdNewWithConfig defaultSystemdConfig
+-- | Create a systemd label widget with default configuration.
+systemdLabelNew :: TaffyIO Gtk.Widget
+systemdLabelNew = systemdLabelNewWithConfig defaultSystemdConfig
 
--- | Create a systemd widget with custom configuration.
-systemdNewWithConfig :: SystemdConfig -> TaffyIO Gtk.Widget
-systemdNewWithConfig config = do
+-- | Create a systemd label widget with custom configuration.
+systemdLabelNewWithConfig :: SystemdConfig -> TaffyIO Gtk.Widget
+systemdLabelNewWithConfig config = do
   chan <- getSystemdInfoChan
   ctx <- ask
   liftIO $ do
@@ -104,6 +112,28 @@ systemdNewWithConfig config = do
       updateSystemdClasses label isOk
 
     toWidget =<< channelWidgetNew label chan updateWidget
+
+-- | Create a systemd icon widget with default configuration.
+systemdIconNew :: TaffyIO Gtk.Widget
+systemdIconNew = systemdIconNewWithConfig defaultSystemdConfig
+
+-- | Create a systemd icon widget with the provided configuration.
+systemdIconNewWithConfig :: SystemdConfig -> TaffyIO Gtk.Widget
+systemdIconNewWithConfig config = liftIO $ do
+  label <- Gtk.labelNew (Just (systemdIcon config))
+  Gtk.widgetShowAll label
+  Gtk.toWidget label
+
+-- | Create a combined icon+label systemd widget with default configuration.
+systemdNew :: TaffyIO Gtk.Widget
+systemdNew = systemdNewWithConfig defaultSystemdConfig
+
+-- | Create a combined icon+label systemd widget with custom configuration.
+systemdNewWithConfig :: SystemdConfig -> TaffyIO Gtk.Widget
+systemdNewWithConfig config = do
+  iconWidget <- systemdIconNewWithConfig config
+  labelWidget <- systemdLabelNewWithConfig config
+  liftIO $ buildIconLabelBox iconWidget labelWidget
 
 -- | Compute the effective count based on configuration.
 computeEffectiveCount :: SystemdConfig -> SystemdInfo -> Int
