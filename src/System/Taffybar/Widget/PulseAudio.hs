@@ -27,6 +27,7 @@ module System.Taffybar.Widget.PulseAudio
   , pulseAudioNewWith
   ) where
 
+import Control.Concurrent.MVar (readMVar)
 import Control.Monad (void, when)
 import Control.Monad.IO.Class
 import Data.Default (Default(..))
@@ -74,8 +75,7 @@ pulseAudioIconNew = pulseAudioIconNewWith defaultPulseAudioWidgetConfig
 pulseAudioIconNewWith :: PulseAudioWidgetConfig -> TaffyIO Gtk.Widget
 pulseAudioIconNewWith config = do
   let sinkSpec = pulseAudioSink config
-  chan <- getPulseAudioInfoChan sinkSpec
-  initialInfo <- getPulseAudioInfoState sinkSpec
+  (chan, var) <- getPulseAudioInfoChanAndVar sinkSpec
   liftIO $ do
     label <- Gtk.labelNew Nothing
     let updateIcon info = do
@@ -83,7 +83,7 @@ pulseAudioIconNewWith config = do
                 Nothing -> T.pack "\xF026"
                 Just i -> pulseAudioTextIcon (pulseAudioMuted i) (pulseAudioVolumePercent i)
           postGUIASync $ Gtk.labelSetText label iconText
-    void $ Gtk.onWidgetRealize label $ updateIcon initialInfo
+    void $ Gtk.onWidgetRealize label $ readMVar var >>= updateIcon
     Gtk.widgetShowAll label
     Gtk.toWidget =<< channelWidgetNew label chan updateIcon
 
@@ -93,8 +93,7 @@ pulseAudioLabelNew = pulseAudioLabelNewWith defaultPulseAudioWidgetConfig
 pulseAudioLabelNewWith :: PulseAudioWidgetConfig -> TaffyIO Gtk.Widget
 pulseAudioLabelNewWith config = do
   let sinkSpec = pulseAudioSink config
-  chan <- getPulseAudioInfoChan sinkSpec
-  initialInfo <- getPulseAudioInfoState sinkSpec
+  (chan, var) <- getPulseAudioInfoChanAndVar sinkSpec
 
   liftIO $ do
     label <- Gtk.labelNew Nothing
@@ -134,7 +133,7 @@ pulseAudioLabelNewWith config = do
                 _ -> return False
             return ()
 
-    void $ Gtk.onWidgetRealize label $ updateLabel initialInfo
+    void $ Gtk.onWidgetRealize label $ readMVar var >>= updateLabel
 
     whenToggleMute label
     whenScrollAdjust label

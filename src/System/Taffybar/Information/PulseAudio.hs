@@ -31,6 +31,7 @@ module System.Taffybar.Information.PulseAudio
     getPulseAudioInfoFromClient,
     getPulseAudioInfoChan,
     getPulseAudioInfoState,
+    getPulseAudioInfoChanAndVar,
     getPulseAudioInfoChanFor,
     getPulseAudioInfoStateFor,
     connectPulseAudio,
@@ -109,6 +110,17 @@ getPulseAudioInfoState :: String -> TaffyIO (Maybe PulseAudioInfo)
 getPulseAudioInfoState sinkSpec =
   case someSymbolVal sinkSpec of
     SomeSymbol (Proxy :: Proxy sym) -> getPulseAudioInfoStateFor @sym
+
+-- | Get both the broadcast channel and the state MVar for PulseAudio info.
+--
+-- This is useful when a widget needs to read the current state at realize time
+-- (from the MVar) and also subscribe to future updates (via the channel).
+getPulseAudioInfoChanAndVar :: String -> TaffyIO (TChan (Maybe PulseAudioInfo), MVar (Maybe PulseAudioInfo))
+getPulseAudioInfoChanAndVar sinkSpec =
+  case someSymbolVal sinkSpec of
+    SomeSymbol (Proxy :: Proxy sym) -> do
+      PulseAudioInfoChanVar (chan, var) <- getPulseAudioInfoChanVarFor @sym
+      pure (chan, var)
 
 -- | Get a broadcast channel for PulseAudio info for a sink spec given as a
 -- type-level string.
