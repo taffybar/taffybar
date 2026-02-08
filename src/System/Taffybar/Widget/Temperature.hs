@@ -17,9 +17,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module System.Taffybar.Widget.Temperature
-  ( -- * Widget
+  ( -- * Combined icon+label widget
     temperatureNew
   , temperatureNewWith
+    -- * Icon-only widget
+  , temperatureIconNew
+  , temperatureIconNewWith
+    -- * Label-only widget
+  , temperatureLabelNew
+  , temperatureLabelNewWith
     -- * Configuration
   , TemperatureConfig(..)
   , defaultTemperatureConfig
@@ -36,6 +42,7 @@ import qualified Text.StringTemplate as ST
 
 import System.Taffybar.Information.Temperature
 import System.Taffybar.Widget.Generic.PollingLabel (pollingLabelNewWithTooltip)
+import System.Taffybar.Widget.Util (buildIconLabelBox)
 
 -- | Configuration for the temperature widget
 data TemperatureConfig = TemperatureConfig
@@ -54,6 +61,8 @@ data TemperatureConfig = TemperatureConfig
     -- ^ Filter function to select which sensors to monitor (default: all)
   , tempAggregation :: [TemperatureInfo] -> Maybe Double
     -- ^ How to aggregate multiple sensor readings (default: maximum)
+  , temperatureIcon :: T.Text
+    -- ^ Nerd font icon character (default U+F2C9, nf-fa-thermometer).
   }
 
 instance Default TemperatureConfig where
@@ -72,15 +81,38 @@ defaultTemperatureConfig = TemperatureConfig
       if null temps
         then Nothing
         else Just $ maximum $ map tempCelsius temps
+  , temperatureIcon = T.pack "\xF2C9"
   }
 
--- | Create a temperature widget with default configuration
+-- | Create a combined icon+label temperature widget with default configuration.
 temperatureNew :: MonadIO m => m Gtk.Widget
 temperatureNew = temperatureNewWith defaultTemperatureConfig
 
--- | Create a temperature widget with custom configuration
+-- | Create a combined icon+label temperature widget.
 temperatureNewWith :: MonadIO m => TemperatureConfig -> m Gtk.Widget
 temperatureNewWith config = liftIO $ do
+  iconWidget <- temperatureIconNewWith config
+  labelWidget <- temperatureLabelNewWith config
+  buildIconLabelBox iconWidget labelWidget
+
+-- | Create a temperature icon widget with default configuration.
+temperatureIconNew :: MonadIO m => m Gtk.Widget
+temperatureIconNew = temperatureIconNewWith defaultTemperatureConfig
+
+-- | Create a temperature icon widget with the provided configuration.
+temperatureIconNewWith :: MonadIO m => TemperatureConfig -> m Gtk.Widget
+temperatureIconNewWith config = liftIO $ do
+  label <- Gtk.labelNew (Just (temperatureIcon config))
+  Gtk.widgetShowAll label
+  Gtk.toWidget label
+
+-- | Create a temperature label widget with default configuration.
+temperatureLabelNew :: MonadIO m => m Gtk.Widget
+temperatureLabelNew = temperatureLabelNewWith defaultTemperatureConfig
+
+-- | Create a temperature label widget with custom configuration.
+temperatureLabelNewWith :: MonadIO m => TemperatureConfig -> m Gtk.Widget
+temperatureLabelNewWith config = liftIO $ do
   -- Discover sensors once at startup, filtered by config
   allSensors <- discoverSensors
   let sensors = filter (tempSensorFilter config) allSensors
