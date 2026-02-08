@@ -135,6 +135,7 @@ library
                  , System.Taffybar.Information.WirePlumber
                  , System.Taffybar.Information.Backlight
                  , System.Taffybar.Information.Battery
+                 , System.Taffybar.Information.Bluetooth
                  , System.Taffybar.Information.CPU
                  , System.Taffybar.Information.CPU2
                  , System.Taffybar.Information.Chrome
@@ -158,6 +159,7 @@ library
                  , System.Taffybar.Widget.Backlight
                  , System.Taffybar.Widget.Battery
                  , System.Taffybar.Widget.BatteryTextIcon
+                 , System.Taffybar.Widget.Bluetooth
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
                  , System.Taffybar.Widget.Crypto
