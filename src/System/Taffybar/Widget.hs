@@ -75,6 +75,17 @@ module System.Taffybar.Widget
   , HyprlandWorkspace(..)
   , HyprlandWindow(..)
   , HyprlandWindowIconPixbufGetter
+  , HyprlandWorkspaceWidgetController(..)
+  , HyprlandWWC(..)
+  , HyprlandControllerConstructor
+  , HyprlandParentControllerConstructor
+  , hyprlandBuildLabelController
+  , hyprlandBuildIconController
+  , hyprlandBuildContentsController
+  , hyprlandBuildLabelOverlayController
+  , hyprlandBuildCustomOverlayController
+  , hyprlandBuildButtonController
+  , defaultHyprlandWidgetBuilder
   , defaultHyprlandGetWindowIconPixbuf
   , getHyprlandWorkspaces
   , hyprlandSwitchToWorkspace
@@ -121,6 +132,17 @@ import System.Taffybar.Widget.HyprlandWorkspaces
   , HyprlandWorkspace(..)
   , HyprlandWindow(..)
   , HyprlandWindowIconPixbufGetter
+  , HyprlandWorkspaceWidgetController(..)
+  , HyprlandWWC(..)
+  , HyprlandControllerConstructor
+  , HyprlandParentControllerConstructor
+  , hyprlandBuildLabelController
+  , hyprlandBuildIconController
+  , hyprlandBuildContentsController
+  , hyprlandBuildLabelOverlayController
+  , hyprlandBuildCustomOverlayController
+  , hyprlandBuildButtonController
+  , defaultHyprlandWidgetBuilder
   , defaultHyprlandGetWindowIconPixbuf
   , getHyprlandWorkspaces
   , hyprlandSwitchToWorkspace

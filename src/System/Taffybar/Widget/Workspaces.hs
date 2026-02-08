@@ -11,7 +11,10 @@
 -- Portability : unportable
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widget.Workspaces where
+module System.Taffybar.Widget.Workspaces
+  ( module System.Taffybar.Widget.Workspaces
+  , module System.Taffybar.Widget.Workspaces.Shared
+  ) where
 
 import           Control.Arrow ((&&&))
 import           Control.Concurrent
@@ -46,25 +49,15 @@ import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           System.Taffybar.Widget.Workspaces.Shared
-  ( buildWorkspaceIconLabelOverlay
+  ( WorkspaceState(..)
+  , getCSSClass
+  , cssWorkspaceStates
+  , setWorkspaceWidgetStatusClass
+  , buildWorkspaceIconLabelOverlay
   , mkWorkspaceIconWidget
   )
 import           System.Taffybar.WindowIcon
 import           Text.Printf
-
-data WorkspaceState
-  = Active
-  | Visible
-  | Hidden
-  | Empty
-  | Urgent
-  deriving (Show, Eq)
-
-getCSSClass :: (Show s) => s -> T.Text
-getCSSClass = T.toLower . T.pack . show
-
-cssWorkspaceStates :: [T.Text]
-cssWorkspaceStates = map getCSSClass [Active, Visible, Hidden, Empty, Urgent]
 
 data WindowData = WindowData
   { windowId :: X11Window
@@ -99,14 +92,6 @@ liftContext action = asks taffyContext >>= lift . runReaderT action
 
 liftX11Def :: a -> X11Property a -> WorkspacesIO a
 liftX11Def dflt prop = liftContext $ runX11Def dflt prop
-
-setWorkspaceWidgetStatusClass ::
-     (MonadIO m, Gtk.IsWidget a) => Workspace -> a -> m ()
-setWorkspaceWidgetStatusClass workspace widget =
-  updateWidgetClasses
-    widget
-    [getCSSClass $ workspaceState workspace]
-    cssWorkspaceStates
 
 class WorkspaceWidgetController wc where
   getWidget :: wc -> WorkspacesIO Gtk.Widget
@@ -536,7 +521,7 @@ instance WorkspaceWidgetController WorkspaceContentsController where
     WorkspacesContext {} <- ask
     case update of
       WorkspaceUpdate newWorkspace ->
-        lift $ setWorkspaceWidgetStatusClass newWorkspace $ containerWidget cc
+        lift $ setWorkspaceWidgetStatusClass (workspaceState newWorkspace) $ containerWidget cc
       _ -> return ()
     newControllers <- mapM (`updateWidget` update) $ contentsControllers cc
     return cc {contentsControllers = newControllers}
@@ -561,7 +546,7 @@ instance WorkspaceWidgetController LabelController where
     labelText <- labelSetter cfg newWorkspace
     lift $ do
       Gtk.labelSetMarkup (label lc) $ T.pack labelText
-      setWorkspaceWidgetStatusClass newWorkspace $ label lc
+      setWorkspaceWidgetStatusClass (workspaceState newWorkspace) $ label lc
     return lc
   updateWidget lc _ = return lc
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -----------------------------------------------------------------------------
@@ -61,19 +62,15 @@ import           System.Taffybar.Widget.Util
   , handlePixbufGetterException
   , scaledPixbufGetter
   , syncWidgetPool
-  , updateWidgetClasses
   , updateWindowIconWidgetState
   , widgetSetClassGI
   , windowStatusClassFromFlags
   )
 import           System.Taffybar.Widget.Workspaces.Shared
-  ( buildWorkspaceIconLabelOverlay
-  , mkWorkspaceIconWidget
-  )
-import           System.Taffybar.Widget.Workspaces
   ( WorkspaceState(..)
-  , cssWorkspaceStates
-  , getCSSClass
+  , setWorkspaceWidgetStatusClass
+  , buildWorkspaceIconLabelOverlay
+  , mkWorkspaceIconWidget
   )
 import           System.Taffybar.WindowIcon (getWindowIconFromClasses, pixBufFromColor)
 
@@ -109,23 +106,35 @@ data HyprlandWorkspace = HyprlandWorkspace
 newtype HyprlandWorkspaceCache = HyprlandWorkspaceCache [HyprlandWorkspace]
 
 newtype HyprlandWorkspaceWidgetCache
-  = HyprlandWorkspaceWidgetCache (M.Map Int HyprlandWorkspaceWidgetState)
+  = HyprlandWorkspaceWidgetCache (M.Map Int HyprlandWorkspaceEntry)
 
 newtype HyprlandWorkspaceOrderCache
   = HyprlandWorkspaceOrderCache [Int]
 
-data HyprlandWorkspaceWidgetState = HyprlandWorkspaceWidgetState
-  { workspaceWrapper :: Gtk.Widget
-  , workspaceButton :: Gtk.EventBox
-  , workspaceRef :: IORef HyprlandWorkspace
-  , workspaceContents :: Gtk.Widget
-  , workspaceLabel :: Gtk.Label
-  , workspaceIconsBox :: Gtk.Box
-  , workspaceIcons :: [HyprlandIconWidget]
-  , workspaceLast :: HyprlandWorkspace
+data HyprlandWorkspaceEntry = HyprlandWorkspaceEntry
+  { hweWrapper :: Gtk.Widget
+  , hweController :: HyprlandWWC
+  , hweLast :: HyprlandWorkspace
   }
 
 type HyprlandIconWidget = WindowIconWidget HyprlandWindow
+
+-- | Controller typeclass for Hyprland workspace widgets, mirroring
+-- the X11 'WorkspaceWidgetController' pattern.
+class HyprlandWorkspaceWidgetController wc where
+  hwcGetWidget :: wc -> IO Gtk.Widget
+  hwcUpdateWidget :: wc -> HyprlandWorkspace -> TaffyIO wc
+
+-- | Existential wrapper for Hyprland workspace controllers.
+data HyprlandWWC = forall a. HyprlandWorkspaceWidgetController a => HyprlandWWC a
+
+instance HyprlandWorkspaceWidgetController HyprlandWWC where
+  hwcGetWidget (HyprlandWWC wc) = hwcGetWidget wc
+  hwcUpdateWidget (HyprlandWWC wc) ws = HyprlandWWC <$> hwcUpdateWidget wc ws
+
+type HyprlandControllerConstructor = HyprlandWorkspace -> TaffyIO HyprlandWWC
+type HyprlandParentControllerConstructor =
+  HyprlandControllerConstructor -> HyprlandControllerConstructor
 
 type HyprlandWindowIconPixbufGetter =
   Int32 -> HyprlandWindow -> TaffyIO (Maybe Gdk.Pixbuf)
@@ -135,10 +144,7 @@ data HyprlandWorkspacesConfig =
   { getWorkspaces :: TaffyIO [HyprlandWorkspace]
   , switchToWorkspace :: HyprlandWorkspace -> TaffyIO ()
   , updateIntervalSeconds :: Double
-  -- | Build the per-workspace widget from the icon strip widget and the label
-  -- widget. This allows X11 and Hyprland workspaces to share the same CSS and
-  -- layout logic.
-  , widgetBuilder :: Gtk.Widget -> Gtk.Widget -> TaffyIO Gtk.Widget
+  , widgetBuilder :: HyprlandControllerConstructor
   , widgetGap :: Int
   , maxIcons :: Maybe Int
   , minIcons :: Int
@@ -151,24 +157,25 @@ data HyprlandWorkspacesConfig =
   }
 
 defaultHyprlandWorkspacesConfig :: HyprlandWorkspacesConfig
-defaultHyprlandWorkspacesConfig =
-  HyprlandWorkspacesConfig
-  { getWorkspaces = getHyprlandWorkspaces
-  , switchToWorkspace = hyprlandSwitchToWorkspace
-  , updateIntervalSeconds = 1
-  , widgetBuilder = buildWorkspaceIconLabelOverlay
-  , widgetGap = 0
-  , maxIcons = Nothing
-  , minIcons = 0
-  , iconSize = 16
-  , getWindowIconPixbuf = defaultHyprlandGetWindowIconPixbuf
-  , labelSetter = return . workspaceName
-  , showWorkspaceFn = \ws ->
-      workspaceState ws /= Empty && not (isSpecialHyprWorkspace ws)
-  -- Match the X11 Workspaces widget default: order icons by window position.
-  , iconSort = pure . sortHyprlandWindowsByPosition
-  , urgentWorkspaceState = False
-  }
+defaultHyprlandWorkspacesConfig = cfg
+  where
+    cfg = HyprlandWorkspacesConfig
+      { getWorkspaces = getHyprlandWorkspaces
+      , switchToWorkspace = hyprlandSwitchToWorkspace
+      , updateIntervalSeconds = 1
+      , widgetBuilder = defaultHyprlandWidgetBuilder cfg
+      , widgetGap = 0
+      , maxIcons = Nothing
+      , minIcons = 0
+      , iconSize = 16
+      , getWindowIconPixbuf = defaultHyprlandGetWindowIconPixbuf
+      , labelSetter = return . workspaceName
+      , showWorkspaceFn = \ws ->
+          workspaceState ws /= Empty && not (isSpecialHyprWorkspace ws)
+      -- Match the X11 Workspaces widget default: order icons by window position.
+      , iconSort = pure . sortHyprlandWindowsByPosition
+      , urgentWorkspaceState = False
+      }
 
 instance Default HyprlandWorkspacesConfig where
   def = defaultHyprlandWorkspacesConfig
@@ -232,7 +239,7 @@ refreshWorkspaces cfg cont = do
     getStateDefault $ return (HyprlandWorkspaceWidgetCache M.empty)
   widgetsStale <- case M.elems wc of
     [] -> return False
-    (first:_) -> liftIO $ not <$> Gtk.widgetGetRealized (workspaceWrapper first)
+    (first:_) -> liftIO $ not <$> Gtk.widgetGetRealized (hweWrapper first)
   let ignoreEmptyResult = null ws && not (null prev)
   when ignoreEmptyResult $
     liftIO $ wLog WARNING $
@@ -266,76 +273,89 @@ renderWorkspaces cfg cont workspaces = do
   -- be discarded so that fresh widgets are built for the new container.
   stale <- case M.elems widgetCache of
     [] -> return False
-    (first:_) -> liftIO $ not <$> Gtk.widgetGetRealized (workspaceWrapper first)
+    (first:_) -> liftIO $ not <$> Gtk.widgetGetRealized (hweWrapper first)
   let oldCache = if stale then M.empty else widgetCache
       oldOrder = if stale then [] else prevOrder
   when stale $
     liftIO $ wLog DEBUG "renderWorkspaces: discarding stale widget cache (widgets unrealized)"
   let buildOrUpdate newCache ws = do
         let idx = workspaceIdx ws
-        state <- case M.lookup idx oldCache of
-          Just prevState
-            | workspaceLast prevState == ws -> return prevState
-            | otherwise -> updateWorkspaceWidgetState cfg ws prevState
-          Nothing -> buildWorkspaceWidgetState cfg ws
-        return (M.insert idx state newCache, state)
+        entry <- case M.lookup idx oldCache of
+          Just prevEntry
+            | hweLast prevEntry == ws -> return prevEntry
+            | otherwise -> do
+                newCtrl <- hwcUpdateWidget (hweController prevEntry) ws
+                return prevEntry { hweController = newCtrl, hweLast = ws }
+          Nothing -> do
+            ctrl <- widgetBuilder cfg ws
+            ctrlWidget <- liftIO $ hwcGetWidget ctrl
+            wrapperBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
+            liftIO $ Gtk.containerAdd wrapperBox ctrlWidget
+            wrapper <- Gtk.toWidget wrapperBox
+            return HyprlandWorkspaceEntry
+              { hweWrapper = wrapper
+              , hweController = ctrl
+              , hweLast = ws
+              }
+        return (M.insert idx entry newCache, entry)
 
-  (newCache, orderedStatesRev) <-
+  (newCache, orderedEntriesRev) <-
     foldM
-      (\(cacheAcc, statesAcc) ws -> do
-          (cacheAcc', st) <- buildOrUpdate cacheAcc ws
-          return (cacheAcc', (ws, st) : statesAcc)
+      (\(cacheAcc, entriesAcc) ws -> do
+          (cacheAcc', entry) <- buildOrUpdate cacheAcc ws
+          return (cacheAcc', (ws, entry) : entriesAcc)
       )
       (M.empty, [])
       workspaces'
-  let orderedStates = reverse orderedStatesRev
+  let orderedEntries = reverse orderedEntriesRev
 
   let primaryShowFn = showWorkspaceFn cfg
-      primaryShownCount = length $ filter (primaryShowFn . fst) orderedStates
+      primaryShownCount = length $ filter (primaryShowFn . fst) orderedEntries
       fallbackShowFn ws = workspaceState ws /= Empty
-      fallbackShownCount = length $ filter (fallbackShowFn . fst) orderedStates
+      fallbackShownCount = length $ filter (fallbackShowFn . fst) orderedEntries
       (finalShowFn, finalShownCount, fallbackUsed) =
         if primaryShownCount == 0 && fallbackShownCount > 0
           then (fallbackShowFn, fallbackShownCount, True)
           else (primaryShowFn, primaryShownCount, False)
 
-  when (fallbackUsed && not (null orderedStates)) $
+  when (fallbackUsed && not (null orderedEntries)) $
     liftIO $ wLog WARNING $
       printf
         "Hyprland workspaces: showWorkspaceFn hid all %d workspaces; falling back to showing non-empty workspaces (including special:*). %s"
-        (length orderedStates)
-        (summarizeWorkspaces (map fst orderedStates))
-  when (finalShownCount == 0 && not (null orderedStates)) $
+        (length orderedEntries)
+        (summarizeWorkspaces (map fst orderedEntries))
+  when (finalShownCount == 0 && not (null orderedEntries)) $
     liftIO $ wLog WARNING $
       printf
         "Hyprland workspaces widget is blank: no workspaces passed the show filter (total=%d). %s"
-        (length orderedStates)
-        (summarizeWorkspaces (map fst orderedStates))
+        (length orderedEntries)
+        (summarizeWorkspaces (map fst orderedEntries))
 
   -- Remove wrappers for workspaces that disappeared.
   let removed = M.difference oldCache newCache
-  forM_ (M.elems removed) $ \st ->
-    liftIO $ Gtk.containerRemove cont (workspaceWrapper st)
+  forM_ (M.elems removed) $ \entry ->
+    liftIO $ Gtk.containerRemove cont (hweWrapper entry)
 
   -- Add wrappers for newly created workspaces.
   let added = M.difference newCache oldCache
-  forM_ (M.elems added) $ \st -> do
-    liftIO $ Gtk.containerAdd cont (workspaceWrapper st)
-    liftIO $ Gtk.widgetShowAll (workspaceWrapper st)
+  forM_ (M.elems added) $ \entry -> do
+    liftIO $ Gtk.containerAdd cont (hweWrapper entry)
+    liftIO $ Gtk.widgetShowAll (hweWrapper entry)
 
-  let desiredOrder = map (workspaceIdx . fst) orderedStates
+  let desiredOrder = map (workspaceIdx . fst) orderedEntries
       needsReorder =
         desiredOrder /= oldOrder || not (M.null added) || not (M.null removed)
   when needsReorder $ do
     -- Reorder wrappers to match the order returned by hyprctl.
-    forM_ (zip [0 :: Int ..] orderedStates) $ \(pos, (_ws, st)) ->
-      liftIO $ Gtk.boxReorderChild cont (workspaceWrapper st) (fromIntegral pos)
+    forM_ (zip [0 :: Int ..] orderedEntries) $ \(pos, (_ws, entry)) ->
+      liftIO $ Gtk.boxReorderChild cont (hweWrapper entry) (fromIntegral pos)
 
-  -- Show/hide the clickable workspace widget without removing it from the box.
-  forM_ orderedStates $ \(ws, st) ->
+  -- Show/hide the controller widget without removing the wrapper from the box.
+  forM_ orderedEntries $ \(ws, entry) -> do
+    ctrlWidget <- liftIO $ hwcGetWidget (hweController entry)
     if finalShowFn ws
-      then liftIO $ Gtk.widgetShow (workspaceButton st)
-      else liftIO $ Gtk.widgetHide (workspaceButton st)
+      then liftIO $ Gtk.widgetShow ctrlWidget
+      else liftIO $ Gtk.widgetHide ctrlWidget
 
   _ <- setState (HyprlandWorkspaceWidgetCache newCache)
   _ <- setState (HyprlandWorkspaceOrderCache desiredOrder)
@@ -362,66 +382,162 @@ applyUrgentState cfg ws
       ws { workspaceState = Urgent }
   | otherwise = ws
 
-buildWorkspaceWidgetState ::
-  HyprlandWorkspacesConfig -> HyprlandWorkspace -> ReaderT Context IO HyprlandWorkspaceWidgetState
-buildWorkspaceWidgetState cfg ws = do
-  ctx <- ask
+-- Controller types
+
+data HyprlandLabelController = HyprlandLabelController
+  { hlcLabel :: Gtk.Label
+  , hlcLabelSetter :: HyprlandWorkspace -> TaffyIO String
+  }
+
+instance HyprlandWorkspaceWidgetController HyprlandLabelController where
+  hwcGetWidget = Gtk.toWidget . hlcLabel
+  hwcUpdateWidget lc ws = do
+    labelText <- hlcLabelSetter lc ws
+    liftIO $ do
+      Gtk.labelSetMarkup (hlcLabel lc) (T.pack labelText)
+      setWorkspaceWidgetStatusClass (workspaceState ws) (hlcLabel lc)
+    return lc
+
+hyprlandBuildLabelController :: HyprlandWorkspacesConfig -> HyprlandControllerConstructor
+hyprlandBuildLabelController cfg ws = do
+  lbl <- liftIO $ Gtk.labelNew Nothing
+  _ <- widgetSetClassGI lbl "workspace-label"
   labelText <- labelSetter cfg ws
-  label <- liftIO $ Gtk.labelNew Nothing
-  _ <- widgetSetClassGI label "workspace-label"
-  liftIO $ Gtk.labelSetMarkup label (T.pack labelText)
-
-  iconsBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
-  wsRef <- liftIO $ newIORef ws
-  icons <- updateIcons cfg ws iconsBox []
-
-  -- Match the X11 Workspaces widget's overlay layout:
-  -- icons are the main contents and the label is overlaid bottom-left.
-  iconsWidget <- liftIO $ Gtk.toWidget iconsBox
-  labelWidget <- liftIO $ Gtk.toWidget label
-  overlayWidget <- widgetBuilder cfg iconsWidget labelWidget
-  setWorkspaceWidgetStatusClass ws overlayWidget
-  -- X11 Workspaces applies workspace state classes to the label too.
-  setWorkspaceWidgetStatusClass ws label
-
-  ebox <- liftIO Gtk.eventBoxNew
-  Gtk.eventBoxSetVisibleWindow ebox False
-  liftIO $ Gtk.containerAdd ebox overlayWidget
-  _ <- liftIO $
-       Gtk.onWidgetButtonPressEvent ebox $ const $ do
-         wsCurrent <- readIORef wsRef
-         runReaderT (switchToWorkspace cfg wsCurrent) ctx
-         return True
-  wrapperBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
-  liftIO $ Gtk.containerAdd wrapperBox =<< Gtk.toWidget ebox
-  wrapperWidget <- Gtk.toWidget wrapperBox
-  return HyprlandWorkspaceWidgetState
-    { workspaceWrapper = wrapperWidget
-    , workspaceButton = ebox
-    , workspaceRef = wsRef
-    , workspaceContents = overlayWidget
-    , workspaceLabel = label
-    , workspaceIconsBox = iconsBox
-    , workspaceIcons = icons
-    , workspaceLast = ws
+  liftIO $ Gtk.labelSetMarkup lbl (T.pack labelText)
+  liftIO $ setWorkspaceWidgetStatusClass (workspaceState ws) lbl
+  return $ HyprlandWWC $ HyprlandLabelController
+    { hlcLabel = lbl
+    , hlcLabelSetter = labelSetter cfg
     }
 
-updateWorkspaceWidgetState ::
-  HyprlandWorkspacesConfig
-  -> HyprlandWorkspace
-  -> HyprlandWorkspaceWidgetState
-  -> ReaderT Context IO HyprlandWorkspaceWidgetState
-updateWorkspaceWidgetState cfg ws state = do
-  labelText <- labelSetter cfg ws
-  liftIO $ Gtk.labelSetMarkup (workspaceLabel state) (T.pack labelText)
-  liftIO $ writeIORef (workspaceRef state) ws
-  icons <-
-    if windows ws /= windows (workspaceLast state)
-      then updateIcons cfg ws (workspaceIconsBox state) (workspaceIcons state)
-      else return (workspaceIcons state)
-  setWorkspaceWidgetStatusClass ws (workspaceContents state)
-  setWorkspaceWidgetStatusClass ws (workspaceLabel state)
-  return state { workspaceLast = ws, workspaceIcons = icons }
+data HyprlandIconController = HyprlandIconController
+  { hicIconsContainer :: Gtk.Box
+  , hicIconImages :: [HyprlandIconWidget]
+  , hicWorkspace :: HyprlandWorkspace
+  , hicConfig :: HyprlandWorkspacesConfig
+  }
+
+instance HyprlandWorkspaceWidgetController HyprlandIconController where
+  hwcGetWidget = Gtk.toWidget . hicIconsContainer
+  hwcUpdateWidget ic ws = do
+    newImages <-
+      if windows ws /= windows (hicWorkspace ic)
+        then updateIcons (hicConfig ic) ws (hicIconsContainer ic) (hicIconImages ic)
+        else return (hicIconImages ic)
+    return ic { hicIconImages = newImages, hicWorkspace = ws }
+
+hyprlandBuildIconController :: HyprlandWorkspacesConfig -> HyprlandControllerConstructor
+hyprlandBuildIconController cfg ws = do
+  iconsBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
+  icons <- updateIcons cfg ws iconsBox []
+  return $ HyprlandWWC $ HyprlandIconController
+    { hicIconsContainer = iconsBox
+    , hicIconImages = icons
+    , hicWorkspace = ws
+    , hicConfig = cfg
+    }
+
+data HyprlandContentsController = HyprlandContentsController
+  { hccContainerWidget :: Gtk.Widget
+  , hccControllers :: [HyprlandWWC]
+  }
+
+instance HyprlandWorkspaceWidgetController HyprlandContentsController where
+  hwcGetWidget = return . hccContainerWidget
+  hwcUpdateWidget cc ws = do
+    liftIO $ setWorkspaceWidgetStatusClass (workspaceState ws) (hccContainerWidget cc)
+    newControllers <- mapM (`hwcUpdateWidget` ws) (hccControllers cc)
+    return cc { hccControllers = newControllers }
+
+hyprlandBuildContentsController ::
+  [HyprlandControllerConstructor] -> HyprlandControllerConstructor
+hyprlandBuildContentsController constructors ws = do
+  controllers <- mapM ($ ws) constructors
+  widgets <- liftIO $ mapM hwcGetWidget controllers
+  widget <- liftIO $ do
+    cons <- Gtk.boxNew Gtk.OrientationHorizontal 0
+    mapM_ (Gtk.containerAdd cons) widgets
+    _ <- widgetSetClassGI cons "contents"
+    Gtk.toWidget cons
+  liftIO $ setWorkspaceWidgetStatusClass (workspaceState ws) widget
+  return $ HyprlandWWC $ HyprlandContentsController
+    { hccContainerWidget = widget
+    , hccControllers = controllers
+    }
+
+hyprlandBuildLabelOverlayController ::
+  HyprlandWorkspacesConfig -> HyprlandControllerConstructor
+hyprlandBuildLabelOverlayController cfg ws = do
+  iconCtrl <- hyprlandBuildIconController cfg ws
+  labelCtrl <- hyprlandBuildLabelController cfg ws
+  iconWidget <- liftIO $ hwcGetWidget iconCtrl
+  labelWidget <- liftIO $ hwcGetWidget labelCtrl
+  widget <- buildWorkspaceIconLabelOverlay iconWidget labelWidget
+  liftIO $ setWorkspaceWidgetStatusClass (workspaceState ws) widget
+  return $ HyprlandWWC $ HyprlandContentsController
+    { hccContainerWidget = widget
+    , hccControllers = [iconCtrl, labelCtrl]
+    }
+
+-- | Like 'hyprlandBuildLabelOverlayController' but accepts a custom function
+-- to combine the icon and label widgets into a single container widget.
+hyprlandBuildCustomOverlayController ::
+  (Gtk.Widget -> Gtk.Widget -> TaffyIO Gtk.Widget)
+  -> HyprlandWorkspacesConfig -> HyprlandControllerConstructor
+hyprlandBuildCustomOverlayController combiner cfg ws = do
+  iconCtrl <- hyprlandBuildIconController cfg ws
+  labelCtrl <- hyprlandBuildLabelController cfg ws
+  iconWidget <- liftIO $ hwcGetWidget iconCtrl
+  labelWidget <- liftIO $ hwcGetWidget labelCtrl
+  widget <- combiner iconWidget labelWidget
+  liftIO $ setWorkspaceWidgetStatusClass (workspaceState ws) widget
+  return $ HyprlandWWC $ HyprlandContentsController
+    { hccContainerWidget = widget
+    , hccControllers = [iconCtrl, labelCtrl]
+    }
+
+hyprlandDefaultBuildContentsController ::
+  HyprlandWorkspacesConfig -> HyprlandControllerConstructor
+hyprlandDefaultBuildContentsController = hyprlandBuildLabelOverlayController
+
+data HyprlandButtonController = HyprlandButtonController
+  { hbcButton :: Gtk.EventBox
+  , hbcWorkspaceRef :: IORef HyprlandWorkspace
+  , hbcContentsController :: HyprlandWWC
+  }
+
+instance HyprlandWorkspaceWidgetController HyprlandButtonController where
+  hwcGetWidget = Gtk.toWidget . hbcButton
+  hwcUpdateWidget wbc ws = do
+    liftIO $ writeIORef (hbcWorkspaceRef wbc) ws
+    newContents <- hwcUpdateWidget (hbcContentsController wbc) ws
+    return wbc { hbcContentsController = newContents }
+
+hyprlandBuildButtonController ::
+  HyprlandWorkspacesConfig -> HyprlandParentControllerConstructor
+hyprlandBuildButtonController cfg contentsBuilder ws = do
+  cc <- contentsBuilder ws
+  ctx <- ask
+  contentsWidget <- liftIO $ hwcGetWidget cc
+  wsRef <- liftIO $ newIORef ws
+  ebox <- liftIO $ do
+    eb <- Gtk.eventBoxNew
+    Gtk.eventBoxSetVisibleWindow eb False
+    Gtk.containerAdd eb contentsWidget
+    _ <- Gtk.onWidgetButtonPressEvent eb $ const $ do
+           wsCurrent <- readIORef wsRef
+           runReaderT (switchToWorkspace cfg wsCurrent) ctx
+           return True
+    return eb
+  return $ HyprlandWWC $ HyprlandButtonController
+    { hbcButton = ebox
+    , hbcWorkspaceRef = wsRef
+    , hbcContentsController = cc
+    }
+
+defaultHyprlandWidgetBuilder :: HyprlandWorkspacesConfig -> HyprlandControllerConstructor
+defaultHyprlandWidgetBuilder cfg =
+  hyprlandBuildButtonController cfg (hyprlandDefaultBuildContentsController cfg)
 
 updateIcons ::
   HyprlandWorkspacesConfig
@@ -454,13 +570,6 @@ updateIconWidget iconWidget windowData =
     (T.pack . windowTitle)
     getWindowStatusString
 
-setWorkspaceWidgetStatusClass ::
-  (MonadIO m, Gtk.IsWidget a) => HyprlandWorkspace -> a -> m ()
-setWorkspaceWidgetStatusClass workspace widget =
-  updateWidgetClasses
-    widget
-    [getCSSClass $ workspaceState workspace]
-    cssWorkspaceStates
 
 getWindowStatusString :: HyprlandWindow -> T.Text
 getWindowStatusString windowData =

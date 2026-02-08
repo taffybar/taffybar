@@ -14,11 +14,19 @@
 --
 -----------------------------------------------------------------------------
 
-module System.Taffybar.Widget.Workspaces.Shared where
+module System.Taffybar.Widget.Workspaces.Shared
+  ( WorkspaceState(..)
+  , getCSSClass
+  , cssWorkspaceStates
+  , setWorkspaceWidgetStatusClass
+  , buildWorkspaceIconLabelOverlay
+  , mkWorkspaceIconWidget
+  ) where
 
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad.IO.Class (MonadIO(..))
 import           Data.Int (Int32)
+import qualified Data.Text as T
 
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
@@ -30,7 +38,30 @@ import           System.Taffybar.Widget.Util
   , buildContentsBox
   , buildOverlayWithPassThrough
   , mkWindowIconWidgetBase
+  , updateWidgetClasses
   )
+
+data WorkspaceState
+  = Active
+  | Visible
+  | Hidden
+  | Empty
+  | Urgent
+  deriving (Show, Eq)
+
+getCSSClass :: (Show s) => s -> T.Text
+getCSSClass = T.toLower . T.pack . show
+
+cssWorkspaceStates :: [T.Text]
+cssWorkspaceStates = map getCSSClass [Active, Visible, Hidden, Empty, Urgent]
+
+setWorkspaceWidgetStatusClass ::
+  (MonadIO m, Gtk.IsWidget a) => WorkspaceState -> a -> m ()
+setWorkspaceWidgetStatusClass ws widget =
+  updateWidgetClasses
+    widget
+    [getCSSClass ws]
+    cssWorkspaceStates
 
 -- | Build the common overlay layout used by workspace widgets:
 -- window icons are the base content and the workspace label is overlaid in the
