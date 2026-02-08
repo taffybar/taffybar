@@ -38,6 +38,9 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.FreedesktopNotifications"
   , module System.Taffybar.Widget.FreedesktopNotifications
 
+  -- * "System.Taffybar.Widget.Inhibitor"
+  , module System.Taffybar.Widget.Inhibitor
+
   -- * "System.Taffybar.Widget.Layout"
   , module System.Taffybar.Widget.Layout
 
@@ -121,6 +124,7 @@ import System.Taffybar.Widget.DiskIOMonitor
 import System.Taffybar.Widget.DiskUsage
 import System.Taffybar.Widget.FSMonitor
 import System.Taffybar.Widget.FreedesktopNotifications
+import System.Taffybar.Widget.Inhibitor
 import System.Taffybar.Widget.Layout
 import System.Taffybar.Widget.MPRIS2
 import System.Taffybar.Widget.NetworkGraph
