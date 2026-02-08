@@ -113,7 +113,7 @@ setupDiskUsageChanVar interval path = getStateDefault $ liftIO $ do
       (do newInfo <- getDiskUsageInfo path
           void $ swapMVar var newInfo
           atomically $ writeTChan chan newInfo)
-      (\e -> logPrintF logName WARNING "DiskUsage poll failed: %s" e)
+      (logPrintF logName WARNING "DiskUsage poll failed: %s")
   pure $ DiskUsageChanVar (chan, var)
 
 logName :: String
