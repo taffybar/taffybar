@@ -77,6 +77,7 @@ import           Data.Data
 import           Data.Default (Default(..))
 import           Data.GI.Base.ManagedPtr (unsafeCastTo)
 import           Data.Int
+import           Data.IORef
 import           Data.List
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -314,6 +315,8 @@ buildBarWindow context barConfig = do
   box <- Gtk.boxNew Gtk.OrientationHorizontal $ fromIntegral $
          widgetSpacing barConfig
   _ <- widgetSetClassGI box "taffy-box"
+  Gtk.widgetSetVexpand box False
+  Gtk.setWidgetValign box Gtk.AlignFill
   centerBox <- Gtk.boxNew Gtk.OrientationHorizontal $
                fromIntegral $ widgetSpacing barConfig
 
@@ -657,3 +660,22 @@ setupLayerShellWindow StrutConfig
                 setAnchor GtkLayerShell.EdgeBottom True
 
             GtkLayerShell.setExclusiveZone window exclusive
+
+            -- Dynamically update exclusive zone when the bar's actual
+            -- allocated size exceeds the configured size (issue #270).
+            lastExclusiveRef <- newIORef exclusive
+            void $ Gtk.onWidgetSizeAllocate window $ \alloc -> do
+              allocH <- GI.Gdk.getRectangleHeight alloc
+              allocW <- GI.Gdk.getRectangleWidth alloc
+              let newExclusive =
+                    case position of
+                      TopPos    -> fromIntegral allocH + 2 * ypadding
+                      BottomPos -> fromIntegral allocH + 2 * ypadding
+                      LeftPos   -> fromIntegral allocW + 2 * xpadding
+                      RightPos  -> fromIntegral allocW + 2 * xpadding
+              prev <- readIORef lastExclusiveRef
+              when (newExclusive /= prev) $ do
+                logIO DEBUG $
+                  printf "Updating exclusive zone from %d to %d" prev newExclusive
+                writeIORef lastExclusiveRef newExclusive
+                GtkLayerShell.setExclusiveZone window newExclusive
