@@ -56,11 +56,7 @@ data DiskUsageInfo = DiskUsageInfo
   -- ^ Percentage of total space available to unprivileged users.
   } deriving (Show, Eq)
 
-emptyDiskUsageInfo :: DiskUsageInfo
-emptyDiskUsageInfo = DiskUsageInfo 0 0 0 0 0 0
-
 -- | Query disk usage for the filesystem containing @path@ via @statvfs(2)@.
--- Returns 'emptyDiskUsageInfo' if the call fails.
 getDiskUsageInfo :: FilePath -> IO DiskUsageInfo
 getDiskUsageInfo path = do
   du <- getDiskUsage path
