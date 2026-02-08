@@ -143,6 +143,7 @@ library
                  , System.Taffybar.Information.DiskIO
                  , System.Taffybar.Information.DiskUsage
                  , System.Taffybar.Information.EWMHDesktopInfo
+                 , System.Taffybar.Information.KeyboardState
                  , System.Taffybar.Information.MPRIS2
                  , System.Taffybar.Information.Memory
                  , System.Taffybar.Information.Network
@@ -180,6 +181,7 @@ library
                  , System.Taffybar.Widget.Generic.VerticalBar
                  , System.Taffybar.Widget.HyprlandLayout
                  , System.Taffybar.Widget.HyprlandWindows
+                 , System.Taffybar.Widget.KeyboardState
                  , System.Taffybar.Widget.Layout
                  , System.Taffybar.Widget.MPRIS2
                  , System.Taffybar.Widget.NetworkGraph
