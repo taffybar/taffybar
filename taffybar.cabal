@@ -164,6 +164,7 @@ library
                  , System.Taffybar.Widget.PulseAudio
                  , System.Taffybar.Widget.Backlight
                  , System.Taffybar.Widget.Battery
+                 , System.Taffybar.Widget.BatteryDonut
                  , System.Taffybar.Widget.BatteryTextIcon
                  , System.Taffybar.Widget.Bluetooth
                  , System.Taffybar.Widget.CPUMonitor

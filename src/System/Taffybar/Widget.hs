@@ -12,6 +12,9 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.Battery"
   , module System.Taffybar.Widget.Battery
 
+  -- * "System.Taffybar.Widget.BatteryDonut"
+  , module System.Taffybar.Widget.BatteryDonut
+
   -- * "System.Taffybar.Widget.BatteryTextIcon"
   , module System.Taffybar.Widget.BatteryTextIcon
 
@@ -114,6 +117,7 @@ module System.Taffybar.Widget
   ) where
 
 import System.Taffybar.Widget.Battery
+import System.Taffybar.Widget.BatteryDonut
 import System.Taffybar.Widget.BatteryTextIcon
 import System.Taffybar.Widget.CPUMonitor
 import System.Taffybar.Widget.CommandRunner
