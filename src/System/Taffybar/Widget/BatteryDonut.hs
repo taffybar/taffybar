@@ -16,6 +16,8 @@
 module System.Taffybar.Widget.BatteryDonut
   ( batteryDonutNew
   , batteryDonutNewWith
+  , batteryDonutLabelNew
+  , batteryDonutLabelNewWith
   , BatteryDonutConfig(..)
   , defaultBatteryDonutConfig
   ) where
@@ -33,8 +35,10 @@ import           System.Taffybar.Context
 import           System.Taffybar.Information.Battery
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Generic.ChannelWidget
+import           System.Taffybar.Widget.Battery (textBatteryNew)
 import           System.Taffybar.Widget.Util (widgetSetClassGI,
-                                               addClassIfMissing, removeClassIfPresent)
+                                               addClassIfMissing, removeClassIfPresent,
+                                               buildIconLabelBox)
 import qualified System.Taffybar.Widget.Util as WU
 
 -- | Configuration for the donut/arc battery widget.
@@ -59,6 +63,11 @@ data BatteryDonutConfig = BatteryDonutConfig
     -- ^ Requested widget size in pixels (default: 24)
   , donutChargingColor :: Maybe (Double, Double, Double)
     -- ^ Optional override color when charging (default: Nothing)
+  , donutLabelFormat :: String
+    -- ^ Format string for the text label in the combined donut+label variant.
+    -- Uses the same template syntax as 'textBatteryNew': @$percentage$@,
+    -- @$time$@, and @$status$@ are replaced with the corresponding values.
+    -- (default: @"$percentage$%"@)
   }
 
 -- | Default donut battery configuration.
@@ -74,6 +83,7 @@ defaultBatteryDonutConfig = BatteryDonutConfig
   , donutCriticalThreshold = 10
   , donutSize = 24
   , donutChargingColor = Nothing
+  , donutLabelFormat = "$percentage$%"
   }
 
 instance Default BatteryDonutConfig where
@@ -176,3 +186,16 @@ batteryDonutNewWith cfg = do
       runReaderT getDisplayBatteryInfo ctx >>= updateWidget
 
     toWidget =<< channelWidgetNew drawArea chan updateWidget
+
+-- | Create a combined donut icon + text label battery widget with the default
+-- configuration.
+batteryDonutLabelNew :: TaffyIO Widget
+batteryDonutLabelNew = batteryDonutLabelNewWith def
+
+-- | Create a combined donut icon + text label battery widget with a custom
+-- configuration.
+batteryDonutLabelNewWith :: BatteryDonutConfig -> TaffyIO Widget
+batteryDonutLabelNewWith config = do
+  iconWidget <- batteryDonutNewWith config
+  labelWidget <- textBatteryNew (donutLabelFormat config)
+  liftIO $ buildIconLabelBox iconWidget labelWidget
