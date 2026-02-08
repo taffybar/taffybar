@@ -131,6 +131,7 @@ library
                  , System.Taffybar.Hooks
                  , System.Taffybar.Information.Hyprland
                  , System.Taffybar.Information.PulseAudio
+                 , System.Taffybar.Information.WirePlumber
                  , System.Taffybar.Information.Backlight
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.CPU
@@ -188,6 +189,7 @@ library
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
                  , System.Taffybar.Widget.Workspaces.Shared
+                 , System.Taffybar.Widget.WirePlumber
                  , System.Taffybar.Widget.WttrIn
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
