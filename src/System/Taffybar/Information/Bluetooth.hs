@@ -180,7 +180,7 @@ monitorBluetoothInfo client chan var = do
             writeInfo defaultBluetoothInfo
           Right info -> writeInfo info
 
-      refresh = withMVar refreshLock $ \_ -> refreshUnlocked
+      refresh = withMVar refreshLock $ const refreshUnlocked
 
       -- Match rule for BlueZ property changes
       propertiesChangedMatcher :: MatchRule

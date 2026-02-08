@@ -27,7 +27,7 @@ module System.Taffybar.Information.Temperature
 import Control.Exception (try, SomeException)
 import Control.Monad (forM)
 import Data.List (sortOn)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath ((</>))
 import Text.Read (readMaybe)
@@ -81,7 +81,7 @@ discoverThermalZones = do
           then do
             sensorType <- readFileSafe typePath
             return $ Just ThermalSensor
-              { sensorName = maybe zone id sensorType
+              { sensorName = fromMaybe zone sensorType
               , sensorPath = tempPath
               , sensorZone = zone
               }

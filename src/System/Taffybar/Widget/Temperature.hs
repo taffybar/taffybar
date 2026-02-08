@@ -137,9 +137,8 @@ temperatureLabelNewWith config = liftIO $ do
 
   where
     readTemperaturesFiltered :: [ThermalSensor] -> IO [TemperatureInfo]
-    readTemperaturesFiltered sensors = do
-      allTemps <- readAllTemperatures
-      return $ filter (\t -> tempSensor t `elem` sensors) allTemps
+    readTemperaturesFiltered sensors =
+      filter (\t -> tempSensor t `elem` sensors) <$> readAllTemperatures
 
 -- | Format the temperature label using the template
 formatTemperature :: TemperatureConfig -> Double -> Double -> Double -> Double -> T.Text

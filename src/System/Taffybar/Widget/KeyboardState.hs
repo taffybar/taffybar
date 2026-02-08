@@ -145,6 +145,5 @@ keyboardStateNewWithConfig cfg = do
 
 -- | Get the formatted keyboard state text.
 getFormattedState :: KeyboardStateConfig -> IO T.Text
-getFormattedState cfg = do
-  state <- getKeyboardState
-  return $ formatKeyboardState cfg state
+getFormattedState cfg =
+  formatKeyboardState cfg <$> getKeyboardState

@@ -77,7 +77,7 @@ data PrivacyNode = PrivacyNode
   } deriving (Eq, Show, Generic)
 
 -- | Aggregated privacy information.
-data PrivacyInfo = PrivacyInfo
+newtype PrivacyInfo = PrivacyInfo
   { activeNodes :: [PrivacyNode]
   } deriving (Eq, Show, Generic)
 
@@ -218,7 +218,7 @@ toPrivacyNode _config obj = do
             }
   where
     (<|>) :: Maybe a -> Maybe a -> Maybe a
-    (<|>) = \ma mb -> case ma of
+    (<|>) ma mb = case ma of
       Nothing -> mb
       just -> just
 
