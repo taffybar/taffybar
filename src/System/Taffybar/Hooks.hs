@@ -15,6 +15,7 @@
 module System.Taffybar.Hooks
   ( module System.Taffybar.DBus
   , module System.Taffybar.Hooks
+  , module System.Taffybar.LogLevels
   , ChromeTabImageData(..)
   , getChromeTabImageDataChannel
   , getChromeTabImageDataTable
@@ -37,6 +38,7 @@ import           System.Taffybar.Information.Chrome
 import           System.Taffybar.Information.Network
 import           System.Environment.XDG.DesktopEntry
 import           System.Taffybar.LogFormatter
+import           System.Taffybar.LogLevels
 import           System.Taffybar.Util
 
 -- | The type of the channel that provides network information in taffybar.
@@ -69,6 +71,20 @@ setTaffyLogFormatter loggerName = do
 -- UPower, and UPower usually works correctly.
 withBatteryRefresh :: TaffybarConfig -> TaffybarConfig
 withBatteryRefresh = appendHook refreshBatteriesOnPropChange
+
+-- | Load log levels from @~\/.config\/taffybar\/log-levels.yaml@ during
+-- startup. The file should contain a YAML mapping from logger names to log
+-- level strings. If the file does not exist, this is a no-op.
+--
+-- Example @log-levels.yaml@:
+--
+-- > System.Taffybar.DBus.Toggle: DEBUG
+-- > Graphics.UI.GIGtkStrut: INFO
+--
+-- To use a custom path instead, call 'loadLogLevelsFromFile' directly.
+withLogLevels :: TaffybarConfig -> TaffybarConfig
+withLogLevels = appendHook $
+  lift $ defaultLogLevelsPath >>= loadLogLevelsFromFile
 
 -- | Load the 'DesktopEntry' cache from 'Context' state.
 getDirectoryEntriesByClassName :: TaffyIO (MM.MultiMap String DesktopEntry)
