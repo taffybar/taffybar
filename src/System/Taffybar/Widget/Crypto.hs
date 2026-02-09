@@ -62,8 +62,8 @@ cryptoPriceLabelWithIcon = do
 
   ctx <- ask
   let refresh size =
-        Just <$> (flip runReaderT ctx $
-        fromMaybe <$> pixBufFromColor size 0 <*> getCryptoPixbuf symbol)
+        Just <$> runReaderT
+        (fromMaybe <$> pixBufFromColor size 0 <*> getCryptoPixbuf symbol) ctx
   (image, _) <- scalingImage refresh Gtk.OrientationHorizontal
 
   Gtk.containerAdd hbox image

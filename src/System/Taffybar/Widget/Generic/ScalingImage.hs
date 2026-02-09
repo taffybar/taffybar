@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 -- | Unified interface for auto-scaling image widgets.
 --
 -- This module dispatches between the two image scaling implementations

@@ -29,7 +29,7 @@ module System.Taffybar.LogLevels
   , defaultLogLevelsPath
   ) where
 
-import           Control.Monad (forM_)
+import           Control.Monad (forM_, when)
 import           Data.Aeson (Value(..))
 import qualified Data.Aeson.Key as Key
 import qualified Data.Aeson.KeyMap as KM
@@ -55,31 +55,29 @@ defaultLogLevelsPath = getUserConfigFile "taffybar" "log-levels.yaml"
 loadLogLevelsFromFile :: FilePath -> IO ()
 loadLogLevelsFromFile path = do
   exists <- doesFileExist path
-  if exists
-    then do
-      result <- Yaml.decodeFileEither path
-      case result of
-        Left err ->
-          logM loggerName WARNING $
-            "Failed to parse " ++ path ++ ": " ++ show err
-        Right (Object obj) ->
-          forM_ (KM.toList obj) $ \(key, val) ->
-            case val of
-              String levelStr ->
-                case readPriority (T.unpack levelStr) of
-                  Just level -> do
-                    enableLogger (Key.toString key) level
-                    logM loggerName INFO $
-                      "Set log level: " ++ Key.toString key ++ " -> " ++ T.unpack levelStr
-                  Nothing ->
-                    logM loggerName WARNING $
-                      "Unknown log level: " ++ T.unpack levelStr
-              _ ->
-                logM loggerName WARNING $
-                  "Expected string value for key: " ++ Key.toString key
-        Right _ ->
-          logM loggerName WARNING $ "Expected YAML mapping in " ++ path
-    else return ()
+  when exists $ do
+    result <- Yaml.decodeFileEither path
+    case result of
+      Left err ->
+        logM loggerName WARNING $
+          "Failed to parse " ++ path ++ ": " ++ show err
+      Right (Object obj) ->
+        forM_ (KM.toList obj) $ \(key, val) ->
+          case val of
+            String levelStr ->
+              case readPriority (T.unpack levelStr) of
+                Just level -> do
+                  enableLogger (Key.toString key) level
+                  logM loggerName INFO $
+                    "Set log level: " ++ Key.toString key ++ " -> " ++ T.unpack levelStr
+                Nothing ->
+                  logM loggerName WARNING $
+                    "Unknown log level: " ++ T.unpack levelStr
+            _ ->
+              logM loggerName WARNING $
+                "Expected string value for key: " ++ Key.toString key
+      Right _ ->
+        logM loggerName WARNING $ "Expected YAML mapping in " ++ path
   where
     loggerName = "System.Taffybar.LogLevels"
 
