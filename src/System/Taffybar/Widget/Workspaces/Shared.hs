@@ -24,6 +24,7 @@ module System.Taffybar.Widget.Workspaces.Shared
   ) where
 
 import qualified Control.Concurrent.MVar as MV
+import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO(..))
 import           Data.Int (Int32)
 import qualified Data.Text as T
@@ -31,7 +32,8 @@ import qualified Data.Text as T
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
 
-import           System.Taffybar.Widget.Generic.AutoSizeImage (autoSizeImage)
+import           System.Taffybar.Widget.Generic.AutoSizeImage (ImageScaleStrategy)
+import           System.Taffybar.Widget.Generic.ScalingImage (scalingImageNew)
 import           System.Taffybar.Widget.Util
   ( WindowIconWidget(..)
   , buildBottomLeftAlignedBox
@@ -39,6 +41,7 @@ import           System.Taffybar.Widget.Util
   , buildOverlayWithPassThrough
   , mkWindowIconWidgetBase
   , updateWidgetClasses
+  , widgetSetClassGI
   )
 
 data WorkspaceState
@@ -82,12 +85,13 @@ buildWorkspaceIconLabelOverlay iconsWidget labelWidget = do
 -- This is shared by both X11 and Hyprland workspace widgets so that CSS classes
 -- and widget behavior remain consistent across backends.
 mkWorkspaceIconWidget ::
+  ImageScaleStrategy -> -- ^ Which scaling implementation to use.
   Maybe Int32 -> -- ^ Optional size request for the icon image.
   Bool -> -- ^ Whether to render a transparent placeholder when there is no data.
   (Int32 -> a -> IO (Maybe Gdk.Pixbuf)) -> -- ^ Icon pixbuf getter.
   (Int32 -> IO Gdk.Pixbuf) -> -- ^ Transparent placeholder pixbuf generator.
   IO (WindowIconWidget a)
-mkWorkspaceIconWidget mSize transparentOnNone getPixbufFor mkTransparent = do
+mkWorkspaceIconWidget strategy mSize transparentOnNone getPixbufFor mkTransparent = do
   base <- mkWindowIconWidgetBase mSize
   let getPixbuf size = do
         mWin <- MV.readMVar (iconWindow base)
@@ -104,6 +108,11 @@ mkWorkspaceIconWidget mSize transparentOnNone getPixbufFor mkTransparent = do
                 if transparentOnNone
                   then Just <$> mkTransparent size
                   else return Nothing
-  refreshImage <- autoSizeImage (iconImage base) getPixbuf Gtk.OrientationHorizontal
-  return base { iconForceUpdate = refreshImage }
+  (imageWidget, refreshImage) <-
+    scalingImageNew strategy getPixbuf Gtk.OrientationHorizontal
+  _ <- widgetSetClassGI imageWidget "window-icon"
+  forM_ mSize $ \s ->
+    Gtk.widgetSetSizeRequest imageWidget (fromIntegral s) (fromIntegral s)
+  Gtk.containerAdd (iconContainer base) imageWidget
+  return base { iconImage = imageWidget, iconForceUpdate = refreshImage }
 

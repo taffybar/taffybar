@@ -231,11 +231,9 @@ mpris2NewWithConfig config = ask >>= \ctx -> asks sessionDBusClient >>= \client 
       then do
         addClassIfMissing "visible-children" outerWidget
         removeClassIfPresent "no-visible-children" outerWidget
-        Gtk.widgetShow outerWidget
       else do
         addClassIfMissing "no-visible-children" outerWidget
         removeClassIfPresent "visible-children" outerWidget
-        Gtk.widgetHide outerWidget
 
     doUpdate = do
       nowPlayings <- getNowPlayingInfo client

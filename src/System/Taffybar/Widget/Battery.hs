@@ -31,14 +31,14 @@ import           Control.Monad.Trans.Reader
 import           Data.Default (Default(..))
 import           Data.GI.Base.Overloading (IsDescendantOf)
 import           Data.Int (Int64)
+import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import           GI.Gtk as Gtk
-import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Taffybar.Context
 import           System.Taffybar.Information.Battery
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.ChannelWidget
+import           System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import           System.Taffybar.Widget.Util hiding (themeLoadFlags)
 import           Text.Printf
 import           Text.StringTemplate
@@ -159,18 +159,15 @@ batteryIconNew :: TaffyIO Widget
 batteryIconNew = do
   chan <- getDisplayBatteryChan
   ctx <- ask
+  defaultTheme <- liftIO iconThemeGetDefault
+  imageWidgetRef <- liftIO $ newIORef (error "imageWidget not initialised")
+  let setIconForSize size = do
+        iw <- readIORef imageWidgetRef
+        styleCtx <- widgetGetStyleContext iw
+        name <- T.pack . batteryIconName <$> runReaderT getDisplayBatteryInfo ctx
+        iconThemeLookupIcon defaultTheme name size themeLoadFlags >>=
+          traverse (\info -> fst <$> iconInfoLoadSymbolicForContext info styleCtx)
+  (imageWidget, updateImage) <- scalingImage setIconForSize OrientationHorizontal
   liftIO $ do
-    image <- imageNew
-    styleCtx <- widgetGetStyleContext =<< toWidget image
-    defaultTheme <- iconThemeGetDefault
-    let getCurrentBatteryIconNameString =
-          T.pack . batteryIconName <$> runReaderT getDisplayBatteryInfo ctx
-        extractPixbuf info =
-          fst <$> iconInfoLoadSymbolicForContext info styleCtx
-        setIconForSize size = do
-          name <- getCurrentBatteryIconNameString
-          iconThemeLookupIcon defaultTheme name size themeLoadFlags >>=
-            traverse extractPixbuf >>=
-              traverse (scalePixbufToSize size OrientationHorizontal)
-    updateImage <- autoSizeImage image setIconForSize OrientationHorizontal
-    toWidget =<< channelWidgetNew image chan (const $ postGUIASync updateImage)
+    writeIORef imageWidgetRef imageWidget
+    toWidget =<< channelWidgetNew imageWidget chan (const $ postGUIASync updateImage)

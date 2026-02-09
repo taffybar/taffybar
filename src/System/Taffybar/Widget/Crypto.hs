@@ -39,8 +39,8 @@ import           System.FilePath.Posix
 import           System.Taffybar.Context
 import           System.Taffybar.Information.Crypto hiding (symbol)
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.ChannelWidget
+import           System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import           System.Taffybar.WindowIcon
 import           Text.Printf
 
@@ -61,10 +61,10 @@ cryptoPriceLabelWithIcon = do
   hbox <- Gtk.boxNew Gtk.OrientationHorizontal 0
 
   ctx <- ask
-  let refresh =
-        const $ flip runReaderT ctx $
-        fromMaybe <$> pixBufFromColor 10 0 <*> getCryptoPixbuf symbol
-  image <- autoSizeImageNew refresh Gtk.OrientationHorizontal
+  let refresh size =
+        Just <$> (flip runReaderT ctx $
+        fromMaybe <$> pixBufFromColor size 0 <*> getCryptoPixbuf symbol)
+  (image, _) <- scalingImage refresh Gtk.OrientationHorizontal
 
   Gtk.containerAdd hbox image
   Gtk.containerAdd hbox label

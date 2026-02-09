@@ -1,9 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
-module System.Taffybar.Widget.Generic.AutoSizeImage where
+module System.Taffybar.Widget.Generic.AutoSizeImage
+  ( autoSizeImage
+  , autoSizeImageNew
+  , imageMenuItemNew
+  , ImageScaleStrategy(..)
+  , BorderInfo(..)
+  , borderInfoZero
+  , borderWidth
+  , borderHeight
+  , getBorderInfo
+  , getInsetInfo
+  , getContentAllocation
+  ) where
 
 import qualified Control.Concurrent.MVar as MV
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Data.Default (Default(..))
 import           Data.Int
 import           Data.Maybe
 import qualified Data.Text as T
@@ -16,6 +29,15 @@ import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
 import           Text.Printf
 
+-- | Strategy for how auto-scaling image widgets render their pixbufs.
+data ImageScaleStrategy
+  = ImageResize  -- ^ Use 'Gtk.Image' with 'imageSetFromPixbuf' + 'queueResize' (original behavior).
+  | ImageDraw    -- ^ Use 'Gtk.DrawingArea' with Cairo rendering (avoids resize feedback loops).
+  deriving (Eq, Show)
+
+instance Default ImageScaleStrategy where
+  def = ImageDraw
+
 imageLog :: Priority -> String -> IO ()
 imageLog = logM "System.Taffybar.Widget.Generic.AutoSizeImage"
 
@@ -23,6 +45,14 @@ borderFunctions :: [Gtk.StyleContext -> [Gtk.StateFlags] -> IO Gtk.Border]
 borderFunctions =
   [ Gtk.styleContextGetPadding
   , Gtk.styleContextGetMargin
+  , Gtk.styleContextGetBorder
+  ]
+
+-- Insets that are inside a widget's allocation and should be respected when
+-- drawing inside it.
+insetFunctions :: [Gtk.StyleContext -> [Gtk.StateFlags] -> IO Gtk.Border]
+insetFunctions =
+  [ Gtk.styleContextGetPadding
   , Gtk.styleContextGetBorder
   ]
 
@@ -67,6 +97,19 @@ getBorderInfo widget = liftIO $ do
         addBorderInfo lastSum <$> getBorderInfoFor fn
 
   foldM combineBorderInfo borderInfoZero borderFunctions
+
+-- | Get the size of the padding+border drawn inside a widget's allocation.
+getInsetInfo :: (MonadIO m, Gtk.IsWidget a) => a -> m BorderInfo
+getInsetInfo widget = liftIO $ do
+  stateFlags <- Gtk.widgetGetStateFlags widget
+  styleContext <- Gtk.widgetGetStyleContext widget
+
+  let getBorderInfoFor borderFn =
+        borderFn styleContext stateFlags >>= toBorderInfo
+      combineBorderInfo lastSum fn =
+        addBorderInfo lastSum <$> getBorderInfoFor fn
+
+  foldM combineBorderInfo borderInfoZero insetFunctions
 
 -- | Get the actual allocation for a "Gtk.Widget", accounting for the size of
 -- its CSS assined margin, border and padding values.

@@ -59,11 +59,11 @@
     "gtk-sni-tray": {
       "flake": false,
       "locked": {
-        "lastModified": 1770573499,
-        "narHash": "sha256-UAa68CKZSgHfGkL7yUoOMsjceL1vVO3PLhLF152Dt10=",
+        "lastModified": 1770581933,
+        "narHash": "sha256-sLA+v5KpHWSrjXu3Gnt1A/+F3+4FojWGeTPN5JJxWDw=",
         "owner": "taffybar",
         "repo": "gtk-sni-tray",
-        "rev": "147853f91ae349626fc7438690bfae9a3a2fcc3c",
+        "rev": "28eadf97977197bf5bd97855b9991034e9a71322",
         "type": "github"
       },
       "original": {

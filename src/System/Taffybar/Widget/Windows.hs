@@ -27,8 +27,8 @@ import           GI.GLib (markupEscapeText)
 import qualified GI.Gtk as Gtk
 import           System.Taffybar.Context
 import           System.Taffybar.Information.EWMHDesktopInfo
-import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.DynamicMenu
+import           System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import           System.Taffybar.Widget.Util
 import           System.Taffybar.Widget.Workspaces (WindowIconPixbufGetter, getWindowData, defaultGetWindowIconPixbuf)
 import           System.Taffybar.Util
@@ -116,16 +116,14 @@ buildWindowsLabel = do
 
 buildWindowsIcon :: WindowIconPixbufGetter -> TaffyIO (IO (), Gtk.Widget)
 buildWindowsIcon windowIconPixbufGetter = do
-  icon <- lift Gtk.imageNew
-
   runTaffy <- asks (flip runReaderT)
   let getActiveWindowPixbuf size = runTaffy . runMaybeT $ do
         wd <- MaybeT $ runX11Def Nothing $
           traverse (getWindowData Nothing []) =<< getActiveWindow
         MaybeT $ windowIconPixbufGetter size wd
 
-  updateImage <- autoSizeImage icon getActiveWindowPixbuf Gtk.OrientationHorizontal
-  (postGUIASync updateImage,) <$> Gtk.toWidget icon
+  (imageWidget, updateImage) <- scalingImage getActiveWindowPixbuf Gtk.OrientationHorizontal
+  return (postGUIASync updateImage, imageWidget)
 
 -- | Populate the given menu widget with the list of all currently open windows.
 fillMenu :: Gtk.IsMenuShell a => WindowsConfig -> a -> ReaderT Context IO ()

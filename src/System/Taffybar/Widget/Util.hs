@@ -45,28 +45,27 @@ import           Paths_taffybar ( getDataDir )
 -- | Common record used for window icon widgets in workspace switchers.
 data WindowIconWidget a = WindowIconWidget
   { iconContainer :: Gtk.EventBox
-  , iconImage :: Gtk.Image
+  , iconImage :: Gtk.Widget
   , iconWindow :: MV.MVar (Maybe a)
   , iconForceUpdate :: IO ()
   }
 
 -- | Construct the GTK widgets and CSS classes for a window icon widget, leaving
--- 'iconForceUpdate' as a placeholder to be filled in after calling
--- 'autoSizeImage'.
+-- 'iconForceUpdate' as a placeholder to be filled in after the image widget is
+-- created by 'scalingImageNew'.
+--
+-- The caller is responsible for creating the image widget and adding it to the
+-- event box.
 mkWindowIconWidgetBase :: MonadIO m => Maybe Int32 -> m (WindowIconWidget a)
-mkWindowIconWidgetBase mSize = liftIO $ do
+mkWindowIconWidgetBase _mSize = liftIO $ do
   windowVar <- MV.newMVar Nothing
-  img <- Gtk.imageNew
   ebox <- Gtk.eventBoxNew
-  _ <- widgetSetClassGI img "window-icon"
   _ <- widgetSetClassGI ebox "window-icon-container"
-  Gtk.containerAdd ebox img
-  forM_ mSize $ \s ->
-    Gtk.widgetSetSizeRequest img (fromIntegral s) (fromIntegral s)
+  placeholder <- Gtk.toWidget ebox
   return
     WindowIconWidget
       { iconContainer = ebox
-      , iconImage = img
+      , iconImage = placeholder
       , iconWindow = windowVar
       , iconForceUpdate = return ()
       }

@@ -48,6 +48,7 @@ import           System.Taffybar.Information.SafeX11
 import           System.Taffybar.Information.X11DesktopInfo
 import           System.Taffybar.Util
 import           System.Taffybar.Widget.Util
+import           System.Taffybar.Widget.Generic.ScalingImage (getScalingImageStrategy)
 import           System.Taffybar.Widget.Workspaces.Shared
   ( WorkspaceState(..)
   , getCSSClass
@@ -559,9 +560,11 @@ buildIconWidget transparentOnNone ws = do
       cfg = workspacesConfig ctx
       getPB size windowData =
         runReaderT (getWindowIconPixbuf cfg size windowData) tContext
+  strategy <- liftContext getScalingImageStrategy
   lift $ do
     iconWidget <-
       mkWorkspaceIconWidget
+        strategy
         Nothing
         transparentOnNone
         getPB

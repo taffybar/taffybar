@@ -60,16 +60,16 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
 import           Data.Default (Default(..))
 import           Data.Int (Int32)
+import           Data.IORef (newIORef, readIORef, writeIORef)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified GI.GLib as G
 import           GI.Gtk
-import           StatusNotifier.Tray (scalePixbufToSize)
 import           System.Taffybar.Context
 import           System.Taffybar.Information.NetworkManager
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.ChannelWidget
+import           System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import           System.Taffybar.Widget.Util (buildIconLabelBox)
 import           Text.StringTemplate
 
@@ -150,35 +150,32 @@ networkManagerWifiIconNewWith :: NetworkManagerWifiIconConfig -> TaffyIO Widget
 networkManagerWifiIconNewWith config = do
   chan <- getWifiInfoChan
   ctx <- ask
+  defaultTheme <- liftIO iconThemeGetDefault
+  initialInfo <- liftIO $ runReaderT getWifiInfoState ctx
+  infoVar <- liftIO $ newMVar initialInfo
+  imageWidgetRef <- liftIO $ newIORef (error "imageWidget not initialised")
+  let
+    setIconForSize size = do
+      iw <- readIORef imageWidgetRef
+      styleCtx <- widgetGetStyleContext iw
+      info <- readMVar infoVar
+      let iconNames = wifiIconCandidates config info
+      iconInfo <- lookupFirstIcon defaultTheme size iconNames
+      traverse (extractPixbuf styleCtx) iconInfo
+    extractPixbuf styleCtx iconInfo =
+      fst <$> iconInfoLoadSymbolicForContext iconInfo styleCtx
+  (imageWidget, updateImage) <- scalingImage setIconForSize OrientationHorizontal
   liftIO $ do
-    image <- imageNew
-    styleCtx <- widgetGetStyleContext =<< toWidget image
-    defaultTheme <- iconThemeGetDefault
-
-    initialInfo <- runReaderT getWifiInfoState ctx
-    infoVar <- newMVar initialInfo
-
-    let
-      setIconForSize size = do
-        info <- readMVar infoVar
-        let iconNames = wifiIconCandidates config info
-        iconInfo <- lookupFirstIcon defaultTheme size iconNames
-        traverse (extractPixbuf styleCtx) iconInfo >>=
-          traverse (scalePixbufToSize size OrientationHorizontal)
-
-    updateImage <- autoSizeImage image setIconForSize OrientationHorizontal
+    writeIORef imageWidgetRef imageWidget
     let
       updateWidget info = do
         _ <- swapMVar infoVar info
         (_, tooltipText) <- formatWifiWidget (iconTooltipAsLabelConfig config) info
         postGUIASync $ do
-          widgetSetTooltipMarkup image tooltipText
+          widgetSetTooltipMarkup imageWidget tooltipText
           updateImage
-    void $ onWidgetRealize image $ updateWidget initialInfo
-    toWidget =<< channelWidgetNew image chan updateWidget
-  where
-    extractPixbuf styleCtx iconInfo =
-      fst <$> iconInfoLoadSymbolicForContext iconInfo styleCtx
+    void $ onWidgetRealize imageWidget $ updateWidget initialInfo
+    toWidget =<< channelWidgetNew imageWidget chan updateWidget
 
 iconTooltipAsLabelConfig :: NetworkManagerWifiIconConfig -> WifiWidgetConfig
 iconTooltipAsLabelConfig cfg =
@@ -391,35 +388,32 @@ networkManagerNetworkIconNewWith :: NetworkManagerNetworkIconConfig -> TaffyIO W
 networkManagerNetworkIconNewWith config = do
   chan <- getNetworkInfoChan
   ctx <- ask
+  defaultTheme <- liftIO iconThemeGetDefault
+  initialInfo <- liftIO $ runReaderT getNetworkInfoState ctx
+  infoVar <- liftIO $ newMVar initialInfo
+  imageWidgetRef <- liftIO $ newIORef (error "imageWidget not initialised")
+  let
+    setIconForSize size = do
+      iw <- readIORef imageWidgetRef
+      styleCtx <- widgetGetStyleContext iw
+      info <- readMVar infoVar
+      let iconNames = networkIconCandidates config info
+      iconInfo <- lookupFirstIcon defaultTheme size iconNames
+      traverse (extractPixbuf styleCtx) iconInfo
+    extractPixbuf styleCtx iconInfo =
+      fst <$> iconInfoLoadSymbolicForContext iconInfo styleCtx
+  (imageWidget, updateImage) <- scalingImage setIconForSize OrientationHorizontal
   liftIO $ do
-    image <- imageNew
-    styleCtx <- widgetGetStyleContext =<< toWidget image
-    defaultTheme <- iconThemeGetDefault
-
-    initialInfo <- runReaderT getNetworkInfoState ctx
-    infoVar <- newMVar initialInfo
-
-    let
-      setIconForSize size = do
-        info <- readMVar infoVar
-        let iconNames = networkIconCandidates config info
-        iconInfo <- lookupFirstIcon defaultTheme size iconNames
-        traverse (extractPixbuf styleCtx) iconInfo >>=
-          traverse (scalePixbufToSize size OrientationHorizontal)
-
-    updateImage <- autoSizeImage image setIconForSize OrientationHorizontal
+    writeIORef imageWidgetRef imageWidget
     let
       updateWidget info = do
         _ <- swapMVar infoVar info
         (_, tooltipText) <- formatNetworkWidget (iconTooltipAsNetworkLabelConfig config) info
         postGUIASync $ do
-          widgetSetTooltipMarkup image tooltipText
+          widgetSetTooltipMarkup imageWidget tooltipText
           updateImage
-    void $ onWidgetRealize image $ updateWidget initialInfo
-    toWidget =<< channelWidgetNew image chan updateWidget
-  where
-    extractPixbuf styleCtx iconInfo =
-      fst <$> iconInfoLoadSymbolicForContext iconInfo styleCtx
+    void $ onWidgetRealize imageWidget $ updateWidget initialInfo
+    toWidget =<< channelWidgetNew imageWidget chan updateWidget
 
 iconTooltipAsNetworkLabelConfig :: NetworkManagerNetworkIconConfig -> NetworkWidgetConfig
 iconTooltipAsNetworkLabelConfig cfg =

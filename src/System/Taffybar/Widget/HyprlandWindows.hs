@@ -31,8 +31,8 @@ import           System.Taffybar.Context
 import           System.Taffybar.Hyprland (runHyprlandCommandRawT)
 import qualified System.Taffybar.Information.Hyprland as Hypr
 import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.AutoSizeImage
 import           System.Taffybar.Widget.Generic.DynamicMenu
+import           System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import           System.Taffybar.Widget.Util
 import           System.Taffybar.Widget.HyprlandWorkspaces
   ( HyprlandWindow(..)
@@ -123,15 +123,13 @@ buildWindowsLabel = do
 
 buildWindowsIcon :: HyprlandWindowIconPixbufGetter -> TaffyIO (IO (), Gtk.Widget)
 buildWindowsIcon windowIconPixbufGetter = do
-  icon <- lift Gtk.imageNew
-
   runTaffy <- asks (flip runReaderT)
   let getActiveWindowPixbuf size = runTaffy . runMaybeT $ do
         wd <- MaybeT getActiveHyprlandWindow
         MaybeT $ windowIconPixbufGetter size wd
 
-  updateImage <- autoSizeImage icon getActiveWindowPixbuf Gtk.OrientationHorizontal
-  (postGUIASync updateImage,) <$> Gtk.toWidget icon
+  (imageWidget, updateImage) <- scalingImage getActiveWindowPixbuf Gtk.OrientationHorizontal
+  return (postGUIASync updateImage, imageWidget)
 
 getActiveHyprlandWindow :: TaffyIO (Maybe HyprlandWindow)
 getActiveHyprlandWindow = find windowActive <$> getHyprlandWindows

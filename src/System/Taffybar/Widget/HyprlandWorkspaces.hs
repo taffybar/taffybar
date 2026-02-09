@@ -66,6 +66,7 @@ import           System.Taffybar.Widget.Util
   , widgetSetClassGI
   , windowStatusClassFromFlags
   )
+import           System.Taffybar.Widget.Generic.ScalingImage (getScalingImageStrategy)
 import           System.Taffybar.Widget.Workspaces.Shared
   ( WorkspaceState(..)
   , setWorkspaceWidgetStatusClass
@@ -555,8 +556,10 @@ updateIcons cfg ws iconsBox iconWidgets = do
 buildIconWidget :: Bool -> HyprlandWorkspacesConfig -> ReaderT Context IO HyprlandIconWidget
 buildIconWidget transparentOnNone cfg = do
   ctx <- ask
+  strategy <- getScalingImageStrategy
   liftIO $
     mkWorkspaceIconWidget
+      strategy
       (Just $ iconSize cfg)
       transparentOnNone
       (\size w -> runReaderT (getWindowIconPixbuf cfg size w) ctx)
