@@ -65,7 +65,7 @@ library
                , containers
                , data-default
                , dbus >= 1.2.11 && < 2.0.0
-               , dbus-hslogger >= 0.1.0.1 && < 0.2.0.0
+               , dbus-hslogger >= 0.1.1.0 && < 0.2.0.0
                , dbus-menu >= 0.1.0.0
                , directory
                , disk-free-space >= 0.1.0.1
