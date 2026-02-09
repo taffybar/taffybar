@@ -89,10 +89,9 @@ autoFillImage
   -> Gtk.Orientation
   -> m (IO ())
 autoFillImage drawArea getPixbuf orientation = liftIO $ do
-  Gtk.widgetSetHexpand drawArea True
-  Gtk.widgetSetVexpand drawArea True
-  Gtk.setWidgetHalign drawArea Gtk.AlignFill
-  Gtk.setWidgetValign drawArea Gtk.AlignFill
+  case orientation of
+    Gtk.OrientationHorizontal -> Gtk.widgetSetVexpand drawArea True
+    _ -> Gtk.widgetSetHexpand drawArea True
 
   -- Keep existing styling working.
   void $ widgetSetClassGI drawArea "auto-size-image"
