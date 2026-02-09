@@ -116,6 +116,7 @@ library
                , xdg-basedir >= 0.2 && < 0.3
                , xml
                , xml-helpers
+               , yaml
 
   hs-source-dirs: src
   pkgconfig-depends: gtk+-3.0
@@ -158,6 +159,7 @@ library
                  , System.Taffybar.Information.X11DesktopInfo
                  , System.Taffybar.Information.XDG.Protocol
                  , System.Taffybar.LogFormatter
+                 , System.Taffybar.LogLevels
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Util
                  , System.Taffybar.Widget
