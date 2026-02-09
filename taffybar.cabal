@@ -1,6 +1,6 @@
 cabal-version: 3.4
 name: taffybar
-version: 4.1.1
+version: 5.0.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD-3-Clause
 license-file: LICENSE
@@ -8,7 +8,7 @@ author: Ivan Malison
 maintainer: IvanMalison@gmail.com
 category: System
 build-type: Simple
-tested-with: GHC == 9.8.4, GHC == 9.10.3
+tested-with: GHC == 9.8.4, GHC == 9.10.3, GHC == 9.12.3
 homepage: http://github.com/taffybar/taffybar
 data-files:
   taffybar.css
@@ -100,7 +100,7 @@ library
                , rate-limit >= 1.1.1
                , regex-compat
                , safe >= 0.3 && < 1
-               , scotty >= 0.20 && < 0.23
+               , scotty >= 0.20 && < 0.31
                , split >= 0.1.4.2
                , status-notifier-item >= 0.3.1.0
                , stm

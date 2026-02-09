@@ -1,8 +1,83 @@
 # Unreleased
 
+# 5.0.0
+
+## Wayland Support
+
+ * Add Wayland backend using `gtk-layer-shell`, enabling taffybar to run
+   natively on Wayland compositors.
+ * Add Hyprland integration with event-driven workspaces, windows, and layout
+   widgets via IPC sockets.
+ * Auto-detect backend (X11 vs Wayland) based on environment — requires a
+   Wayland socket for the Wayland backend.
+ * Dynamically update layer-shell exclusive zone on bar resize.
+ * Rebuild Hyprland workspace widgets after bar window recreation (e.g. after
+   `hyprctl reload`).
+ * Refresh Hyprland widgets on event-socket reconnect.
+ * Store Hyprland client on Context for shared access across widgets.
+ * Sort Hyprland workspace icons by window position.
+
+## New Widgets
+
+ * **Bluetooth** — Bluetooth adapter status via DBus.
+ * **DiskUsage** — Disk usage monitoring backed by `disk-free-space`.
+ * **WirePlumber** — PipeWire audio volume/mute via WirePlumber DBus.
+ * **Temperature** — System temperature monitoring with icon and label variants.
+ * **Privacy** — Microphone/screen-share indicator via PipeWire.
+ * **Inhibitor** — Idle/sleep inhibitor toggle via `systemd-inhibit`.
+ * **PowerProfiles** — Power profiles daemon widget (power-saver/balanced/performance).
+ * **KeyboardState** — Caps Lock, Num Lock, Scroll Lock indicator.
+ * **Systemd** — Failed systemd units monitoring.
+ * **BatteryDonut** — Cairo-rendered donut battery gauge with optional label.
+ * **BatteryTextIcon** — Nerd Font glyph battery indicator.
+ * **SNIMenu** — Click-to-open DBus menu for StatusNotifierItem tray icons.
+
+## New Widget Variants
+
+ * Most new widgets ship with icon-only, label-only, and combined icon+label
+   variants using a shared `buildIconLabelBox` utility.
+ * **Backlight** — add icon-only and combined icon+label variants.
+ * **DiskUsage** — add icon-only and combined icon+label variants.
+ * **NetworkManager** — separate icon and text into independent composable widgets.
+ * **PulseAudio** — separate icon and text into independent composable widgets.
+
+## Improvements
+
+ * **PulseAudio**: completely rewritten — event-driven via DBus `ListenForSignal`
+   peer-to-peer updates, replacing the old polling approach. Per-sink info is
+   cached for efficiency.
+ * **NetworkManager**: add unified network info and composable widget set.
+ * **Backlight**: event-driven updates via libudev instead of polling.
+ * Refactor icon widgets to use `ScalingImage` instead of `autoSizeImage`.
+ * Workspaces: share overlay/icon/label widget helpers across X11 and Hyprland.
+ * HyprlandWorkspaces: composable WWC controller pattern, incremental cache,
+   and default workspace filters.
+ * Raise CSS provider priority for more predictable theming.
+ * Runtime-configurable log levels via YAML file.
+ * Relax `scotty` upper bound to `< 0.31`.
+ * Tested with GHC 9.8, 9.10, and 9.12.
+
+## Bug Fixes
+
+ * Fix `autoFillImage` to only expand `DrawingArea` in the cross-axis direction.
+ * Fix MPRIS2 `OverloadedStrings` and add show/hide for outer widget.
+ * Guard `initForWindow` to prevent GTK assertion failure on already-mapped windows.
+ * Use `menuPopupAtPointer` for correct SNIMenu positioning.
+
+## Breaking Changes
+
+ * The PulseAudio widget API has been replaced — old `Audio` widget/info modules
+   are superseded by the new event-driven `PulseAudio` module.
+ * NetworkManager widget API refactored into separate icon and text sub-widgets.
+ * Icon widgets now use `ScalingImage` instead of `autoSizeImage`.
+ * New dependency on `gi-gtk-layer-shell` (for Wayland support).
+ * New dependency on `dbus-menu` (for SNIMenu widget).
+ * Bump `dbus-hslogger` lower bound to `0.1.1.0`.
+ * Bump `gtk-sni-tray` to `0.1.11.2`.
+
 ## Documentation
 
- * Document that the PulseAudio Audio widget requires PulseAudio's DBus protocol
+ * Document that the PulseAudio widget requires PulseAudio's DBus protocol
    to be enabled (load @module-dbus-protocol@), otherwise it may display
    @vol: n/a@.
 
