@@ -9,7 +9,7 @@ import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
 import DBus (BusName, ObjectPath)
-import qualified GI.Gdk as Gdk
+import qualified GI.Gdk as Gdk (getEventButtonButton, getEventButtonType, EventType(..))
 import qualified GI.GLib as GLib
 import qualified GI.Gtk as Gtk
 import qualified DBusMenu
@@ -46,12 +46,7 @@ withSniMenu busName menuPath mkWidget = do
                     Gtk.widgetDestroy gtkMenu
                     return False
                 Gtk.widgetShowAll gtkMenu
-                Gtk.menuPopupAtWidget
-                  gtkMenu
-                  ebox
-                  Gdk.GravitySouthWest
-                  Gdk.GravityNorthWest
-                  currentEvent)
+                Gtk.menuPopupAtPointer gtkMenu currentEvent)
             (sniMenuLogger WARNING
               . printf "Failed to build SNI menu for %s: %s" (show busName)
               . show)
