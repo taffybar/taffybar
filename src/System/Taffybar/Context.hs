@@ -623,10 +623,12 @@ setupLayerShellWindow StrutConfig
               (fromIntegral reqWidth)
               (fromIntegral reqHeight)
 
-            GtkLayerShell.initForWindow window
-            GtkLayerShell.setKeyboardMode window GtkLayerShell.KeyboardModeNone
+            alreadyLayer <- GtkLayerShell.isLayerWindow window
+            unless alreadyLayer $ do
+              GtkLayerShell.initForWindow window
+              GtkLayerShell.setKeyboardMode window GtkLayerShell.KeyboardModeNone
+              GtkLayerShell.setNamespace window (T.pack "taffybar")
             GtkLayerShell.setMonitor window monitor
-            GtkLayerShell.setNamespace window (T.pack "taffybar")
 
             GtkLayerShell.setMargin window GtkLayerShell.EdgeLeft xpadding
             GtkLayerShell.setMargin window GtkLayerShell.EdgeRight xpadding
