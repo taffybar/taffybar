@@ -1,5 +1,17 @@
 # Unreleased
 
+# 5.1.0
+
+## New Widgets
+
+ * **ScreenLock** — Screen lock indicator and toggle via DBus.
+ * **Wlsunset** — Wlsunset (blue light filter) status and toggle.
+
+## Dependency Bumps
+
+ * Bump `dbus-menu` lower bound to 0.1.1.0.
+ * Bump `gtk-sni-tray` lower bound to 0.1.13.0.
+
 # 5.0.0
 
 ## Wayland Support

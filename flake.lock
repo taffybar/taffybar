@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "dbus-menu": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1770719529,
+        "narHash": "sha256-6+zYReTRQTe2cM1LiatVWs101j5b5q5QBRHPR8lnCNE=",
+        "owner": "taffybar",
+        "repo": "dbus-menu",
+        "rev": "0210fcaad5884af56a3a9a230273047af7a9d108",
+        "type": "github"
+      },
+      "original": {
+        "owner": "taffybar",
+        "repo": "dbus-menu",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -59,11 +75,11 @@
     "gtk-sni-tray": {
       "flake": false,
       "locked": {
-        "lastModified": 1770581933,
-        "narHash": "sha256-sLA+v5KpHWSrjXu3Gnt1A/+F3+4FojWGeTPN5JJxWDw=",
+        "lastModified": 1770720058,
+        "narHash": "sha256-tJ+92lOnZ98HqOXoNN74fIXxKbdB1duzRIohMCaQymE=",
         "owner": "taffybar",
         "repo": "gtk-sni-tray",
-        "rev": "28eadf97977197bf5bd97855b9991034e9a71322",
+        "rev": "b7f6a83cb088e7695ea3c7d89c19e5b73e90ed06",
         "type": "github"
       },
       "original": {
@@ -144,6 +160,7 @@
     },
     "root": {
       "inputs": {
+        "dbus-menu": "dbus-menu",
         "flake-utils": "flake-utils",
         "gtk-sni-tray": "gtk-sni-tray",
         "gtk-strut": "gtk-strut",
