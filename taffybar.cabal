@@ -154,9 +154,11 @@ library
                  , System.Taffybar.Information.NetworkManager
                  , System.Taffybar.Information.PowerProfiles
                  , System.Taffybar.Information.Privacy
+                 , System.Taffybar.Information.ScreenLock
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.Systemd
                  , System.Taffybar.Information.StreamInfo
+                 , System.Taffybar.Information.Wlsunset
                  , System.Taffybar.Information.X11DesktopInfo
                  , System.Taffybar.Information.XDG.Protocol
                  , System.Taffybar.LogFormatter
@@ -199,6 +201,7 @@ library
                  , System.Taffybar.Widget.NetworkManager
                  , System.Taffybar.Widget.PowerProfiles
                  , System.Taffybar.Widget.Privacy
+                 , System.Taffybar.Widget.ScreenLock
                  , System.Taffybar.Widget.SNIMenu
                  , System.Taffybar.Widget.SNITray
                  , System.Taffybar.Widget.SimpleClock
@@ -215,6 +218,7 @@ library
                  , System.Taffybar.Widget.Workspaces
                  , System.Taffybar.Widget.Workspaces.Shared
                  , System.Taffybar.Widget.WirePlumber
+                 , System.Taffybar.Widget.Wlsunset
                  , System.Taffybar.Widget.WttrIn
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
