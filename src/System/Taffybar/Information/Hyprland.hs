@@ -56,6 +56,9 @@ module System.Taffybar.Information.Hyprland
   , openHyprlandEventSocket
   , withHyprlandEventSocket
 
+    -- * Monitor queries
+  , getFocusedMonitorPosition
+
     -- * Errors
   , HyprlandError(..)
   ) where
@@ -72,7 +75,7 @@ import           Control.Monad (forM, forever, void)
 import           Control.Monad.IO.Class (MonadIO(..))
 import           Control.Monad.STM (atomically)
 import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
-import           Data.Aeson (FromJSON, eitherDecode')
+import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
@@ -341,6 +344,31 @@ buildHyprlandEventChan client = do
             logH WARNING $ printf "Hyprland event socket failed: %s" (show e)
           void $ hClose handle `catchAny` \_ -> pure ()
           threadDelay retryDelayMicros
+
+-- | Minimal monitor info parsed from @hyprctl monitors -j@.
+data HyprMonitorInfo = HyprMonitorInfo
+  { hmX :: Int
+  , hmY :: Int
+  , hmFocused :: Bool
+  }
+
+instance FromJSON HyprMonitorInfo where
+  parseJSON = withObject "HyprMonitorInfo" $ \o ->
+    HyprMonitorInfo
+      <$> o .: "x"
+      <*> o .: "y"
+      <*> o .: "focused"
+
+-- | Get the global coordinates of the currently focused Hyprland monitor.
+getFocusedMonitorPosition :: HyprlandClient -> IO (Maybe (Int, Int))
+getFocusedMonitorPosition client = do
+  result <- runHyprlandCommandJson client (hyprCommandJson ["monitors"])
+  case result of
+    Left _ -> return Nothing
+    Right monitors ->
+      case filter hmFocused monitors of
+        (m:_) -> return $ Just (hmX m, hmY m)
+        [] -> return Nothing
 
 data HyprlandCommand = HyprlandCommand
   { commandArgs :: [String]
