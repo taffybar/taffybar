@@ -114,9 +114,7 @@ updateStateClasses widget st = do
   -- Remove all state classes first
   mapM_ (Gtk.styleContextRemoveClass styleCtx) allStateClasses
   -- Add the appropriate class
-  case stateToClass st of
-    Just cls -> Gtk.styleContextAddClass styleCtx cls
-    Nothing  -> return ()
+  forM_ (stateToClass st) (Gtk.styleContextAddClass styleCtx)
 
 -- | Map a 'WlsunsetState' to its CSS class, or 'Nothing' for auto/running.
 stateToClass :: WlsunsetState -> Maybe T.Text

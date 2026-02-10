@@ -1,13 +1,29 @@
 {
   "nodes": {
+    "dbus-hslogger": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1770613712,
+        "narHash": "sha256-Az7USYfzylaIduPoOzxaz+6Evpn+TvVcThbPpWORt8k=",
+        "owner": "taffybar",
+        "repo": "dbus-hslogger",
+        "rev": "56195c6e46e04e2454fa0fa643e06eb7ef2a0952",
+        "type": "github"
+      },
+      "original": {
+        "owner": "taffybar",
+        "repo": "dbus-hslogger",
+        "type": "github"
+      }
+    },
     "dbus-menu": {
       "flake": false,
       "locked": {
-        "lastModified": 1770613478,
-        "narHash": "sha256-WWg433uoU8qjiz3jdmX0gRQOCjVoxVX7Rn415QTtrv4=",
+        "lastModified": 1770719529,
+        "narHash": "sha256-6+zYReTRQTe2cM1LiatVWs101j5b5q5QBRHPR8lnCNE=",
         "owner": "taffybar",
         "repo": "dbus-menu",
-        "rev": "29656af7126d8753881b16b6cfef7e3e98c9ef65",
+        "rev": "0210fcaad5884af56a3a9a230273047af7a9d108",
         "type": "github"
       },
       "original": {
@@ -75,11 +91,11 @@
     "gtk-sni-tray": {
       "flake": false,
       "locked": {
-        "lastModified": 1770581933,
-        "narHash": "sha256-sLA+v5KpHWSrjXu3Gnt1A/+F3+4FojWGeTPN5JJxWDw=",
+        "lastModified": 1770720058,
+        "narHash": "sha256-tJ+92lOnZ98HqOXoNN74fIXxKbdB1duzRIohMCaQymE=",
         "owner": "taffybar",
         "repo": "gtk-sni-tray",
-        "rev": "28eadf97977197bf5bd97855b9991034e9a71322",
+        "rev": "b7f6a83cb088e7695ea3c7d89c19e5b73e90ed06",
         "type": "github"
       },
       "original": {
@@ -160,6 +176,7 @@
     },
     "root": {
       "inputs": {
+        "dbus-hslogger": "dbus-hslogger",
         "dbus-menu": "dbus-menu",
         "flake-utils": "flake-utils",
         "gtk-sni-tray": "gtk-sni-tray",
