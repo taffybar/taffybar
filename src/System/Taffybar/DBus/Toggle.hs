@@ -33,6 +33,7 @@ import           System.Directory
 import           System.FilePath.Posix
 import           System.Log.Logger
 import           System.Taffybar.Context
+import           System.Taffybar.Information.Hyprland (getFocusedMonitorPosition)
 import           System.Taffybar.Util
 import           Text.Printf
 import           Text.Read ( readMaybe )
@@ -55,14 +56,28 @@ logIO = logM "System.Taffybar.DBus.Toggle"
 logT :: MonadIO m => System.Log.Logger.Priority -> String -> m ()
 logT p = liftIO . logIO p
 
-getActiveMonitorNumber :: MaybeT IO Int
-getActiveMonitorNumber = do
+getActiveMonitorNumber :: Context -> MaybeT IO Int
+getActiveMonitorNumber ctx =
+  case backend ctx of
+    BackendX11 -> getActiveMonitorNumberX11
+    BackendWayland -> getActiveMonitorNumberWayland ctx
+
+getActiveMonitorNumberX11 :: MaybeT IO Int
+getActiveMonitorNumberX11 = do
   display <- MaybeT Gdk.displayGetDefault
   seat <- lift $ Gdk.displayGetDefaultSeat display
   device <- MaybeT $ Gdk.seatGetPointer seat
   lift $ do
     (_, x, y) <- Gdk.deviceGetPosition device
     Gdk.displayGetMonitorAtPoint display x y >>= getMonitorNumber
+
+getActiveMonitorNumberWayland :: Context -> MaybeT IO Int
+getActiveMonitorNumberWayland ctx = do
+  (x, y) <- MaybeT $ getFocusedMonitorPosition (hyprlandClient ctx)
+  display <- MaybeT Gdk.displayGetDefault
+  monitor <- lift $ Gdk.displayGetMonitorAtPoint display
+               (fromIntegral x) (fromIntegral y)
+  lift $ getMonitorNumber monitor
 
 getMonitorNumber :: Gdk.Monitor -> IO Int
 getMonitorNumber monitor = do
@@ -123,7 +138,7 @@ exportTogglesInterface = do
           return result
         refreshTaffyWindows
       toggleTaffy = do
-        num <- runMaybeT getActiveMonitorNumber
+        num <- runMaybeT $ getActiveMonitorNumber ctx
         toggleTaffyOnMon not $ fromMaybe 0 num
       takeInt :: (Int -> a) -> (Int32 -> a)
       takeInt = (. fromIntegral)

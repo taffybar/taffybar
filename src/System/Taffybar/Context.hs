@@ -396,9 +396,6 @@ refreshTaffyWindows = mapReaderT postGUIASync $ do
             logIO DEBUG $ printf "barConfigs: %s" $
                   show $ map strutConfig barConfigs
 
-            logIO DEBUG "Removing windows"
-            mapM_ (Gtk.widgetDestroy . sel2) removedWindows
-
             -- TODO: This should actually use the config that is provided from
             -- getBarConfigs so that the strut properties of the window can be
             -- altered.
@@ -409,9 +406,14 @@ refreshTaffyWindows = mapReaderT postGUIASync $ do
             mapM (sequenceT . ((return :: a -> IO a) &&& buildBarWindow ctx))
                  newConfs
 
-          return $ newWindowPairs ++ remainingWindows
+          return (newWindowPairs ++ remainingWindows, map sel2 removedWindows)
 
-  lift $ MV.modifyMVar_ windowsVar rebuildWindows
+  -- Destroy removed windows AFTER releasing the MVar to avoid deadlock
+  -- with the onWidgetDestroy handler, which also modifies existingWindows.
+  windowsToDestroy <- lift $ MV.modifyMVar windowsVar rebuildWindows
+  lift $ do
+    logIO DEBUG "Removing windows"
+    mapM_ Gtk.widgetDestroy windowsToDestroy
   logC DEBUG "Finished refreshing windows"
   return ()
 
