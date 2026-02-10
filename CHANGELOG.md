@@ -1,5 +1,12 @@
 # Unreleased
 
+# 5.1.1
+
+## Dependency Bumps
+
+ * Bump `dbus-menu` lower bound to 0.1.3.0 for menu-level click dispatch.
+ * Bump `gtk-sni-tray` lower bound to 0.1.13.1.
+
 # 5.1.0
 
 ## New Widgets
