@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "dbus-menu": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1770613478,
+        "narHash": "sha256-WWg433uoU8qjiz3jdmX0gRQOCjVoxVX7Rn415QTtrv4=",
+        "owner": "taffybar",
+        "repo": "dbus-menu",
+        "rev": "29656af7126d8753881b16b6cfef7e3e98c9ef65",
+        "type": "github"
+      },
+      "original": {
+        "owner": "taffybar",
+        "repo": "dbus-menu",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -144,6 +160,7 @@
     },
     "root": {
       "inputs": {
+        "dbus-menu": "dbus-menu",
         "flake-utils": "flake-utils",
         "gtk-sni-tray": "gtk-sni-tray",
         "gtk-strut": "gtk-strut",
