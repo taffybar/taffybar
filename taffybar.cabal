@@ -1,6 +1,6 @@
 cabal-version: 3.4
 name: taffybar
-version: 5.0.0
+version: 5.1.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
 license: BSD-3-Clause
 license-file: LICENSE
@@ -66,7 +66,7 @@ library
                , data-default
                , dbus >= 1.2.11 && < 2.0.0
                , dbus-hslogger >= 0.1.1.0 && < 0.2.0.0
-               , dbus-menu >= 0.1.0.0
+               , dbus-menu >= 0.1.1.0
                , directory
                , disk-free-space >= 0.1.0.1
                , dyre >= 0.9.0 && < 0.10
@@ -85,7 +85,7 @@ library
                , gi-gtk3 >= 3.0.44 && < 4
                , gi-gtk-hs >= 0.3.17 && < 0.4
                , gi-pango
-               , gtk-sni-tray >= 0.1.8.0
+               , gtk-sni-tray >= 0.1.13.0
                , gtk-strut >= 0.1.2.1
                , haskell-gi-base >= 0.24
                , hslogger
@@ -154,9 +154,11 @@ library
                  , System.Taffybar.Information.NetworkManager
                  , System.Taffybar.Information.PowerProfiles
                  , System.Taffybar.Information.Privacy
+                 , System.Taffybar.Information.ScreenLock
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.Systemd
                  , System.Taffybar.Information.StreamInfo
+                 , System.Taffybar.Information.Wlsunset
                  , System.Taffybar.Information.X11DesktopInfo
                  , System.Taffybar.Information.XDG.Protocol
                  , System.Taffybar.LogFormatter
@@ -199,6 +201,7 @@ library
                  , System.Taffybar.Widget.NetworkManager
                  , System.Taffybar.Widget.PowerProfiles
                  , System.Taffybar.Widget.Privacy
+                 , System.Taffybar.Widget.ScreenLock
                  , System.Taffybar.Widget.SNIMenu
                  , System.Taffybar.Widget.SNITray
                  , System.Taffybar.Widget.SimpleClock
@@ -215,6 +218,7 @@ library
                  , System.Taffybar.Widget.Workspaces
                  , System.Taffybar.Widget.Workspaces.Shared
                  , System.Taffybar.Widget.WirePlumber
+                 , System.Taffybar.Widget.Wlsunset
                  , System.Taffybar.Widget.WttrIn
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget

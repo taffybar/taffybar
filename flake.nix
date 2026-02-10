@@ -18,6 +18,10 @@
       url = "github:xmonad/xmonad-contrib/master";
       flake = false;
     };
+    dbus-hslogger = {
+      url = "github:taffybar/dbus-hslogger";
+      flake = false;
+    };
     dbus-menu = {
       url = "github:taffybar/dbus-menu";
       flake = false;
@@ -32,7 +36,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, dbus-menu, gtk-sni-tray, gtk-strut, status-notifier-item, xmonad, xmonad-contrib, weeder-nix }: let
+  outputs = { self, nixpkgs, flake-utils, dbus-hslogger, dbus-menu, gtk-sni-tray, gtk-strut, status-notifier-item, xmonad, xmonad-contrib, weeder-nix }: let
     inherit (self) lib;
     inherit (nixpkgs.lib) composeExtensions;
     inherit (flake-utils.lib) eachSystem;
@@ -52,7 +56,7 @@
         taffybar = prev.taffybar.extend (final: prev: {
           sourceOverrides = prev.sourceOverrides // {
             # Flake input dependencies which we want to build from source.
-            inherit dbus-menu gtk-strut gtk-sni-tray status-notifier-item xmonad xmonad-contrib;
+            inherit dbus-hslogger dbus-menu gtk-strut gtk-sni-tray status-notifier-item xmonad xmonad-contrib;
           };
         });
       }));
