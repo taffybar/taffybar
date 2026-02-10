@@ -136,6 +136,7 @@ library
                  , System.Taffybar.Information.PulseAudio
                  , System.Taffybar.Information.WirePlumber
                  , System.Taffybar.Information.Backlight
+                 , System.Taffybar.Information.ASUS
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.Bluetooth
                  , System.Taffybar.Information.CPU
@@ -167,6 +168,7 @@ library
                  , System.Taffybar.Util
                  , System.Taffybar.Widget
                  , System.Taffybar.Widget.PulseAudio
+                 , System.Taffybar.Widget.ASUS
                  , System.Taffybar.Widget.Backlight
                  , System.Taffybar.Widget.Battery
                  , System.Taffybar.Widget.BatteryDonut
