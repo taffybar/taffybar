@@ -1,5 +1,12 @@
 # Unreleased
 
+# 5.1.2
+
+## Dependency Bumps
+
+ * Bump `dbus-menu` lower bound to 0.1.3.1.
+ * Bump `gtk-sni-tray` lower bound to 0.1.13.2.
+
 # 5.1.1
 
 ## Dependency Bumps
