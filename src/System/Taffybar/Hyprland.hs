@@ -1,4 +1,7 @@
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Hyprland
 -- Copyright   : (c) Ivan A. Malison
@@ -13,46 +16,43 @@
 -- Hyprland resources are stored directly on 'Context' (not in 'contextState')
 -- to avoid deadlocks from nested 'getStateDefault' usage during widget
 -- initialization.
------------------------------------------------------------------------------
-
 module System.Taffybar.Hyprland
   ( -- * Shared Client
-    getHyprlandClient
-  , getHyprlandClientWith
+    getHyprlandClient,
+    getHyprlandClientWith,
 
     -- * Hyprland Monad In TaffyIO
-  , HyprlandIO
-  , runHyprland
+    HyprlandIO,
+    runHyprland,
 
     -- * Shared Event Channel
-  , getHyprlandEventChan
-  , getHyprlandEventChanWith
+    getHyprlandEventChan,
+    getHyprlandEventChanWith,
 
     -- * Convenience Runners
-  , runHyprlandCommandRawT
-  , runHyprlandCommandJsonT
-  ) where
+    runHyprlandCommandRawT,
+    runHyprlandCommandJsonT,
+  )
+where
 
 import qualified Control.Concurrent.MVar as MV
-import           Control.Monad.IO.Class (liftIO)
-import           Data.Aeson (FromJSON)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Reader (ReaderT, asks)
+import Data.Aeson (FromJSON)
 import qualified Data.ByteString as BS
-
-import           Control.Monad.Trans.Reader (ReaderT, asks)
-
-import           System.Taffybar.Context (Context(..), TaffyIO)
-import           System.Taffybar.Information.Hyprland
-  ( HyprlandClient
-  , HyprlandClientConfig
-  , HyprlandCommand
-  , HyprlandError
-  , HyprlandEventChan
-  , HyprlandT
-  , buildHyprlandEventChan
-  , defaultHyprlandClientConfig
-  , runHyprlandCommandJson
-  , runHyprlandCommandRaw
-  , runHyprlandT
+import System.Taffybar.Context (Context (..), TaffyIO)
+import System.Taffybar.Information.Hyprland
+  ( HyprlandClient,
+    HyprlandClientConfig,
+    HyprlandCommand,
+    HyprlandError,
+    HyprlandEventChan,
+    HyprlandT,
+    buildHyprlandEventChan,
+    defaultHyprlandClientConfig,
+    runHyprlandCommandJson,
+    runHyprlandCommandRaw,
+    runHyprlandT,
   )
 
 -- | Get a shared 'HyprlandClient' from the 'Context' state.
@@ -104,6 +104,6 @@ runHyprlandCommandRawT :: HyprlandCommand -> TaffyIO (Either HyprlandError BS.By
 runHyprlandCommandRawT cmd =
   getHyprlandClient >>= \client -> liftIO $ runHyprlandCommandRaw client cmd
 
-runHyprlandCommandJsonT :: FromJSON a => HyprlandCommand -> TaffyIO (Either HyprlandError a)
+runHyprlandCommandJsonT :: (FromJSON a) => HyprlandCommand -> TaffyIO (Either HyprlandError a)
 runHyprlandCommandJsonT cmd =
   getHyprlandClient >>= \client -> liftIO $ runHyprlandCommandJson client cmd

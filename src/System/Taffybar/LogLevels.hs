@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.LogLevels
 -- Copyright   : (c) Ivan A. Malison
@@ -22,22 +26,21 @@
 --
 -- Valid log levels are: @DEBUG@, @INFO@, @NOTICE@, @WARNING@, @ERROR@,
 -- @CRITICAL@, @ALERT@, @EMERGENCY@.
------------------------------------------------------------------------------
-
 module System.Taffybar.LogLevels
-  ( loadLogLevelsFromFile
-  , defaultLogLevelsPath
-  ) where
+  ( loadLogLevelsFromFile,
+    defaultLogLevelsPath,
+  )
+where
 
-import           Control.Monad (forM_, when)
-import           Data.Aeson (Value(..))
+import Control.Monad (forM_, when)
+import Data.Aeson (Value (..))
 import qualified Data.Aeson.Key as Key
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Text as T
 import qualified Data.Yaml as Yaml
-import           System.Directory (doesFileExist)
-import           System.Environment.XDG.BaseDir (getUserConfigFile)
-import           System.Log.Logger
+import System.Directory (doesFileExist)
+import System.Environment.XDG.BaseDir (getUserConfigFile)
+import System.Log.Logger
 
 -- | The default path for the log levels configuration file:
 -- @~\/.config\/taffybar\/log-levels.yaml@.
@@ -88,12 +91,12 @@ enableLogger name level = do
 
 readPriority :: String -> Maybe Priority
 readPriority s = case s of
-  "DEBUG"     -> Just DEBUG
-  "INFO"      -> Just INFO
-  "NOTICE"    -> Just NOTICE
-  "WARNING"   -> Just WARNING
-  "ERROR"     -> Just ERROR
-  "CRITICAL"  -> Just CRITICAL
-  "ALERT"     -> Just ALERT
+  "DEBUG" -> Just DEBUG
+  "INFO" -> Just INFO
+  "NOTICE" -> Just NOTICE
+  "WARNING" -> Just WARNING
+  "ERROR" -> Just ERROR
+  "CRITICAL" -> Just CRITICAL
+  "ALERT" -> Just ALERT
   "EMERGENCY" -> Just EMERGENCY
-  _           -> Nothing
+  _ -> Nothing

@@ -1,4 +1,7 @@
 --------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.SimpleCommandButton
 -- Copyright   : (c) Ulf Jasper
@@ -9,19 +12,18 @@
 -- Portability : unportable
 --
 -- Simple button which runs a user defined command when being clicked
---------------------------------------------------------------------------------
-
-module System.Taffybar.Widget.SimpleCommandButton (
-  -- * Usage
-  -- $usage
-  simpleCommandButtonNew)
+module System.Taffybar.Widget.SimpleCommandButton
+  ( -- * Usage
+    -- $usage
+    simpleCommandButtonNew,
+  )
 where
 
-import           Control.Monad (void)
-import           Control.Monad.IO.Class
-import           GI.Gtk
-import           System.Process
+import Control.Monad (void)
+import Control.Monad.IO.Class
 import qualified Data.Text as T
+import GI.Gtk
+import System.Process
 
 -- $usage
 --
@@ -35,12 +37,14 @@ import qualified Data.Text as T
 -- Now you can use @cmdButton@ like any other Taffybar widget.
 
 -- | Creates a new simple command button.
-simpleCommandButtonNew
-  :: MonadIO m
-  => T.Text -- ^ Contents of the button's label.
-  -> T.Text -- ^ Command to execute. Should be in $PATH or an absolute path
-  -> m Widget
-simpleCommandButtonNew  txt cmd = do
+simpleCommandButtonNew ::
+  (MonadIO m) =>
+  -- | Contents of the button's label.
+  T.Text ->
+  -- | Command to execute. Should be in $PATH or an absolute path
+  T.Text ->
+  m Widget
+simpleCommandButtonNew txt cmd = do
   button <- buttonNewWithLabel txt
   void $ onButtonClicked button $ void $ spawnCommand $ T.unpack cmd
   toWidget button

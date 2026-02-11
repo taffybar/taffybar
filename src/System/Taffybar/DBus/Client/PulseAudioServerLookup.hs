@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+
 module System.Taffybar.DBus.Client.PulseAudioServerLookup where
 
 import DBus.Generation ()
@@ -8,9 +9,9 @@ import System.Taffybar.DBus.Client.Util
 
 generateClientFromFile
   defaultRecordGenerationParams
-  { recordName = Just "PulseAudioServerLookupInfo"
-  , recordPrefix = "pasl"
-  }
+    { recordName = Just "PulseAudioServerLookupInfo",
+      recordPrefix = "pasl"
+    }
   paServerLookupGenerationParams
-  False $
-  "dbus-xml" </> "org.PulseAudio.ServerLookup1.xml"
+  False
+  $ "dbus-xml" </> "org.PulseAudio.ServerLookup1.xml"

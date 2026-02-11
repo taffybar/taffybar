@@ -1,4 +1,7 @@
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.DiskUsage
 -- Copyright   : (c) Ivan A. Malison
@@ -19,14 +22,13 @@
 -- monitored path is supported through the shared API.  If you need to
 -- monitor several mount points independently, call 'getDiskUsageInfo'
 -- directly with 'pollingLabelNew'.
------------------------------------------------------------------------------
-
 module System.Taffybar.Information.DiskUsage
-  ( DiskUsageInfo(..)
-  , getDiskUsageInfo
-  , getDiskUsageInfoChan
-  , getDiskUsageInfoState
-  ) where
+  ( DiskUsageInfo (..),
+    getDiskUsageInfo,
+    getDiskUsageInfoChan,
+    getDiskUsageInfoState,
+  )
+where
 
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
@@ -35,55 +37,59 @@ import Control.Exception.Enclosed (catchAny)
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
-import System.DiskSpace (getDiskUsage, diskTotal, diskFree, diskAvail)
-import System.Log.Logger (Priority(..))
+import System.DiskSpace (diskAvail, diskFree, diskTotal, getDiskUsage)
+import System.Log.Logger (Priority (..))
 import System.Taffybar.Context (TaffyIO, getStateDefault)
 import System.Taffybar.Util (logPrintF)
 
 -- | Disk usage statistics for a single filesystem.
 data DiskUsageInfo = DiskUsageInfo
-  { diskInfoTotal        :: !Integer
-  -- ^ Total space in bytes.
-  , diskInfoFree         :: !Integer
-  -- ^ Free space in bytes (includes reserved blocks).
-  , diskInfoAvailable    :: !Integer
-  -- ^ Space available to unprivileged users, in bytes.
-  , diskInfoUsed         :: !Integer
-  -- ^ Used space in bytes (@total - free@).
-  , diskInfoUsedPercent  :: !Double
-  -- ^ Percentage of total space that is used.
-  , diskInfoFreePercent  :: !Double
-  -- ^ Percentage of total space available to unprivileged users.
-  } deriving (Show, Eq)
+  { -- | Total space in bytes.
+    diskInfoTotal :: !Integer,
+    -- | Free space in bytes (includes reserved blocks).
+    diskInfoFree :: !Integer,
+    -- | Space available to unprivileged users, in bytes.
+    diskInfoAvailable :: !Integer,
+    -- | Used space in bytes (@total - free@).
+    diskInfoUsed :: !Integer,
+    -- | Percentage of total space that is used.
+    diskInfoUsedPercent :: !Double,
+    -- | Percentage of total space available to unprivileged users.
+    diskInfoFreePercent :: !Double
+  }
+  deriving (Show, Eq)
 
 -- | Query disk usage for the filesystem containing @path@ via @statvfs(2)@.
 getDiskUsageInfo :: FilePath -> IO DiskUsageInfo
 getDiskUsageInfo path = do
   du <- getDiskUsage path
   let total = diskTotal du
-      free  = diskFree du
+      free = diskFree du
       avail = diskAvail du
-      used  = total - free
-      usedPct = if total > 0
-                then fromIntegral used * 100.0 / fromIntegral total
-                else 0
-      freePct = if total > 0
-                then fromIntegral avail * 100.0 / fromIntegral total
-                else 0
-  return DiskUsageInfo
-    { diskInfoTotal       = total
-    , diskInfoFree        = free
-    , diskInfoAvailable   = avail
-    , diskInfoUsed        = used
-    , diskInfoUsedPercent = usedPct
-    , diskInfoFreePercent = freePct
-    }
+      used = total - free
+      usedPct =
+        if total > 0
+          then fromIntegral used * 100.0 / fromIntegral total
+          else 0
+      freePct =
+        if total > 0
+          then fromIntegral avail * 100.0 / fromIntegral total
+          else 0
+  return
+    DiskUsageInfo
+      { diskInfoTotal = total,
+        diskInfoFree = free,
+        diskInfoAvailable = avail,
+        diskInfoUsed = used,
+        diskInfoUsedPercent = usedPct,
+        diskInfoFreePercent = freePct
+      }
 
 -- --------------------------------------------------------------------------
 -- Shared polling channel
 
-newtype DiskUsageChanVar =
-  DiskUsageChanVar (TChan DiskUsageInfo, MVar DiskUsageInfo)
+newtype DiskUsageChanVar
+  = DiskUsageChanVar (TChan DiskUsageInfo, MVar DiskUsageInfo)
 
 -- | Get a broadcast channel that is updated by a shared polling thread.
 -- The first call starts the poller; subsequent calls return the same channel.
@@ -102,13 +108,15 @@ setupDiskUsageChanVar :: Double -> FilePath -> TaffyIO DiskUsageChanVar
 setupDiskUsageChanVar interval path = getStateDefault $ liftIO $ do
   chan <- newBroadcastTChanIO
   info <- getDiskUsageInfo path
-  var  <- newMVar info
+  var <- newMVar info
   void $ forkIO $ forever $ do
     threadDelay (floor $ interval * 1000000)
     catchAny
-      (do newInfo <- getDiskUsageInfo path
+      ( do
+          newInfo <- getDiskUsageInfo path
           void $ swapMVar var newInfo
-          atomically $ writeTChan chan newInfo)
+          atomically $ writeTChan chan newInfo
+      )
       (logPrintF logName WARNING "DiskUsage poll failed: %s")
   pure $ DiskUsageChanVar (chan, var)
 

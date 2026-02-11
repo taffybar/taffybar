@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.Hyprland
 -- Copyright   : (c) Ivan A. Malison
@@ -16,92 +19,90 @@
 --
 -- This module is intended to centralize the socket/path logic so widgets can
 -- share it. It is not (yet) wired into widgets.
------------------------------------------------------------------------------
-
 module System.Taffybar.Information.Hyprland
   ( -- * Client
-    HyprlandClient
-  , HyprlandClientConfig(..)
-  , defaultHyprlandClientConfig
-  , newHyprlandClient
-  , reloadHyprlandClient
-  , HyprlandClientEnv(..)
-  , getHyprlandClientEnv
+    HyprlandClient,
+    HyprlandClientConfig (..),
+    defaultHyprlandClientConfig,
+    newHyprlandClient,
+    reloadHyprlandClient,
+    HyprlandClientEnv (..),
+    getHyprlandClientEnv,
 
     -- * Hyprland Monad
-  , HyprlandT
-  , runHyprlandT
-  , askHyprlandClient
-  , runHyprlandCommandRawM
-  , runHyprlandCommandJsonM
+    HyprlandT,
+    runHyprlandT,
+    askHyprlandClient,
+    runHyprlandCommandRawM,
+    runHyprlandCommandJsonM,
 
     -- * Shared Event Channel
-  , HyprlandEventChan(..)
-  , subscribeHyprlandEvents
-  , buildHyprlandEventChan
+    HyprlandEventChan (..),
+    subscribeHyprlandEvents,
+    buildHyprlandEventChan,
 
     -- * Commands
-  , HyprlandCommand(..)
-  , hyprCommand
-  , hyprCommandJson
-  , hyprlandCommandToSocketCommand
-  , runHyprlandCommandRaw
-  , runHyprlandCommandJson
+    HyprlandCommand (..),
+    hyprCommand,
+    hyprCommandJson,
+    hyprlandCommandToSocketCommand,
+    runHyprlandCommandRaw,
+    runHyprlandCommandJson,
 
     -- * Sockets
-  , HyprlandSocket(..)
-  , hyprlandSocketName
-  , hyprlandSocketPaths
-  , openHyprlandSocket
-  , openHyprlandEventSocket
-  , withHyprlandEventSocket
+    HyprlandSocket (..),
+    hyprlandSocketName,
+    hyprlandSocketPaths,
+    openHyprlandSocket,
+    openHyprlandEventSocket,
+    withHyprlandEventSocket,
 
     -- * Monitor queries
-  , getFocusedMonitorPosition
+    getFocusedMonitorPosition,
 
     -- * Errors
-  , HyprlandError(..)
-  ) where
-
-import           Control.Concurrent (forkIO, threadDelay)
-import           Control.Concurrent.STM.TChan
-  ( TChan
-  , dupTChan
-  , newBroadcastTChanIO
-  , writeTChan
+    HyprlandError (..),
   )
-import           Control.Exception.Enclosed (catchAny)
-import           Control.Monad (forM, forever, void)
-import           Control.Monad.IO.Class (MonadIO(..))
-import           Control.Monad.STM (atomically)
-import           Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
-import           Data.Aeson (FromJSON(..), eitherDecode', withObject, (.:))
+where
+
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.STM.TChan
+  ( TChan,
+    dupTChan,
+    newBroadcastTChanIO,
+    writeTChan,
+  )
+import Control.Exception.Enclosed (catchAny)
+import Control.Monad (forM, forever, void)
+import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad.STM (atomically)
+import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
+import Data.Aeson (FromJSON (..), eitherDecode', withObject, (.:))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
-import           Data.List (sortOn)
-import           Data.Ord (Down(..))
+import Data.List (sortOn)
+import Data.Ord (Down (..))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Network.Socket as NS
 import qualified Network.Socket.ByteString as NSB
-import           System.Directory (doesDirectoryExist, listDirectory)
-import           System.Environment (lookupEnv)
-import           System.FilePath ((</>), takeDirectory, takeFileName)
-import           System.IO
-  ( BufferMode(LineBuffering)
-  , Handle
-  , IOMode(ReadWriteMode)
-  , hClose
-  , hGetLine
-  , hSetBuffering
+import System.Directory (doesDirectoryExist, listDirectory)
+import System.Environment (lookupEnv)
+import System.FilePath (takeDirectory, takeFileName, (</>))
+import System.IO
+  ( BufferMode (LineBuffering),
+    Handle,
+    IOMode (ReadWriteMode),
+    hClose,
+    hGetLine,
+    hSetBuffering,
   )
-import           System.Log.Logger (Priority(..), logM)
-import           System.Posix.Files (getFileStatus, isSocket, modificationTime)
-import           System.Posix.Types (EpochTime)
-import           Text.Printf (printf)
-
-import           System.Taffybar.Util (runCommand)
+import System.Log.Logger (Priority (..), logM)
+import System.Posix.Files (getFileStatus, isSocket, modificationTime)
+import System.Posix.Types (EpochTime)
+import System.Taffybar.Util (runCommand)
+import Text.Printf (printf)
 
 data HyprlandError
   = HyprlandEnvMissing String
@@ -113,25 +114,27 @@ data HyprlandError
   deriving (Show, Eq)
 
 data HyprlandClientConfig = HyprlandClientConfig
-  { useSocket :: Bool
-  -- ^ Try the Hyprland command/event sockets when possible.
-  , fallbackToHyprctl :: Bool
-  -- ^ If the socket path is unavailable, fall back to invoking @hyprctl@.
-  , hyprctlPath :: FilePath
-  } deriving (Show, Eq)
+  { -- | Try the Hyprland command/event sockets when possible.
+    useSocket :: Bool,
+    -- | If the socket path is unavailable, fall back to invoking @hyprctl@.
+    fallbackToHyprctl :: Bool,
+    hyprctlPath :: FilePath
+  }
+  deriving (Show, Eq)
 
 defaultHyprlandClientConfig :: HyprlandClientConfig
 defaultHyprlandClientConfig =
   HyprlandClientConfig
-    { useSocket = True
-    , fallbackToHyprctl = True
-    , hyprctlPath = "hyprctl"
+    { useSocket = True,
+      fallbackToHyprctl = True,
+      hyprctlPath = "hyprctl"
     }
 
 data HyprlandClientEnv = HyprlandClientEnv
-  { instanceSignature :: String
-  , runtimeDir :: Maybe FilePath
-  } deriving (Show, Eq)
+  { instanceSignature :: String,
+    runtimeDir :: Maybe FilePath
+  }
+  deriving (Show, Eq)
 
 getHyprlandClientEnv :: IO (Either HyprlandError HyprlandClientEnv)
 getHyprlandClientEnv = do
@@ -141,15 +144,18 @@ getHyprlandClientEnv = do
       return $ Left $ HyprlandEnvMissing "HYPRLAND_INSTANCE_SIGNATURE"
     Just sig -> do
       mRuntime <- lookupEnv "XDG_RUNTIME_DIR"
-      return $ Right $ HyprlandClientEnv
-        { instanceSignature = sig
-        , runtimeDir = mRuntime
-        }
+      return $
+        Right $
+          HyprlandClientEnv
+            { instanceSignature = sig,
+              runtimeDir = mRuntime
+            }
 
 data HyprlandClient = HyprlandClient
-  { clientConfig :: HyprlandClientConfig
-  , clientEnv :: Maybe HyprlandClientEnv
-  } deriving (Show, Eq)
+  { clientConfig :: HyprlandClientConfig,
+    clientEnv :: Maybe HyprlandClientEnv
+  }
+  deriving (Show, Eq)
 
 -- | Construct a 'HyprlandClient' by reading environment variables.
 --
@@ -160,7 +166,7 @@ newHyprlandClient :: HyprlandClientConfig -> IO HyprlandClient
 newHyprlandClient cfg = do
   envResult <- getHyprlandClientEnv
   let env = either (const Nothing) Just envResult
-  pure $ HyprlandClient { clientConfig = cfg, clientEnv = env }
+  pure $ HyprlandClient {clientConfig = cfg, clientEnv = env}
 
 -- | Reload the environment-derived portions of a 'HyprlandClient'.
 reloadHyprlandClient :: HyprlandClient -> IO HyprlandClient
@@ -172,7 +178,7 @@ type HyprlandT m a = ReaderT HyprlandClient m a
 runHyprlandT :: HyprlandClient -> HyprlandT m a -> m a
 runHyprlandT = flip runReaderT
 
-askHyprlandClient :: Monad m => HyprlandT m HyprlandClient
+askHyprlandClient :: (Monad m) => HyprlandT m HyprlandClient
 askHyprlandClient = ask
 
 runHyprlandCommandRawM :: (MonadIO m) => HyprlandCommand -> HyprlandT m (Either HyprlandError BS.ByteString)
@@ -195,23 +201,24 @@ hyprlandSocketName HyprlandCommandSocket = ".socket.sock"
 hyprlandSocketName HyprlandEventSocket = ".socket2.sock"
 
 hyprlandSocketPaths :: HyprlandClient -> HyprlandSocket -> [FilePath]
-hyprlandSocketPaths HyprlandClient { clientEnv = Nothing } _ = []
+hyprlandSocketPaths HyprlandClient {clientEnv = Nothing} _ = []
 hyprlandSocketPaths
   HyprlandClient
     { clientEnv =
-        Just HyprlandClientEnv
-          { instanceSignature = sig
-          , runtimeDir = mRuntimeDir
-          }
+        Just
+          HyprlandClientEnv
+            { instanceSignature = sig,
+              runtimeDir = mRuntimeDir
+            }
     }
   sock =
-  let name = hyprlandSocketName sock
-      runtimePaths =
-        case mRuntimeDir of
-          Nothing -> []
-          Just rd -> [rd ++ "/hypr/" ++ sig ++ "/" ++ name]
-      tmpPath = "/tmp/hypr/" ++ sig ++ "/" ++ name
-  in runtimePaths ++ [tmpPath]
+    let name = hyprlandSocketName sock
+        runtimePaths =
+          case mRuntimeDir of
+            Nothing -> []
+            Just rd -> [rd ++ "/hypr/" ++ sig ++ "/" ++ name]
+        tmpPath = "/tmp/hypr/" ++ sig ++ "/" ++ name
+     in runtimePaths ++ [tmpPath]
 
 openHyprlandSocket :: HyprlandClient -> HyprlandSocket -> IO (Either HyprlandError NS.Socket)
 openHyprlandSocket client sock = do
@@ -234,7 +241,7 @@ openHyprlandSocket client sock = do
   where
     connectFirst :: [FilePath] -> IO (Maybe NS.Socket)
     connectFirst [] = pure Nothing
-    connectFirst (path:rest) = do
+    connectFirst (path : rest) = do
       result <- connectToSocket path
       case result of
         Left _ -> connectFirst rest
@@ -244,8 +251,8 @@ discoverHyprlandSocketPaths :: HyprlandClient -> HyprlandSocket -> IO [FilePath]
 discoverHyprlandSocketPaths _client sock = do
   mRuntime <- lookupEnv "XDG_RUNTIME_DIR"
   let bases =
-        maybe [] (\rd -> [rd </> "hypr"]) mRuntime ++
-        ["/tmp/hypr"]
+        maybe [] (\rd -> [rd </> "hypr"]) mRuntime
+          ++ ["/tmp/hypr"]
   let name = hyprlandSocketName sock
   pathsWithTimes <- fmap concat $ forM bases $ \base -> do
     baseExists <- doesDirectoryExist base
@@ -265,20 +272,22 @@ discoverHyprlandSocketPaths _client sock = do
 
 socketPathMTime :: FilePath -> IO (Maybe EpochTime)
 socketPathMTime path =
-  (do
+  ( do
       st <- getFileStatus path
       if isSocket st
         then pure $ Just $ modificationTime st
         else pure Nothing
-    ) `catchAny` \_ -> pure Nothing
+  )
+    `catchAny` \_ -> pure Nothing
 
 connectToSocket :: FilePath -> IO (Either HyprlandError NS.Socket)
 connectToSocket path = do
   sock <- NS.socket NS.AF_UNIX NS.Stream NS.defaultProtocol
-  (do
+  ( do
       NS.connect sock (NS.SockAddrUnix path)
       return $ Right sock
-    ) `catchAny` \e -> do
+    )
+    `catchAny` \e -> do
       void $ NS.close sock `catchAny` \_ -> pure ()
       return $ Left $ HyprlandSocketException path (show e)
 
@@ -298,19 +307,20 @@ withHyprlandEventSocket client action = do
   case handleResult of
     Left err -> return (Left err)
     Right handle ->
-      (do
+      ( do
           result <- action handle
           hClose handle
           return (Right result)
-        ) `catchAny` \e -> do
+      )
+        `catchAny` \e -> do
           hClose handle
           return (Left $ HyprlandSocketException (show HyprlandEventSocket) (show e))
 
 -- | A shared broadcast channel for Hyprland events read from the event socket.
 --
 -- Readers should call 'subscribeHyprlandEvents' to get their own cursor.
-newtype HyprlandEventChan =
-  HyprlandEventChan (TChan T.Text)
+newtype HyprlandEventChan
+  = HyprlandEventChan (TChan T.Text)
 
 subscribeHyprlandEvents :: HyprlandEventChan -> IO (TChan T.Text)
 subscribeHyprlandEvents (HyprlandEventChan chan) =
@@ -347,9 +357,9 @@ buildHyprlandEventChan client = do
 
 -- | Minimal monitor info parsed from @hyprctl monitors -j@.
 data HyprMonitorInfo = HyprMonitorInfo
-  { hmX :: Int
-  , hmY :: Int
-  , hmFocused :: Bool
+  { hmX :: Int,
+    hmY :: Int,
+    hmFocused :: Bool
   }
 
 instance FromJSON HyprMonitorInfo where
@@ -367,22 +377,23 @@ getFocusedMonitorPosition client = do
     Left _ -> return Nothing
     Right monitors ->
       case filter hmFocused monitors of
-        (m:_) -> return $ Just (hmX m, hmY m)
+        (m : _) -> return $ Just (hmX m, hmY m)
         [] -> return Nothing
 
 data HyprlandCommand = HyprlandCommand
-  { commandArgs :: [String]
-  , commandJson :: Bool
-  } deriving (Show, Eq)
+  { commandArgs :: [String],
+    commandJson :: Bool
+  }
+  deriving (Show, Eq)
 
 hyprCommand :: [String] -> HyprlandCommand
-hyprCommand args = HyprlandCommand { commandArgs = args, commandJson = False }
+hyprCommand args = HyprlandCommand {commandArgs = args, commandJson = False}
 
 hyprCommandJson :: [String] -> HyprlandCommand
-hyprCommandJson args = HyprlandCommand { commandArgs = args, commandJson = True }
+hyprCommandJson args = HyprlandCommand {commandArgs = args, commandJson = True}
 
 hyprlandCommandToSocketCommand :: HyprlandCommand -> Either HyprlandError BS.ByteString
-hyprlandCommandToSocketCommand HyprlandCommand { commandArgs = args, commandJson = isJson }
+hyprlandCommandToSocketCommand HyprlandCommand {commandArgs = args, commandJson = isJson}
   | null args = Left $ HyprlandCommandBuildFailed "No Hyprland command provided"
   | isJson = Right $ BS8.pack $ "j/" ++ unwords args
   | otherwise = Right $ BS8.pack $ unwords args
@@ -396,27 +407,29 @@ runHyprlandCommandRaw
   client@HyprlandClient
     { clientConfig =
         HyprlandClientConfig
-          { useSocket = useSock
-          , fallbackToHyprctl = fallback
-          , hyprctlPath = hyprctl
+          { useSocket = useSock,
+            fallbackToHyprctl = fallback,
+            hyprctlPath = hyprctl
           }
     }
   cmd = do
-  socketResult <-
-    if useSock
-      then runHyprlandCommandSocket client cmd
-      else pure $ Left $ HyprlandSocketUnavailable HyprlandCommandSocket []
-  case socketResult of
-    Right out -> pure (Right out)
-    Left sockErr ->
-      if fallback
-        then do
-          hyprctlResult <- runHyprlandCommandHyprctl client hyprctl cmd
-          pure $ case hyprctlResult of
-            Right out -> Right out
-            Left hyprctlErr -> Left $ HyprlandHyprctlFailed $
-              printf "%s (socket error: %s)" hyprctlErr (show sockErr)
-        else pure (Left sockErr)
+    socketResult <-
+      if useSock
+        then runHyprlandCommandSocket client cmd
+        else pure $ Left $ HyprlandSocketUnavailable HyprlandCommandSocket []
+    case socketResult of
+      Right out -> pure (Right out)
+      Left sockErr ->
+        if fallback
+          then do
+            hyprctlResult <- runHyprlandCommandHyprctl client hyprctl cmd
+            pure $ case hyprctlResult of
+              Right out -> Right out
+              Left hyprctlErr ->
+                Left $
+                  HyprlandHyprctlFailed $
+                    printf "%s (socket error: %s)" hyprctlErr (show sockErr)
+          else pure (Left sockErr)
 
 runHyprlandCommandSocket :: HyprlandClient -> HyprlandCommand -> IO (Either HyprlandError BS.ByteString)
 runHyprlandCommandSocket client cmd = do
@@ -424,7 +437,7 @@ runHyprlandCommandSocket client cmd = do
   case sockResult of
     Left err -> pure (Left err)
     Right sock ->
-      (do
+      ( do
           cmdBytes <- case hyprlandCommandToSocketCommand cmd of
             Left e -> NS.close sock >> pure (Left e)
             Right b -> pure (Right b)
@@ -436,16 +449,17 @@ runHyprlandCommandSocket client cmd = do
               resp <- recvAll sock
               NS.close sock
               pure (Right resp)
-        ) `catchAny` \e -> do
+      )
+        `catchAny` \e -> do
           NS.close sock
           pure $ Left $ HyprlandSocketException (show HyprlandCommandSocket) (show e)
 
 runHyprlandCommandHyprctl :: HyprlandClient -> FilePath -> HyprlandCommand -> IO (Either String BS.ByteString)
-runHyprlandCommandHyprctl client hyprctl HyprlandCommand { commandArgs = args, commandJson = isJson } = do
+runHyprlandCommandHyprctl client hyprctl HyprlandCommand {commandArgs = args, commandJson = isJson} = do
   mSig <- pickHyprlandInstanceSignature client
   let flags =
-        ["-j" | isJson] ++
-        maybe [] (\sig -> ["-i", sig]) mSig
+        ["-j" | isJson]
+          ++ maybe [] (\sig -> ["-i", sig]) mSig
   result <- runCommand hyprctl (flags ++ args)
   pure $ case result of
     Left err -> Left err
@@ -454,12 +468,13 @@ runHyprlandCommandHyprctl client hyprctl HyprlandCommand { commandArgs = args, c
 pickHyprlandInstanceSignature :: HyprlandClient -> IO (Maybe String)
 pickHyprlandInstanceSignature client =
   case clientEnv client of
-    Just HyprlandClientEnv { instanceSignature = sig } -> do
+    Just HyprlandClientEnv {instanceSignature = sig} -> do
       -- Prefer the signature from the environment if we can actually connect
       -- to the command socket. (After a Hyprland restart the old socket path
       -- might still exist but be stale.)
-      envAlive <- anyM canConnectSocket $
-        hyprlandSocketPaths client HyprlandCommandSocket
+      envAlive <-
+        anyM canConnectSocket $
+          hyprlandSocketPaths client HyprlandCommandSocket
       if envAlive
         then pure (Just sig)
         else discover
@@ -477,12 +492,12 @@ pickHyprlandInstanceSignature client =
       -- Use the newest discovered command socket.
       paths <- discoverHyprlandSocketPaths client HyprlandCommandSocket
       pure $ case paths of
-        p:_ -> Just $ takeFileName $ takeDirectory p
+        p : _ -> Just $ takeFileName $ takeDirectory p
         [] -> Nothing
 
-anyM :: Monad m => (a -> m Bool) -> [a] -> m Bool
+anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
 anyM _ [] = pure False
-anyM p (x:xs) = do
+anyM p (x : xs) = do
   b <- p x
   if b then pure True else anyM p xs
 
@@ -493,9 +508,9 @@ recvAll sock = go []
       chunk <- NSB.recv sock 4096
       if BS.null chunk
         then return (BS.concat (reverse acc))
-        else go (chunk:acc)
+        else go (chunk : acc)
 
-runHyprlandCommandJson :: FromJSON a => HyprlandClient -> HyprlandCommand -> IO (Either HyprlandError a)
+runHyprlandCommandJson :: (FromJSON a) => HyprlandClient -> HyprlandCommand -> IO (Either HyprlandError a)
 runHyprlandCommandJson client cmd = do
   raw <- runHyprlandCommandRaw client cmd
   pure $ case raw of

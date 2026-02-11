@@ -1,10 +1,11 @@
 module System.Taffybar.DBus
-  ( module System.Taffybar.DBus.Toggle
-  , appendHook
-  , startTaffyLogServer
-  , withLogServer
-  , withToggleServer
-  ) where
+  ( module System.Taffybar.DBus.Toggle,
+    appendHook,
+    startTaffyLogServer,
+    withLogServer,
+    withToggleServer,
+  )
+where
 
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader

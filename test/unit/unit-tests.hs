@@ -2,9 +2,8 @@ module Main where
 
 import Test.Hspec
 import Test.Hspec.Runner
-
-import qualified UnitSpec
-import qualified TestLibSpec
+import TestLibSpec qualified
+import UnitSpec qualified
 
 main :: IO ()
 main = hspecWith defaultConfig $ do

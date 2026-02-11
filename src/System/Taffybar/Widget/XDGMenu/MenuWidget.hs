@@ -1,4 +1,7 @@
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.XDGMenu.MenuWidget
 -- Copyright   : 2017 Ulf Jasper
@@ -13,25 +16,22 @@
 -- according to the version 1.1 of the XDG "Desktop Menu
 -- Specification", see
 -- https://specifications.freedesktop.org/menu-spec/menu-spec-1.1.html
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.XDGMenu.MenuWidget
-  (
-  -- * Usage
-  -- $usage
-  menuWidgetNew
+  ( -- * Usage
+    -- $usage
+    menuWidgetNew,
   )
 where
 
-import           Control.Monad
-import           Control.Monad.IO.Class
+import Control.Monad
+import Control.Monad.IO.Class
 import qualified Data.Text as T
-import           GI.Gtk hiding (Menu, imageMenuItemNew)
-import           System.Log.Logger
-import           System.Process
-import           System.Taffybar.Widget.Generic.AutoSizeImage
-import           System.Taffybar.Widget.Util
-import           System.Taffybar.Widget.XDGMenu.Menu
+import GI.Gtk hiding (Menu, imageMenuItemNew)
+import System.Log.Logger
+import System.Process
+import System.Taffybar.Widget.Generic.AutoSizeImage
+import System.Taffybar.Widget.Util
+import System.Taffybar.Widget.XDGMenu.Menu
 
 -- $usage
 --
@@ -60,10 +60,13 @@ logHere :: Priority -> String -> IO ()
 logHere = logM "System.Taffybar.Widget.XDGMenu.MenuWidget"
 
 -- | Add a desktop entry to a gtk menu by appending a gtk menu item.
-addItem :: (IsMenuShell msc) =>
-           msc -- ^ GTK menu
-        -> MenuEntry -- ^ Desktop entry
-        -> IO ()
+addItem ::
+  (IsMenuShell msc) =>
+  -- | GTK menu
+  msc ->
+  -- | Desktop entry
+  MenuEntry ->
+  IO ()
 addItem ms de = do
   item <- imageMenuItemNew (feName de) (getImageForMaybeIconName (feIcon de))
   setWidgetTooltipText item (feComment de)
@@ -76,17 +79,21 @@ addItem ms de = do
   return ()
 
 -- | Add an xdg menu to a gtk menu by appending gtk menu items and submenus.
-addMenu
-  :: (IsMenuShell msc)
-  => msc -- ^ A GTK menu
-  -> Menu -- ^ A menu object
-  -> IO ()
+addMenu ::
+  (IsMenuShell msc) =>
+  -- | A GTK menu
+  msc ->
+  -- | A menu object
+  Menu ->
+  IO ()
 addMenu ms fm = do
   let subMenus = fmSubmenus fm
       items = fmEntries fm
   when (not (null items) || not (null subMenus)) $ do
-    item <- imageMenuItemNew (T.pack $ fmName fm)
-            (getImageForMaybeIconName (T.pack <$> fmIcon fm))
+    item <-
+      imageMenuItemNew
+        (T.pack $ fmName fm)
+        (getImageForMaybeIconName (T.pack <$> fmIcon fm))
     menuShellAppend ms item
     subMenu <- menuNew
     menuItemSetSubmenu item (Just subMenu)
@@ -94,10 +101,11 @@ addMenu ms fm = do
     mapM_ (addItem subMenu) items
 
 -- | Create a new XDG Menu Widget.
-menuWidgetNew
-  :: MonadIO m
-  => Maybe String -- ^ menu name, must end with a dash, e.g. "mate-" or "gnome-"
-  -> m GI.Gtk.Widget
+menuWidgetNew ::
+  (MonadIO m) =>
+  -- | menu name, must end with a dash, e.g. "mate-" or "gnome-"
+  Maybe String ->
+  m GI.Gtk.Widget
 menuWidgetNew mMenuPrefix = liftIO $ do
   mb <- menuBarNew
   m <- buildMenu mMenuPrefix

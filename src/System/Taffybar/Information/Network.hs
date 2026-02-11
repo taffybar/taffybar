@@ -1,4 +1,7 @@
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.Network
 -- Copyright   : (c) José A. Romero L.
@@ -11,22 +14,19 @@
 -- Provides information about network traffic over selected interfaces,
 -- obtained from parsing the @\/proc\/net\/dev@ file using some of the
 -- facilities provided by the "System.Taffybar.Information.StreamInfo" module.
---
------------------------------------------------------------------------------
-
 module System.Taffybar.Information.Network where
 
 import qualified Control.Concurrent.MVar as MV
-import           Control.Exception (catch, SomeException)
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Maybe (MaybeT(..))
-import           Data.Maybe ( mapMaybe )
-import           Data.Time.Clock
-import           Data.Time.Clock.System
-import           Safe ( atMay, initSafe, readDef )
-import           System.Taffybar.Information.StreamInfo ( getParsedInfo )
-import           System.Taffybar.Util
+import Control.Exception (SomeException, catch)
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Maybe (MaybeT (..))
+import Data.Maybe (mapMaybe)
+import Data.Time.Clock
+import Data.Time.Clock.System
+import Safe (atMay, initSafe, readDef)
+import System.Taffybar.Information.StreamInfo (getParsedInfo)
+import System.Taffybar.Util
 
 networkInfoFile :: FilePath
 networkInfoFile = "/proc/net/dev"
@@ -42,7 +42,8 @@ getNetInfo iface = runMaybeT $ do
 parseDevNet' :: String -> [(String, [Int])]
 parseDevNet' input =
   map makeList $ parseDevNet input
-  where makeList (a, (u, d)) = (a, [u, d])
+  where
+    makeList (a, (u, d)) = (a, [u, d])
 
 parseDevNet :: String -> [(String, (Int, Int))]
 parseDevNet = mapMaybe (getDeviceUpDown . words) . drop 2 . lines
@@ -76,23 +77,25 @@ getDeviceSamples = runMaybeT $ handleFailure $ do
   length contents `seq` return ()
   time <- liftIO getSystemTime
   let mkSample (device, (up, down)) =
-          TxSample { sampleUp = up
-                   , sampleDown = down
-                   , sampleTime = time
-                   , sampleDevice = device
-                   }
+        TxSample
+          { sampleUp = up,
+            sampleDown = down,
+            sampleTime = time,
+            sampleDevice = device
+          }
   return $ map mkSample $ parseDevNet contents
 
 data TxSample = TxSample
-  { sampleUp :: Int
-  , sampleDown :: Int
-  , sampleTime :: SystemTime
-  , sampleDevice :: String
-  } deriving (Show, Eq)
+  { sampleUp :: Int,
+    sampleDown :: Int,
+    sampleTime :: SystemTime,
+    sampleDevice :: String
+  }
+  deriving (Show, Eq)
 
-monitorNetworkInterfaces
-  :: RealFrac a1
-  => a1 -> ([(String, (Rational, Rational))] -> IO ()) -> IO ()
+monitorNetworkInterfaces ::
+  (RealFrac a1) =>
+  a1 -> ([(String, (Rational, Rational))] -> IO ()) -> IO ()
 monitorNetworkInterfaces interval onUpdate = void $ do
   samplesVar <- MV.newMVar []
   let sampleToSpeeds (device, (s1, s2)) = (device, getSpeed s1 s2)
@@ -107,33 +110,36 @@ updateSamples ::
   [(String, (TxSample, TxSample))] ->
   IO [(String, (TxSample, TxSample))]
 updateSamples currentSamples = do
-  let getLast sample@TxSample { sampleDevice = device } =
+  let getLast sample@TxSample {sampleDevice = device} =
         maybe sample fst $ lookup device currentSamples
-      getSamplePair sample@TxSample { sampleDevice = device } =
+      getSamplePair sample@TxSample {sampleDevice = device} =
         let lastSample = getLast sample
-        in lastSample `seq` (device, (sample, lastSample))
+         in lastSample `seq` (device, (sample, lastSample))
   maybe currentSamples (map getSamplePair) <$> getDeviceSamples
 
 getSpeed :: TxSample -> TxSample -> (Rational, Rational)
-getSpeed TxSample { sampleUp = thisUp
-                  , sampleDown = thisDown
-                  , sampleTime = thisTime
-                  }
-         TxSample { sampleUp = lastUp
-                  , sampleDown = lastDown
-                  , sampleTime = lastTime
-                  } =
-        let intervalDiffTime =
-              diffUTCTime
-              (systemToUTCTime thisTime)
-              (systemToUTCTime lastTime)
-            intervalRatio =
-              if intervalDiffTime == 0
-              then 0
-              else toRational $ 1 / intervalDiffTime
-        in ( fromIntegral (thisDown - lastDown) * intervalRatio
-           , fromIntegral (thisUp - lastUp) * intervalRatio
-           )
+getSpeed
+  TxSample
+    { sampleUp = thisUp,
+      sampleDown = thisDown,
+      sampleTime = thisTime
+    }
+  TxSample
+    { sampleUp = lastUp,
+      sampleDown = lastDown,
+      sampleTime = lastTime
+    } =
+    let intervalDiffTime =
+          diffUTCTime
+            (systemToUTCTime thisTime)
+            (systemToUTCTime lastTime)
+        intervalRatio =
+          if intervalDiffTime == 0
+            then 0
+            else toRational $ 1 / intervalDiffTime
+     in ( fromIntegral (thisDown - lastDown) * intervalRatio,
+          fromIntegral (thisUp - lastUp) * intervalRatio
+        )
 
 sumSpeeds :: [(Rational, Rational)] -> (Rational, Rational)
 sumSpeeds = foldr1 sumOne

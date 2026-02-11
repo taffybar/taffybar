@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.Hyprland.API
 -- Copyright   : (c) Ivan A. Malison
@@ -15,50 +18,48 @@
 --
 -- This module is intended for widget use: it exposes typed query functions for
 -- the common @hyprctl -j@ endpoints and a small set of typed dispatch commands.
------------------------------------------------------------------------------
-
 module System.Taffybar.Information.Hyprland.API
   ( -- * Queries
-    getHyprlandClients
-  , getHyprlandWorkspaces
-  , getHyprlandMonitors
-  , getHyprlandActiveWorkspace
-  , getHyprlandActiveWindow
+    getHyprlandClients,
+    getHyprlandWorkspaces,
+    getHyprlandMonitors,
+    getHyprlandActiveWorkspace,
+    getHyprlandActiveWindow,
 
     -- * Dispatch
-  , HyprlandWorkspaceTarget
-  , mkHyprlandWorkspaceTarget
-  , hyprlandWorkspaceTargetText
-  , HyprlandAddress
-  , mkHyprlandAddress
-  , hyprlandAddressText
-  , HyprlandDispatch(..)
-  , dispatchHyprland
-  ) where
+    HyprlandWorkspaceTarget,
+    mkHyprlandWorkspaceTarget,
+    hyprlandWorkspaceTargetText,
+    HyprlandAddress,
+    mkHyprlandAddress,
+    hyprlandAddressText,
+    HyprlandDispatch (..),
+    dispatchHyprland,
+  )
+where
 
-import           Data.Aeson (FromJSON)
+import Data.Aeson (FromJSON)
 import qualified Data.ByteString as BS
-import           Data.Char (isSpace)
-import           Data.Text (Text)
+import Data.Char (isSpace)
+import Data.Text (Text)
 import qualified Data.Text as T
-
-import           System.Taffybar.Information.Hyprland
-  ( HyprlandClient
-  , HyprlandError(..)
-  , hyprCommand
-  , hyprCommandJson
-  , runHyprlandCommandJson
-  , runHyprlandCommandRaw
+import System.Taffybar.Information.Hyprland
+  ( HyprlandClient,
+    HyprlandError (..),
+    hyprCommand,
+    hyprCommandJson,
+    runHyprlandCommandJson,
+    runHyprlandCommandRaw,
   )
-import           System.Taffybar.Information.Hyprland.Types
-  ( HyprlandActiveWindowInfo
-  , HyprlandActiveWorkspaceInfo
-  , HyprlandClientInfo
-  , HyprlandMonitorInfo
-  , HyprlandWorkspaceInfo
+import System.Taffybar.Information.Hyprland.Types
+  ( HyprlandActiveWindowInfo,
+    HyprlandActiveWorkspaceInfo,
+    HyprlandClientInfo,
+    HyprlandMonitorInfo,
+    HyprlandWorkspaceInfo,
   )
 
-runJson :: FromJSON a => HyprlandClient -> [String] -> IO (Either HyprlandError a)
+runJson :: (FromJSON a) => HyprlandClient -> [String] -> IO (Either HyprlandError a)
 runJson client args = runHyprlandCommandJson client (hyprCommandJson args)
 
 getHyprlandClients :: HyprlandClient -> IO (Either HyprlandError [HyprlandClientInfo])
@@ -110,10 +111,10 @@ mkHyprlandAddress t
   | otherwise = Right $ HyprlandAddress t
 
 data HyprlandDispatch
-  = DispatchWorkspace HyprlandWorkspaceTarget
-  -- ^ @hyprctl dispatch workspace <name-or-id>@
-  | DispatchFocusWindowAddress HyprlandAddress
-  -- ^ @hyprctl dispatch focuswindow address:<addr>@
+  = -- | @hyprctl dispatch workspace <name-or-id>@
+    DispatchWorkspace HyprlandWorkspaceTarget
+  | -- | @hyprctl dispatch focuswindow address:<addr>@
+    DispatchFocusWindowAddress HyprlandAddress
   deriving (Show, Eq)
 
 dispatchHyprland :: HyprlandClient -> HyprlandDispatch -> IO (Either HyprlandError BS.ByteString)

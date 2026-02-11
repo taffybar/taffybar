@@ -1,38 +1,42 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module System.Taffybar.Widget.Generic.AutoSizeImage
-  ( autoSizeImage
-  , autoSizeImageNew
-  , imageMenuItemNew
-  , ImageScaleStrategy(..)
-  , BorderInfo(..)
-  , borderInfoZero
-  , borderWidth
-  , borderHeight
-  , getBorderInfo
-  , getInsetInfo
-  , getContentAllocation
-  ) where
+  ( autoSizeImage,
+    autoSizeImageNew,
+    imageMenuItemNew,
+    ImageScaleStrategy (..),
+    BorderInfo (..),
+    borderInfoZero,
+    borderWidth,
+    borderHeight,
+    getBorderInfo,
+    getInsetInfo,
+    getContentAllocation,
+  )
+where
 
 import qualified Control.Concurrent.MVar as MV
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Data.Default (Default(..))
-import           Data.Int
-import           Data.Maybe
+import Control.Monad
+import Control.Monad.IO.Class
+import Data.Default (Default (..))
+import Data.Int
+import Data.Maybe
 import qualified Data.Text as T
 import qualified GI.Gdk as Gdk
-import           GI.GdkPixbuf.Objects.Pixbuf as Gdk
+import GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import           StatusNotifier.Tray (scalePixbufToSize)
-import           System.Log.Logger
-import           System.Taffybar.Util
-import           System.Taffybar.Widget.Util
-import           Text.Printf
+import StatusNotifier.Tray (scalePixbufToSize)
+import System.Log.Logger
+import System.Taffybar.Util
+import System.Taffybar.Widget.Util
+import Text.Printf
 
 -- | Strategy for how auto-scaling image widgets render their pixbufs.
 data ImageScaleStrategy
-  = ImageResize  -- ^ Use 'Gtk.Image' with 'imageSetFromPixbuf' + 'queueResize' (original behavior).
-  | ImageDraw    -- ^ Use 'Gtk.DrawingArea' with Cairo rendering (avoids resize feedback loops).
+  = -- | Use 'Gtk.Image' with 'imageSetFromPixbuf' + 'queueResize' (original behavior).
+    ImageResize
+  | -- | Use 'Gtk.DrawingArea' with Cairo rendering (avoids resize feedback loops).
+    ImageDraw
   deriving (Eq, Show)
 
 instance Default ImageScaleStrategy where
@@ -43,25 +47,26 @@ imageLog = logM "System.Taffybar.Widget.Generic.AutoSizeImage"
 
 borderFunctions :: [Gtk.StyleContext -> [Gtk.StateFlags] -> IO Gtk.Border]
 borderFunctions =
-  [ Gtk.styleContextGetPadding
-  , Gtk.styleContextGetMargin
-  , Gtk.styleContextGetBorder
+  [ Gtk.styleContextGetPadding,
+    Gtk.styleContextGetMargin,
+    Gtk.styleContextGetBorder
   ]
 
 -- Insets that are inside a widget's allocation and should be respected when
 -- drawing inside it.
 insetFunctions :: [Gtk.StyleContext -> [Gtk.StateFlags] -> IO Gtk.Border]
 insetFunctions =
-  [ Gtk.styleContextGetPadding
-  , Gtk.styleContextGetBorder
+  [ Gtk.styleContextGetPadding,
+    Gtk.styleContextGetBorder
   ]
 
 data BorderInfo = BorderInfo
-  { borderTop :: Int16
-  , borderBottom :: Int16
-  , borderLeft :: Int16
-  , borderRight :: Int16
-  } deriving (Show, Eq)
+  { borderTop :: Int16,
+    borderBottom :: Int16,
+    borderLeft :: Int16,
+    borderRight :: Int16
+  }
+  deriving (Show, Eq)
 
 borderInfoZero :: BorderInfo
 borderInfoZero = BorderInfo 0 0 0 0
@@ -73,16 +78,16 @@ borderHeight borderInfo = borderTop borderInfo + borderBottom borderInfo
 toBorderInfo :: (MonadIO m) => Gtk.Border -> m BorderInfo
 toBorderInfo border =
   BorderInfo
-  <$> Gtk.getBorderTop border
-  <*> Gtk.getBorderBottom border
-  <*> Gtk.getBorderLeft border
-  <*> Gtk.getBorderRight border
+    <$> Gtk.getBorderTop border
+    <*> Gtk.getBorderBottom border
+    <*> Gtk.getBorderLeft border
+    <*> Gtk.getBorderRight border
 
 addBorderInfo :: BorderInfo -> BorderInfo -> BorderInfo
 addBorderInfo
   (BorderInfo t1 b1 l1 r1)
-  (BorderInfo t2 b2 l2 r2)
-    = BorderInfo (t1 + t2) (b1 + b2) (l1 + l2) (r1 + r2)
+  (BorderInfo t2 b2 l2 r2) =
+    BorderInfo (t1 + t2) (b1 + b2) (l1 + l2) (r1 + r2)
 
 -- | Get the total size of the border (the sum of its assigned margin, border
 -- and padding values) that will be drawn for a widget as a "BorderInfo" record.
@@ -113,9 +118,9 @@ getInsetInfo widget = liftIO $ do
 
 -- | Get the actual allocation for a "Gtk.Widget", accounting for the size of
 -- its CSS assined margin, border and padding values.
-getContentAllocation
-  :: (MonadIO m, Gtk.IsWidget a)
-  => a -> BorderInfo -> m Gdk.Rectangle
+getContentAllocation ::
+  (MonadIO m, Gtk.IsWidget a) =>
+  a -> BorderInfo -> m Gdk.Rectangle
 getContentAllocation widget borderInfo = do
   allocation <- Gtk.widgetGetAllocation widget
   currentWidth <- Gdk.getRectangleWidth allocation
@@ -123,26 +128,28 @@ getContentAllocation widget borderInfo = do
   currentX <- Gdk.getRectangleX allocation
   currentY <- Gdk.getRectangleX allocation
 
-  Gdk.setRectangleWidth allocation $ max 1 $
-     currentWidth - fromIntegral (borderWidth borderInfo)
-  Gdk.setRectangleHeight allocation $ max 1 $
-     currentHeight - fromIntegral (borderHeight borderInfo)
+  Gdk.setRectangleWidth allocation $
+    max 1 $
+      currentWidth - fromIntegral (borderWidth borderInfo)
+  Gdk.setRectangleHeight allocation $
+    max 1 $
+      currentHeight - fromIntegral (borderHeight borderInfo)
   Gdk.setRectangleX allocation $
-     currentX + fromIntegral (borderLeft borderInfo)
+    currentX + fromIntegral (borderLeft borderInfo)
   Gdk.setRectangleY allocation $
-     currentY + fromIntegral (borderTop borderInfo)
+    currentY + fromIntegral (borderTop borderInfo)
 
   return allocation
 
 -- | Automatically update the "Gdk.Pixbuf" of a "Gtk.Image" using the provided
 -- action whenever the "Gtk.Image" is allocated. Returns an action that forces a
 -- refresh of the image through the provided action.
-autoSizeImage
-  :: MonadIO m
-  => Gtk.Image
-  -> (Int32 -> IO (Maybe Gdk.Pixbuf))
-  -> Gtk.Orientation
-  -> m (IO ())
+autoSizeImage ::
+  (MonadIO m) =>
+  Gtk.Image ->
+  (Int32 -> IO (Maybe Gdk.Pixbuf)) ->
+  Gtk.Orientation ->
+  m (IO ())
 autoSizeImage image getPixbuf orientation = liftIO $ do
   case orientation of
     Gtk.OrientationHorizontal -> Gtk.widgetSetVexpand image True
@@ -177,20 +184,21 @@ autoSizeImage image getPixbuf orientation = liftIO $ do
           pbWidth <- fromMaybe 0 <$> traverse Gdk.getPixbufWidth pixbuf
           pbHeight <- fromMaybe 0 <$> traverse Gdk.getPixbufHeight pixbuf
           let pbSize = case orientation of
-                         Gtk.OrientationHorizontal -> pbHeight
-                         _ -> pbWidth
+                Gtk.OrientationHorizontal -> pbHeight
+                _ -> pbWidth
               logLevel = if pbSize <= size then DEBUG else WARNING
 
           imageLog logLevel $
-                 printf "Allocating image: size %s, width %s, \
-                         \ height %s, aw: %s, ah: %s, pbw: %s pbh: %s"
-                 (show size)
-                 (show width)
-                 (show height)
-                 (show _width)
-                 (show _height)
-                 (show pbWidth)
-                 (show pbHeight)
+            printf
+              "Allocating image: size %s, width %s, \
+              \ height %s, aw: %s, ah: %s, pbw: %s pbh: %s"
+              (show size)
+              (show width)
+              (show height)
+              (show _width)
+              (show _height)
+              (show pbWidth)
+              (show pbHeight)
 
           Gtk.imageSetFromPixbuf image pixbuf
           postGUIASync $ Gtk.widgetQueueResize image
@@ -201,20 +209,22 @@ autoSizeImage image getPixbuf orientation = liftIO $ do
 -- | Make a new "Gtk.Image" and call "autoSizeImage" on it. Automatically scale
 -- the "Gdk.Pixbuf" returned from the provided getter to the appropriate size
 -- using "scalePixbufToSize".
-autoSizeImageNew
-  :: MonadIO m
-  => (Int32 -> IO Gdk.Pixbuf) -> Gtk.Orientation -> m Gtk.Image
+autoSizeImageNew ::
+  (MonadIO m) =>
+  (Int32 -> IO Gdk.Pixbuf) -> Gtk.Orientation -> m Gtk.Image
 autoSizeImageNew getPixBuf orientation = do
   image <- Gtk.imageNew
-  void $ autoSizeImage image
-         (\size -> Just <$> (getPixBuf size >>= scalePixbufToSize size orientation))
-         orientation
+  void $
+    autoSizeImage
+      image
+      (\size -> Just <$> (getPixBuf size >>= scalePixbufToSize size orientation))
+      orientation
   return image
 
 -- | Make a new "Gtk.MenuItem" that has both a label and an icon.
-imageMenuItemNew
-  :: MonadIO m
-  => T.Text -> (Int32 -> IO (Maybe Gdk.Pixbuf)) -> m Gtk.MenuItem
+imageMenuItemNew ::
+  (MonadIO m) =>
+  T.Text -> (Int32 -> IO (Maybe Gdk.Pixbuf)) -> m Gtk.MenuItem
 imageMenuItemNew labelText pixbufGetter = do
   box <- Gtk.boxNew Gtk.OrientationHorizontal 0
   label <- Gtk.labelNew $ Just labelText

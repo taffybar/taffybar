@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.PowerProfiles
 -- Copyright   : (c) Ivan A. Malison
@@ -19,52 +23,54 @@
 --   * 'powerProfilesNew' -- combined icon + label
 --
 -- All variants cycle through profiles on left-click.
------------------------------------------------------------------------------
 module System.Taffybar.Widget.PowerProfiles
-  ( PowerProfilesConfig(..)
-  , defaultPowerProfilesConfig
-  , powerProfilesIconNew
-  , powerProfilesIconNewWithConfig
-  , powerProfilesLabelNew
-  , powerProfilesLabelNewWithConfig
-  , powerProfilesNew
-  , powerProfilesNewWithConfig
-  ) where
+  ( PowerProfilesConfig (..),
+    defaultPowerProfilesConfig,
+    powerProfilesIconNew,
+    powerProfilesIconNewWithConfig,
+    powerProfilesLabelNew,
+    powerProfilesLabelNewWithConfig,
+    powerProfilesNew,
+    powerProfilesNewWithConfig,
+  )
+where
 
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Reader
-import           Data.Default (Default(..))
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader
+import Data.Default (Default (..))
 import qualified Data.Text as T
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
-import           System.Log.Logger
-import           System.Taffybar.Context
-import           System.Taffybar.Information.PowerProfiles
-import           System.Taffybar.Util (postGUIASync, logPrintF)
-import           System.Taffybar.Widget.Generic.ChannelWidget
-import           System.Taffybar.Widget.Util (buildIconLabelBox)
+import System.Log.Logger
+import System.Taffybar.Context
+import System.Taffybar.Information.PowerProfiles
+import System.Taffybar.Util (logPrintF, postGUIASync)
+import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Util (buildIconLabelBox)
 
 -- | Configuration for the power profiles widget.
 data PowerProfilesConfig = PowerProfilesConfig
   { -- | Format string for the label. Use @$profile$@ for the profile name.
-    powerProfilesFormat :: String
+    powerProfilesFormat :: String,
     -- | Nerd font text icon for power-saver mode (default U+F06C9, nf-md-leaf).
-  , powerProfilesPowerSaverTextIcon :: T.Text
+    powerProfilesPowerSaverTextIcon :: T.Text,
     -- | Nerd font text icon for balanced mode (default U+F0A7A, nf-md-scale_balance).
-  , powerProfilesBalancedTextIcon :: T.Text
+    powerProfilesBalancedTextIcon :: T.Text,
     -- | Nerd font text icon for performance mode (default U+F0E4E, nf-md-rocket_launch).
-  , powerProfilesPerformanceTextIcon :: T.Text
-  } deriving (Eq, Show)
+    powerProfilesPerformanceTextIcon :: T.Text
+  }
+  deriving (Eq, Show)
 
 -- | Default configuration for the power profiles widget.
 defaultPowerProfilesConfig :: PowerProfilesConfig
-defaultPowerProfilesConfig = PowerProfilesConfig
-  { powerProfilesFormat = "$profile$"
-  , powerProfilesPowerSaverTextIcon = T.pack "\xF06C9"
-  , powerProfilesBalancedTextIcon = T.pack "\xF0A7A"
-  , powerProfilesPerformanceTextIcon = T.pack "\xF0E4E"
-  }
+defaultPowerProfilesConfig =
+  PowerProfilesConfig
+    { powerProfilesFormat = "$profile$",
+      powerProfilesPowerSaverTextIcon = T.pack "\xF06C9",
+      powerProfilesBalancedTextIcon = T.pack "\xF0A7A",
+      powerProfilesPerformanceTextIcon = T.pack "\xF0E4E"
+    }
 
 instance Default PowerProfilesConfig where
   def = defaultPowerProfilesConfig
@@ -190,7 +196,7 @@ formatLabel fmt profile = replace "$profile$" profile fmt
     replace old new = T.unpack . T.replace (T.pack old) (T.pack new) . T.pack
 
 -- | Update CSS classes based on the current profile. Works with any widget.
-updateProfileClasses :: Gtk.IsWidget w => w -> PowerProfileInfo -> IO ()
+updateProfileClasses :: (Gtk.IsWidget w) => w -> PowerProfileInfo -> IO ()
 updateProfileClasses widget info = do
   let profile = currentProfile info
       allClasses = ["power-saver", "balanced", "performance"]
@@ -203,7 +209,7 @@ updateProfileClasses widget info = do
   Gtk.styleContextAddClass styleCtx currentClass
 
 -- | Update tooltip with current profile info.
-updateTooltip :: Gtk.IsWidget w => w -> PowerProfileInfo -> IO ()
+updateTooltip :: (Gtk.IsWidget w) => w -> PowerProfileInfo -> IO ()
 updateTooltip widget info = do
   let profile = currentProfile info
       profileName = powerProfileToString profile

@@ -101,19 +101,19 @@ getWirePlumberInfoState nodeSpec =
 
 -- | Get a broadcast channel for WirePlumber info for a node spec given as a
 -- type-level string.
-getWirePlumberInfoChanFor :: forall a. KnownSymbol a => TaffyIO (TChan (Maybe WirePlumberInfo))
+getWirePlumberInfoChanFor :: forall a. (KnownSymbol a) => TaffyIO (TChan (Maybe WirePlumberInfo))
 getWirePlumberInfoChanFor = do
   WirePlumberInfoChanVar (chan, _) <- getWirePlumberInfoChanVarFor @a
   pure chan
 
 -- | Read the current WirePlumber info state for a node spec given as a
 -- type-level string.
-getWirePlumberInfoStateFor :: forall a. KnownSymbol a => TaffyIO (Maybe WirePlumberInfo)
+getWirePlumberInfoStateFor :: forall a. (KnownSymbol a) => TaffyIO (Maybe WirePlumberInfo)
 getWirePlumberInfoStateFor = do
   WirePlumberInfoChanVar (_, var) <- getWirePlumberInfoChanVarFor @a
   liftIO $ readMVar var
 
-getWirePlumberInfoChanVarFor :: forall a. KnownSymbol a => TaffyIO (WirePlumberInfoChanVar a)
+getWirePlumberInfoChanVarFor :: forall a. (KnownSymbol a) => TaffyIO (WirePlumberInfoChanVar a)
 getWirePlumberInfoChanVarFor =
   getStateDefault $ do
     let nodeSpec = symbolVal (Proxy @a)

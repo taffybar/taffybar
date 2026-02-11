@@ -1,4 +1,7 @@
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Context.Backend
 -- Copyright   : (c) Ivan A. Malison
@@ -14,24 +17,24 @@
 -- whether to use an X11 or Wayland backend, compensating for stale or
 -- missing environment variables that are common when the @systemd
 -- --user@ manager persists across login sessions.
------------------------------------------------------------------------------
-
 module System.Taffybar.Context.Backend
-  ( Backend(..)
-  , detectBackend
-  -- * Discovery helpers
-  , discoverWaylandSocket
-  , discoverHyprlandSignature
-  ) where
+  ( Backend (..),
+    detectBackend,
 
-import           Control.Exception.Enclosed (catchAny)
-import           Control.Monad
-import           Data.List (isPrefixOf, isSuffixOf)
-import           System.Directory (doesPathExist, listDirectory)
-import           System.Environment (lookupEnv, setEnv, unsetEnv)
-import           System.FilePath ((</>))
-import           System.Log.Logger (Priority(..), logM)
-import           System.Posix.Files (getFileStatus, isSocket)
+    -- * Discovery helpers
+    discoverWaylandSocket,
+    discoverHyprlandSignature,
+  )
+where
+
+import Control.Exception.Enclosed (catchAny)
+import Control.Monad
+import Data.List (isPrefixOf, isSuffixOf)
+import System.Directory (doesPathExist, listDirectory)
+import System.Environment (lookupEnv, setEnv, unsetEnv)
+import System.FilePath ((</>))
+import System.Log.Logger (Priority (..), logM)
+import System.Posix.Files (getFileStatus, isSocket)
 
 logIO :: Priority -> String -> IO ()
 logIO = logM "System.Taffybar.Context.Backend"
@@ -50,17 +53,19 @@ discoverWaylandSocket :: FilePath -> IO (Maybe String)
 discoverWaylandSocket runtime = do
   entries <- listDirectory runtime
   let candidates =
-        [ e | e <- entries
-        , "wayland-" `isPrefixOf` e
-        , not (".lock" `isSuffixOf` e)
+        [ e
+        | e <- entries,
+          "wayland-" `isPrefixOf` e,
+          not (".lock" `isSuffixOf` e)
         ]
   go candidates
   where
     go [] = pure Nothing
-    go (c:cs) = do
-      ok <- catchAny
-        (isSocket <$> getFileStatus (runtime </> c))
-        (const $ pure False)
+    go (c : cs) = do
+      ok <-
+        catchAny
+          (isSocket <$> getFileStatus (runtime </> c))
+          (const $ pure False)
       if ok then pure (Just c) else go cs
 
 -- | Try to find a Hyprland instance signature in @XDG_RUNTIME_DIR/hypr/@.
@@ -78,7 +83,7 @@ discoverHyprlandSignature runtime = do
       go hyprDir entries
   where
     go _ [] = pure Nothing
-    go hyprDir (e:es) = do
+    go hyprDir (e : es) = do
       isSig <- doesPathExist (hyprDir </> e </> "hyprland.lock")
       if isSig then pure (Just e) else go hyprDir es
 

@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.Privacy
 -- Copyright   : (c) Ivan A. Malison
@@ -31,27 +34,27 @@
 -- * @.privacy-audio-input@ - Audio input (microphone) icon
 -- * @.privacy-audio-output@ - Audio output icon
 -- * @.privacy-video-input@ - Video input (camera/screen share) icon
---
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.Privacy
   ( -- * Widget constructors
-    privacyNew
-  , privacyNewWith
+    privacyNew,
+    privacyNewWith,
+
     -- * Configuration
-  , PrivacyWidgetConfig(..)
-  , defaultPrivacyWidgetConfig
+    PrivacyWidgetConfig (..),
+    defaultPrivacyWidgetConfig,
+
     -- * Re-exports
-  , PrivacyConfig(..)
-  , defaultPrivacyConfig
-  ) where
+    PrivacyConfig (..),
+    defaultPrivacyConfig,
+  )
+where
 
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM.TChan
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
-import Data.Default (Default(..))
+import Data.Default (Default (..))
 import Data.Int (Int32)
 import Data.List (intercalate)
 import Data.Maybe (catMaybes)
@@ -59,43 +62,45 @@ import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.Privacy
-  ( PrivacyConfig(..)
-  , PrivacyInfo(..)
-  , PrivacyNode(..)
-  , NodeType(..)
-  , defaultPrivacyConfig
-  , getPrivacyInfoChan
-  , getPrivacyInfoState
+  ( NodeType (..),
+    PrivacyConfig (..),
+    PrivacyInfo (..),
+    PrivacyNode (..),
+    defaultPrivacyConfig,
+    getPrivacyInfoChan,
+    getPrivacyInfoState,
   )
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Util (widgetSetClassGI)
 
 -- | Configuration for the privacy widget.
 data PrivacyWidgetConfig = PrivacyWidgetConfig
-  { privacyWidgetConfig :: PrivacyConfig
-    -- ^ Underlying privacy monitoring configuration
-  , audioInputIcon :: T.Text
-    -- ^ Icon name for microphone
-  , audioOutputIcon :: T.Text
-    -- ^ Icon name for audio output
-  , videoInputIcon :: T.Text
-    -- ^ Icon name for camera/screen share
-  , privacyIconSize :: Int32
-    -- ^ Size of the icons (as Int32 for GTK)
-  , privacySpacing :: Int
-    -- ^ Spacing between icons
-  } deriving (Eq, Show)
+  { -- | Underlying privacy monitoring configuration
+    privacyWidgetConfig :: PrivacyConfig,
+    -- | Icon name for microphone
+    audioInputIcon :: T.Text,
+    -- | Icon name for audio output
+    audioOutputIcon :: T.Text,
+    -- | Icon name for camera/screen share
+    videoInputIcon :: T.Text,
+    -- | Size of the icons (as Int32 for GTK)
+    privacyIconSize :: Int32,
+    -- | Spacing between icons
+    privacySpacing :: Int
+  }
+  deriving (Eq, Show)
 
 -- | Default privacy widget configuration.
 defaultPrivacyWidgetConfig :: PrivacyWidgetConfig
-defaultPrivacyWidgetConfig = PrivacyWidgetConfig
-  { privacyWidgetConfig = defaultPrivacyConfig
-  , audioInputIcon = "audio-input-microphone-symbolic"
-  , audioOutputIcon = "audio-speakers-symbolic"
-  , videoInputIcon = "camera-video-symbolic"
-  , privacyIconSize = fromIntegral $ fromEnum Gtk.IconSizeMenu
-  , privacySpacing = 4
-  }
+defaultPrivacyWidgetConfig =
+  PrivacyWidgetConfig
+    { privacyWidgetConfig = defaultPrivacyConfig,
+      audioInputIcon = "audio-input-microphone-symbolic",
+      audioOutputIcon = "audio-speakers-symbolic",
+      videoInputIcon = "camera-video-symbolic",
+      privacyIconSize = fromIntegral $ fromEnum Gtk.IconSizeMenu,
+      privacySpacing = 4
+    }
 
 instance Default PrivacyWidgetConfig where
   def = defaultPrivacyWidgetConfig
@@ -195,9 +200,10 @@ buildTooltip nodes =
 
       formatNode n = "  - " ++ T.unpack (appName n)
 
-      sections = catMaybes
-        [ formatSection "Microphone" audioInNodes
-        , formatSection "Camera/Screen" videoInNodes
-        , formatSection "Audio Output" audioOutNodes
-        ]
-  in intercalate "\n" sections
+      sections =
+        catMaybes
+          [ formatSection "Microphone" audioInNodes,
+            formatSection "Camera/Screen" videoInNodes,
+            formatSection "Audio Output" audioOutNodes
+          ]
+   in intercalate "\n" sections

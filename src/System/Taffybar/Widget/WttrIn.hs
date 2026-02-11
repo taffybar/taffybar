@@ -41,16 +41,17 @@ import Text.Regex (matchRegex, mkRegex)
 -- > -- seconds.
 -- > textWttrNew "http://wttr.in/London?format=3" 60
 textWttrNew ::
-  MonadIO m =>
+  (MonadIO m) =>
   -- | URL. All non-alphanumeric characters must be properly %-encoded.
   String ->
   -- | Update Interval (in seconds)
   Double ->
   m Widget
 textWttrNew url interval = pollingLabelWithVariableDelayAndRefresh action True
-  where action = do
-          rsp <- callWttr url
-          return (rsp, Nothing, interval)
+  where
+    action = do
+      rsp <- callWttr url
+      return (rsp, Nothing, interval)
 
 -- | IO Action that calls wttr.in as per the user's request.
 callWttr :: String -> IO T.Text

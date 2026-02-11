@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.DBus.Debug
 -- Copyright   : (c) Ivan A. Malison
@@ -11,29 +15,29 @@
 --
 -- A small DBus interface for automation and debugging (e.g. triggering SNI
 -- popup menus so they can be screenshot in a loop).
------------------------------------------------------------------------------
 module System.Taffybar.DBus.Debug
-  ( handleDBusDebug
-  ) where
+  ( handleDBusDebug,
+  )
+where
 
-import           Control.Applicative ((<|>))
-import           Control.Concurrent.MVar (readMVar)
-import           Control.Monad (void, when)
-import           Control.Monad.IO.Class (liftIO)
-import           Control.Monad.Trans.Reader (ask, asks, runReaderT)
-import           Data.GI.Base (castTo)
-import           Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import           Data.List (find, isInfixOf)
-import           Data.Maybe (fromMaybe, listToMaybe)
-import           Data.Text (pack)
-import           DBus
-import           DBus.Client
-import qualified GI.Gdk.Enums as GdkE
-import qualified GI.GLib as GLib
-import qualified GI.Gtk as Gtk
+import Control.Applicative ((<|>))
+import Control.Concurrent.MVar (readMVar)
+import Control.Monad (void, when)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Reader (ask, asks, runReaderT)
+import DBus
+import DBus.Client
 import qualified DBusMenu
-import           System.Log.Logger (Priority(..), logM)
-import           System.Taffybar.Context
+import Data.GI.Base (castTo)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.List (find, isInfixOf)
+import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Text (pack)
+import qualified GI.GLib as GLib
+import qualified GI.Gdk.Enums as GdkE
+import qualified GI.Gtk as Gtk
+import System.Log.Logger (Priority (..), logM)
+import System.Taffybar.Context
 
 logD :: Priority -> String -> IO ()
 logD = logM "System.Taffybar.DBus.Debug"
@@ -55,8 +59,8 @@ propsGet :: Client -> BusName -> ObjectPath -> String -> String -> IO (Maybe Var
 propsGet client dest obj iface prop = do
   let mc =
         (methodCall obj "org.freedesktop.DBus.Properties" "Get")
-          { methodCallDestination = Just dest
-          , methodCallBody = [toVariant iface, toVariant prop]
+          { methodCallDestination = Just dest,
+            methodCallBody = [toVariant iface, toVariant prop]
           }
   result <- call client mc
   case result of
@@ -82,7 +86,7 @@ popupFirstSubmenuAtWidget :: Gtk.Menu -> IO ()
 popupFirstSubmenuAtWidget rootMenu = do
   children <- Gtk.containerGetChildren rootMenu
   let go [] = pure ()
-      go (w:ws) = do
+      go (w : ws) = do
         mi <- castTo Gtk.MenuItem w
         case mi of
           Nothing -> go ws
@@ -128,8 +132,10 @@ previewSniMenuWindow winRef match previewSubmenu = do
   case chosen of
     Nothing -> liftIO (logD WARNING "No SNI entries found.") >> pure False
     Just (itemBus, itemPath, disp) -> do
-      mMenuPath <- liftIO $ propsGet client itemBus itemPath "org.kde.StatusNotifierItem" "Menu" >>= \mv ->
-        pure (mv >>= fromVariant)
+      mMenuPath <-
+        liftIO $
+          propsGet client itemBus itemPath "org.kde.StatusNotifierItem" "Menu" >>= \mv ->
+            pure (mv >>= fromVariant)
       case mMenuPath of
         Nothing -> liftIO (logD WARNING ("Entry has no Menu property: " <> disp)) >> pure False
         Just menuPath -> do
@@ -161,7 +167,7 @@ previewSniMenuWindow winRef match previewSubmenu = do
             when previewSubmenu $ do
               children <- Gtk.containerGetChildren gtkMenu
               let findFirstSubmenu [] = pure ()
-                  findFirstSubmenu (w:ws) = do
+                  findFirstSubmenu (w : ws) = do
                     mi <- castTo Gtk.MenuItem w
                     case mi of
                       Nothing -> findFirstSubmenu ws
@@ -197,8 +203,10 @@ popupSniMenu match popupSubmenu = do
   case chosen of
     Nothing -> liftIO (logD WARNING "No SNI entries found.") >> pure False
     Just (itemBus, itemPath, disp) -> do
-      mMenuPath <- liftIO $ propsGet client itemBus itemPath "org.kde.StatusNotifierItem" "Menu" >>= \mv ->
-        pure (mv >>= fromVariant)
+      mMenuPath <-
+        liftIO $
+          propsGet client itemBus itemPath "org.kde.StatusNotifierItem" "Menu" >>= \mv ->
+            pure (mv >>= fromVariant)
       case mMenuPath of
         Nothing -> liftIO (logD WARNING ("Entry has no Menu property: " <> disp)) >> pure False
         Just menuPath -> do
@@ -208,7 +216,7 @@ popupSniMenu match popupSubmenu = do
             -- Attach to the bar window if possible (CSS + lifetime management).
             wins <- readMVar (existingWindows ctx)
             let mWin = case wins of
-                  ((_, win):_) -> Just win
+                  ((_, win) : _) -> Just win
                   _ -> Nothing
             case mWin of
               Just win -> do
@@ -238,11 +246,11 @@ exportDebugInterface = do
       previewIO s b = runReaderT (previewSniMenuWindow previewWinRef s b) ctx
       iface =
         defaultInterface
-          { interfaceName = debugInterfaceName
-          , interfaceMethods =
-              [ autoMethod "ListSNIEntries" listEntriesIO
-              , autoMethod "PopupSniMenu" popupIO
-              , autoMethod "PreviewSniMenu" previewIO
+          { interfaceName = debugInterfaceName,
+            interfaceMethods =
+              [ autoMethod "ListSNIEntries" listEntriesIO,
+                autoMethod "PopupSniMenu" popupIO,
+                autoMethod "PreviewSniMenu" previewIO
               ]
           }
   liftIO $ do
@@ -251,4 +259,4 @@ exportDebugInterface = do
 
 handleDBusDebug :: TaffybarConfig -> TaffybarConfig
 handleDBusDebug cfg =
-  cfg { startupHook = startupHook cfg >> exportDebugInterface }
+  cfg {startupHook = startupHook cfg >> exportDebugInterface}

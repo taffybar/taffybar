@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.Inhibitor
 -- Copyright   : (c) Ivan A. Malison
@@ -13,35 +17,37 @@
 -- systemd-logind DBus interface. The inhibitor is acquired by calling the
 -- Inhibit method on org.freedesktop.login1.Manager, which returns a file
 -- descriptor. The lock is held as long as the fd is open.
------------------------------------------------------------------------------
 module System.Taffybar.Information.Inhibitor
   ( -- * Types
-    InhibitType(..)
-  , InhibitorState(..)
-  , InhibitorContext(..)
-    -- * Inhibitor Management
-  , getInhibitorContext
-  , getInhibitorState
-  , toggleInhibitor
-  , getInhibitorChan
-    -- * Utilities
-  , inhibitTypeToString
-  , inhibitTypesFromStrings
-  ) where
+    InhibitType (..),
+    InhibitorState (..),
+    InhibitorContext (..),
 
-import           Control.Concurrent
-import           Control.Concurrent.STM.TChan
-import           Control.Monad.IO.Class
-import           Control.Monad.STM (atomically)
-import           Control.Monad.Trans.Reader
-import           DBus
-import           DBus.Client
-import           Data.List (intercalate)
+    -- * Inhibitor Management
+    getInhibitorContext,
+    getInhibitorState,
+    toggleInhibitor,
+    getInhibitorChan,
+
+    -- * Utilities
+    inhibitTypeToString,
+    inhibitTypesFromStrings,
+  )
+where
+
+import Control.Concurrent
+import Control.Concurrent.STM.TChan
+import Control.Monad.IO.Class
+import Control.Monad.STM (atomically)
+import Control.Monad.Trans.Reader
+import DBus
+import DBus.Client
+import Data.List (intercalate)
 import qualified Data.Text as T
-import           System.Log.Logger
-import           System.Posix.IO (closeFd)
-import           System.Posix.Types (Fd)
-import           System.Taffybar.Context
+import System.Log.Logger
+import System.Posix.IO (closeFd)
+import System.Posix.Types (Fd)
+import System.Taffybar.Context
 
 -- | Types of inhibitors supported by systemd-logind
 data InhibitType
@@ -56,22 +62,23 @@ data InhibitType
 
 -- | Current state of the inhibitor
 data InhibitorState = InhibitorState
-  { inhibitorActive :: Bool
-  , inhibitorTypes :: [InhibitType]
-  } deriving (Eq, Show)
+  { inhibitorActive :: Bool,
+    inhibitorTypes :: [InhibitType]
+  }
+  deriving (Eq, Show)
 
 -- | Context for managing an inhibitor, stored in taffybar's state
 data InhibitorContext = InhibitorContext
-  { inhibitorChan :: TChan InhibitorState
-  , inhibitorStateVar :: MVar InhibitorState
-  , inhibitorFdVar :: MVar (Maybe Fd)
-  , inhibitorConfig :: [InhibitType]
+  { inhibitorChan :: TChan InhibitorState,
+    inhibitorStateVar :: MVar InhibitorState,
+    inhibitorFdVar :: MVar (Maybe Fd),
+    inhibitorConfig :: [InhibitType]
   }
 
 inhibitorLogPath :: String
 inhibitorLogPath = "System.Taffybar.Information.Inhibitor"
 
-inhibitorLog :: MonadIO m => Priority -> String -> m ()
+inhibitorLog :: (MonadIO m) => Priority -> String -> m ()
 inhibitorLog priority = liftIO . logM inhibitorLogPath priority
 
 -- | Convert an InhibitType to its string representation for DBus
@@ -128,14 +135,18 @@ acquireInhibitor client types = do
       why = "User requested inhibition"
       mode = "block" :: String
   inhibitorLog DEBUG $ "Acquiring inhibitor for: " ++ what
-  reply <- call client (methodCall login1ObjectPath login1Interface "Inhibit")
-    { methodCallDestination = Just login1BusName
-    , methodCallBody = [ toVariant (T.pack what)
-                       , toVariant (T.pack who)
-                       , toVariant (T.pack why)
-                       , toVariant (T.pack mode)
-                       ]
-    }
+  reply <-
+    call
+      client
+      (methodCall login1ObjectPath login1Interface "Inhibit")
+        { methodCallDestination = Just login1BusName,
+          methodCallBody =
+            [ toVariant (T.pack what),
+              toVariant (T.pack who),
+              toVariant (T.pack why),
+              toVariant (T.pack mode)
+            ]
+        }
   case reply of
     Left err -> do
       inhibitorLog WARNING $ "Failed to acquire inhibitor: " ++ show err
@@ -148,12 +159,16 @@ acquireInhibitor client types = do
             return $ Right fd
           Nothing -> do
             inhibitorLog WARNING "Invalid fd type in response"
-            return $ Left $ methodError (methodReturnSerial ret) $
-              errorName_ "org.taffybar.InvalidResponse"
+            return $
+              Left $
+                methodError (methodReturnSerial ret) $
+                  errorName_ "org.taffybar.InvalidResponse"
         _ -> do
           inhibitorLog WARNING "Unexpected response format"
-          return $ Left $ methodError (methodReturnSerial ret) $
-            errorName_ "org.taffybar.InvalidResponse"
+          return $
+            Left $
+              methodError (methodReturnSerial ret) $
+                errorName_ "org.taffybar.InvalidResponse"
 
 -- | Release an inhibitor by closing its file descriptor
 releaseInhibitor :: Fd -> IO ()
@@ -166,17 +181,21 @@ getInhibitorContext :: [InhibitType] -> TaffyIO InhibitorContext
 getInhibitorContext types = getStateDefault $ do
   inhibitorLog DEBUG "Initializing InhibitorContext"
   chan <- liftIO newBroadcastTChanIO
-  stateVar <- liftIO $ newMVar InhibitorState
-    { inhibitorActive = False
-    , inhibitorTypes = types
-    }
+  stateVar <-
+    liftIO $
+      newMVar
+        InhibitorState
+          { inhibitorActive = False,
+            inhibitorTypes = types
+          }
   fdVar <- liftIO $ newMVar Nothing
-  return InhibitorContext
-    { inhibitorChan = chan
-    , inhibitorStateVar = stateVar
-    , inhibitorFdVar = fdVar
-    , inhibitorConfig = types
-    }
+  return
+    InhibitorContext
+      { inhibitorChan = chan,
+        inhibitorStateVar = stateVar,
+        inhibitorFdVar = fdVar,
+        inhibitorConfig = types
+      }
 
 -- | Get the current inhibitor state
 getInhibitorState :: [InhibitType] -> TaffyIO InhibitorState
@@ -200,10 +219,11 @@ toggleInhibitor types = do
       Just fd -> do
         -- Currently active, release it
         releaseInhibitor fd
-        let newState = InhibitorState
-              { inhibitorActive = False
-              , inhibitorTypes = types
-              }
+        let newState =
+              InhibitorState
+                { inhibitorActive = False,
+                  inhibitorTypes = types
+                }
         _ <- swapMVar (inhibitorStateVar ctx) newState
         atomically $ writeTChan (inhibitorChan ctx) newState
         inhibitorLog DEBUG "Inhibitor deactivated"
@@ -213,10 +233,11 @@ toggleInhibitor types = do
         result <- acquireInhibitor client types
         case result of
           Right fd -> do
-            let newState = InhibitorState
-                  { inhibitorActive = True
-                  , inhibitorTypes = types
-                  }
+            let newState =
+                  InhibitorState
+                    { inhibitorActive = True,
+                      inhibitorTypes = types
+                    }
             _ <- swapMVar (inhibitorStateVar ctx) newState
             atomically $ writeTChan (inhibitorChan ctx) newState
             inhibitorLog DEBUG "Inhibitor activated"

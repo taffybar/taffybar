@@ -2,72 +2,76 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module System.Taffybar.Test.XvfbSpec
-  ( spec
-  -- * Virtual X11 server for unit testing
-  , withXvfb
-  , withXdummy
-  , displayArg
-  , displayEnv
-  , setDefaultDisplay_
-  , setDefaultDisplay
-  -- ** Randr
-  , withRandrSetup
-  , randrSetup
-  , randrTeardown
-  -- *** RANDR config
-  , RRSetup(..)
-  , RROutput(..)
-  , RROutputSettings(..)
-  , RRExistingMode(..)
-  , RRMode(..)
-  , RRModeName(..)
-  , RRModeLine(..)
-  , RRPosition(..)
-  , RRRotation(..)
-  , ListIndex(..)
-  -- ** Clients
-  , withXTerm
-  -- * Wrappers around @xprop@ command
-  , XPropName(..)
-  , xpropName
-  , XPropValue(..)
-  , xpropValue
-  , xpropGet
-  , xpropSet
-  , xpropRemove
-  , xpropList
-  ) where
+  ( spec,
+
+    -- * Virtual X11 server for unit testing
+    withXvfb,
+    withXdummy,
+    displayArg,
+    displayEnv,
+    setDefaultDisplay_,
+    setDefaultDisplay,
+
+    -- ** Randr
+    withRandrSetup,
+    randrSetup,
+    randrTeardown,
+
+    -- *** RANDR config
+    RRSetup (..),
+    RROutput (..),
+    RROutputSettings (..),
+    RRExistingMode (..),
+    RRMode (..),
+    RRModeName (..),
+    RRModeLine (..),
+    RRPosition (..),
+    RRRotation (..),
+    ListIndex (..),
+
+    -- ** Clients
+    withXTerm,
+
+    -- * Wrappers around @xprop@ command
+    XPropName (..),
+    xpropName,
+    XPropValue (..),
+    xpropValue,
+    xpropGet,
+    xpropSet,
+    xpropRemove,
+    xpropList,
+  )
+where
 
 import Control.Applicative ((<|>))
-import Control.Monad ((<=<), void, forM_, guard)
-import Control.Monad.IO.Class (MonadIO(..))
-import Data.Attoparsec.Text.Lazy hiding (takeWhile, take)
-import qualified Data.Attoparsec.Text.Lazy as P
-import qualified Data.ByteString.Lazy.Char8 as BL
+import Control.Monad (forM_, guard, void, (<=<))
+import Control.Monad.IO.Class (MonadIO (..))
+import Data.Attoparsec.Text.Lazy hiding (take, takeWhile)
+import Data.Attoparsec.Text.Lazy qualified as P
 import Data.Bifunctor (bimap, second)
+import Data.ByteString.Lazy.Char8 qualified as BL
 import Data.Char (isPrint, isSpace)
 import Data.Coerce (coerce)
-import Data.Default (Default(..))
-import Data.List (findIndex, uncons, dropWhileEnd)
-import Data.String (IsString(..))
-import Data.Text.Lazy.Encoding (decodeUtf8')
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text as T
+import Data.Default (Default (..))
 import Data.Function ((&))
-import Data.Maybe (maybeToList, mapMaybe, isJust, isNothing)
+import Data.List (dropWhileEnd, findIndex, uncons)
+import Data.Maybe (isJust, isNothing, mapMaybe, maybeToList)
+import Data.String (IsString (..))
+import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
+import Data.Text.Lazy.Encoding (decodeUtf8')
 import GHC.Generics (Generic)
-import System.Process.Typed
 import System.IO (Handle, hClose, hGetLine)
-import Text.Read (readMaybe)
-import UnliftIO.Concurrent (threadDelay)
-import UnliftIO.Exception (fromEitherM, throwString, bracket_)
-
+import System.Process.Typed
+import System.Taffybar.Information.X11DesktopInfo (DisplayName (..))
+import System.Taffybar.Test.UtilSpec (Priority (..), getSpecLogPriority, logSetup, setServiceDefaults, setStderrCond, specLog, specLogAt, withService, withSetEnv)
 import Test.Hspec
 import Test.QuickCheck
 import Test.QuickCheck.Monadic
-
-import System.Taffybar.Test.UtilSpec (withSetEnv, logSetup, specLog, specLogAt, getSpecLogPriority, Priority(..), setStderrCond, setServiceDefaults, withService)
-import System.Taffybar.Information.X11DesktopInfo (DisplayName(..))
+import Text.Read (readMaybe)
+import UnliftIO.Concurrent (threadDelay)
+import UnliftIO.Exception (bracket_, fromEitherM, throwString)
 
 ------------------------------------------------------------------------
 
@@ -90,27 +94,28 @@ displayEnv (DisplayName d) = [("DISPLAY", d)]
 
 ------------------------------------------------------------------------
 
-newtype XPropName = XPropName { unXPropName :: String }
+newtype XPropName = XPropName {unXPropName :: String}
   deriving (Show, Read, Eq, Ord, Generic)
 
 -- | Construct a valid 'XPropName' from a 'String'. Any names which
 -- cause problems when parsing @xprop@ output are not allowed.
 xpropName :: String -> Maybe XPropName
-xpropName n@(c:cs)
-  | c `elem` propNameStartChars &&
-    all isPrint cs &&
-    not (any propNameBadChars cs) = Just (XPropName n)
+xpropName n@(c : cs)
+  | c `elem` propNameStartChars
+      && all isPrint cs
+      && not (any propNameBadChars cs) =
+      Just (XPropName n)
 xpropName _ = Nothing
 
 -- | List of characters which are valid first characters of a property
 -- name.
 propNameStartChars :: [Char]
-propNameStartChars = ['a'..'z'] <> ['A'..'Z'] <> ['_']
+propNameStartChars = ['a' .. 'z'] <> ['A' .. 'Z'] <> ['_']
 
 propNameBadChars :: Char -> Bool
 propNameBadChars c = isSpace c || c `elem` ['(', ')', ':']
 
-newtype XPropValue = XPropValue { unXPropValue :: String }
+newtype XPropValue = XPropValue {unXPropValue :: String}
   deriving (Show, Read, Eq, Ord, Semigroup, Monoid, Generic)
 
 -- | Construct a valid 'XPropValue' from a 'String'. Any values which
@@ -121,7 +126,7 @@ xpropValue n = if not (any propValueBadChars n) then Just (XPropValue n) else No
 -- | Predicate on characters which cause difficulties when parsing
 -- @xprop@ output.
 propValueBadChars :: Char -> Bool
-propValueBadChars c = c `elem` ['"','\n','\r'] || not (isPrint c)
+propValueBadChars c = c `elem` ['"', '\n', '\r'] || not (isPrint c)
 
 ------------------------------------------------------------------------
 
@@ -136,7 +141,7 @@ xpropGet d p = do
   either throwString pure $ parseXProp1 p txt
   where
     cfg = xpropProc d ["-root", unXPropName p]
-    decoded :: MonadIO m => m BL.ByteString -> m TL.Text
+    decoded :: (MonadIO m) => m BL.ByteString -> m TL.Text
     decoded = fromEitherM . fmap decodeUtf8'
 
 parseXProp1 :: XPropName -> TL.Text -> Either String [XPropValue]
@@ -175,7 +180,7 @@ parseXProp = eitherResult . parse (many' parseProp)
     parsePropValue "UTF8_STRING" = quotedString
     parsePropValue t = fail $ "Can't parse format \"" ++ T.unpack t ++ "\""
 
-xpropSet :: MonadIO m => DisplayName -> XPropName -> XPropValue -> m ()
+xpropSet :: (MonadIO m) => DisplayName -> XPropName -> XPropValue -> m ()
 xpropSet d (XPropName p) (XPropValue v) = liftIO $ do
   specLog $ "xpropSet running: " ++ show cfg
   runProcess_ cfg
@@ -183,14 +188,14 @@ xpropSet d (XPropName p) (XPropValue v) = liftIO $ do
     cfg = xpropProc d args
     args = ["-root", "-format", p, "8u", "-set", p, v]
 
-xpropRemove :: MonadIO m => DisplayName -> XPropName -> m ()
+xpropRemove :: (MonadIO m) => DisplayName -> XPropName -> m ()
 xpropRemove d p = do
   specLog $ "xpropRemove running: " ++ show cfg
   runProcess_ cfg
   where
     cfg = xpropProc d ["-root", "-remove", unXPropName p]
 
-xpropList :: MonadIO m => DisplayName -> m ()
+xpropList :: (MonadIO m) => DisplayName -> m ()
 xpropList d = liftIO $ do
   specLog $ "xpropList running: " ++ show cfg
   runProcess_ cfg
@@ -228,9 +233,10 @@ withXserver prog args display action = do
     action d
   where
     args' = displayArgMaybe ++ ["-displayfd", "1", "-terminate", "60"] ++ args
-    makeXvfb logLevel = proc prog args'
-      & setServiceDefaults logLevel
-      & setStdout createPipe
+    makeXvfb logLevel =
+      proc prog args'
+        & setServiceDefaults logLevel
+        & setStdout createPipe
 
     displayArgMaybe = maybeToList (fmap displaySpec display)
 
@@ -257,13 +263,13 @@ setDefaultDisplay d action = setDefaultDisplay_ d (action d)
 
 -- | Adds a guiding phantom type annotation for indices into lists.
 -- fixme: zipper rather than indices
-newtype ListIndex a = ListIndex { unListIndex :: Int }
+newtype ListIndex a = ListIndex {unListIndex :: Int}
   deriving (Show, Read, Eq, Ord, Enum, Num, Real, Integral, Generic)
 
 enumerate :: [a] -> [(ListIndex a, a)]
-enumerate = zip [0..]
+enumerate = zip [0 ..]
 
-bounds' :: Integral n => (n, n) -> (ListIndex a, ListIndex a)
+bounds' :: (Integral n) => (n, n) -> (ListIndex a, ListIndex a)
 bounds' = let f = ListIndex . fromIntegral in bimap f f
 
 bounds :: [a] -> (ListIndex a, ListIndex a)
@@ -281,36 +287,39 @@ chooseListIndex = chooseListIndexN . length
 ------------------------------------------------------------------------
 
 data RRSetup = RRSetup
-  { outputs :: [RROutput]
-  , primary :: Maybe (ListIndex RROutput)
-  , newModes :: [RRMode] -- unused by outputs
-  } deriving (Show, Read, Eq, Generic)
+  { outputs :: [RROutput],
+    primary :: Maybe (ListIndex RROutput),
+    newModes :: [RRMode] -- unused by outputs
+  }
+  deriving (Show, Read, Eq, Generic)
 
 instance Default RRSetup where
-  def = RRSetup { outputs = [def], primary = Just 0, newModes = [] }
+  def = RRSetup {outputs = [def], primary = Just 0, newModes = []}
 
 data RROutput = RROutput
-  { mode :: Maybe RRExistingMode
-  , settings :: RROutputSettings
-  , position :: RRPosition
-  } deriving (Show, Read, Eq, Generic)
+  { mode :: Maybe RRExistingMode,
+    settings :: RROutputSettings,
+    position :: RRPosition
+  }
+  deriving (Show, Read, Eq, Generic)
 
 instance Default RROutput where
-  def = RROutput { mode = def, settings = def, position = def }
+  def = RROutput {mode = def, settings = def, position = def}
 
 rrOutputOff :: RROutput
-rrOutputOff = def { settings = def { disabled = True } }
+rrOutputOff = def {settings = def {disabled = True}}
 
 data RROutputSettings = RROutputSettings
-  { disabled :: Bool
-  , rotate :: RRRotation
-  } deriving (Show, Read, Eq, Generic)
+  { disabled :: Bool,
+    rotate :: RRRotation
+  }
+  deriving (Show, Read, Eq, Generic)
 
 instance Default RROutputSettings where
-  def = RROutputSettings { disabled = False, rotate = def }
+  def = RROutputSettings {disabled = False, rotate = def}
 
 -- | This is an index into 'modeLines'.
-newtype RRExistingMode = RRExistingMode { unRRExistingMode :: ListIndex RRMode }
+newtype RRExistingMode = RRExistingMode {unRRExistingMode :: ListIndex RRMode}
   deriving (Show, Read, Eq, Ord, Enum, Generic)
 
 instance Bounded RRExistingMode where
@@ -321,9 +330,10 @@ instance Default RRExistingMode where
   def = minBound
 
 data RRMode = RRMode
-  { name :: RRModeName
-  , modeLine :: RRModeLine
-  } deriving (Show, Read, Eq, Generic)
+  { name :: RRModeName,
+    modeLine :: RRModeLine
+  }
+  deriving (Show, Read, Eq, Generic)
 
 instance IsString RRMode where
   fromString = uncurry RRMode . bimap (RRModeName . unquote) RRModeLine . split
@@ -331,10 +341,10 @@ instance IsString RRMode where
       split = second (dropWhile isSpace) . break isSpace
       unquote = takeWhile (/= '"') . dropWhile (== '"')
 
-newtype RRModeName = RRModeName { unRRModeName :: String }
+newtype RRModeName = RRModeName {unRRModeName :: String}
   deriving (Show, Read, Eq, IsString, Generic)
 
-newtype RRModeLine = RRModeLine { unRRModeLine :: String }
+newtype RRModeLine = RRModeLine {unRRModeLine :: String}
   deriving (Show, Read, Eq, IsString, Generic)
 
 data RRPosition = SameAs | RightOf | LeftOf | Below | Above
@@ -354,34 +364,34 @@ instance Default RRRotation where
 -- instances to generate new modelines.
 modeLines :: [RRMode]
 modeLines =
-  [ "1280x1024 157.500 1280 1344 1504 1728 1024 1025 1028 1072 +HSync +VSync +preferred"
-  , "1280x1024 135.000 1280 1296 1440 1688 1024 1025 1028 1066 +HSync +VSync"
-  , "1280x1024 108.000 1280 1328 1440 1688 1024 1025 1028 1066 +HSync +VSync"
-  , "1280x960 148.500 1280 1344 1504 1728 960 961 964 1011 +HSync +VSync"
-  , "1280x960 108.000 1280 1376 1488 1800 960 961 964 1000 +HSync +VSync"
-  , "1280x800 83.500 1280 1352 1480 1680 800 803 809 831 -HSync +VSync"
-  , "1152x864 108.000 1152 1216 1344 1600 864 865 868 900 +HSync +VSync"
-  , "1280x720 74.500 1280 1344 1472 1664 720 723 728 748 -HSync +VSync"
-  , "1024x768 94.500 1024 1072 1168 1376 768 769 772 808 +HSync +VSync"
-  , "1024x768 78.750 1024 1040 1136 1312 768 769 772 800 +HSync +VSync"
-  , "1024x768 75.000 1024 1048 1184 1328 768 771 777 806 -HSync -VSync"
-  , "1024x768 65.000 1024 1048 1184 1344 768 771 777 806 -HSync -VSync"
-  , "1024x576 46.500 1024 1064 1160 1296 576 579 584 599 -HSync +VSync"
-  , "832x624 57.284 832 864 928 1152 624 625 628 667 -HSync -VSync"
-  , "960x540 40.750 960 992 1088 1216 540 543 548 562 -HSync +VSync"
-  , "800x600 56.300 800 832 896 1048 600 601 604 631 +HSync +VSync"
-  , "800x600 50.000 800 856 976 1040 600 637 643 666 +HSync +VSync"
-  , "800x600 49.500 800 816 896 1056 600 601 604 625 +HSync +VSync"
-  , "800x600 40.000 800 840 968 1056 600 601 605 628 +HSync +VSync"
-  , "800x600 36.000 800 824 896 1024 600 601 603 625 +HSync +VSync"
-  , "864x486 32.500 864 888 968 1072 486 489 494 506 -HSync +VSync"
-  , "640x480 36.000 640 696 752 832 480 481 484 509 -HSync -VSync"
-  , "640x480 31.500 640 656 720 840 480 481 484 500 -HSync -VSync"
-  , "640x480 31.500 640 664 704 832 480 489 492 520 -HSync -VSync"
-  , "640x480 25.175 640 656 752 800 480 490 492 525 -HSync -VSync"
-  , "720x400 35.500 720 756 828 936 400 401 404 446 -HSync +VSync"
-  , "640x400 31.500 640 672 736 832 400 401 404 445 -HSync +VSync"
-  , "640x350 31.500 640 672 736 832 350 382 385 445 +HSync -VSync"
+  [ "1280x1024 157.500 1280 1344 1504 1728 1024 1025 1028 1072 +HSync +VSync +preferred",
+    "1280x1024 135.000 1280 1296 1440 1688 1024 1025 1028 1066 +HSync +VSync",
+    "1280x1024 108.000 1280 1328 1440 1688 1024 1025 1028 1066 +HSync +VSync",
+    "1280x960 148.500 1280 1344 1504 1728 960 961 964 1011 +HSync +VSync",
+    "1280x960 108.000 1280 1376 1488 1800 960 961 964 1000 +HSync +VSync",
+    "1280x800 83.500 1280 1352 1480 1680 800 803 809 831 -HSync +VSync",
+    "1152x864 108.000 1152 1216 1344 1600 864 865 868 900 +HSync +VSync",
+    "1280x720 74.500 1280 1344 1472 1664 720 723 728 748 -HSync +VSync",
+    "1024x768 94.500 1024 1072 1168 1376 768 769 772 808 +HSync +VSync",
+    "1024x768 78.750 1024 1040 1136 1312 768 769 772 800 +HSync +VSync",
+    "1024x768 75.000 1024 1048 1184 1328 768 771 777 806 -HSync -VSync",
+    "1024x768 65.000 1024 1048 1184 1344 768 771 777 806 -HSync -VSync",
+    "1024x576 46.500 1024 1064 1160 1296 576 579 584 599 -HSync +VSync",
+    "832x624 57.284 832 864 928 1152 624 625 628 667 -HSync -VSync",
+    "960x540 40.750 960 992 1088 1216 540 543 548 562 -HSync +VSync",
+    "800x600 56.300 800 832 896 1048 600 601 604 631 +HSync +VSync",
+    "800x600 50.000 800 856 976 1040 600 637 643 666 +HSync +VSync",
+    "800x600 49.500 800 816 896 1056 600 601 604 625 +HSync +VSync",
+    "800x600 40.000 800 840 968 1056 600 601 605 628 +HSync +VSync",
+    "800x600 36.000 800 824 896 1024 600 601 603 625 +HSync +VSync",
+    "864x486 32.500 864 888 968 1072 486 489 494 506 -HSync +VSync",
+    "640x480 36.000 640 696 752 832 480 481 484 509 -HSync -VSync",
+    "640x480 31.500 640 656 720 840 480 481 484 500 -HSync -VSync",
+    "640x480 31.500 640 664 704 832 480 489 492 520 -HSync -VSync",
+    "640x480 25.175 640 656 752 800 480 490 492 525 -HSync -VSync",
+    "720x400 35.500 720 756 828 936 400 401 404 446 -HSync +VSync",
+    "640x400 31.500 640 672 736 832 400 401 404 445 -HSync +VSync",
+    "640x350 31.500 640 672 736 832 350 382 385 445 +HSync -VSync"
   ]
 
 xrandr :: DisplayName -> [String] -> ProcessConfig () () ()
@@ -415,26 +425,29 @@ randrSetup d rr = do
     Nothing -> pure ()
 
   runXrandr d args
-
   where
     args = concat (globalArgs ++ givenArgs ++ switchOffOthers rr.outputs)
-    globalArgs = [ ["--noprimary" | isNothing rr.primary ] ]
+    globalArgs = [["--noprimary" | isNothing rr.primary]]
 
-    givenArgs = zipWith outputArgs [0..] rr.outputs
+    givenArgs = zipWith outputArgs [0 ..] rr.outputs
 
     outputArgs :: ListIndex RROutput -> RROutput -> [String]
     outputArgs i output =
-      [ "--output", outputName i
-      , "--rotate", rrRotation output.settings.rotate
-      ] ++
-      maybe ["--preferred"] (\m -> ["--mode", modeName m]) output.mode ++
-      ["--off" | output.settings.disabled ] ++
-      ["--primary" | rr.primary == Just i] ++
-      (if i > 0 then ["--" ++ rrPosition output.position, outputName (i - 1)] else [])
+      [ "--output",
+        outputName i,
+        "--rotate",
+        rrRotation output.settings.rotate
+      ]
+        ++ maybe ["--preferred"] (\m -> ["--mode", modeName m]) output.mode
+        ++ ["--off" | output.settings.disabled]
+        ++ ["--primary" | rr.primary == Just i]
+        ++ (if i > 0 then ["--" ++ rrPosition output.position, outputName (i - 1)] else [])
 
     switchOffOthers :: [RROutput] -> [[String]]
-    switchOffOthers os = [ ["--output", outputName i, "--off"]
-                         | i <- [ListIndex (length os)..15] ]
+    switchOffOthers os =
+      [ ["--output", outputName i, "--off"]
+      | i <- [ListIndex (length os) .. 15]
+      ]
 
 randrTeardown :: DisplayName -> RRSetup -> IO ()
 randrTeardown d rr = do
@@ -488,14 +501,15 @@ spec = logSetup $ do
 
 ------------------------------------------------------------------------
 
-prop_xprop :: HasCallStack => DisplayName -> XPropName -> XPropValue -> Property
+prop_xprop :: (HasCallStack) => DisplayName -> XPropName -> XPropValue -> Property
 prop_xprop d name value = monadicIO $ do
   xpropSet d name value
   value' <- xpropGet d name
   xpropRemove d name
-  pure $ if value /= mempty
-    then value' === [value]
-    else value' === []
+  pure $
+    if value /= mempty
+      then value' === [value]
+      else value' === []
 
 instance Arbitrary XPropName where
   arbitrary = ((:) <$> elements propNameStartChars <*> listOf arbitraryASCIIChar) `suchThatMap` xpropName
@@ -507,29 +521,32 @@ instance Arbitrary XPropValue where
 
 ------------------------------------------------------------------------
 
-prop_xrandr :: HasCallStack => DisplayName -> RRSetup -> Property
+prop_xrandr :: (HasCallStack) => DisplayName -> RRSetup -> Property
 prop_xrandr d rr = decorate $ monadicIO $ do
-    qrr <- run $ withRandrSetup d rr (randrQuery d)
-    let (rr', qrr') = reformat rr qrr
-    pure $ qrr' === rr'
+  qrr <- run $ withRandrSetup d rr (randrQuery d)
+  let (rr', qrr') = reformat rr qrr
+  pure $ qrr' === rr'
   where
     decorate =
-      tabulate "Outputs" [outputName i | (i, o) <- enumerate rr.outputs, not o.settings.disabled] .
-      (if any ((/= Unrotated) . rotate . settings) rr.outputs then label "rotation" else id) .
-      (if any (isNothing . mode) rr.outputs then label "using preferred mode" else id) .
-      cover 50 (length rr.outputs > 1) "non-trivial"
+      tabulate "Outputs" [outputName i | (i, o) <- enumerate rr.outputs, not o.settings.disabled]
+        . (if any ((/= Unrotated) . rotate . settings) rr.outputs then label "rotation" else id)
+        . (if any (isNothing . mode) rr.outputs then label "using preferred mode" else id)
+        . cover 50 (length rr.outputs > 1) "non-trivial"
 
-    reformat rrs = unzip
-      . map (bimap snd snd)
-      . dropWhileEnd (not . uncurry (||) . bimap fst fst)
-      . zip (tuplify (backfill 16 rrs))
+    reformat rrs =
+      unzip
+        . map (bimap snd snd)
+        . dropWhileEnd (not . uncurry (||) . bimap fst fst)
+        . zip (tuplify (backfill 16 rrs))
 
-    tuplify RRSetup{..} =
+    tuplify RRSetup {..} =
       [ (not o.settings.disabled, (i, Just (ListIndex i) == primary))
-      | (i, o) <- zip [0..] outputs ]
+      | (i, o) <- zip [0 ..] outputs
+      ]
 
-    backfill n rrs = rrs { outputs = rr.outputs ++ extras }
-      where extras = replicate (max 0 (n - length rr.outputs)) rrOutputOff
+    backfill n rrs = rrs {outputs = rr.outputs ++ extras}
+      where
+        extras = replicate (max 0 (n - length rr.outputs)) rrOutputOff
 
 -- | Scans output of @xrandr --query@ and returns values relevant to
 -- test assertions.
@@ -553,37 +570,40 @@ instance Arbitrary RRSetup where
     nNewModes <- chooseInt (1, nOutputs)
     newModeLines <- vectorOf nNewModes (elements (map modeLine modeLines))
 
-    let newModes = [ RRMode (newModeName i) m | (i, m) <- enumerate newModeLines ]
+    let newModes = [RRMode (newModeName i) m | (i, m) <- enumerate newModeLines]
 
     -- TODO: also use new modes for outputs
     -- mode <- chooseListIndex newModes
 
     outputs <- vector nOutputs
-    primary <- frequency [ (5, Just <$> chooseListIndex outputs)
-                         , (1, pure Nothing) ]
-    pure $ RRSetup{..}
+    primary <-
+      frequency
+        [ (5, Just <$> chooseListIndex outputs),
+          (1, pure Nothing)
+        ]
+    pure $ RRSetup {..}
 
   shrink rr = do
     (primary, outputs) <- shrinkOutputs
     guard $ not $ null outputs
     pure $ RRSetup {newModes = [], ..}
-
     where
       shrinkOutputs = case rr.primary of
         Just p -> shrinkListIx shrink (p, rr.outputs)
         Nothing -> map (Nothing,) (shrinkList shrink rr.outputs)
 
-      -- fixme: shrink modes properly too, and adjust mode within outputs
-      -- shrinkModes ms = do
-      --   ms' <- shrinkListP shrink ms
-      --   pure ms'
+-- fixme: shrink modes properly too, and adjust mode within outputs
+-- shrinkModes ms = do
+--   ms' <- shrinkListP shrink ms
+--   pure ms'
 
 shrinkListIx :: (a -> [a]) -> (ListIndex a, [a]) -> [(Maybe (ListIndex a), [a])]
 shrinkListIx shr (ix, xs) = map unwrap $ shrinkList (shrinkSecond shr) (wrap xs)
   where
-    wrap = zip [0..]
-    unwrap ixs = let ix' = findIndex ((== ix) . fst) ixs
-                 in (fmap ListIndex ix', map snd ixs)
+    wrap = zip [0 ..]
+    unwrap ixs =
+      let ix' = findIndex ((== ix) . fst) ixs
+       in (fmap ListIndex ix', map snd ixs)
 
     shrinkSecond :: (a -> [a]) -> (b, a) -> [(b, a)]
     shrinkSecond f (b, a) = map (b,) (f a)
@@ -591,16 +611,18 @@ shrinkListIx shr (ix, xs) = map unwrap $ shrinkList (shrinkSecond shr) (wrap xs)
 instance Arbitrary RROutput where
   -- Always set a mode because "--preferred" option seems dodgy
   arbitrary = RROutput <$> fmap Just arbitrary <*> arbitrary <*> arbitrary
-  shrink o = [ RROutput m s p
-             | (m, s, p) <- shrink (o.mode, o.settings, o.position)
-             , isJust m
-             ]
+  shrink o =
+    [ RROutput m s p
+    | (m, s, p) <- shrink (o.mode, o.settings, o.position),
+      isJust m
+    ]
 
 instance Arbitrary RROutputSettings where
   -- Rotation and reflection don't seem to work for xdummy
-  arbitrary = RROutputSettings
-    <$> frequency [(5, pure False), (1, pure True)]
-    <*> pure Unrotated
+  arbitrary =
+    RROutputSettings
+      <$> frequency [(5, pure False), (1, pure True)]
+      <*> pure Unrotated
   shrink = genericShrink
 
 instance Arbitrary RRExistingMode where
@@ -608,20 +630,26 @@ instance Arbitrary RRExistingMode where
   shrink = shrinkMap (RRExistingMode . ListIndex . getPositive) (Positive . unListIndex . unRRExistingMode)
 
 instance Arbitrary RRPosition where
-  arbitrary = frequency $ map (second pure)
-    [ (2, SameAs)
-    , (1, LeftOf)
-    , (4, RightOf)
-    , (1, Above)
-    , (2, Below)
-    ]
+  arbitrary =
+    frequency $
+      map
+        (second pure)
+        [ (2, SameAs),
+          (1, LeftOf),
+          (4, RightOf),
+          (1, Above),
+          (2, Below)
+        ]
   shrink = shrinkBoundedEnum
 
 instance Arbitrary RRRotation where
-  arbitrary = frequency $ map (second pure)
-    [ (4, Unrotated)
-    , (2, Inverted)
-    , (1, RotateLeft)
-    , (1, RotateRight)
-    ]
+  arbitrary =
+    frequency $
+      map
+        (second pure)
+        [ (4, Unrotated),
+          (2, Inverted),
+          (1, RotateLeft),
+          (1, RotateRight)
+        ]
   shrink = shrinkBoundedEnum

@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
------------------------------------------------------------------------------ 
+
+-----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.Backlight
 -- Copyright   : (c) Ivan A. Malison
@@ -11,33 +15,31 @@
 --
 -- Simple backlight widget using /sys/class/backlight and optional
 -- brightnessctl adjustments.
---
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.Backlight
-  ( BacklightWidgetConfig(..)
-  , defaultBacklightWidgetConfig
-  , backlightIconNew
-  , backlightIconNewWith
-  , backlightLabelNew
-  , backlightLabelNewWith
-  , backlightLabelNewChan
-  , backlightLabelNewChanWith
-  , backlightNew
-  , backlightNewWith
-  , backlightNewChan
-  , backlightNewChanWith
-  ) where
+  ( BacklightWidgetConfig (..),
+    defaultBacklightWidgetConfig,
+    backlightIconNew,
+    backlightIconNewWith,
+    backlightLabelNew,
+    backlightLabelNewWith,
+    backlightLabelNewChan,
+    backlightLabelNewChanWith,
+    backlightNew,
+    backlightNewWith,
+    backlightNewChan,
+    backlightNewChanWith,
+  )
+where
 
 import Control.Exception (SomeException, catch)
 import Control.Monad (void)
 import Control.Monad.IO.Class
-import Data.Default (Default(..))
+import Data.Default (Default (..))
 import qualified Data.Text as T
-import qualified GI.Gdk.Structs.EventScroll as GdkEvent
-import qualified GI.Gdk.Enums as Gdk
-import qualified GI.Gtk as Gtk
 import qualified GI.GLib as G
+import qualified GI.Gdk.Enums as Gdk
+import qualified GI.Gdk.Structs.EventScroll as GdkEvent
+import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO)
 import qualified System.Taffybar.Information.Backlight as BL
 import System.Taffybar.Util (postGUIASync, runCommand)
@@ -48,52 +50,52 @@ import Text.StringTemplate
 
 -- | Configuration for the backlight widget.
 data BacklightWidgetConfig = BacklightWidgetConfig
-  { backlightPollingInterval :: Double
-  , backlightDevice :: Maybe FilePath
-  , backlightFormat :: String
-  , backlightUnknownFormat :: String
-  , backlightTooltipFormat :: Maybe String
-  , backlightScrollStepPercent :: Maybe Int
-  , backlightBrightnessctlPath :: FilePath
-  , backlightIcon :: T.Text
-  -- ^ Nerd font icon character (default U+F0EB, \xF0EB).
+  { backlightPollingInterval :: Double,
+    backlightDevice :: Maybe FilePath,
+    backlightFormat :: String,
+    backlightUnknownFormat :: String,
+    backlightTooltipFormat :: Maybe String,
+    backlightScrollStepPercent :: Maybe Int,
+    backlightBrightnessctlPath :: FilePath,
+    -- | Nerd font icon character (default U+F0EB, \xF0EB).
+    backlightIcon :: T.Text
   }
 
 -- | Default backlight widget configuration.
 defaultBacklightWidgetConfig :: BacklightWidgetConfig
 defaultBacklightWidgetConfig =
   BacklightWidgetConfig
-    { backlightPollingInterval = 2
-    , backlightDevice = Nothing
-    , backlightFormat = "bl: $percent$%"
-    , backlightUnknownFormat = "bl: n/a"
-    , backlightTooltipFormat =
-        Just "Device: $device$\nBrightness: $brightness$/$max$ ($percent$%)"
-    , backlightScrollStepPercent = Just 5
-    , backlightBrightnessctlPath = "brightnessctl"
-    , backlightIcon = T.pack "\xF0EB"
+    { backlightPollingInterval = 2,
+      backlightDevice = Nothing,
+      backlightFormat = "bl: $percent$%",
+      backlightUnknownFormat = "bl: n/a",
+      backlightTooltipFormat =
+        Just "Device: $device$\nBrightness: $brightness$/$max$ ($percent$%)",
+      backlightScrollStepPercent = Just 5,
+      backlightBrightnessctlPath = "brightnessctl",
+      backlightIcon = T.pack "\xF0EB"
     }
 
 instance Default BacklightWidgetConfig where
   def = defaultBacklightWidgetConfig
 
 -- | Create a backlight icon widget with default configuration.
-backlightIconNew :: MonadIO m => m Gtk.Widget
+backlightIconNew :: (MonadIO m) => m Gtk.Widget
 backlightIconNew = backlightIconNewWith defaultBacklightWidgetConfig
 
 -- | Create a backlight icon widget with the provided configuration.
-backlightIconNewWith :: MonadIO m => BacklightWidgetConfig -> m Gtk.Widget
+backlightIconNewWith :: (MonadIO m) => BacklightWidgetConfig -> m Gtk.Widget
 backlightIconNewWith config = liftIO $ do
   label <- Gtk.labelNew (Just (backlightIcon config))
   Gtk.widgetShowAll label
   Gtk.toWidget label
 
 -- | Create a combined icon+label backlight widget with default configuration.
-backlightNew :: MonadIO m => m Gtk.Widget
+backlightNew :: (MonadIO m) => m Gtk.Widget
 backlightNew = backlightNewWith defaultBacklightWidgetConfig
 
 -- | Create a combined icon+label backlight widget.
-backlightNewWith :: MonadIO m => BacklightWidgetConfig -> m Gtk.Widget
+backlightNewWith :: (MonadIO m) => BacklightWidgetConfig -> m Gtk.Widget
 backlightNewWith config = liftIO $ do
   iconWidget <- backlightIconNewWith config
   labelWidget <- backlightLabelNewWith config
@@ -111,15 +113,16 @@ backlightNewChanWith config = do
   liftIO $ buildIconLabelBox iconWidget labelWidget
 
 -- | Create a backlight widget with default configuration.
-backlightLabelNew :: MonadIO m => m Gtk.Widget
+backlightLabelNew :: (MonadIO m) => m Gtk.Widget
 backlightLabelNew = backlightLabelNewWith defaultBacklightWidgetConfig
 
 -- | Create a backlight widget with the provided configuration.
-backlightLabelNewWith :: MonadIO m => BacklightWidgetConfig -> m Gtk.Widget
+backlightLabelNewWith :: (MonadIO m) => BacklightWidgetConfig -> m Gtk.Widget
 backlightLabelNewWith config = liftIO $ do
-  widget <- pollingLabelNewWithTooltip
-    (backlightPollingInterval config)
-    (formatBacklightWidget config)
+  widget <-
+    pollingLabelNewWithTooltip
+      (backlightPollingInterval config)
+      (formatBacklightWidget config)
 
   case backlightScrollStepPercent config of
     Nothing -> return ()
@@ -148,22 +151,22 @@ backlightLabelNewChan = backlightLabelNewChanWith defaultBacklightWidgetConfig
 -- | Create a backlight widget driven by a 'TChan' (no polling in the widget).
 backlightLabelNewChanWith :: BacklightWidgetConfig -> TaffyIO Gtk.Widget
 backlightLabelNewChanWith config = do
-  chan <- BL.getBacklightInfoChanWithInterval
-    (backlightDevice config)
-    (backlightPollingInterval config)
+  chan <-
+    BL.getBacklightInfoChanWithInterval
+      (backlightDevice config)
+      (backlightPollingInterval config)
   initialInfo <- BL.getBacklightInfoState (backlightDevice config)
 
   liftIO $ do
     label <- Gtk.labelNew Nothing
 
-    let
-      updateLabel info = do
-        (labelText, tooltipText) <- formatBacklightWidgetFromInfo config info
-        postGUIASync $ do
-          Gtk.labelSetMarkup label labelText
-          Gtk.widgetSetTooltipMarkup label tooltipText
+    let updateLabel info = do
+          (labelText, tooltipText) <- formatBacklightWidgetFromInfo config info
+          postGUIASync $ do
+            Gtk.labelSetMarkup label labelText
+            Gtk.widgetSetTooltipMarkup label tooltipText
 
-      refreshNow = BL.getBacklightInfo (backlightDevice config) >>= updateLabel
+        refreshNow = BL.getBacklightInfo (backlightDevice config) >>= updateLabel
 
     void $ Gtk.onWidgetRealize label $ updateLabel initialInfo
 
@@ -188,17 +191,17 @@ backlightLabelNewChanWith config = do
     Gtk.widgetShowAll label
     Gtk.toWidget =<< channelWidgetNew label chan updateLabel
 
-formatBacklightWidget
-  :: BacklightWidgetConfig
-  -> IO (T.Text, Maybe T.Text)
+formatBacklightWidget ::
+  BacklightWidgetConfig ->
+  IO (T.Text, Maybe T.Text)
 formatBacklightWidget config = do
   info <- BL.getBacklightInfo (backlightDevice config)
   formatBacklightWidgetFromInfo config info
 
-formatBacklightWidgetFromInfo
-  :: BacklightWidgetConfig
-  -> Maybe BL.BacklightInfo
-  -> IO (T.Text, Maybe T.Text)
+formatBacklightWidgetFromInfo ::
+  BacklightWidgetConfig ->
+  Maybe BL.BacklightInfo ->
+  IO (T.Text, Maybe T.Text)
 formatBacklightWidgetFromInfo config info =
   case info of
     Nothing -> return (T.pack $ backlightUnknownFormat config, Nothing)
@@ -210,20 +213,19 @@ formatBacklightWidgetFromInfo config info =
 
 buildAttrs :: BL.BacklightInfo -> IO [(String, String)]
 buildAttrs info = do
-  let
-    brightnessText = show $ BL.backlightBrightness info
-    maxText = show $ BL.backlightMaxBrightness info
-    percentText = show $ BL.backlightPercent info
-    deviceText = BL.backlightDevice info
+  let brightnessText = show $ BL.backlightBrightness info
+      maxText = show $ BL.backlightMaxBrightness info
+      percentText = show $ BL.backlightPercent info
+      deviceText = BL.backlightDevice info
   brightness <- escapeText $ T.pack brightnessText
   maxBrightness <- escapeText $ T.pack maxText
   percent <- escapeText $ T.pack percentText
   device <- escapeText $ T.pack deviceText
   return
-    [ ("brightness", brightness)
-    , ("max", maxBrightness)
-    , ("percent", percent)
-    , ("device", device)
+    [ ("brightness", brightness),
+      ("max", maxBrightness),
+      ("percent", percent),
+      ("device", device)
     ]
 
 renderTemplate :: String -> [(String, String)] -> String
@@ -237,11 +239,10 @@ adjustBacklight config delta =
   void $ safeRunCommand (backlightBrightnessctlPath config) (brightnessctlArgs delta)
   where
     brightnessctlArgs change =
-      let
-        step = abs change
-        direction = if change >= 0 then "+" else "-"
-        deviceArgs = maybe [] (\dev -> ["-d", dev]) (backlightDevice config)
-      in deviceArgs ++ ["set", show step ++ "%" ++ direction]
+      let step = abs change
+          direction = if change >= 0 then "+" else "-"
+          deviceArgs = maybe [] (\dev -> ["-d", dev]) (backlightDevice config)
+       in deviceArgs ++ ["set", show step ++ "%" ++ direction]
 
 safeRunCommand :: FilePath -> [String] -> IO (Either String String)
 safeRunCommand cmd args =

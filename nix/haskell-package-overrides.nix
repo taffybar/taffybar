@@ -85,6 +85,18 @@ final: prev: let
             jq -r 'length|if .==0 then "No hints." else "\(.) hint\(if .>1 then "s" else "" end).\n"|halt_error end' < $src/report.json
             ln -s $src $out
          '';
+
+          ormolu = pkgs.runCommand "${drv.pname}-check-ormolu-${drv.version}" {
+            inherit (drv) src;
+            nativeBuildInputs = [ pkgs.haskellPackages.ormolu pkgs.findutils ];
+          } ''
+            cd $src
+            find . -name '*.hs' | while read -r f; do
+              ormolu --mode check "$f" || { echo "ormolu: $f is not formatted"; exit 1; }
+            done
+            echo "All files formatted."
+            touch $out
+          '';
         };
       }))
     ];

@@ -1,4 +1,7 @@
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.DiskIO
 -- Copyright   : (c) José A. Romero L.
@@ -11,13 +14,11 @@
 -- Provides information about read/write operations in a given disk or
 -- partition, obtained from parsing the @\/proc\/diskstats@ file with some
 -- of the facilities included in the "System.Taffybar.Information.StreamInfo" module.
------------------------------------------------------------------------------
+module System.Taffybar.Information.DiskIO (getDiskTransfer) where
 
-module System.Taffybar.Information.DiskIO ( getDiskTransfer ) where
-
-import Data.Maybe ( mapMaybe )
-import Safe ( atMay, headMay, readDef )
-import System.Taffybar.Information.StreamInfo ( getParsedInfo, getTransfer )
+import Data.Maybe (mapMaybe)
+import Safe (atMay, headMay, readDef)
+import System.Taffybar.Information.StreamInfo (getParsedInfo, getTransfer)
 
 -- | Returns a two-element list containing the speed of transfer for read and
 -- write operations performed in the given disk\/partition (e.g. \"sda\",
@@ -39,4 +40,3 @@ tuplize s = do
   used <- s `atMay` 3
   capacity <- s `atMay` 7
   return (device, [readDef (-1) used, readDef (-1) capacity])
-

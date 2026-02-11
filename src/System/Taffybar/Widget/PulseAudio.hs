@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.PulseAudio
 -- Copyright   : (c) Ivan A. Malison
@@ -14,27 +18,26 @@
 -- Note: PulseAudio's DBus socket is not always enabled by default.
 -- If the widget shows "vol: n/a", ensure the PulseAudio server has loaded
 -- @module-dbus-protocol@ (so @/run/user/$UID/pulse/dbus-socket@ exists).
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.PulseAudio
-  ( PulseAudioWidgetConfig(..)
-  , defaultPulseAudioWidgetConfig
-  , pulseAudioIconNew
-  , pulseAudioIconNewWith
-  , pulseAudioLabelNew
-  , pulseAudioLabelNewWith
-  , pulseAudioNew
-  , pulseAudioNewWith
-  ) where
+  ( PulseAudioWidgetConfig (..),
+    defaultPulseAudioWidgetConfig,
+    pulseAudioIconNew,
+    pulseAudioIconNewWith,
+    pulseAudioLabelNew,
+    pulseAudioLabelNewWith,
+    pulseAudioNew,
+    pulseAudioNewWith,
+  )
+where
 
 import Control.Concurrent.MVar (readMVar)
 import Control.Monad (void, when)
 import Control.Monad.IO.Class
-import Data.Default (Default(..))
+import Data.Default (Default (..))
 import qualified Data.Text as T
+import qualified GI.GLib as G
 import qualified GI.Gdk.Enums as Gdk
 import qualified GI.Gdk.Structs.EventScroll as GdkEvent
-import qualified GI.GLib as G
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.PulseAudio
@@ -44,26 +47,26 @@ import System.Taffybar.Widget.Util (buildIconLabelBox)
 import Text.StringTemplate
 
 data PulseAudioWidgetConfig = PulseAudioWidgetConfig
-  { pulseAudioSink :: String
-  , pulseAudioFormat :: String
-  , pulseAudioMuteFormat :: String
-  , pulseAudioUnknownFormat :: String
-  , pulseAudioTooltipFormat :: Maybe String
-  , pulseAudioScrollStepPercent :: Maybe Int
-  , pulseAudioToggleMuteOnClick :: Bool
+  { pulseAudioSink :: String,
+    pulseAudioFormat :: String,
+    pulseAudioMuteFormat :: String,
+    pulseAudioUnknownFormat :: String,
+    pulseAudioTooltipFormat :: Maybe String,
+    pulseAudioScrollStepPercent :: Maybe Int,
+    pulseAudioToggleMuteOnClick :: Bool
   }
 
 defaultPulseAudioWidgetConfig :: PulseAudioWidgetConfig
 defaultPulseAudioWidgetConfig =
   PulseAudioWidgetConfig
-    { pulseAudioSink = "@DEFAULT_SINK@"
-    , pulseAudioFormat = "$volume$%"
-    , pulseAudioMuteFormat = "muted"
-    , pulseAudioUnknownFormat = "n/a"
-    , pulseAudioTooltipFormat =
-        Just "Sink: $sink$\nVolume: $volume$%\nMuted: $muted$"
-    , pulseAudioScrollStepPercent = Just 5
-    , pulseAudioToggleMuteOnClick = True
+    { pulseAudioSink = "@DEFAULT_SINK@",
+      pulseAudioFormat = "$volume$%",
+      pulseAudioMuteFormat = "muted",
+      pulseAudioUnknownFormat = "n/a",
+      pulseAudioTooltipFormat =
+        Just "Sink: $sink$\nVolume: $volume$%\nMuted: $muted$",
+      pulseAudioScrollStepPercent = Just 5,
+      pulseAudioToggleMuteOnClick = True
     }
 
 instance Default PulseAudioWidgetConfig where
@@ -98,40 +101,40 @@ pulseAudioLabelNewWith config = do
   liftIO $ do
     label <- Gtk.labelNew Nothing
 
-    let
-      updateLabel info = do
-        (labelText, tooltipText) <- formatPulseAudioWidget config info
-        postGUIASync $ do
-          Gtk.labelSetMarkup label labelText
-          Gtk.widgetSetTooltipMarkup label tooltipText
+    let updateLabel info = do
+          (labelText, tooltipText) <- formatPulseAudioWidget config info
+          postGUIASync $ do
+            Gtk.labelSetMarkup label labelText
+            Gtk.widgetSetTooltipMarkup label tooltipText
 
-      refreshNow = getPulseAudioInfo sinkSpec >>= updateLabel
+        refreshNow = getPulseAudioInfo sinkSpec >>= updateLabel
 
-      whenToggleMute widget =
-        when (pulseAudioToggleMuteOnClick config) $
-          void $ Gtk.onWidgetButtonPressEvent widget $ \_ -> do
-            void $ togglePulseAudioMute sinkSpec
-            refreshNow
-            return True
+        whenToggleMute widget =
+          when (pulseAudioToggleMuteOnClick config) $
+            void $
+              Gtk.onWidgetButtonPressEvent widget $ \_ -> do
+                void $ togglePulseAudioMute sinkSpec
+                refreshNow
+                return True
 
-      whenScrollAdjust widget =
-        case pulseAudioScrollStepPercent config of
-          Nothing -> return ()
-          Just step | step <= 0 -> return ()
-          Just step -> do
-            _ <- Gtk.onWidgetScrollEvent widget $ \scrollEvent -> do
-              dir <- GdkEvent.getEventScrollDirection scrollEvent
-              let doAdjust delta = do
-                    void $ adjustPulseAudioVolume sinkSpec delta
-                    refreshNow
-                    return True
-              case dir of
-                Gdk.ScrollDirectionUp -> doAdjust step
-                Gdk.ScrollDirectionDown -> doAdjust (-step)
-                Gdk.ScrollDirectionLeft -> doAdjust step
-                Gdk.ScrollDirectionRight -> doAdjust (-step)
-                _ -> return False
-            return ()
+        whenScrollAdjust widget =
+          case pulseAudioScrollStepPercent config of
+            Nothing -> return ()
+            Just step | step <= 0 -> return ()
+            Just step -> do
+              _ <- Gtk.onWidgetScrollEvent widget $ \scrollEvent -> do
+                dir <- GdkEvent.getEventScrollDirection scrollEvent
+                let doAdjust delta = do
+                      void $ adjustPulseAudioVolume sinkSpec delta
+                      refreshNow
+                      return True
+                case dir of
+                  Gdk.ScrollDirectionUp -> doAdjust step
+                  Gdk.ScrollDirectionDown -> doAdjust (-step)
+                  Gdk.ScrollDirectionLeft -> doAdjust step
+                  Gdk.ScrollDirectionRight -> doAdjust (-step)
+                  _ -> return False
+              return ()
 
     void $ Gtk.onWidgetRealize label $ readMVar var >>= updateLabel
 
@@ -150,48 +153,46 @@ pulseAudioNewWith config = do
   labelWidget <- pulseAudioLabelNewWith config
   liftIO $ buildIconLabelBox iconWidget labelWidget
 
-formatPulseAudioWidget
-  :: PulseAudioWidgetConfig
-  -> Maybe PulseAudioInfo
-  -> IO (T.Text, Maybe T.Text)
+formatPulseAudioWidget ::
+  PulseAudioWidgetConfig ->
+  Maybe PulseAudioInfo ->
+  IO (T.Text, Maybe T.Text)
 formatPulseAudioWidget config info = do
   attrs <- maybe buildUnknownAttrs buildAttrs info
-  let
-    labelTemplate =
-      case info of
-        Nothing -> pulseAudioUnknownFormat config
-        Just audio ->
-          case pulseAudioMuted audio of
-            Just True -> pulseAudioMuteFormat config
-            _ -> pulseAudioFormat config
-    labelText = renderTemplate labelTemplate attrs
-    tooltipText = fmap (`renderTemplate` attrs) (pulseAudioTooltipFormat config)
+  let labelTemplate =
+        case info of
+          Nothing -> pulseAudioUnknownFormat config
+          Just audio ->
+            case pulseAudioMuted audio of
+              Just True -> pulseAudioMuteFormat config
+              _ -> pulseAudioFormat config
+      labelText = renderTemplate labelTemplate attrs
+      tooltipText = fmap (`renderTemplate` attrs) (pulseAudioTooltipFormat config)
   return (T.pack labelText, T.pack <$> tooltipText)
 
 buildAttrs :: PulseAudioInfo -> IO [(String, String)]
 buildAttrs info = do
-  let
-    volumeText = maybe "?" show (pulseAudioVolumePercent info)
-    mutedText = case pulseAudioMuted info of
-      Just True -> "yes"
-      Just False -> "no"
-      Nothing -> "unknown"
-    sinkText = pulseAudioSinkName info
+  let volumeText = maybe "?" show (pulseAudioVolumePercent info)
+      mutedText = case pulseAudioMuted info of
+        Just True -> "yes"
+        Just False -> "no"
+        Nothing -> "unknown"
+      sinkText = pulseAudioSinkName info
   volume <- escapeText $ T.pack volumeText
   muted <- escapeText $ T.pack mutedText
   sink <- escapeText $ T.pack sinkText
   return
-    [ ("volume", volume)
-    , ("muted", muted)
-    , ("sink", sink)
+    [ ("volume", volume),
+      ("muted", muted),
+      ("sink", sink)
     ]
 
 buildUnknownAttrs :: IO [(String, String)]
 buildUnknownAttrs =
   return
-    [ ("volume", "?")
-    , ("muted", "unknown")
-    , ("sink", "unknown")
+    [ ("volume", "?"),
+      ("muted", "unknown"),
+      ("sink", "unknown")
     ]
 
 pulseAudioTextIcon :: Maybe Bool -> Maybe Int -> T.Text

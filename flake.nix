@@ -112,6 +112,7 @@
     };
 
     checks = {
+      ormolu = pkgs.haskellPackages.taffybar.ormolu;
       hlint = pkgs.haskellPackages.taffybar.hlint;
       ghc-warnings = pkgs.haskellPackages.taffybar.fail-on-all-warnings;
       tests = pkgs.haskellPackages.taffybar;

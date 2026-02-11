@@ -1,20 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module System.Taffybar.Widget.SNIMenu
-  ( withSniMenu
-  , withNmAppletMenu
-  ) where
+  ( withSniMenu,
+    withNmAppletMenu,
+  )
+where
 
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
 import DBus (BusName, ObjectPath)
-import qualified GI.Gdk as Gdk (getEventButtonButton, getEventButtonType, EventType(..))
-import qualified GI.GLib as GLib
-import qualified GI.Gtk as Gtk
 import qualified DBusMenu
-import System.Log.Logger (Priority(..), logM)
-import System.Taffybar.Context (Context(..), TaffyIO)
+import qualified GI.GLib as GLib
+import qualified GI.Gdk as Gdk (EventType (..), getEventButtonButton, getEventButtonType)
+import qualified GI.Gtk as Gtk
+import System.Log.Logger (Priority (..), logM)
+import System.Taffybar.Context (Context (..), TaffyIO)
 import Text.Printf (printf)
 
 sniMenuLogger :: Priority -> String -> IO ()
@@ -38,18 +40,22 @@ withSniMenu busName menuPath mkWidget = do
         then do
           currentEvent <- Gtk.getCurrentEvent
           catchAny
-            (do let client = sessionDBusClient ctx
+            ( do
+                let client = sessionDBusClient ctx
                 gtkMenu <- DBusMenu.buildMenu client busName menuPath
                 Gtk.menuAttachToWidget gtkMenu ebox Nothing
                 _ <- Gtk.onWidgetHide gtkMenu $
-                  void $ GLib.idleAdd GLib.PRIORITY_LOW $ do
-                    Gtk.widgetDestroy gtkMenu
-                    return False
+                  void $
+                    GLib.idleAdd GLib.PRIORITY_LOW $ do
+                      Gtk.widgetDestroy gtkMenu
+                      return False
                 Gtk.widgetShowAll gtkMenu
-                Gtk.menuPopupAtPointer gtkMenu currentEvent)
-            (sniMenuLogger WARNING
-              . printf "Failed to build SNI menu for %s: %s" (show busName)
-              . show)
+                Gtk.menuPopupAtPointer gtkMenu currentEvent
+            )
+            ( sniMenuLogger WARNING
+                . printf "Failed to build SNI menu for %s: %s" (show busName)
+                . show
+            )
           return True
         else return False
 
@@ -58,6 +64,7 @@ withSniMenu busName menuPath mkWidget = do
 
 -- | Convenience wrapper: click to open nm-applet's network menu.
 withNmAppletMenu :: TaffyIO Gtk.Widget -> TaffyIO Gtk.Widget
-withNmAppletMenu = withSniMenu
-  "org.freedesktop.network-manager-applet"
-  "/org/ayatana/NotificationItem/nm_applet/Menu"
+withNmAppletMenu =
+  withSniMenu
+    "org.freedesktop.network-manager-applet"
+    "/org/ayatana/NotificationItem/nm_applet/Menu"

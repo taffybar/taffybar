@@ -1,49 +1,57 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE CPP #-}
 
 module System.Taffybar.Test.UtilSpec
-  ( spec
-  -- * Mock commands
-  , withMockCommand
-  , writeScript
-  -- * Environment setup
-  , withEnv
-  , withSetEnv
-  , prependPath
-  -- ** Running subprocesses
-  , withService
-  , setStdoutCond
-  , setStderrCond
-  , setServiceDefaults
-  , makeServiceDefaults
-  -- * Concurrency
-  , listLiveThreads
-  , diffLiveThreads
-  -- * OS Resources
-  , listFds
-  -- * Other test helpers
-  , tryIOMaybe
-  , laxTimeout
-  , laxTimeout'
-  , DodgyEq(..)
-  -- ** Logging for tests
-  , logSetup
-  , specLogSetup
-  , specLogSetupPrio
-  , specLog
-  , specLogAt
-  , getSpecLogPriority
-  , Priority(..)
-  ) where
+  ( spec,
+
+    -- * Mock commands
+    withMockCommand,
+    writeScript,
+
+    -- * Environment setup
+    withEnv,
+    withSetEnv,
+    prependPath,
+
+    -- ** Running subprocesses
+    withService,
+    setStdoutCond,
+    setStderrCond,
+    setServiceDefaults,
+    makeServiceDefaults,
+
+    -- * Concurrency
+    listLiveThreads,
+    diffLiveThreads,
+
+    -- * OS Resources
+    listFds,
+
+    -- * Other test helpers
+    tryIOMaybe,
+    laxTimeout,
+    laxTimeout',
+    DodgyEq (..),
+
+    -- ** Logging for tests
+    logSetup,
+    specLogSetup,
+    specLogSetupPrio,
+    specLog,
+    specLogAt,
+    getSpecLogPriority,
+    Priority (..),
+  )
+where
 
 import Control.Applicative ((<|>))
 import Control.Monad (guard, join, void, (<=<))
 import Control.Monad.IO.Unlift
 import Data.Bifunctor (second)
-import qualified Data.ByteString.Char8 as B8
+import Data.ByteString.Char8 qualified as B8
 import Data.Either.Extra (eitherToMaybe, isLeft)
 import Data.Function (on, (&))
 import Data.List (deleteFirstsBy, uncons)
@@ -53,35 +61,37 @@ import GHC.Conc.Sync (ThreadId(..), ThreadStatus(..), listThreads, threadStatus,
 #else
 import GHC.Conc.Sync (ThreadId(..), ThreadStatus(..))
 #endif
-import System.Exit (ExitCode(..))
+import System.Exit (ExitCode (..))
 import System.FilePath (isRelative, takeFileName, (</>))
-import System.IO (Handle, BufferMode(..), hSetBuffering, stderr, hClose)
-import System.Log.Logger (Priority(..), updateGlobalLogger, setLevel, logM, getLevel, getLogger, removeHandler, setHandlers)
-import System.Log.Handler.Simple (GenericHandler(..))
-import System.Process.Typed (readProcess, proc, ProcessConfig, Process, withProcessTerm, waitExitCode, ExitCodeException (..), setStdin, nullStream, setStdout, setStderr, StreamSpec, setCloseFds, inherit, createPipe, getStdin)
+import System.IO (BufferMode (..), Handle, hClose, hSetBuffering, stderr)
+import System.Log.Handler.Simple (GenericHandler (..))
+import System.Log.Logger (Priority (..), getLevel, getLogger, logM, removeHandler, setHandlers, setLevel, updateGlobalLogger)
 import System.Posix.Files (readSymbolicLink)
+import System.Process.Typed (ExitCodeException (..), Process, ProcessConfig, StreamSpec, createPipe, getStdin, inherit, nullStream, proc, readProcess, setCloseFds, setStderr, setStdin, setStdout, waitExitCode, withProcessTerm)
+import System.Taffybar.LogFormatter (taffyLogHandler)
 import Test.Hspec
 import Text.Printf (printf)
 import Text.Read (readMaybe)
 import UnliftIO.Async (race)
 import UnliftIO.Concurrent (forkFinally, threadDelay)
-import UnliftIO.Directory (Permissions (..), findExecutable, getPermissions, setPermissions, listDirectory)
+import UnliftIO.Directory (Permissions (..), findExecutable, getPermissions, listDirectory, setPermissions)
 import UnliftIO.Environment (lookupEnv, setEnv, unsetEnv)
-import UnliftIO.Exception (bracket, evaluateDeep, throwIO, throwString, tryIO, StringException (..), try)
-import qualified UnliftIO.MVar as MV
+import UnliftIO.Exception (StringException (..), bracket, evaluateDeep, throwIO, throwString, try, tryIO)
+import UnliftIO.MVar qualified as MV
 import UnliftIO.Temporary (withSystemTempDirectory)
 import UnliftIO.Timeout (timeout)
-
-import System.Taffybar.LogFormatter (taffyLogHandler)
 
 -- | Run the given 'IO' action with the @PATH@ environment variable
 -- set up so that executing the given command name will run a
 -- script.
-withMockCommand
-  :: FilePath -- ^ Name of command - should not contain slashes
-  -> String -- ^ Contents of script
-  -> IO a -- ^ Action to run with command available in search path
-  -> IO a
+withMockCommand ::
+  -- | Name of command - should not contain slashes
+  FilePath ->
+  -- | Contents of script
+  String ->
+  -- | Action to run with command available in search path
+  IO a ->
+  IO a
 withMockCommand name content action =
   withSystemTempDirectory "specutil" $ \dir -> do
     writeScript (dir </> takeFileName name) content
@@ -94,7 +104,7 @@ writeScript scriptFile content = do
   content' <- patchShebangs content
   writeFile scriptFile content'
   p <- getPermissions scriptFile
-  setPermissions scriptFile (p { executable = True })
+  setPermissions scriptFile (p {executable = True})
 
 -- | Given the text of a shell script, this replaces any relative path
 -- in the shebang with an absolute path, according to the current
@@ -112,7 +122,7 @@ patchShebangs = patchShebangs' findExe
     takeRelativeFileName :: FilePath -> Maybe FilePath
     takeRelativeFileName fp = guard (isRelative fp) >> pure (takeFileName fp)
 
-patchShebangs' :: Applicative m => (FilePath -> m (Maybe FilePath)) -> String -> m String
+patchShebangs' :: (Applicative m) => (FilePath -> m (Maybe FilePath)) -> String -> m String
 patchShebangs' replaceExe script = case parseInterpreter script of
   Just (interpreter, rest) -> do
     let unparse exe = "#! " ++ exe ++ rest
@@ -123,13 +133,12 @@ parseInterpreter :: String -> Maybe (String, String)
 parseInterpreter (lines -> content) = do
   (header, rest) <- uncons content
   (interpreter, args) <- parseShebang header
-  pure (interpreter, unlines (args:rest))
-
+  pure (interpreter, unlines (args : rest))
   where
     parseShebang :: String -> Maybe (String, String)
-    parseShebang ('#':'!':(findInterpreter -> shebang)) =
-      let catArgs args = unwords ("":args)
-      in second catArgs <$> shebang
+    parseShebang ('#' : '!' : (findInterpreter -> shebang)) =
+      let catArgs args = unwords ("" : args)
+       in second catArgs <$> shebang
     parseShebang _ = Nothing
 
     findInterpreter = uncons . dropWhile ((== "env") . takeFileName) . words
@@ -160,12 +169,12 @@ withSetEnv = withEnv . map (second (const . Just))
 prependPath :: FilePath -> Maybe String -> Maybe String
 prependPath p = Just . (++ ":/usr/bin") . (p ++) . maybe "" (":" ++)
 
-listFds :: MonadIO m => m [(Int, FilePath)]
+listFds :: (MonadIO m) => m [(Int, FilePath)]
 listFds = catMaybes <$> (listDirectory fdPath >>= mapM readEntry)
   where
     fdPath = "/proc/self/fd"
 
-    readEntry :: MonadIO m => FilePath -> m (Maybe (Int, FilePath))
+    readEntry :: (MonadIO m) => FilePath -> m (Maybe (Int, FilePath))
     readEntry fd = do
       t <- liftIO $ tryIOMaybe $ readSymbolicLink (fdPath </> fd)
       pure $ (,) <$> readMaybe fd <*> t
@@ -182,16 +191,17 @@ listLiveThreads = do
 listLiveThreads = pure []
 #endif
 
-diffLiveThreads :: Eq a => [(a, b)] -> [(a, b)] -> [(a, b)]
+diffLiveThreads :: (Eq a) => [(a, b)] -> [(a, b)] -> [(a, b)]
 diffLiveThreads = deleteFirstsBy ((==) `on` fst)
 
-tryIOMaybe :: MonadUnliftIO m => m a -> m (Maybe a)
+tryIOMaybe :: (MonadUnliftIO m) => m a -> m (Maybe a)
 tryIOMaybe = fmap eitherToMaybe . tryIO
 
 laxTimeout' :: (HasCallStack, MonadUnliftIO m) => Int -> m a -> m a
-laxTimeout' n action = laxTimeout n action >>= \case
-  Just a -> pure a
-  Nothing -> expectationFailure' $ printf "Timed out after %dusec" n
+laxTimeout' n action =
+  laxTimeout n action >>= \case
+    Just a -> pure a
+    Nothing -> expectationFailure' $ printf "Timed out after %dusec" n
 
 expectationFailure' :: (HasCallStack, MonadIO m) => String -> m a
 expectationFailure' msg = liftIO (expectationFailure msg) >> throwString msg
@@ -203,8 +213,8 @@ laxTimeout n action = do
   join <$> timeout n (MV.takeMVar result >>= either throwIO pure)
 
 -- | A wrapper to provide 'Eq' for types which only have 'Show'.
-newtype DodgyEq a = DodgyEq { unDodgyEq :: a }
-  deriving Show via (DodgyEq a)
+newtype DodgyEq a = DodgyEq {unDodgyEq :: a}
+  deriving (Show) via (DodgyEq a)
 
 instance Eq (DodgyEq a) where
   a == b = show a == show b
@@ -216,15 +226,15 @@ specLoggerName :: String
 specLoggerName = "Test"
 
 -- | Log a test message.
-specLog :: MonadIO m => String -> m ()
+specLog :: (MonadIO m) => String -> m ()
 specLog = specLogAt INFO
 
 -- | Log a test message at the given level.
-specLogAt :: MonadIO m => Priority -> String -> m ()
+specLogAt :: (MonadIO m) => Priority -> String -> m ()
 specLogAt level = liftIO . logM specLoggerName level
 
 -- | Setup logging before running the specs.
-logSetup :: HasCallStack => SpecWith a -> SpecWith a
+logSetup :: (HasCallStack) => SpecWith a -> SpecWith a
 logSetup = beforeAll_ specLogSetup
 
 -- | Get log levels from environment variables and set up formatters.
@@ -246,16 +256,17 @@ specLogSetupPrio defaultPriority = do
 
 -- | A plain looking log handler, to contrast with 'taffyLogFormatter'.
 specLogHandler :: GenericHandler Handle
-specLogHandler = GenericHandler
-  { priority = DEBUG
-  , formatter =  \_ (level, msg) _name -> return (show level ++ ": " ++ msg)
-  , privData = stderr
-  , writeFunc = \h -> B8.hPutStrLn h . B8.pack <=< evaluateDeep
-  , closeFunc = \_ -> return ()
-  }
+specLogHandler =
+  GenericHandler
+    { priority = DEBUG,
+      formatter = \_ (level, msg) _name -> return (show level ++ ": " ++ msg),
+      privData = stderr,
+      writeFunc = \h -> B8.hPutStrLn h . B8.pack <=< evaluateDeep,
+      closeFunc = \_ -> return ()
+    }
 
 -- | Find out the configured log level for specs.
-getSpecLogPriority :: MonadIO m => m Priority
+getSpecLogPriority :: (MonadIO m) => m Priority
 getSpecLogPriority = fromMaybe WARNING . getLevel <$> liftIO (getLogger specLoggerName)
 
 -- | Converts an environment variable value to a 'Priority'.
@@ -266,15 +277,16 @@ getEnvPriority = fmap (>>= toPriority) . lookupEnv
     toPriority s = readMaybe s <|> fmap fromInt (readMaybe s)
 
     fromInt :: Int -> Priority
-    fromInt n | n >= 2 = DEBUG
-              | n <= 0 = WARNING
-              | otherwise = INFO
+    fromInt n
+      | n >= 2 = DEBUG
+      | n <= 0 = WARNING
+      | otherwise = INFO
 
 -- | Like 'withProcessTerm_', except that if the process exits -- for
 -- whatever reason -- before the action completes, then it's an
 -- error. It will immediately cancel the action and throw an
 -- 'ExitCodeException'.
-withService :: MonadUnliftIO m => ProcessConfig stdin stdout stderr -> (Process stdin stdout stderr -> m a) -> m a
+withService :: (MonadUnliftIO m) => ProcessConfig stdin stdout stderr -> (Process stdin stdout stderr -> m a) -> m a
 withService cfg action = withProcessTerm cfg $ \p -> do
   either throwEarlyExitException pure =<< race (waitExitCode p) (action p)
   where
@@ -295,21 +307,23 @@ makeServiceDefaults prog args =
   flip setServiceDefaults (proc prog args) <$> getSpecLogPriority
 
 setServiceDefaults :: Priority -> ProcessConfig i o e -> ProcessConfig () () ()
-setServiceDefaults logLevel = setCloseFds True
-  . setStdin nullStream
-  . setStdoutCond logLevel
-  . setStderrCond logLevel
+setServiceDefaults logLevel =
+  setCloseFds True
+    . setStdin nullStream
+    . setStdoutCond logLevel
+    . setStderrCond logLevel
 
 ------------------------------------------------------------------------
 
 spec :: Spec
 spec = do
-  it "withMockCommand" $ example $
-    withMockCommand "blah" "#!/usr/bin/env bash\necho hello \"$@\"\n" $ do
-      (code, out, err) <- readProcess (proc "blah" ["arstd"])
-      code `shouldBe` ExitSuccess
-      out `shouldBe` "hello arstd\n"
-      err `shouldBe` ""
+  it "withMockCommand" $
+    example $
+      withMockCommand "blah" "#!/usr/bin/env bash\necho hello \"$@\"\n" $ do
+        (code, out, err) <- readProcess (proc "blah" ["arstd"])
+        code `shouldBe` ExitSuccess
+        out `shouldBe` "hello arstd\n"
+        err `shouldBe` ""
 
   it "laxTimeout" $ example $ do
     let t = 50_000
@@ -317,23 +331,28 @@ spec = do
 
   describe "withService" $ around_ (laxTimeout' 100_000) $ do
     let wait = const $ threadDelay maxBound
-    it "normal" $ example $
-      withService (proc "sleep" ["60"]) (const $ pure ())
-        `shouldReturn` ()
-    it "exc" $ example $
-      withService (proc "sleep" ["60"]) (const $ throwString "hello")
-        `shouldThrow` \(StringException msg _) -> msg == "hello"
-    it "early exit" $ example $
-      withService "true" wait `shouldThrow`
-        \exc -> eceExitCode exc == ExitSuccess
-    it "manual exit" $ example $
-      withService
-        (proc "cat" [] & setStdin createPipe)
-        (\p -> hClose (getStdin p) >> wait p)
-        `shouldThrow` \exc -> eceExitCode exc == ExitSuccess
-    it "failure" $ example $
-      withService "false" wait `shouldThrow`
-        \exc -> eceExitCode exc /= ExitSuccess
+    it "normal" $
+      example $
+        withService (proc "sleep" ["60"]) (const $ pure ())
+          `shouldReturn` ()
+    it "exc" $
+      example $
+        withService (proc "sleep" ["60"]) (const $ throwString "hello")
+          `shouldThrow` \(StringException msg _) -> msg == "hello"
+    it "early exit" $
+      example $
+        withService "true" wait
+          `shouldThrow` \exc -> eceExitCode exc == ExitSuccess
+    it "manual exit" $
+      example $
+        withService
+          (proc "cat" [] & setStdin createPipe)
+          (\p -> hClose (getStdin p) >> wait p)
+          `shouldThrow` \exc -> eceExitCode exc == ExitSuccess
+    it "failure" $
+      example $
+        withService "false" wait
+          `shouldThrow` \exc -> eceExitCode exc /= ExitSuccess
     it "error message" $ example $ do
       res <- try (withService (proc "false" ["arg1", "arg2"]) wait)
       res `shouldSatisfy` isLeft

@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.ScreenLock
 -- Copyright   : (c) Ivan A. Malison
@@ -33,44 +37,46 @@
 -- >       { screenLockIcon = "\xF023"
 -- >       , screenLockInhibitTypes = [InhibitIdle, InhibitSleep]
 -- >       }
------------------------------------------------------------------------------
 module System.Taffybar.Widget.ScreenLock
-  ( screenLockNew
-  , screenLockNewWithConfig
-  , ScreenLockConfig(..)
-  , defaultScreenLockConfig
-  ) where
+  ( screenLockNew,
+    screenLockNewWithConfig,
+    ScreenLockConfig (..),
+    defaultScreenLockConfig,
+  )
+where
 
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Reader
-import           Data.Default (Default(..))
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader
+import Data.Default (Default (..))
 import qualified Data.Text as T
-import qualified GI.Gdk as Gdk
 import qualified GI.GLib as GLib
+import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
-import           System.Log.Logger
-import           System.Taffybar.Context
-import           System.Taffybar.Information.Inhibitor (InhibitType(..), InhibitorState(..))
-import           System.Taffybar.Information.ScreenLock
-import           System.Taffybar.Util (postGUIASync)
-import           System.Taffybar.Widget.Generic.ChannelWidget
-import           System.Taffybar.Widget.Util (widgetSetClassGI, addClassIfMissing, removeClassIfPresent)
+import System.Log.Logger
+import System.Taffybar.Context
+import System.Taffybar.Information.Inhibitor (InhibitType (..), InhibitorState (..))
+import System.Taffybar.Information.ScreenLock
+import System.Taffybar.Util (postGUIASync)
+import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Util (addClassIfMissing, removeClassIfPresent, widgetSetClassGI)
 
 -- | Configuration for the screen lock widget.
 data ScreenLockConfig = ScreenLockConfig
   { -- | Icon text to display (default: U+F023, nf-fa-lock).
-    screenLockIcon :: T.Text
+    screenLockIcon :: T.Text,
     -- | What types of inhibitors to manage (default: @[InhibitIdle]@).
-  , screenLockInhibitTypes :: [InhibitType]
-  } deriving (Eq, Show)
+    screenLockInhibitTypes :: [InhibitType]
+  }
+  deriving (Eq, Show)
 
 -- | Default configuration for the screen lock widget.
 defaultScreenLockConfig :: ScreenLockConfig
-defaultScreenLockConfig = ScreenLockConfig
-  { screenLockIcon = T.pack "\xF023"
-  , screenLockInhibitTypes = [InhibitIdle]
-  }
+defaultScreenLockConfig =
+  ScreenLockConfig
+    { screenLockIcon = T.pack "\xF023",
+      screenLockInhibitTypes = [InhibitIdle]
+    }
 
 instance Default ScreenLockConfig where
   def = defaultScreenLockConfig
@@ -78,7 +84,7 @@ instance Default ScreenLockConfig where
 screenLockLogPath :: String
 screenLockLogPath = "System.Taffybar.Widget.ScreenLock"
 
-screenLockLog :: MonadIO m => Priority -> String -> m ()
+screenLockLog :: (MonadIO m) => Priority -> String -> m ()
 screenLockLog priority = liftIO . logM screenLockLogPath priority
 
 -- | Create a screen lock widget with default configuration.
@@ -114,8 +120,8 @@ screenLockNewWithConfig config = do
             else removeClassIfPresent "screen-lock-inhibited" ebox
           let tooltipText =
                 if active
-                then "Screen Lock (idle inhibitor active)"
-                else "Screen Lock"
+                  then "Screen Lock (idle inhibitor active)"
+                  else "Screen Lock"
           Gtk.widgetSetTooltipText ebox (Just tooltipText)
 
     -- Set initial state on realize
@@ -172,10 +178,12 @@ showScreenLockMenu ctx config ebox = do
   Gtk.menuShellAppend menu inhibitItem
 
   -- Destroy menu when hidden (same pattern as SNIMenu)
-  void $ Gtk.onWidgetHide menu $
-    void $ GLib.idleAdd GLib.PRIORITY_LOW $ do
-      Gtk.widgetDestroy menu
-      return False
+  void $
+    Gtk.onWidgetHide menu $
+      void $
+        GLib.idleAdd GLib.PRIORITY_LOW $ do
+          Gtk.widgetDestroy menu
+          return False
 
   Gtk.widgetShowAll menu
   Gtk.menuPopupAtPointer menu currentEvent

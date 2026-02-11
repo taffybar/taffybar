@@ -42,9 +42,9 @@ import Control.Monad.IO.Class
 import Data.Char (ord)
 import Data.Default (Default (..))
 import qualified Data.Text as T
+import qualified GI.GLib as G
 import qualified GI.Gdk.Enums as Gdk
 import qualified GI.Gdk.Structs.EventScroll as GdkEvent
-import qualified GI.GLib as G
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.WirePlumber

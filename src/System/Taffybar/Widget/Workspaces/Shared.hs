@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.Workspaces.Shared
 -- Copyright   : (c) Ivan A. Malison
@@ -11,37 +14,33 @@
 -- Portability : unportable
 --
 -- Shared UI helpers for workspace widgets (X11/EWMH and Hyprland).
---
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.Workspaces.Shared
-  ( WorkspaceState(..)
-  , getCSSClass
-  , cssWorkspaceStates
-  , setWorkspaceWidgetStatusClass
-  , buildWorkspaceIconLabelOverlay
-  , mkWorkspaceIconWidget
-  ) where
+  ( WorkspaceState (..),
+    getCSSClass,
+    cssWorkspaceStates,
+    setWorkspaceWidgetStatusClass,
+    buildWorkspaceIconLabelOverlay,
+    mkWorkspaceIconWidget,
+  )
+where
 
 import qualified Control.Concurrent.MVar as MV
-import           Control.Monad
-import           Control.Monad.IO.Class (MonadIO(..))
-import           Data.Int (Int32)
+import Control.Monad
+import Control.Monad.IO.Class (MonadIO (..))
+import Data.Int (Int32)
 import qualified Data.Text as T
-
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-
-import           System.Taffybar.Widget.Generic.AutoSizeImage (ImageScaleStrategy)
-import           System.Taffybar.Widget.Generic.ScalingImage (scalingImageNew)
-import           System.Taffybar.Widget.Util
-  ( WindowIconWidget(..)
-  , buildBottomLeftAlignedBox
-  , buildContentsBox
-  , buildOverlayWithPassThrough
-  , mkWindowIconWidgetBase
-  , updateWidgetClasses
-  , widgetSetClassGI
+import System.Taffybar.Widget.Generic.AutoSizeImage (ImageScaleStrategy)
+import System.Taffybar.Widget.Generic.ScalingImage (scalingImageNew)
+import System.Taffybar.Widget.Util
+  ( WindowIconWidget (..),
+    buildBottomLeftAlignedBox,
+    buildContentsBox,
+    buildOverlayWithPassThrough,
+    mkWindowIconWidgetBase,
+    updateWidgetClasses,
+    widgetSetClassGI,
   )
 
 data WorkspaceState
@@ -70,9 +69,11 @@ setWorkspaceWidgetStatusClass ws widget =
 -- window icons are the base content and the workspace label is overlaid in the
 -- bottom-left corner.
 buildWorkspaceIconLabelOverlay ::
-  MonadIO m =>
-  Gtk.Widget -> -- ^ Widget containing the window icon strip.
-  Gtk.Widget -> -- ^ Workspace label widget.
+  (MonadIO m) =>
+  -- | Widget containing the window icon strip.
+  Gtk.Widget ->
+  -- | Workspace label widget.
+  Gtk.Widget ->
   m Gtk.Widget
 buildWorkspaceIconLabelOverlay iconsWidget labelWidget = do
   base <- buildContentsBox iconsWidget
@@ -85,11 +86,16 @@ buildWorkspaceIconLabelOverlay iconsWidget labelWidget = do
 -- This is shared by both X11 and Hyprland workspace widgets so that CSS classes
 -- and widget behavior remain consistent across backends.
 mkWorkspaceIconWidget ::
-  ImageScaleStrategy -> -- ^ Which scaling implementation to use.
-  Maybe Int32 -> -- ^ Optional size request for the icon image.
-  Bool -> -- ^ Whether to render a transparent placeholder when there is no data.
-  (Int32 -> a -> IO (Maybe Gdk.Pixbuf)) -> -- ^ Icon pixbuf getter.
-  (Int32 -> IO Gdk.Pixbuf) -> -- ^ Transparent placeholder pixbuf generator.
+  -- | Which scaling implementation to use.
+  ImageScaleStrategy ->
+  -- | Optional size request for the icon image.
+  Maybe Int32 ->
+  -- | Whether to render a transparent placeholder when there is no data.
+  Bool ->
+  -- | Icon pixbuf getter.
+  (Int32 -> a -> IO (Maybe Gdk.Pixbuf)) ->
+  -- | Transparent placeholder pixbuf generator.
+  (Int32 -> IO Gdk.Pixbuf) ->
   IO (WindowIconWidget a)
 mkWorkspaceIconWidget strategy mSize transparentOnNone getPixbufFor mkTransparent = do
   base <- mkWindowIconWidgetBase mSize
@@ -114,5 +120,4 @@ mkWorkspaceIconWidget strategy mSize transparentOnNone getPixbufFor mkTransparen
   forM_ mSize $ \s ->
     Gtk.widgetSetSizeRequest imageWidget (fromIntegral s) (fromIntegral s)
   Gtk.containerAdd (iconContainer base) imageWidget
-  return base { iconImage = imageWidget, iconForceUpdate = refreshImage }
-
+  return base {iconImage = imageWidget, iconForceUpdate = refreshImage}

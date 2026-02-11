@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+
 module System.Taffybar.DBus.Client.PulseAudioDevice where
 
 import DBus.Generation ()
@@ -8,9 +9,9 @@ import System.Taffybar.DBus.Client.Util
 
 generateClientFromFile
   defaultRecordGenerationParams
-  { recordName = Just "PulseAudioDeviceInfo"
-  , recordPrefix = "pad"
-  }
+    { recordName = Just "PulseAudioDeviceInfo",
+      recordPrefix = "pad"
+    }
   paDeviceGenerationParams
-  False $
-  "dbus-xml" </> "org.PulseAudio.Core1.Device.xml"
+  False
+  $ "dbus-xml" </> "org.PulseAudio.Core1.Device.xml"

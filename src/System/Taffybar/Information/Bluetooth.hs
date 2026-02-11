@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.Bluetooth
 -- Copyright   : (c) Ivan A. Malison
@@ -17,20 +21,22 @@
 -- The module uses the DBus ObjectManager interface to dynamically discover
 -- Bluetooth controllers and devices, and monitors property changes for
 -- real-time updates.
------------------------------------------------------------------------------
 module System.Taffybar.Information.Bluetooth
   ( -- * Data Types
-    BluetoothInfo(..)
-  , BluetoothDevice(..)
-  , BluetoothController(..)
-  , BluetoothStatus(..)
+    BluetoothInfo (..),
+    BluetoothDevice (..),
+    BluetoothController (..),
+    BluetoothStatus (..),
+
     -- * Information Access
-  , getBluetoothInfo
-  , getBluetoothInfoChan
-  , getBluetoothInfoState
+    getBluetoothInfo,
+    getBluetoothInfoChan,
+    getBluetoothInfoState,
+
     -- * Connection
-  , connectBluez
-  ) where
+    connectBluez,
+  )
+where
 
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
@@ -39,6 +45,7 @@ import Control.Exception (SomeException, finally, try)
 import Control.Monad (forever)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.STM (atomically)
+import Control.Monad.Trans.Reader (asks)
 import DBus
 import DBus.Client
 import Data.List (sortOn)
@@ -48,43 +55,45 @@ import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Word (Word8)
-import System.Log.Logger (Priority(..))
+import System.Log.Logger (Priority (..))
 import System.Taffybar.Context (TaffyIO, getStateDefault, systemDBusClient)
 import System.Taffybar.Util (logPrintF)
-import Control.Monad.Trans.Reader (asks)
 
 -- | Information about a Bluetooth device.
 data BluetoothDevice = BluetoothDevice
-  { devicePath :: ObjectPath
-  , deviceName :: String
-  , deviceAlias :: String
-  , deviceAddress :: String
-  , deviceIcon :: Maybe String
-  , deviceConnected :: Bool
-  , devicePaired :: Bool
-  , deviceTrusted :: Bool
-  , deviceBlocked :: Bool
-  , deviceBatteryPercentage :: Maybe Word8
-  } deriving (Eq, Show)
+  { devicePath :: ObjectPath,
+    deviceName :: String,
+    deviceAlias :: String,
+    deviceAddress :: String,
+    deviceIcon :: Maybe String,
+    deviceConnected :: Bool,
+    devicePaired :: Bool,
+    deviceTrusted :: Bool,
+    deviceBlocked :: Bool,
+    deviceBatteryPercentage :: Maybe Word8
+  }
+  deriving (Eq, Show)
 
 -- | Information about a Bluetooth controller (adapter).
 data BluetoothController = BluetoothController
-  { controllerPath :: ObjectPath
-  , controllerAlias :: String
-  , controllerAddress :: String
-  , controllerPowered :: Bool
-  , controllerDiscoverable :: Bool
-  , controllerDiscovering :: Bool
-  , controllerPairable :: Bool
-  } deriving (Eq, Show)
+  { controllerPath :: ObjectPath,
+    controllerAlias :: String,
+    controllerAddress :: String,
+    controllerPowered :: Bool,
+    controllerDiscoverable :: Bool,
+    controllerDiscovering :: Bool,
+    controllerPairable :: Bool
+  }
+  deriving (Eq, Show)
 
 -- | Complete Bluetooth state information.
 data BluetoothInfo = BluetoothInfo
-  { bluetoothController :: Maybe BluetoothController
-  , bluetoothConnectedDevices :: [BluetoothDevice]
-  , bluetoothAllDevices :: [BluetoothDevice]
-  , bluetoothStatus :: BluetoothStatus
-  } deriving (Eq, Show)
+  { bluetoothController :: Maybe BluetoothController,
+    bluetoothConnectedDevices :: [BluetoothDevice],
+    bluetoothAllDevices :: [BluetoothDevice],
+    bluetoothStatus :: BluetoothStatus
+  }
+  deriving (Eq, Show)
 
 -- | High-level Bluetooth status.
 data BluetoothStatus
@@ -123,8 +132,8 @@ battery1InterfaceName :: InterfaceName
 battery1InterfaceName = "org.bluez.Battery1"
 
 -- | Newtype wrapper for the channel/mvar pair to enable getStateDefault.
-newtype BluetoothInfoChanVar =
-  BluetoothInfoChanVar (TChan BluetoothInfo, MVar BluetoothInfo)
+newtype BluetoothInfoChanVar
+  = BluetoothInfoChanVar (TChan BluetoothInfo, MVar BluetoothInfo)
 
 -- | Get a broadcast channel for Bluetooth info updates.
 --
@@ -153,12 +162,13 @@ getBluetoothInfoChanVar =
       pure $ BluetoothInfoChanVar (chan, var)
 
 defaultBluetoothInfo :: BluetoothInfo
-defaultBluetoothInfo = BluetoothInfo
-  { bluetoothController = Nothing
-  , bluetoothConnectedDevices = []
-  , bluetoothAllDevices = []
-  , bluetoothStatus = BluetoothNoController
-  }
+defaultBluetoothInfo =
+  BluetoothInfo
+    { bluetoothController = Nothing,
+      bluetoothConnectedDevices = [],
+      bluetoothAllDevices = [],
+      bluetoothStatus = BluetoothNoController
+    }
 
 -- | Monitor Bluetooth information changes.
 monitorBluetoothInfo ::
@@ -184,26 +194,29 @@ monitorBluetoothInfo client chan var = do
 
       -- Match rule for BlueZ property changes
       propertiesChangedMatcher :: MatchRule
-      propertiesChangedMatcher = matchAny
-        { matchSender = Just bluezBusName
-        , matchInterface = Just propertiesInterfaceName
-        , matchMember = Just "PropertiesChanged"
-        }
+      propertiesChangedMatcher =
+        matchAny
+          { matchSender = Just bluezBusName,
+            matchInterface = Just propertiesInterfaceName,
+            matchMember = Just "PropertiesChanged"
+          }
 
       -- Match rule for ObjectManager signals
       interfacesAddedMatcher :: MatchRule
-      interfacesAddedMatcher = matchAny
-        { matchSender = Just bluezBusName
-        , matchInterface = Just objectManagerInterfaceName
-        , matchMember = Just "InterfacesAdded"
-        }
+      interfacesAddedMatcher =
+        matchAny
+          { matchSender = Just bluezBusName,
+            matchInterface = Just objectManagerInterfaceName,
+            matchMember = Just "InterfacesAdded"
+          }
 
       interfacesRemovedMatcher :: MatchRule
-      interfacesRemovedMatcher = matchAny
-        { matchSender = Just bluezBusName
-        , matchInterface = Just objectManagerInterfaceName
-        , matchMember = Just "InterfacesRemoved"
-        }
+      interfacesRemovedMatcher =
+        matchAny
+          { matchSender = Just bluezBusName,
+            matchInterface = Just objectManagerInterfaceName,
+            matchMember = Just "InterfacesRemoved"
+          }
 
       loop = do
         -- Initial refresh
@@ -256,12 +269,13 @@ getBluetoothInfoFromClient client = do
               | not (controllerPowered c) -> BluetoothOff
               | not (null connectedDevices) -> BluetoothConnected
               | otherwise -> BluetoothOn
-      return BluetoothInfo
-        { bluetoothController = controller
-        , bluetoothConnectedDevices = connectedDevices
-        , bluetoothAllDevices = devices
-        , bluetoothStatus = status
-        }
+      return
+        BluetoothInfo
+          { bluetoothController = controller,
+            bluetoothConnectedDevices = connectedDevices,
+            bluetoothAllDevices = devices,
+            bluetoothStatus = status
+          }
 
 -- | Get Bluetooth info using the system DBus client.
 getBluetoothInfo :: Client -> IO BluetoothInfo
@@ -278,14 +292,18 @@ connectBluez = do
 -- | Get all managed objects from BlueZ ObjectManager.
 getManagedObjects :: Client -> IO (Either MethodError (Map ObjectPath (Map Text (Map Text Variant))))
 getManagedObjects client = do
-  let callMsg = (methodCall bluezRootPath objectManagerInterfaceName "GetManagedObjects")
-        { methodCallDestination = Just bluezBusName }
+  let callMsg =
+        (methodCall bluezRootPath objectManagerInterfaceName "GetManagedObjects")
+          { methodCallDestination = Just bluezBusName
+          }
   reply <- call client callMsg
   return $ case reply of
     Left err -> Left err
     Right ret -> case listToMaybe (methodReturnBody ret) >>= fromVariant of
-      Nothing -> Left $ methodError (methodReturnSerial ret) $
-        errorName_ "org.taffybar.InvalidResponse"
+      Nothing ->
+        Left $
+          methodError (methodReturnSerial ret) $
+            errorName_ "org.taffybar.InvalidResponse"
       Just objects -> Right objects
 
 -- | Parse controllers from managed objects.
@@ -296,17 +314,18 @@ parseControllers objects =
     parseController :: (ObjectPath, Map Text (Map Text Variant)) -> Maybe BluetoothController
     parseController (path, interfaces) = do
       props <- M.lookup (T.pack $ formatInterfaceName adapter1InterfaceName) interfaces
-      let readProp :: IsVariant a => Text -> a -> a
+      let readProp :: (IsVariant a) => Text -> a -> a
           readProp key def = fromMaybe def $ M.lookup key props >>= fromVariant
-      return BluetoothController
-        { controllerPath = path
-        , controllerAlias = readProp "Alias" ""
-        , controllerAddress = readProp "Address" ""
-        , controllerPowered = readProp "Powered" False
-        , controllerDiscoverable = readProp "Discoverable" False
-        , controllerDiscovering = readProp "Discovering" False
-        , controllerPairable = readProp "Pairable" False
-        }
+      return
+        BluetoothController
+          { controllerPath = path,
+            controllerAlias = readProp "Alias" "",
+            controllerAddress = readProp "Address" "",
+            controllerPowered = readProp "Powered" False,
+            controllerDiscoverable = readProp "Discoverable" False,
+            controllerDiscovering = readProp "Discovering" False,
+            controllerPairable = readProp "Pairable" False
+          }
 
 -- | Parse devices from managed objects.
 parseDevices :: Map ObjectPath (Map Text (Map Text Variant)) -> [BluetoothDevice]
@@ -316,19 +335,20 @@ parseDevices objects =
     parseDevice :: (ObjectPath, Map Text (Map Text Variant)) -> Maybe BluetoothDevice
     parseDevice (path, interfaces) = do
       props <- M.lookup (T.pack $ formatInterfaceName device1InterfaceName) interfaces
-      let readProp :: IsVariant a => Text -> a -> a
+      let readProp :: (IsVariant a) => Text -> a -> a
           readProp key def = fromMaybe def $ M.lookup key props >>= fromVariant
           batteryProps = M.lookup (T.pack $ formatInterfaceName battery1InterfaceName) interfaces
           batteryPct = batteryProps >>= M.lookup "Percentage" >>= fromVariant
-      return BluetoothDevice
-        { devicePath = path
-        , deviceName = readProp "Name" ""
-        , deviceAlias = readProp "Alias" ""
-        , deviceAddress = readProp "Address" ""
-        , deviceIcon = M.lookup "Icon" props >>= fromVariant
-        , deviceConnected = readProp "Connected" False
-        , devicePaired = readProp "Paired" False
-        , deviceTrusted = readProp "Trusted" False
-        , deviceBlocked = readProp "Blocked" False
-        , deviceBatteryPercentage = batteryPct
-        }
+      return
+        BluetoothDevice
+          { devicePath = path,
+            deviceName = readProp "Name" "",
+            deviceAlias = readProp "Alias" "",
+            deviceAddress = readProp "Address" "",
+            deviceIcon = M.lookup "Icon" props >>= fromVariant,
+            deviceConnected = readProp "Connected" False,
+            devicePaired = readProp "Paired" False,
+            deviceTrusted = readProp "Trusted" False,
+            deviceBlocked = readProp "Blocked" False,
+            deviceBatteryPercentage = batteryPct
+          }

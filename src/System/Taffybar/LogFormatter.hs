@@ -1,4 +1,7 @@
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.LogFormatter
 -- Copyright   : (c) Ivan A. Malison
@@ -7,15 +10,14 @@
 -- Maintainer  : Ivan A. Malison
 -- Stability   : unstable
 -- Portability : unportable
------------------------------------------------------------------------------
 module System.Taffybar.LogFormatter where
 
 import System.Console.ANSI
+import System.IO
 import System.Log.Formatter
 import System.Log.Handler.Simple
 import System.Log.Logger
 import Text.Printf
-import System.IO
 
 setColor :: Color -> String
 setColor color = setSGRCode [SetColor Foreground Vivid color]
@@ -39,11 +41,15 @@ colorize color txt = setColor color <> txt <> reset
 taffyLogFormatter :: LogFormatter a
 taffyLogFormatter _ (level, msg) name =
   return $ printf "%s %s - %s" colorizedPriority colorizedName msg
-    where priorityColor = priorityToColor level
-          colorizedPriority = colorize priorityColor
-                              ("[" <> show level <> "]")
-          colorizedName = colorize Green name
+  where
+    priorityColor = priorityToColor level
+    colorizedPriority =
+      colorize
+        priorityColor
+        ("[" <> show level <> "]")
+    colorizedName = colorize Green name
 
 taffyLogHandler :: IO (GenericHandler Handle)
 taffyLogHandler = setFormatter <$> streamHandler stderr DEBUG
-  where setFormatter h = h { formatter = taffyLogFormatter }
+  where
+    setFormatter h = h {formatter = taffyLogFormatter}

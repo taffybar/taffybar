@@ -4,12 +4,12 @@ import XMonad (def, manageHook, xmonad)
 import XMonad.Hooks.EwmhDesktops (ewmh, ewmhFullscreen)
 import XMonad.Hooks.ManageDocks (docks)
 import XMonad.ManageHook
-  ( (-->)
-  , (<+>)
-  , className
-  , composeAll
-  , doShift
-  , (=?)
+  ( className,
+    composeAll,
+    doShift,
+    (-->),
+    (<+>),
+    (=?),
   )
 
 -- Minimal EWMH-compliant WM used by CI appearance tests.
@@ -26,5 +26,6 @@ main =
             { manageHook =
                 composeAll
                   [ className =? "GreenWin" --> doShift "2"
-                  ] <+> manageHook def
+                  ]
+                  <+> manageHook def
             }

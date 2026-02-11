@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.HyprlandWindows
 -- Copyright   : (c) Ivan A. Malison
@@ -13,46 +16,44 @@
 -- Menu widget that shows the title of the currently focused Hyprland window
 -- and that, when clicked, displays a menu from which the user may select a
 -- window to which to switch focus.
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.HyprlandWindows where
 
-import           Control.Concurrent (killThread)
-import           Control.Monad (forM_, void)
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Reader
-import           Control.Monad.Trans.Maybe
-import           Data.Default (Default(..))
-import           Data.List (find)
+import Control.Concurrent (killThread)
+import Control.Monad (forM_, void)
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Reader
+import Data.Default (Default (..))
+import Data.List (find)
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
-import           System.Log.Logger (Priority(..))
-import           System.Taffybar.Context
-import           System.Taffybar.Hyprland (runHyprlandCommandRawT)
+import System.Log.Logger (Priority (..))
+import System.Taffybar.Context
+import System.Taffybar.Hyprland (runHyprlandCommandRawT)
 import qualified System.Taffybar.Information.Hyprland as Hypr
-import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.DynamicMenu
-import           System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
-import           System.Taffybar.Widget.Util
-import           System.Taffybar.Widget.HyprlandWorkspaces
-  ( HyprlandWindow(..)
-  , HyprlandWindowIconPixbufGetter
-  , HyprlandClient
-  , defaultHyprlandGetWindowIconPixbuf
-  , getActiveWindowAddress
-  , runHyprctlJson
-  , windowFromClient
+import System.Taffybar.Util
+import System.Taffybar.Widget.Generic.DynamicMenu
+import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
+import System.Taffybar.Widget.HyprlandWorkspaces
+  ( HyprlandClient,
+    HyprlandWindow (..),
+    HyprlandWindowIconPixbufGetter,
+    defaultHyprlandGetWindowIconPixbuf,
+    getActiveWindowAddress,
+    runHyprctlJson,
+    windowFromClient,
   )
+import System.Taffybar.Widget.Util
 
 -- | Window menu widget configuration for Hyprland.
 data HyprlandWindowsConfig = HyprlandWindowsConfig
-  { getMenuLabel :: HyprlandWindow -> TaffyIO T.Text
-  -- ^ A monadic function used to build labels for windows in the menu.
-  , getActiveLabel :: Maybe HyprlandWindow -> TaffyIO T.Text
-  -- ^ Action to build the label text for the active window.
-  , getActiveWindowIconPixbuf :: Maybe HyprlandWindowIconPixbufGetter
-  -- ^ Optional function to retrieve a pixbuf to show next to the window label.
-  , updateIntervalSeconds :: Double
+  { -- | A monadic function used to build labels for windows in the menu.
+    getMenuLabel :: HyprlandWindow -> TaffyIO T.Text,
+    -- | Action to build the label text for the active window.
+    getActiveLabel :: Maybe HyprlandWindow -> TaffyIO T.Text,
+    -- | Optional function to retrieve a pixbuf to show next to the window label.
+    getActiveWindowIconPixbuf :: Maybe HyprlandWindowIconPixbufGetter,
+    updateIntervalSeconds :: Double
   }
 
 truncatedGetMenuLabel :: Int -> HyprlandWindow -> TaffyIO T.Text
@@ -68,11 +69,11 @@ defaultGetActiveLabel = maybe (return "") defaultGetMenuLabel
 defaultHyprlandWindowsConfig :: HyprlandWindowsConfig
 defaultHyprlandWindowsConfig =
   HyprlandWindowsConfig
-  { getMenuLabel = defaultGetMenuLabel
-  , getActiveLabel = defaultGetActiveLabel
-  , getActiveWindowIconPixbuf = Just defaultHyprlandGetWindowIconPixbuf
-  , updateIntervalSeconds = 1
-  }
+    { getMenuLabel = defaultGetMenuLabel,
+      getActiveLabel = defaultGetActiveLabel,
+      getActiveWindowIconPixbuf = Just defaultHyprlandGetWindowIconPixbuf,
+      updateIntervalSeconds = 1
+    }
 
 instance Default HyprlandWindowsConfig where
   def = defaultHyprlandWindowsConfig
@@ -99,8 +100,11 @@ hyprlandWindowsNew config = do
   let refresh = refreshLabel >> lift refreshIcon
   ctx <- ask
   void refresh
-  threadId <- lift $ foreverWithDelay (updateIntervalSeconds config) $
-    void $ runReaderT refresh ctx
+  threadId <-
+    lift $
+      foreverWithDelay (updateIntervalSeconds config) $
+        void $
+          runReaderT refresh ctx
 
   _ <- lift $ Gtk.onWidgetUnrealize hbox $ killThread threadId
 
@@ -108,10 +112,12 @@ hyprlandWindowsNew config = do
   boxWidget <- Gtk.toWidget hbox
 
   runTaffy <- asks (flip runReaderT)
-  menu <- dynamicMenuNew
-    DynamicMenuConfig { dmClickWidget = boxWidget
-                      , dmPopulateMenu = runTaffy . fillMenu config
-                      }
+  menu <-
+    dynamicMenuNew
+      DynamicMenuConfig
+        { dmClickWidget = boxWidget,
+          dmPopulateMenu = runTaffy . fillMenu config
+        }
 
   widgetSetClassGI menu "windows"
 
@@ -140,36 +146,44 @@ getHyprlandWindows = do
   clientsResult <- runHyprctlJson ["-j", "clients"]
   case clientsResult of
     Left err ->
-      logPrintF "System.Taffybar.Widget.HyprlandWindows" WARNING
-        "hyprctl clients failed: %s" err >>
-      return []
+      logPrintF
+        "System.Taffybar.Widget.HyprlandWindows"
+        WARNING
+        "hyprctl clients failed: %s"
+        err
+        >> return []
     Right clients ->
       return $ map (windowFromClient activeAddr) (clients :: [HyprlandClient])
 
-fillMenu :: Gtk.IsMenuShell a => HyprlandWindowsConfig -> a -> ReaderT Context IO ()
-fillMenu config menu = ask >>= \context -> do
-  windowIds <- getHyprlandWindows
-  forM_ windowIds $ \windowData ->
-    lift $ do
-      labelText <- runReaderT (getMenuLabel config windowData) context
-      let focusCallback = runReaderT (focusHyprlandWindow windowData) context >>
-                          return True
-      item <- Gtk.menuItemNewWithLabel labelText
-      _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
-      Gtk.menuShellAppend menu item
-      Gtk.widgetShow item
+fillMenu :: (Gtk.IsMenuShell a) => HyprlandWindowsConfig -> a -> ReaderT Context IO ()
+fillMenu config menu =
+  ask >>= \context -> do
+    windowIds <- getHyprlandWindows
+    forM_ windowIds $ \windowData ->
+      lift $ do
+        labelText <- runReaderT (getMenuLabel config windowData) context
+        let focusCallback =
+              runReaderT (focusHyprlandWindow windowData) context
+                >> return True
+        item <- Gtk.menuItemNewWithLabel labelText
+        _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
+        Gtk.menuShellAppend menu item
+        Gtk.widgetShow item
 
 focusHyprlandWindow :: HyprlandWindow -> TaffyIO ()
 focusHyprlandWindow windowData = do
   result <-
     runHyprlandCommandRawT $
       Hypr.hyprCommand
-        [ "dispatch"
-        , "focuswindow"
-        , "address:" <> T.unpack (windowAddress windowData)
+        [ "dispatch",
+          "focuswindow",
+          "address:" <> T.unpack (windowAddress windowData)
         ]
   case result of
     Left err ->
-      logPrintF "System.Taffybar.Widget.HyprlandWindows" WARNING
-        "Failed to focus window: %s" (show err)
+      logPrintF
+        "System.Taffybar.Widget.HyprlandWindows"
+        WARNING
+        "Failed to focus window: %s"
+        (show err)
     Right _ -> return ()

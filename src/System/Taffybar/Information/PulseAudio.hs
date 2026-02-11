@@ -128,19 +128,19 @@ getPulseAudioInfoChanAndVar sinkSpec =
 -- This is the closest analogue to 'System.Taffybar.Information.Crypto', where
 -- the type parameter provides a stable key for 'getStateDefault' so multiple
 -- parameterized versions can coexist in 'Context'.
-getPulseAudioInfoChanFor :: forall a. KnownSymbol a => TaffyIO (TChan (Maybe PulseAudioInfo))
+getPulseAudioInfoChanFor :: forall a. (KnownSymbol a) => TaffyIO (TChan (Maybe PulseAudioInfo))
 getPulseAudioInfoChanFor = do
   PulseAudioInfoChanVar (chan, _) <- getPulseAudioInfoChanVarFor @a
   pure chan
 
 -- | Read the current PulseAudio info state for a sink spec given as a
 -- type-level string.
-getPulseAudioInfoStateFor :: forall a. KnownSymbol a => TaffyIO (Maybe PulseAudioInfo)
+getPulseAudioInfoStateFor :: forall a. (KnownSymbol a) => TaffyIO (Maybe PulseAudioInfo)
 getPulseAudioInfoStateFor = do
   PulseAudioInfoChanVar (_, var) <- getPulseAudioInfoChanVarFor @a
   liftIO $ readMVar var
 
-getPulseAudioInfoChanVarFor :: forall a. KnownSymbol a => TaffyIO (PulseAudioInfoChanVar a)
+getPulseAudioInfoChanVarFor :: forall a. (KnownSymbol a) => TaffyIO (PulseAudioInfoChanVar a)
 getPulseAudioInfoChanVarFor =
   getStateDefault $ do
     let sinkSpec = symbolVal (Proxy @a)
@@ -203,8 +203,8 @@ monitorPulseAudioInfo sinkSpec chan var = do
       listenForSignal client signalName objects = do
         let callMsg =
               (methodCall paCorePath paCoreInterfaceName "ListenForSignal")
-                { methodCallDestination = Nothing
-                , methodCallBody = [toVariant signalName, toVariant objects]
+                { methodCallDestination = Nothing,
+                  methodCallBody = [toVariant signalName, toVariant objects]
                 }
         reply <- call client callMsg
         case reply of
@@ -241,17 +241,17 @@ monitorPulseAudioInfo sinkSpec chan var = do
       deviceSignalMatcher :: MemberName -> MatchRule
       deviceSignalMatcher memberName =
         matchAny
-          { matchPathNamespace = Just paCoreObjectPath
-          , matchInterface = Just paDeviceInterfaceName
-          , matchMember = Just memberName
+          { matchPathNamespace = Just paCoreObjectPath,
+            matchInterface = Just paDeviceInterfaceName,
+            matchMember = Just memberName
           }
 
       coreSignalMatcher :: MemberName -> MatchRule
       coreSignalMatcher memberName =
         matchAny
-          { matchPath = Just paCoreObjectPath
-          , matchInterface = Just paCoreInterfaceName
-          , matchMember = Just memberName
+          { matchPath = Just paCoreObjectPath,
+            matchInterface = Just paCoreInterfaceName,
+            matchMember = Just memberName
           }
 
       loop = do
@@ -327,7 +327,6 @@ monitorPulseAudioInfo sinkSpec chan var = do
       -- Avoid BlockedIndefinitelyOnMVar exceptions from the "empty mvar trick".
       blockForever =
         forever $ threadDelay 1000000000 -- ~1000s; interruptible by async exceptions.
-
   loop
 
 -- | Query volume and mute state for the provided sink name.

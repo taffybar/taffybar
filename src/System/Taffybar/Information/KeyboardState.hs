@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 --------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.KeyboardState
 -- Copyright   : (c) Ivan Malison
@@ -12,28 +15,27 @@
 --
 -- Provides information about keyboard lock states (Caps Lock, Num Lock,
 -- Scroll Lock) by reading LED brightness values from sysfs.
---
---------------------------------------------------------------------------------
-
 module System.Taffybar.Information.KeyboardState
-  ( KeyboardState(..)
-  , getKeyboardState
-  , defaultKeyboardState
-  , findLedPath
-  , defaultLedBasePath
-  ) where
+  ( KeyboardState (..),
+    getKeyboardState,
+    defaultKeyboardState,
+    findLedPath,
+    defaultLedBasePath,
+  )
+where
 
-import Control.Exception (catch, SomeException)
+import Control.Exception (SomeException, catch)
 import Data.List (find)
-import System.Directory (listDirectory, doesFileExist)
+import System.Directory (doesFileExist, listDirectory)
 import System.FilePath ((</>))
 
 -- | Represents the state of keyboard lock keys.
 data KeyboardState = KeyboardState
-  { capsLock :: Bool
-  , numLock :: Bool
-  , scrollLock :: Bool
-  } deriving (Eq, Show)
+  { capsLock :: Bool,
+    numLock :: Bool,
+    scrollLock :: Bool
+  }
+  deriving (Eq, Show)
 
 -- | Default keyboard state with all locks off.
 defaultKeyboardState :: KeyboardState
@@ -92,8 +94,9 @@ getKeyboardStateFromPath basePath = do
   numState <- maybe (return False) readLedState numPath
   scrollState <- maybe (return False) readLedState scrollPath
 
-  return KeyboardState
-    { capsLock = capsState
-    , numLock = numState
-    , scrollLock = scrollState
-    }
+  return
+    KeyboardState
+      { capsLock = capsState,
+        numLock = numState,
+        scrollLock = scrollState
+      }
