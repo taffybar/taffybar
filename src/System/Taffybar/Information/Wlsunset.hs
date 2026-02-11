@@ -10,7 +10,7 @@
 --
 -- This module provides process-level management of @wlsunset@, a
 -- Wayland day\/night gamma adjustor. It polls for the running state of
--- the process and tracks mode cycling (auto → forced-warm → forced-cool
+-- the process and tracks mode cycling (auto → forced-cool → forced-warm
 -- → auto) via @SIGUSR1@.
 -----------------------------------------------------------------------------
 module System.Taffybar.Information.Wlsunset
@@ -172,7 +172,7 @@ pollWlsunset chan var = do
 -- ---------------------------------------------------------------------------
 
 -- | Cycle wlsunset mode by sending @SIGUSR1@ to the process.
--- The mode cycles: Auto → ForcedWarm → ForcedCool → Auto.
+-- The mode cycles: Auto → ForcedCool → ForcedWarm → Auto.
 cycleWlsunsetMode :: WlsunsetConfig -> TaffyIO ()
 cycleWlsunsetMode cfg = do
   WlsunsetChanVar (chan, var, _) <- getWlsunsetChanVar cfg
@@ -184,9 +184,9 @@ cycleWlsunsetMode cfg = do
         mapM_ sendUSR1 pids
         modifyMVar_ var $ \old -> do
           let newMode = case wlsunsetMode old of
-                WlsunsetAuto       -> WlsunsetForcedWarm
-                WlsunsetForcedWarm -> WlsunsetForcedCool
-                WlsunsetForcedCool -> WlsunsetAuto
+                WlsunsetAuto       -> WlsunsetForcedCool
+                WlsunsetForcedCool -> WlsunsetForcedWarm
+                WlsunsetForcedWarm -> WlsunsetAuto
               new = old { wlsunsetMode = newMode }
           wlsunsetLogF DEBUG "Cycled wlsunset mode: %s" newMode
           atomically $ writeTChan chan new

@@ -219,7 +219,7 @@ showPopupMenu ctx ebox infoCfg = do
 -- ---------------------------------------------------------------------------
 
 -- | Cycle from the current mode to a target mode. The mode ring is:
--- Auto -> ForcedWarm -> ForcedCool -> Auto. We calculate the number of
+-- Auto -> ForcedCool -> ForcedWarm -> Auto. We calculate the number of
 -- SIGUSR1 signals needed and send them.
 cycleToMode :: WlsunsetConfig -> WlsunsetMode -> WlsunsetMode -> TaffyIO ()
 cycleToMode infoCfg currentMode targetMode = do
@@ -227,7 +227,7 @@ cycleToMode infoCfg currentMode targetMode = do
   replicateM_ cyclesNeeded (cycleWlsunsetMode infoCfg)
 
 -- | Calculate how many SIGUSR1 cycles are needed to go from one mode
--- to another in the ring Auto -> ForcedWarm -> ForcedCool -> Auto.
+-- to another in the ring Auto -> ForcedCool -> ForcedWarm -> Auto.
 cyclesToReach :: WlsunsetMode -> WlsunsetMode -> Int
 cyclesToReach from to
   | from == to = 0
@@ -235,5 +235,5 @@ cyclesToReach from to
   where
     toOrd :: WlsunsetMode -> Int
     toOrd WlsunsetAuto       = 0
-    toOrd WlsunsetForcedWarm = 1
-    toOrd WlsunsetForcedCool = 2
+    toOrd WlsunsetForcedCool = 1
+    toOrd WlsunsetForcedWarm = 2
