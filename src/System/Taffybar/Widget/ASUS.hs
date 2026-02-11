@@ -13,7 +13,7 @@
 -- ASUS platform profile along with CPU frequency and temperature.
 --
 -- Displays: @\<icon\> \<freq\> \<temp\>@, e.g. @nf-icon 3.2GHz 72°C@.
--- Left-click cycles profiles (Quiet -> Balanced -> Performance -> Quiet).
+-- Left-click opens a profile selection menu; right-click cycles profiles.
 -----------------------------------------------------------------------------
 module System.Taffybar.Widget.ASUS
   ( ASUSWidgetConfig(..)
@@ -28,6 +28,7 @@ import           Control.Monad.Trans.Reader
 import           Data.Default (Default(..))
 import qualified Data.Text as T
 import qualified GI.Gdk as Gdk
+import qualified GI.GLib as GLib
 import qualified GI.Gtk as Gtk
 import           System.Log.Logger
 import           System.Taffybar.Context
@@ -133,14 +134,18 @@ updateTooltip widget info = do
                  <> "\nCPU Temp: " <> tempStr
   Gtk.widgetSetTooltipText widget (Just tooltipText)
 
--- | Set up click handler to cycle profiles on left-click.
+-- | Set up click handler: left-click opens profile menu, right-click cycles.
 setupClickHandler :: Context -> Gtk.EventBox -> IO ()
 setupClickHandler ctx ebox = do
   void $ Gtk.onWidgetButtonPressEvent ebox $ \event -> do
     button <- Gdk.getEventButtonButton event
     eventType <- Gdk.getEventButtonType event
-    if eventType == Gdk.EventTypeButtonPress && button == 1
-      then do
+    if eventType /= Gdk.EventTypeButtonPress then return False
+    else case button of
+      1 -> do
+        showProfileMenu ctx ebox
+        return True
+      3 -> do
         let client = systemDBusClient ctx
         result <- cycleASUSProfile client
         case result of
@@ -149,4 +154,42 @@ setupClickHandler ctx ebox = do
           Right () ->
             return ()
         return True
-      else return False
+      _ -> return False
+
+-- | Build and show a popup menu for selecting a profile.
+showProfileMenu :: Context -> Gtk.EventBox -> IO ()
+showProfileMenu ctx ebox = do
+  currentEvent <- Gtk.getCurrentEvent
+  currentInfo <- runReaderT getASUSInfoState ctx
+  let currentProfile = asusProfile currentInfo
+
+  menu <- Gtk.menuNew
+  Gtk.menuAttachToWidget menu ebox Nothing
+
+  let profiles = [ ("Quiet", Quiet)
+                 , ("Balanced", Balanced)
+                 , ("Performance", Performance)
+                 ]
+
+  forM_ profiles $ \(labelText, profile) -> do
+    let prefix = if profile == currentProfile
+                   then "\x2713 " :: T.Text
+                   else "   "
+    item <- Gtk.menuItemNewWithLabel (prefix <> labelText)
+    void $ Gtk.onMenuItemActivate item $ do
+      let client = systemDBusClient ctx
+      result <- setASUSProfile client profile
+      case result of
+        Left err ->
+          asusLogF WARNING "Failed to set ASUS profile: %s" (show err)
+        Right () ->
+          return ()
+    Gtk.menuShellAppend menu item
+
+  void $ Gtk.onWidgetHide menu $
+    void $ GLib.idleAdd GLib.PRIORITY_LOW $ do
+      Gtk.widgetDestroy menu
+      return False
+
+  Gtk.widgetShowAll menu
+  Gtk.menuPopupAtPointer menu currentEvent
