@@ -13,8 +13,8 @@
 --
 -- This module provides process-level management of @wlsunset@, a
 -- Wayland day\/night gamma adjustor. It polls for the running state of
--- the process and tracks mode cycling (auto → forced-cool → forced-warm
--- → auto) via @SIGUSR1@.
+-- the process and tracks mode cycling (auto → forced high temp →
+-- forced low temp → auto) via @SIGUSR1@.
 module System.Taffybar.Information.Wlsunset
   ( -- * Types
     WlsunsetMode (..),
@@ -30,6 +30,7 @@ module System.Taffybar.Information.Wlsunset
     startWlsunset,
     stopWlsunset,
     toggleWlsunset,
+    restartWlsunsetWithTemps,
   )
 where
 
@@ -42,6 +43,7 @@ import Control.Monad.IO.Class
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Class
 import Data.Default (Default (..))
+import Data.List (isPrefixOf)
 import System.Log.Logger
 import System.Posix.Signals (sigUSR1, signalProcess)
 import System.Posix.Types (CPid (..))
@@ -52,20 +54,24 @@ import Text.Read (readMaybe)
 
 -- | The three operating modes that wlsunset cycles through when it
 -- receives @SIGUSR1@.  The cycle order matches wlsunset's internal
--- ring: Auto → ForcedCool (high/day temp) → ForcedWarm (low/night temp) → Auto.
+-- ring: Auto → ForcedHighTemp → ForcedLowTemp → Auto.
 data WlsunsetMode
   = -- | Normal day/night schedule
     WlsunsetAuto
-  | -- | Forced cool (day) temperature — no color shift
-    WlsunsetForcedCool
-  | -- | Forced warm (night) temperature
-    WlsunsetForcedWarm
+  | -- | Forced high (day) temperature — no color shift
+    WlsunsetForcedHighTemp
+  | -- | Forced low (night) temperature — warm/reddish colors
+    WlsunsetForcedLowTemp
   deriving (Eq, Show, Ord, Enum, Bounded)
 
 -- | Observable state of the wlsunset process.
 data WlsunsetState = WlsunsetState
   { wlsunsetRunning :: Bool,
-    wlsunsetMode :: WlsunsetMode
+    wlsunsetMode :: WlsunsetMode,
+    -- | The effective high temperature wlsunset is running with.
+    wlsunsetEffectiveHighTemp :: Int,
+    -- | The effective low temperature wlsunset is running with.
+    wlsunsetEffectiveLowTemp :: Int
   }
   deriving (Eq, Show)
 
@@ -74,6 +80,12 @@ data WlsunsetConfig = WlsunsetConfig
   { -- | Full shell command used to start wlsunset (e.g.
     -- @\"wlsunset -l 38.9 -L -77.0\"@).
     wlsunsetCommand :: String,
+    -- | High (day) temperature in Kelvin. Used for display only.
+    -- Should match the @-T@ flag passed to wlsunset (default 6500).
+    wlsunsetHighTemp :: Int,
+    -- | Low (night) temperature in Kelvin. Used for display only.
+    -- Should match the @-t@ flag passed to wlsunset (default 4000).
+    wlsunsetLowTemp :: Int,
     -- | How often (in seconds) to poll for process status.
     wlsunsetPollIntervalSec :: Int
   }
@@ -83,6 +95,8 @@ instance Default WlsunsetConfig where
   def =
     WlsunsetConfig
       { wlsunsetCommand = "wlsunset",
+        wlsunsetHighTemp = 6500,
+        wlsunsetLowTemp = 4000,
         wlsunsetPollIntervalSec = 2
       }
 
@@ -147,7 +161,9 @@ monitorWlsunset cfg = do
   let initialState =
         WlsunsetState
           { wlsunsetRunning = False,
-            wlsunsetMode = WlsunsetAuto
+            wlsunsetMode = WlsunsetAuto,
+            wlsunsetEffectiveHighTemp = wlsunsetHighTemp cfg,
+            wlsunsetEffectiveLowTemp = wlsunsetLowTemp cfg
           }
   stateVar <- liftIO $ newMVar initialState
   chan <- liftIO newBroadcastTChanIO
@@ -174,7 +190,7 @@ pollWlsunset chan var = do
           | not isRunning = WlsunsetAuto
           | otherwise = wlsunsetMode old
         new =
-          WlsunsetState
+          old
             { wlsunsetRunning = isRunning,
               wlsunsetMode = newMode
             }
@@ -188,7 +204,7 @@ pollWlsunset chan var = do
 -- ---------------------------------------------------------------------------
 
 -- | Cycle wlsunset mode by sending @SIGUSR1@ to the process.
--- The mode cycles: Auto → ForcedCool → ForcedWarm → Auto.
+-- The mode cycles: Auto → ForcedHighTemp → ForcedLowTemp → Auto.
 cycleWlsunsetMode :: WlsunsetConfig -> TaffyIO ()
 cycleWlsunsetMode cfg = do
   WlsunsetChanVar (chan, var, _) <- getWlsunsetChanVar cfg
@@ -200,9 +216,9 @@ cycleWlsunsetMode cfg = do
         mapM_ sendUSR1 pids
         modifyMVar_ var $ \old -> do
           let newMode = case wlsunsetMode old of
-                WlsunsetAuto -> WlsunsetForcedCool
-                WlsunsetForcedCool -> WlsunsetForcedWarm
-                WlsunsetForcedWarm -> WlsunsetAuto
+                WlsunsetAuto -> WlsunsetForcedHighTemp
+                WlsunsetForcedHighTemp -> WlsunsetForcedLowTemp
+                WlsunsetForcedLowTemp -> WlsunsetAuto
               new = old {wlsunsetMode = newMode}
           wlsunsetLogF DEBUG "Cycled wlsunset mode: %s" newMode
           atomically $ writeTChan chan new
@@ -231,3 +247,50 @@ toggleWlsunset cfg = do
   if wlsunsetRunning st
     then stopWlsunset cfg
     else startWlsunset cfg
+
+-- | Restart wlsunset with specific low and high temperatures.
+-- Kills the running instance, updates the effective temperatures in state,
+-- and spawns a new instance with @-t lowTemp -T highTemp@.
+restartWlsunsetWithTemps :: WlsunsetConfig -> Int -> Int -> TaffyIO ()
+restartWlsunsetWithTemps cfg lowTemp highTemp = do
+  WlsunsetChanVar (chan, var, _) <- getWlsunsetChanVar cfg
+  liftIO $ do
+    pids <- pgrepWlsunset
+    mapM_ (signalProcess 15) pids
+    let cmd = buildCommandWithTemps (wlsunsetCommand cfg) lowTemp highTemp
+    wlsunsetLog DEBUG $ "Restarting wlsunset: " ++ cmd
+    void $ spawnCommand cmd
+    modifyMVar_ var $ \old -> do
+      let new =
+            old
+              { wlsunsetMode = WlsunsetAuto,
+                wlsunsetEffectiveHighTemp = highTemp,
+                wlsunsetEffectiveLowTemp = lowTemp
+              }
+      atomically $ writeTChan chan new
+      return new
+
+-- ---------------------------------------------------------------------------
+-- Command building
+-- ---------------------------------------------------------------------------
+
+-- | Build a wlsunset command with specific temperature flags.
+-- Strips any existing @-t@\/@-T@ flags from the base command and appends
+-- new ones.
+buildCommandWithTemps :: String -> Int -> Int -> String
+buildCommandWithTemps baseCmd lowTemp highTemp =
+  unwords (stripTempArgs (words baseCmd))
+    ++ " -t "
+    ++ show lowTemp
+    ++ " -T "
+    ++ show highTemp
+
+-- | Strip @-t \<val\>@ and @-T \<val\>@ arguments from a word list.
+stripTempArgs :: [String] -> [String]
+stripTempArgs [] = []
+stripTempArgs ("-t" : _ : rest) = stripTempArgs rest
+stripTempArgs ("-T" : _ : rest) = stripTempArgs rest
+stripTempArgs (x : rest)
+  | "-t" `isPrefixOf` x && length x > 2 = stripTempArgs rest
+  | "-T" `isPrefixOf` x && length x > 2 = stripTempArgs rest
+  | otherwise = x : stripTempArgs rest
