@@ -152,7 +152,7 @@ data HyprlandWorkspacesConfig
     switchToWorkspace :: HyprlandWorkspace -> TaffyIO (),
     updateIntervalSeconds :: Double,
     iconSize :: Int32,
-    commonConfig ::
+    workspacesConfig ::
       WorkspaceWidgetCommonConfig
         (ReaderT Context IO)
         HyprlandWorkspace
@@ -163,14 +163,14 @@ data HyprlandWorkspacesConfig
 hyprlandWorkspacesCommonConfig ::
   HyprlandWorkspacesConfig ->
   WorkspaceWidgetCommonConfig (ReaderT Context IO) HyprlandWorkspace HyprlandWindow HyprlandWWC
-hyprlandWorkspacesCommonConfig = commonConfig
+hyprlandWorkspacesCommonConfig = workspacesConfig
 
 applyCommonHyprlandWorkspacesConfig ::
   WorkspaceWidgetCommonConfig (ReaderT Context IO) HyprlandWorkspace HyprlandWindow HyprlandWWC ->
   HyprlandWorkspacesConfig ->
   HyprlandWorkspacesConfig
 applyCommonHyprlandWorkspacesConfig common cfg =
-  cfg {commonConfig = common}
+  cfg {workspacesConfig = common}
 
 defaultHyprlandWorkspacesConfig :: HyprlandWorkspacesConfig
 defaultHyprlandWorkspacesConfig = cfg
@@ -181,7 +181,7 @@ defaultHyprlandWorkspacesConfig = cfg
           switchToWorkspace = hyprlandSwitchToWorkspace,
           updateIntervalSeconds = 1,
           iconSize = 16,
-          commonConfig =
+          workspacesConfig =
             WorkspaceWidgetCommonConfig
               { WorkspaceWidgetConfig.widgetBuilder = defaultHyprlandWidgetBuilder cfg,
                 WorkspaceWidgetConfig.widgetGap = 0,

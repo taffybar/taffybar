@@ -222,7 +222,9 @@ library
                  , System.Taffybar.Widget.Workspaces.Config
                  , System.Taffybar.Widget.Workspaces.Common
                  , System.Taffybar.Widget.Workspaces.EWMH
+                 , System.Taffybar.Widget.Workspaces.EWMH.Compat
                  , System.Taffybar.Widget.Workspaces.X11
+                 , System.Taffybar.Widget.Workspaces.Hyprland.Compat
                  , System.Taffybar.Widget.Workspaces.Shared
                  , System.Taffybar.Widget.WirePlumber
                  , System.Taffybar.Widget.Wlsunset

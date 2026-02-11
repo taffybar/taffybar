@@ -96,7 +96,7 @@ data WorkspacesContext = WorkspacesContext
   { controllersVar :: MV.MVar (M.Map WorkspaceId WWC),
     workspacesVar :: MV.MVar (M.Map WorkspaceId Workspace),
     workspacesWidget :: Gtk.Box,
-    workspacesConfig :: WorkspacesConfig,
+    ewmhConfig :: WorkspacesConfig,
     taffyContext :: Context
   }
 
@@ -131,7 +131,7 @@ type WindowIconPixbufGetter =
 
 data WorkspacesConfig
   = WorkspacesConfig
-  { commonConfig ::
+  { workspacesConfig ::
       WorkspaceWidgetCommonConfig
         (ReaderT WorkspacesContext IO)
         Workspace
@@ -145,19 +145,19 @@ data WorkspacesConfig
 workspacesCommonConfig ::
   WorkspacesConfig ->
   WorkspaceWidgetCommonConfig (ReaderT WorkspacesContext IO) Workspace WindowData WWC
-workspacesCommonConfig = commonConfig
+workspacesCommonConfig = workspacesConfig
 
 applyCommonWorkspacesConfig ::
   WorkspaceWidgetCommonConfig (ReaderT WorkspacesContext IO) Workspace WindowData WWC ->
   WorkspacesConfig ->
   WorkspacesConfig
 applyCommonWorkspacesConfig common cfg =
-  cfg {commonConfig = common}
+  cfg {workspacesConfig = common}
 
 defaultWorkspacesConfig :: WorkspacesConfig
 defaultWorkspacesConfig =
   WorkspacesConfig
-    { commonConfig =
+    { workspacesConfig =
         WorkspaceWidgetCommonConfig
           { WorkspaceWidgetConfig.widgetBuilder =
               buildButtonController defaultBuildContentsController,
@@ -234,7 +234,7 @@ buildWorkspaceData _ =
     urgentWindows <- filterM isWindowUrgent wins
     activeWindow <- getActiveWindow
     active : visible <- getVisibleWorkspaces
-    let common = workspacesCommonConfig (workspacesConfig context)
+    let common = workspacesCommonConfig (ewmhConfig context)
         getWorkspaceState idx ws
           | idx == active = Active
           | idx `elem` visible = Visible
@@ -302,7 +302,7 @@ workspacesNew cfg =
             { controllersVar = controllersRef,
               workspacesVar = workspacesRef,
               workspacesWidget = cont,
-              workspacesConfig = cfg,
+              ewmhConfig = cfg,
               taffyContext = tContext
             }
     -- This will actually create all the widgets
@@ -364,7 +364,7 @@ setControllerWidgetVisibility = do
   ctx@WorkspacesContext
     { workspacesVar = workspacesRef,
       controllersVar = controllersRef,
-      workspacesConfig = cfg
+      ewmhConfig = cfg
     } <-
     ask
   let common = workspacesCommonConfig cfg
@@ -401,7 +401,7 @@ updateWorkspaceControllers = do
     { controllersVar = controllersRef,
       workspacesVar = workspacesRef,
       workspacesWidget = cont,
-      workspacesConfig = cfg
+      ewmhConfig = cfg
     } <-
     ask
   workspacesMap <- lift $ MV.readMVar workspacesRef
@@ -436,7 +436,7 @@ rateLimitFn ::
   ResultsCombiner req resp ->
   IO (req -> IO resp)
 rateLimitFn context =
-  let limit = (updateRateLimitMicroseconds $ workspacesConfig context)
+  let limit = (updateRateLimitMicroseconds $ ewmhConfig context)
       rate = fromMicroseconds limit :: Microsecond
    in generateRateLimitedFunction $ PerInvocation rate
 
@@ -598,7 +598,7 @@ buildLabelController ws = do
 instance WorkspaceWidgetController LabelController where
   getWidget = lift . Gtk.toWidget . label
   updateWidget lc (WorkspaceUpdate newWorkspace) = do
-    WorkspacesContext {workspacesConfig = cfg} <- ask
+    WorkspacesContext {ewmhConfig = cfg} <- ask
     let common = workspacesCommonConfig cfg
     labelText <- WorkspaceWidgetConfig.labelSetter common newWorkspace
     lift $ do
@@ -613,7 +613,7 @@ buildIconWidget :: Bool -> Workspace -> WorkspacesIO IconWidget
 buildIconWidget transparentOnNone ws = do
   ctx <- ask
   let tContext = taffyContext ctx
-      cfg = workspacesConfig ctx
+      cfg = ewmhConfig ctx
       common = workspacesCommonConfig cfg
       getPB size windowData =
         runReaderT (WorkspaceWidgetConfig.getWindowIconPixbuf common size windowData) tContext
@@ -774,7 +774,7 @@ sortWindowsByStackIndex wins = do
 
 updateImages :: IconController -> Workspace -> WorkspacesIO [IconWidget]
 updateImages ic ws = do
-  WorkspacesContext {workspacesConfig = cfg} <- ask
+  WorkspacesContext {ewmhConfig = cfg} <- ask
   let common = workspacesCommonConfig cfg
   sortedWindows <- WorkspaceWidgetConfig.iconSort common $ windows ws
   wLog DEBUG $ printf "Updating images for %s" (show ws)

@@ -159,8 +159,8 @@ runUnderWm wmProc outPath cssPath mode = do
   let wsCfgDefault = def :: WorkspacesConfig
       wsCfg =
         wsCfgDefault
-          { Workspaces.commonConfig =
-              (Workspaces.commonConfig wsCfgDefault)
+          { Workspaces.workspacesConfig =
+              (Workspaces.workspacesConfig wsCfgDefault)
                 { -- Avoid font-dependent output in the appearance golden: we only care
                   -- that icons/layout render deterministically.
                   WorkspaceConfig.labelSetter = const (pure ""),

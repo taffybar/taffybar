@@ -86,8 +86,8 @@ exampleTaffybarConfig =
       myWorkspacesConfig =
         let cfg = def
          in cfg
-              { Workspaces.commonConfig =
-                  (Workspaces.commonConfig cfg)
+              { Workspaces.workspacesConfig =
+                  (Workspaces.workspacesConfig cfg)
                     { WorkspaceConfig.minIcons = 1,
                       WorkspaceConfig.widgetGap = 0,
                       WorkspaceConfig.showWorkspaceFn = hideEmpty
