@@ -151,50 +151,26 @@ data HyprlandWorkspacesConfig
   { getWorkspaces :: TaffyIO [HyprlandWorkspace],
     switchToWorkspace :: HyprlandWorkspace -> TaffyIO (),
     updateIntervalSeconds :: Double,
-    widgetBuilder :: HyprlandControllerConstructor,
-    widgetGap :: Int,
-    maxIcons :: Maybe Int,
-    minIcons :: Int,
     iconSize :: Int32,
-    getWindowIconPixbuf :: HyprlandWindowIconPixbufGetter,
-    labelSetter :: HyprlandWorkspace -> TaffyIO String,
-    showWorkspaceFn :: HyprlandWorkspace -> Bool,
-    iconSort :: [HyprlandWindow] -> TaffyIO [HyprlandWindow],
-    urgentWorkspaceState :: Bool
+    commonConfig ::
+      WorkspaceWidgetCommonConfig
+        (ReaderT Context IO)
+        HyprlandWorkspace
+        HyprlandWindow
+        HyprlandWWC
   }
 
 hyprlandWorkspacesCommonConfig ::
   HyprlandWorkspacesConfig ->
   WorkspaceWidgetCommonConfig (ReaderT Context IO) HyprlandWorkspace HyprlandWindow HyprlandWWC
-hyprlandWorkspacesCommonConfig cfg =
-  WorkspaceWidgetCommonConfig
-    { WorkspaceWidgetConfig.widgetBuilder = widgetBuilder cfg,
-      WorkspaceWidgetConfig.widgetGap = widgetGap cfg,
-      WorkspaceWidgetConfig.maxIcons = maxIcons cfg,
-      WorkspaceWidgetConfig.minIcons = minIcons cfg,
-      WorkspaceWidgetConfig.getWindowIconPixbuf = getWindowIconPixbuf cfg,
-      WorkspaceWidgetConfig.labelSetter = labelSetter cfg,
-      WorkspaceWidgetConfig.showWorkspaceFn = showWorkspaceFn cfg,
-      WorkspaceWidgetConfig.iconSort = iconSort cfg,
-      WorkspaceWidgetConfig.urgentWorkspaceState = urgentWorkspaceState cfg
-    }
+hyprlandWorkspacesCommonConfig = commonConfig
 
 applyCommonHyprlandWorkspacesConfig ::
   WorkspaceWidgetCommonConfig (ReaderT Context IO) HyprlandWorkspace HyprlandWindow HyprlandWWC ->
   HyprlandWorkspacesConfig ->
   HyprlandWorkspacesConfig
 applyCommonHyprlandWorkspacesConfig common cfg =
-  cfg
-    { widgetBuilder = WorkspaceWidgetConfig.widgetBuilder common,
-      widgetGap = WorkspaceWidgetConfig.widgetGap common,
-      maxIcons = WorkspaceWidgetConfig.maxIcons common,
-      minIcons = WorkspaceWidgetConfig.minIcons common,
-      getWindowIconPixbuf = WorkspaceWidgetConfig.getWindowIconPixbuf common,
-      labelSetter = WorkspaceWidgetConfig.labelSetter common,
-      showWorkspaceFn = WorkspaceWidgetConfig.showWorkspaceFn common,
-      iconSort = WorkspaceWidgetConfig.iconSort common,
-      urgentWorkspaceState = WorkspaceWidgetConfig.urgentWorkspaceState common
-    }
+  cfg {commonConfig = common}
 
 defaultHyprlandWorkspacesConfig :: HyprlandWorkspacesConfig
 defaultHyprlandWorkspacesConfig = cfg
@@ -204,18 +180,21 @@ defaultHyprlandWorkspacesConfig = cfg
         { getWorkspaces = getHyprlandWorkspaces,
           switchToWorkspace = hyprlandSwitchToWorkspace,
           updateIntervalSeconds = 1,
-          widgetBuilder = defaultHyprlandWidgetBuilder cfg,
-          widgetGap = 0,
-          maxIcons = Nothing,
-          minIcons = 0,
           iconSize = 16,
-          getWindowIconPixbuf = defaultHyprlandGetWindowIconPixbuf,
-          labelSetter = return . workspaceName,
-          showWorkspaceFn = \ws ->
-            workspaceState ws /= Empty && not (isSpecialHyprWorkspace ws),
-          -- Match the X11 Workspaces widget default: order icons by window position.
-          iconSort = pure . sortHyprlandWindowsByPosition,
-          urgentWorkspaceState = False
+          commonConfig =
+            WorkspaceWidgetCommonConfig
+              { WorkspaceWidgetConfig.widgetBuilder = defaultHyprlandWidgetBuilder cfg,
+                WorkspaceWidgetConfig.widgetGap = 0,
+                WorkspaceWidgetConfig.maxIcons = Nothing,
+                WorkspaceWidgetConfig.minIcons = 0,
+                WorkspaceWidgetConfig.getWindowIconPixbuf = defaultHyprlandGetWindowIconPixbuf,
+                WorkspaceWidgetConfig.labelSetter = return . workspaceName,
+                WorkspaceWidgetConfig.showWorkspaceFn = \ws ->
+                  workspaceState ws /= Empty && not (isSpecialHyprWorkspace ws),
+                -- Match the X11 Workspaces widget default: order icons by window position.
+                WorkspaceWidgetConfig.iconSort = pure . sortHyprlandWindowsByPosition,
+                WorkspaceWidgetConfig.urgentWorkspaceState = False
+              }
         }
 
 instance Default HyprlandWorkspacesConfig where

@@ -20,7 +20,7 @@
 module System.Taffybar.Widget.Workspaces.EWMH
   ( module System.Taffybar.Widget.Workspaces.EWMH,
     module System.Taffybar.Widget.Workspaces.Shared,
-    WorkspaceWidgetCommonConfig,
+    module System.Taffybar.Widget.Workspaces.Config,
   )
 where
 
@@ -131,68 +131,48 @@ type WindowIconPixbufGetter =
 
 data WorkspacesConfig
   = WorkspacesConfig
-  { widgetBuilder :: ControllerConstructor,
-    widgetGap :: Int,
-    maxIcons :: Maybe Int,
-    minIcons :: Int,
-    getWindowIconPixbuf :: WindowIconPixbufGetter,
-    labelSetter :: Workspace -> WorkspacesIO String,
-    showWorkspaceFn :: Workspace -> Bool,
+  { commonConfig ::
+      WorkspaceWidgetCommonConfig
+        (ReaderT WorkspacesContext IO)
+        Workspace
+        WindowData
+        WWC,
     borderWidth :: Int,
     updateEvents :: [String],
-    updateRateLimitMicroseconds :: Integer,
-    iconSort :: [WindowData] -> WorkspacesIO [WindowData],
-    urgentWorkspaceState :: Bool
+    updateRateLimitMicroseconds :: Integer
   }
 
 workspacesCommonConfig ::
   WorkspacesConfig ->
   WorkspaceWidgetCommonConfig (ReaderT WorkspacesContext IO) Workspace WindowData WWC
-workspacesCommonConfig cfg =
-  WorkspaceWidgetCommonConfig
-    { WorkspaceWidgetConfig.widgetBuilder = widgetBuilder cfg,
-      WorkspaceWidgetConfig.widgetGap = widgetGap cfg,
-      WorkspaceWidgetConfig.maxIcons = maxIcons cfg,
-      WorkspaceWidgetConfig.minIcons = minIcons cfg,
-      WorkspaceWidgetConfig.getWindowIconPixbuf = getWindowIconPixbuf cfg,
-      WorkspaceWidgetConfig.labelSetter = labelSetter cfg,
-      WorkspaceWidgetConfig.showWorkspaceFn = showWorkspaceFn cfg,
-      WorkspaceWidgetConfig.iconSort = iconSort cfg,
-      WorkspaceWidgetConfig.urgentWorkspaceState = urgentWorkspaceState cfg
-    }
+workspacesCommonConfig = commonConfig
 
 applyCommonWorkspacesConfig ::
   WorkspaceWidgetCommonConfig (ReaderT WorkspacesContext IO) Workspace WindowData WWC ->
   WorkspacesConfig ->
   WorkspacesConfig
 applyCommonWorkspacesConfig common cfg =
-  cfg
-    { widgetBuilder = WorkspaceWidgetConfig.widgetBuilder common,
-      widgetGap = WorkspaceWidgetConfig.widgetGap common,
-      maxIcons = WorkspaceWidgetConfig.maxIcons common,
-      minIcons = WorkspaceWidgetConfig.minIcons common,
-      getWindowIconPixbuf = WorkspaceWidgetConfig.getWindowIconPixbuf common,
-      labelSetter = WorkspaceWidgetConfig.labelSetter common,
-      showWorkspaceFn = WorkspaceWidgetConfig.showWorkspaceFn common,
-      iconSort = WorkspaceWidgetConfig.iconSort common,
-      urgentWorkspaceState = WorkspaceWidgetConfig.urgentWorkspaceState common
-    }
+  cfg {commonConfig = common}
 
 defaultWorkspacesConfig :: WorkspacesConfig
 defaultWorkspacesConfig =
   WorkspacesConfig
-    { widgetBuilder = buildButtonController defaultBuildContentsController,
-      widgetGap = 0,
-      maxIcons = Nothing,
-      minIcons = 0,
-      getWindowIconPixbuf = defaultGetWindowIconPixbuf,
-      labelSetter = return . workspaceName,
-      showWorkspaceFn = const True,
+    { commonConfig =
+        WorkspaceWidgetCommonConfig
+          { WorkspaceWidgetConfig.widgetBuilder =
+              buildButtonController defaultBuildContentsController,
+            WorkspaceWidgetConfig.widgetGap = 0,
+            WorkspaceWidgetConfig.maxIcons = Nothing,
+            WorkspaceWidgetConfig.minIcons = 0,
+            WorkspaceWidgetConfig.getWindowIconPixbuf = defaultGetWindowIconPixbuf,
+            WorkspaceWidgetConfig.labelSetter = return . workspaceName,
+            WorkspaceWidgetConfig.showWorkspaceFn = const True,
+            WorkspaceWidgetConfig.iconSort = sortWindowsByPosition,
+            WorkspaceWidgetConfig.urgentWorkspaceState = False
+          },
       borderWidth = 2,
-      iconSort = sortWindowsByPosition,
       updateEvents = allEWMHProperties \\ [ewmhWMIcon],
-      updateRateLimitMicroseconds = 100000,
-      urgentWorkspaceState = False
+      updateRateLimitMicroseconds = 100000
     }
 
 instance Default WorkspacesConfig where
