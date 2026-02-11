@@ -30,6 +30,7 @@ import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
 import System.Taffybar.Widget.Generic.PollingGraph
 import qualified System.Taffybar.Widget.Workspaces as Workspaces
+import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
 
 transparent,
   yellow1,
@@ -83,11 +84,15 @@ exampleTaffybarConfig :: TaffybarConfig
 exampleTaffybarConfig =
   let myWorkspacesConfig :: WorkspacesConfig
       myWorkspacesConfig =
-        def
-          { Workspaces.minIcons = 1,
-            Workspaces.widgetGap = 0,
-            Workspaces.showWorkspaceFn = hideEmpty
-          }
+        let cfg = def
+         in cfg
+              { Workspaces.workspacesConfig =
+                  (Workspaces.workspacesConfig cfg)
+                    { WorkspaceConfig.minIcons = 1,
+                      WorkspaceConfig.widgetGap = 0,
+                      WorkspaceConfig.showWorkspaceFn = hideEmpty
+                    }
+              }
       workspaces = workspacesNew myWorkspacesConfig
       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
       mem = pollingGraphNew memCfg 1 memCallback

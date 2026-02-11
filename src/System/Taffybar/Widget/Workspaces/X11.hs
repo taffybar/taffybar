@@ -3,16 +3,17 @@
 -----------------------------------------------------------------------------
 
 -- |
--- Module      : System.Taffybar.Widget.HyprlandWorkspaces
+-- Module      : System.Taffybar.Widget.Workspaces.X11
 -- Copyright   : (c) Ivan A. Malison
 -- License     : BSD3-style (see LICENSE)
 --
 -- Maintainer  : Ivan A. Malison
 -- Stability   : unstable
 -- Portability : unportable
-module System.Taffybar.Widget.HyprlandWorkspaces
-  ( module System.Taffybar.Widget.Workspaces.Hyprland,
+module System.Taffybar.Widget.Workspaces.X11
+  {-# DEPRECATED "Use System.Taffybar.Widget.Workspaces.EWMH" #-}
+  ( module System.Taffybar.Widget.Workspaces.EWMH,
   )
 where
 
-import System.Taffybar.Widget.Workspaces.Hyprland
+import System.Taffybar.Widget.Workspaces.EWMH
