@@ -30,6 +30,7 @@ module System.Taffybar.Context
     appendHook,
 
     -- ** Bars
+    BarLevelConfig (..),
     BarConfig (..),
     BarConfigGetter,
     showBarId,
@@ -142,6 +143,16 @@ fromValue (Value v) =
       Nothing
 
 -- | 'BarConfig' specifies the configuration for a single taffybar window.
+data BarLevelConfig = BarLevelConfig
+  { -- | Constructors for widgets that should be placed at the beginning of the level.
+    levelStartWidgets :: [TaffyIO Gtk.Widget],
+    -- | Constructors for widgets that should be placed in the center of the level.
+    levelCenterWidgets :: [TaffyIO Gtk.Widget],
+    -- | Constructors for widgets that should be placed at the end of the level.
+    levelEndWidgets :: [TaffyIO Gtk.Widget]
+  }
+
+-- | 'BarConfig' specifies the configuration for a single taffybar window.
 data BarConfig = BarConfig
   { -- | The strut configuration to use for the bar
     strutConfig :: StrutConfig,
@@ -153,6 +164,9 @@ data BarConfig = BarConfig
     centerWidgets :: [TaffyIO Gtk.Widget],
     -- | Constructors for widgets that should be placed at the end of the bar.
     endWidgets :: [TaffyIO Gtk.Widget],
+    -- | Optional level-based widget configuration. If this field is set,
+    -- 'startWidgets', 'centerWidgets' and 'endWidgets' are ignored.
+    barLevels :: Maybe [BarLevelConfig],
     -- | A unique identifier for the bar, that can be used e.g. when toggling.
     barId :: Unique
   }
@@ -333,54 +347,112 @@ buildBarWindow context barConfig = do
     MV.modifyMVar_ (existingWindows context) (pure . filter ((/=) window . sel2))
     logC DEBUG $ printf "Window for Taffybar(id=%s) unregistered" bId
 
-  box <-
-    Gtk.boxNew Gtk.OrientationHorizontal $
-      fromIntegral $
-        widgetSpacing barConfig
-  _ <- widgetSetClassGI box "taffy-box"
-  Gtk.widgetSetVexpand box False
-  Gtk.setWidgetValign box Gtk.AlignFill
-  centerBox <-
-    Gtk.boxNew Gtk.OrientationHorizontal $
-      fromIntegral $
-        widgetSpacing barConfig
-
-  _ <- widgetSetClassGI centerBox "center-box"
-  Gtk.widgetSetVexpand centerBox True
-  Gtk.setWidgetValign centerBox Gtk.AlignFill
-  Gtk.setWidgetHalign centerBox Gtk.AlignCenter
-  Gtk.boxSetCenterWidget box (Just centerBox)
-
   setupBarWindow context (strutConfig barConfig) window
-  Gtk.containerAdd window box
 
   _ <- widgetSetClassGI window "taffy-window"
 
   let addWidgetWith widgetAdd (count, buildWidget) =
         runReaderT buildWidget thisContext >>= widgetAdd count
-      addToStart count widget = do
-        _ <- widgetSetClassGI widget $ T.pack $ printf "left-%d" (count :: Int)
-        Gtk.boxPackStart box widget False False 0
-      addToEnd count widget = do
-        _ <- widgetSetClassGI widget $ T.pack $ printf "right-%d" (count :: Int)
-        Gtk.boxPackEnd box widget False False 0
-      addToCenter count widget = do
-        _ <- widgetSetClassGI widget $ T.pack $ printf "center-%d" (count :: Int)
-        Gtk.boxPackStart centerBox widget False False 0
 
-  logIO DEBUG "Building start widgets"
-  mapM_ (addWidgetWith addToStart) $ zip [1 ..] (startWidgets barConfig)
-  logIO DEBUG "Building center widgets"
-  mapM_ (addWidgetWith addToCenter) $ zip [1 ..] (centerWidgets barConfig)
-  logIO DEBUG "Building end widgets"
-  mapM_ (addWidgetWith addToEnd) $ zip [1 ..] (endWidgets barConfig)
+  shownBoxes <-
+    case barLevels barConfig of
+      Nothing -> do
+        box <-
+          Gtk.boxNew Gtk.OrientationHorizontal $
+            fromIntegral $
+              widgetSpacing barConfig
+        _ <- widgetSetClassGI box "taffy-box"
+        Gtk.widgetSetVexpand box False
+        Gtk.setWidgetValign box Gtk.AlignFill
+        centerBox <-
+          Gtk.boxNew Gtk.OrientationHorizontal $
+            fromIntegral $
+              widgetSpacing barConfig
+
+        _ <- widgetSetClassGI centerBox "center-box"
+        Gtk.widgetSetVexpand centerBox True
+        Gtk.setWidgetValign centerBox Gtk.AlignFill
+        Gtk.setWidgetHalign centerBox Gtk.AlignCenter
+        Gtk.boxSetCenterWidget box (Just centerBox)
+
+        Gtk.containerAdd window box
+
+        let addToStart count widget = do
+              _ <- widgetSetClassGI widget $ T.pack $ printf "left-%d" (count :: Int)
+              Gtk.boxPackStart box widget False False 0
+            addToEnd count widget = do
+              _ <- widgetSetClassGI widget $ T.pack $ printf "right-%d" (count :: Int)
+              Gtk.boxPackEnd box widget False False 0
+            addToCenter count widget = do
+              _ <- widgetSetClassGI widget $ T.pack $ printf "center-%d" (count :: Int)
+              Gtk.boxPackStart centerBox widget False False 0
+
+        logIO DEBUG "Building start widgets"
+        mapM_ (addWidgetWith addToStart) $ zip [1 ..] (startWidgets barConfig)
+        logIO DEBUG "Building center widgets"
+        mapM_ (addWidgetWith addToCenter) $ zip [1 ..] (centerWidgets barConfig)
+        logIO DEBUG "Building end widgets"
+        mapM_ (addWidgetWith addToEnd) $ zip [1 ..] (endWidgets barConfig)
+
+        return [box, centerBox]
+      Just levels -> do
+        levelsBox <- Gtk.boxNew Gtk.OrientationVertical 0
+        _ <- widgetSetClassGI levelsBox "taffy-levels"
+        Gtk.widgetSetVexpand levelsBox False
+        Gtk.setWidgetValign levelsBox Gtk.AlignFill
+        Gtk.containerAdd window levelsBox
+
+        let flattenRows = concatMap (\(box, centerBox) -> [box, centerBox])
+            buildLevel (levelCount, BarLevelConfig {levelStartWidgets = starts, levelCenterWidgets = centers, levelEndWidgets = ends}) = do
+              box <-
+                Gtk.boxNew Gtk.OrientationHorizontal $
+                  fromIntegral $
+                    widgetSpacing barConfig
+              _ <- widgetSetClassGI box "taffy-box"
+              _ <- widgetSetClassGI box $ T.pack $ printf "level-%d" (levelCount :: Int)
+              Gtk.widgetSetVexpand box False
+              Gtk.setWidgetValign box Gtk.AlignFill
+
+              centerBox <-
+                Gtk.boxNew Gtk.OrientationHorizontal $
+                  fromIntegral $
+                    widgetSpacing barConfig
+              _ <- widgetSetClassGI centerBox "center-box"
+              _ <- widgetSetClassGI centerBox $ T.pack $ printf "level-%d-center" (levelCount :: Int)
+              Gtk.widgetSetVexpand centerBox True
+              Gtk.setWidgetValign centerBox Gtk.AlignFill
+              Gtk.setWidgetHalign centerBox Gtk.AlignCenter
+              Gtk.boxSetCenterWidget box (Just centerBox)
+
+              Gtk.boxPackStart levelsBox box False True 0
+
+              let addToStart count widget = do
+                    _ <- widgetSetClassGI widget $ T.pack $ printf "left-%d" (count :: Int)
+                    Gtk.boxPackStart box widget False False 0
+                  addToEnd count widget = do
+                    _ <- widgetSetClassGI widget $ T.pack $ printf "right-%d" (count :: Int)
+                    Gtk.boxPackEnd box widget False False 0
+                  addToCenter count widget = do
+                    _ <- widgetSetClassGI widget $ T.pack $ printf "center-%d" (count :: Int)
+                    Gtk.boxPackStart centerBox widget False False 0
+
+              logIO DEBUG $ printf "Building level %d start widgets" (levelCount :: Int)
+              mapM_ (addWidgetWith addToStart) $ zip [1 ..] starts
+              logIO DEBUG $ printf "Building level %d center widgets" (levelCount :: Int)
+              mapM_ (addWidgetWith addToCenter) $ zip [1 ..] centers
+              logIO DEBUG $ printf "Building level %d end widgets" (levelCount :: Int)
+              mapM_ (addWidgetWith addToEnd) $ zip [1 ..] ends
+
+              return (box, centerBox)
+
+        levelRows <- mapM buildLevel $ zip [1 ..] levels
+        return $ levelsBox : flattenRows levelRows
 
   makeWindowTransparent window
 
   logIO DEBUG "Showing window"
   Gtk.widgetShow window
-  Gtk.widgetShow box
-  Gtk.widgetShow centerBox
+  mapM_ Gtk.widgetShow shownBoxes
 
   when (backend context == BackendX11) $
     runX11Context context () $

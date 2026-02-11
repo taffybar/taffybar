@@ -21,7 +21,7 @@ import qualified Data.ByteString.Lazy as BL
 import Data.Default (def)
 import Data.Maybe (listToMaybe)
 import qualified Data.Text as T
-import Data.Unique (newUnique)
+import Data.Unique (Unique, newUnique)
 import Data.Word (Word32)
 import Foreign.C.Types (CLong)
 import qualified GI.Gdk as Gdk
@@ -66,6 +66,7 @@ import System.Process.Typed (Process, getPid, proc, startProcess)
 import System.Taffybar (startTaffybar)
 import System.Taffybar.Context
   ( BarConfig (..),
+    BarLevelConfig (..),
     Context (..),
     TaffyIO,
     TaffybarConfig (..),
@@ -82,12 +83,16 @@ import UnliftIO.Temporary (withSystemTempDirectory)
 
 data Args = Args
   { outFile :: FilePath,
-    cssFile :: FilePath
+    cssFile :: FilePath,
+    layoutMode :: LayoutMode
   }
+
+data LayoutMode = LayoutLegacy | LayoutLevels
+  deriving (Eq, Show)
 
 main :: IO ()
 main = do
-  Args {outFile = outPath, cssFile = cssPath} <- parseArgs =<< getArgs
+  Args {outFile = outPath, cssFile = cssPath, layoutMode = mode} <- parseArgs =<< getArgs
 
   -- Force X11 backend selection even if the surrounding session is Wayland.
   unsetEnv "WAYLAND_DISPLAY"
@@ -127,14 +132,14 @@ main = do
     --
     -- If this fails, the parent Xvfb teardown will still kill the X server,
     -- which causes the WM to exit.
-    res <- runUnderWm wmProc outPath cssPath
+    res <- runUnderWm wmProc outPath cssPath mode
     killProcessNoWait wmProc
     pure res
 
   exitWith ec
 
-runUnderWm :: Process () () () -> FilePath -> FilePath -> IO ExitCode
-runUnderWm wmProc outPath cssPath = do
+runUnderWm :: Process () () () -> FilePath -> FilePath -> LayoutMode -> IO ExitCode
+runUnderWm wmProc outPath cssPath mode = do
   ctxVar <- (newEmptyMVar :: IO (MVar Context))
   resultVar <- (newEmptyMVar :: IO (MVar (Either String BL.ByteString)))
   doneVar <- (newEmptyMVar :: IO (MVar ExitCode))
@@ -159,24 +164,7 @@ runUnderWm wmProc outPath cssPath = do
             getWindowIconPixbuf = getWindowIconPixbufFromEWMH,
             iconSort = sortWindowsByStackIndex
           }
-      barCfg =
-        BarConfig
-          { strutConfig =
-              defaultStrutConfig
-                { strutHeight = ExactSize 40,
-                  strutMonitor = Just 0,
-                  strutPosition = TopPos
-                },
-            widgetSpacing = 8,
-            startWidgets = [workspacesNew wsCfg],
-            centerWidgets = [testBoxWidget "test-center-box" 200 20],
-            endWidgets =
-              [ testBoxWidget "test-pill" 52 20,
-                testBoxWidget "test-pill" 52 20,
-                testBoxWidget "test-right-box" 16 16
-              ],
-            barId = barUnique
-          }
+      barCfg = buildBarConfig wsCfg barUnique mode
       cfg =
         def
           { dbusClientParam = Nothing,
@@ -192,6 +180,56 @@ runUnderWm wmProc outPath cssPath = do
 
     -- Should have been set by finalizeThread or watchdogThread.
     takeMVar doneVar
+
+buildBarConfig :: WorkspacesConfig -> Unique -> LayoutMode -> BarConfig
+buildBarConfig wsCfg barUnique mode =
+  case mode of
+    LayoutLegacy ->
+      BarConfig
+        { strutConfig = baseStrutConfig 40,
+          widgetSpacing = 8,
+          startWidgets = [workspacesNew wsCfg],
+          centerWidgets = [testBoxWidget "test-center-box" 200 20],
+          endWidgets =
+            [ testBoxWidget "test-pill" 52 20,
+              testBoxWidget "test-pill" 52 20,
+              testBoxWidget "test-right-box" 16 16
+            ],
+          barLevels = Nothing,
+          barId = barUnique
+        }
+    LayoutLevels ->
+      BarConfig
+        { strutConfig = baseStrutConfig 72,
+          widgetSpacing = 8,
+          startWidgets = [testBoxWidget "test-ignored-old-left" 40 16],
+          centerWidgets = [testBoxWidget "test-ignored-old-center" 120 16],
+          endWidgets = [testBoxWidget "test-ignored-old-right" 40 16],
+          barLevels =
+            Just
+              [ BarLevelConfig
+                  { levelStartWidgets = [workspacesNew wsCfg],
+                    levelCenterWidgets = [testBoxWidget "test-center-box" 200 20],
+                    levelEndWidgets =
+                      [ testBoxWidget "test-pill" 52 20,
+                        testBoxWidget "test-right-box" 16 16
+                      ]
+                  },
+                BarLevelConfig
+                  { levelStartWidgets = [testBoxWidget "test-level2-left" 78 14],
+                    levelCenterWidgets = [testBoxWidget "test-level2-center" 150 14],
+                    levelEndWidgets = [testBoxWidget "test-level2-right" 78 14]
+                  }
+              ],
+          barId = barUnique
+        }
+  where
+    baseStrutConfig h =
+      defaultStrutConfig
+        { strutHeight = ExactSize h,
+          strutMonitor = Just 0,
+          strutPosition = TopPos
+        }
 
 testBoxWidget :: T.Text -> Int -> Int -> TaffyIO Gtk.Widget
 testBoxWidget klass w h = liftIO $ do
@@ -458,9 +496,19 @@ drainGtkEvents n = do
 parseArgs :: [String] -> IO Args
 parseArgs args =
   case args of
-    ["--out", outPath, "--css", cssPath] -> pure Args {outFile = outPath, cssFile = cssPath}
-    ["--css", cssPath, "--out", outPath] -> pure Args {outFile = outPath, cssFile = cssPath}
-    _ -> die "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css"
+    ["--out", outPath, "--css", cssPath] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLegacy}
+    ["--css", cssPath, "--out", outPath] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLegacy}
+    ["--out", outPath, "--css", cssPath, "--levels"] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
+    ["--css", cssPath, "--out", outPath, "--levels"] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
+    ["--levels", "--out", outPath, "--css", cssPath] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
+    ["--levels", "--css", cssPath, "--out", outPath] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
+    _ -> die "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css [--levels]"
 
 die :: String -> IO a
 die msg = do

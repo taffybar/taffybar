@@ -20,7 +20,7 @@ import qualified Data.ByteString.Lazy as BL
 import Data.Default (def)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
-import Data.Unique (newUnique)
+import Data.Unique (Unique, newUnique)
 import qualified GI.Gtk as Gtk
 import Graphics.UI.GIGtkStrut
   ( StrutConfig (..),
@@ -45,6 +45,7 @@ import System.Process.Typed
 import System.Taffybar (startTaffybar)
 import System.Taffybar.Context
   ( BarConfig (..),
+    BarLevelConfig (..),
     Context (..),
     TaffyIO,
     TaffybarConfig (..),
@@ -54,12 +55,16 @@ import UnliftIO.Temporary (withSystemTempDirectory)
 
 data Args = Args
   { outFile :: FilePath,
-    cssFile :: FilePath
+    cssFile :: FilePath,
+    layoutMode :: LayoutMode
   }
+
+data LayoutMode = LayoutLegacy | LayoutLevels
+  deriving (Eq, Show)
 
 main :: IO ()
 main = do
-  Args {outFile = outPath, cssFile = cssPath} <- parseArgs =<< getArgs
+  Args {outFile = outPath, cssFile = cssPath, layoutMode = mode} <- parseArgs =<< getArgs
 
   -- Reduce variability (but do not clobber WAYLAND_DISPLAY / XDG_RUNTIME_DIR /
   -- HYPRLAND_INSTANCE_SIGNATURE; those are provided by the compositor session).
@@ -96,12 +101,12 @@ main = do
 
     createDirectoryIfMissing True (takeDirectory outPath)
 
-    runUnderHyprland outPath cssPath
+    runUnderHyprland outPath cssPath mode
 
   exitWith ec
 
-runUnderHyprland :: FilePath -> FilePath -> IO ExitCode
-runUnderHyprland outPath cssPath = do
+runUnderHyprland :: FilePath -> FilePath -> LayoutMode -> IO ExitCode
+runUnderHyprland outPath cssPath mode = do
   ctxVar :: MVar Context <- newEmptyMVar
   resultVar :: MVar (Either String BL.ByteString) <- newEmptyMVar
   doneVar :: MVar ExitCode <- newEmptyMVar
@@ -115,31 +120,14 @@ runUnderHyprland outPath cssPath = do
 
   barUnique <- newUnique
 
-  let barCfg =
-        BarConfig
-          { strutConfig =
-              defaultStrutConfig
-                { strutHeight = ExactSize 40,
-                  strutMonitor = Just 0,
-                  strutPosition = TopPos
-                },
-            widgetSpacing = 8,
-            startWidgets = [testPillBoxWidget "test-pill" 56 20],
-            centerWidgets = [testBoxWidget "test-center-box" 200 20],
-            endWidgets =
-              [ testPillBoxWidget "test-pill" 52 20,
-                testPillBoxWidget "test-pill" 46 20,
-                testBoxWidget "test-right-box" 16 16
-              ],
-            barId = barUnique
-          }
+  let barCfg = buildBarConfig barUnique mode
 
       cfg =
         def
           { dbusClientParam = Nothing,
             cssPaths = [cssPath],
             getBarConfigsParam = pure [barCfg],
-            startupHook = scheduleSnapshot ctxVar resultVar lastShotRef,
+            startupHook = scheduleSnapshot ctxVar resultVar lastShotRef mode,
             errorMsg = Nothing
           }
 
@@ -169,8 +157,58 @@ testPillBoxWidget klass w h = liftIO $ do
   Gtk.widgetShowAll widget
   pure widget
 
-scheduleSnapshot :: MVar Context -> MVar (Either String BL.ByteString) -> IORef (Maybe BL.ByteString) -> TaffyIO ()
-scheduleSnapshot ctxVar resultVar lastShotRef = do
+buildBarConfig :: Unique -> LayoutMode -> BarConfig
+buildBarConfig barUnique mode =
+  case mode of
+    LayoutLegacy ->
+      BarConfig
+        { strutConfig = baseStrutConfig 40,
+          widgetSpacing = 8,
+          startWidgets = [testPillBoxWidget "test-pill" 56 20],
+          centerWidgets = [testBoxWidget "test-center-box" 200 20],
+          endWidgets =
+            [ testPillBoxWidget "test-pill" 52 20,
+              testPillBoxWidget "test-pill" 46 20,
+              testBoxWidget "test-right-box" 16 16
+            ],
+          barLevels = Nothing,
+          barId = barUnique
+        }
+    LayoutLevels ->
+      BarConfig
+        { strutConfig = baseStrutConfig 72,
+          widgetSpacing = 8,
+          startWidgets = [testBoxWidget "test-ignored-old-left" 40 16],
+          centerWidgets = [testBoxWidget "test-ignored-old-center" 120 16],
+          endWidgets = [testBoxWidget "test-ignored-old-right" 40 16],
+          barLevels =
+            Just
+              [ BarLevelConfig
+                  { levelStartWidgets = [testPillBoxWidget "test-pill" 56 20],
+                    levelCenterWidgets = [testBoxWidget "test-center-box" 200 20],
+                    levelEndWidgets =
+                      [ testPillBoxWidget "test-pill" 52 20,
+                        testBoxWidget "test-right-box" 16 16
+                      ]
+                  },
+                BarLevelConfig
+                  { levelStartWidgets = [testBoxWidget "test-level2-left" 78 14],
+                    levelCenterWidgets = [testBoxWidget "test-level2-center" 150 14],
+                    levelEndWidgets = [testBoxWidget "test-level2-right" 78 14]
+                  }
+              ],
+          barId = barUnique
+        }
+  where
+    baseStrutConfig h =
+      defaultStrutConfig
+        { strutHeight = ExactSize h,
+          strutMonitor = Just 0,
+          strutPosition = TopPos
+        }
+
+scheduleSnapshot :: MVar Context -> MVar (Either String BL.ByteString) -> IORef (Maybe BL.ByteString) -> LayoutMode -> TaffyIO ()
+scheduleSnapshot ctxVar resultVar lastShotRef mode = do
   ctx <- ask
   liftIO $ void (tryPutMVar ctxVar ctx)
 
@@ -180,21 +218,21 @@ scheduleSnapshot ctxVar resultVar lastShotRef = do
     threadDelay 2_000_000
     -- Require two consecutive identical frames to avoid capturing during
     -- initial GTK/compositor settling (animations, late mapping, etc).
-    takeSnapshotWithRetries lastShotRef resultVar 60
+    takeSnapshotWithRetries lastShotRef resultVar mode 60
 
-takeSnapshotWithRetries :: IORef (Maybe BL.ByteString) -> MVar (Either String BL.ByteString) -> Int -> IO ()
-takeSnapshotWithRetries _ resultVar 0 =
+takeSnapshotWithRetries :: IORef (Maybe BL.ByteString) -> MVar (Either String BL.ByteString) -> LayoutMode -> Int -> IO ()
+takeSnapshotWithRetries _ resultVar _ 0 =
   void $ tryPutMVar resultVar (Left "Failed to capture Hyprland appearance snapshot")
-takeSnapshotWithRetries lastShotRef resultVar n = do
+takeSnapshotWithRetries lastShotRef resultVar mode n = do
   done <- tryReadMVar resultVar
   case done of
     Just _ -> pure ()
     Nothing -> do
-      shot <- takeSnapshot
+      shot <- takeSnapshot mode
       case shot of
         Left _ -> do
           threadDelay 200_000
-          takeSnapshotWithRetries lastShotRef resultVar (n - 1)
+          takeSnapshotWithRetries lastShotRef resultVar mode (n - 1)
         Right encoded -> do
           prev <- readIORef lastShotRef
           writeIORef lastShotRef (Just encoded)
@@ -204,14 +242,19 @@ takeSnapshotWithRetries lastShotRef resultVar n = do
                   void $ tryPutMVar resultVar (Right encoded)
             _ -> do
               threadDelay 200_000
-              takeSnapshotWithRetries lastShotRef resultVar (n - 1)
+              takeSnapshotWithRetries lastShotRef resultVar mode (n - 1)
 
-takeSnapshot :: IO (Either String BL.ByteString)
-takeSnapshot =
+takeSnapshot :: LayoutMode -> IO (Either String BL.ByteString)
+takeSnapshot mode =
   withSystemTempDirectory "tbshot" $ \tmp -> do
     let shotPath = tmp </> "shot.png"
+        shotHeight :: Int
+        shotHeight =
+          case mode of
+            LayoutLegacy -> 40
+            LayoutLevels -> 72
     e <-
-      try (readProcess (proc "grim" ["-s", "1", "-l", "1", "-g", "0,0 1024x40", shotPath])) ::
+      try (readProcess (proc "grim" ["-s", "1", "-l", "1", "-g", "0,0 1024x" ++ show shotHeight, shotPath])) ::
         IO (Either SomeException (ExitCode, BL.ByteString, BL.ByteString))
     case e of
       Left _ -> pure (Left ("grim failed" :: String))
@@ -224,19 +267,23 @@ takeSnapshot =
               Left _ -> pure (Left "PNG decode failed")
               Right dyn ->
                 let img = JP.convertRGBA8 dyn
-                 in if hasExpectedMarkers img
+                 in if hasExpectedMarkers mode img
                       then pure (Right (JP.encodePng img))
                       else pure (Left "Expected marker colors not present (bar likely not rendered yet)")
 
-hasExpectedMarkers :: JP.Image JP.PixelRGBA8 -> Bool
-hasExpectedMarkers img =
+hasExpectedMarkers :: LayoutMode -> JP.Image JP.PixelRGBA8 -> Bool
+hasExpectedMarkers mode img =
   -- These solid colors come from test/data/appearance-test.css and are chosen
   -- specifically so we can detect when the bar has actually rendered.
   let centerBox = JP.PixelRGBA8 0x3a 0x3a 0x3a 0xff
       rightBox = JP.PixelRGBA8 0x3a 0x5a 0x7a 0xff
+      level2Center = JP.PixelRGBA8 0x3a 0x7a 0x5a 0xff
       centerCount = countColor img centerBox
       rightCount = countColor img rightBox
-   in centerCount >= 200 && rightCount >= 50
+      level2Count = countColor img level2Center
+   in case mode of
+        LayoutLegacy -> centerCount >= 200 && rightCount >= 50
+        LayoutLevels -> centerCount >= 200 && rightCount >= 50 && level2Count >= 100
 
 countColor :: JP.Image JP.PixelRGBA8 -> JP.PixelRGBA8 -> Int
 countColor img needle =
@@ -311,9 +358,19 @@ requireEnv name = do
 parseArgs :: [String] -> IO Args
 parseArgs args =
   case args of
-    ["--out", outPath, "--css", cssPath] -> pure Args {outFile = outPath, cssFile = cssPath}
-    ["--css", cssPath, "--out", outPath] -> pure Args {outFile = outPath, cssFile = cssPath}
-    _ -> fail "usage: taffybar-appearance-snap-hyprland --out OUT.png --css appearance-test.css"
+    ["--out", outPath, "--css", cssPath] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLegacy}
+    ["--css", cssPath, "--out", outPath] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLegacy}
+    ["--out", outPath, "--css", cssPath, "--levels"] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
+    ["--css", cssPath, "--out", outPath, "--levels"] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
+    ["--levels", "--out", outPath, "--css", cssPath] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
+    ["--levels", "--css", cssPath, "--out", outPath] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
+    _ -> fail "usage: taffybar-appearance-snap-hyprland --out OUT.png --css appearance-test.css [--levels]"
 
 die :: String -> IO a
 die msg = do

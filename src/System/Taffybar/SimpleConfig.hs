@@ -15,6 +15,7 @@
 -- offered in "System.Taffybar.Context".
 module System.Taffybar.SimpleConfig
   ( SimpleTaffyConfig (..),
+    BarLevelConfig (..),
     Position (..),
     defaultSimpleTaffyConfig,
     simpleDyreTaffybar,
@@ -67,6 +68,9 @@ data SimpleTaffyConfig = SimpleTaffyConfig
     centerWidgets :: [TaffyIO Gtk.Widget],
     -- | Widget constructors whose outputs are placed at the end of the bar
     endWidgets :: [TaffyIO Gtk.Widget],
+    -- | Optional level-based widget configuration. If this field is set,
+    -- 'startWidgets', 'centerWidgets' and 'endWidgets' are ignored.
+    barLevels :: Maybe [BarLevelConfig],
     -- | List of paths to CSS stylesheets that should be loaded at startup.
     cssPaths :: [FilePath],
     -- | Hook to run at taffybar startup.
@@ -87,6 +91,7 @@ defaultSimpleTaffyConfig =
       startWidgets = [],
       centerWidgets = [],
       endWidgets = [],
+      barLevels = Nothing,
       cssPaths = [],
       startupHook = return ()
     }
@@ -127,6 +132,7 @@ toBarConfig config monitor = do
         BC.startWidgets = startWidgets config,
         BC.centerWidgets = centerWidgets config,
         BC.endWidgets = endWidgets config,
+        BC.barLevels = barLevels config,
         BC.barId = barId
       }
 

@@ -28,26 +28,38 @@ spec :: Spec
 spec = aroundAll withIntegrationEnv $ do
   it "renders a bar under an EWMH window manager" $ \env -> do
     goldenFile <- makeAbsolute "test/data/appearance-ewmh-bar.png"
-    actualPng <- renderBarScreenshot env
+    actualPng <- renderBarScreenshot env LegacyLayout
+    assertGolden "appearance" goldenFile actualPng
 
-    shouldUpdate <- lookupEnv "TAFFYBAR_UPDATE_GOLDENS"
-    case shouldUpdate of
-      Just _ -> do
-        BL.writeFile goldenFile actualPng
+  it "renders a two-level bar under an EWMH window manager" $ \env -> do
+    goldenFile <- makeAbsolute "test/data/appearance-ewmh-bar-levels.png"
+    actualPng <- renderBarScreenshot env LevelsLayout
+    assertGolden "appearance-levels" goldenFile actualPng
+
+assertGolden :: String -> FilePath -> BL.ByteString -> IO ()
+assertGolden label goldenFile actualPng = do
+  shouldUpdate <- lookupEnv "TAFFYBAR_UPDATE_GOLDENS"
+  case shouldUpdate of
+    Just _ -> do
+      BL.writeFile goldenFile actualPng
+      createDirectoryIfMissing True "dist"
+      BL.writeFile ("dist/" ++ label ++ "-actual.png") actualPng
+    Nothing -> do
+      goldenPng <- BL.readFile goldenFile
+      let actualImg = decodePngRGBA8 "actual" actualPng
+          goldenImg = decodePngRGBA8 "golden" goldenPng
+      when (actualImg /= goldenImg) $ do
         createDirectoryIfMissing True "dist"
-        BL.writeFile "dist/appearance-actual.png" actualPng
-      Nothing -> do
-        goldenPng <- BL.readFile goldenFile
-        let actualImg = decodePngRGBA8 "actual" actualPng
-            goldenImg = decodePngRGBA8 "golden" goldenPng
-        when (actualImg /= goldenImg) $ do
-          createDirectoryIfMissing True "dist"
-          BL.writeFile "dist/appearance-actual.png" actualPng
-          BL.writeFile "dist/appearance-golden.png" goldenPng
-          expectationFailure $
-            "Appearance golden mismatch: "
-              ++ goldenFile
-              ++ " (wrote dist/appearance-actual.png and dist/appearance-golden.png)"
+        BL.writeFile ("dist/" ++ label ++ "-actual.png") actualPng
+        BL.writeFile ("dist/" ++ label ++ "-golden.png") goldenPng
+        expectationFailure $
+          "Appearance golden mismatch: "
+            ++ goldenFile
+            ++ " (wrote dist/"
+            ++ label
+            ++ "-actual.png and dist/"
+            ++ label
+            ++ "-golden.png)"
 
 newtype Env = Env
   { envTmpDir :: FilePath
@@ -84,8 +96,10 @@ withIntegrationEnv action =
               ]
             $ action (Env {envTmpDir = tmp})
 
-renderBarScreenshot :: Env -> IO BL.ByteString
-renderBarScreenshot Env {envTmpDir = tmp} = do
+data LayoutKind = LegacyLayout | LevelsLayout
+
+renderBarScreenshot :: Env -> LayoutKind -> IO BL.ByteString
+renderBarScreenshot Env {envTmpDir = tmp} layout = do
   exePath <-
     findComponentExecutable
       "taffybar-appearance-snap"
@@ -95,10 +109,14 @@ renderBarScreenshot Env {envTmpDir = tmp} = do
   cssPath <- makeAbsolute "test/data/appearance-test.css"
   outPath <- makeAbsolute (tmp </> "appearance-actual.png")
 
-  let pc =
+  let levelArgs =
+        case layout of
+          LegacyLayout -> []
+          LevelsLayout -> ["--levels"]
+      pc =
         setStdout inherit $
           setStderr inherit $
-            proc exePath ["--out", outPath, "--css", cssPath]
+            proc exePath (["--out", outPath, "--css", cssPath] ++ levelArgs)
 
   withProcessTerm pc $ \p -> do
     mEc <- timeout 60_000_000 (waitExitCode p)

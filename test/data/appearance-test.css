@@ -53,6 +53,21 @@ window.taffy-window,
   border-radius: 5px;
 }
 
+.test-level2-left {
+  background-color: #7a3a5a;
+  border-radius: 5px;
+}
+
+.test-level2-center {
+  background-color: #3a7a5a;
+  border-radius: 5px;
+}
+
+.test-level2-right {
+  background-color: #7a6a3a;
+  border-radius: 5px;
+}
+
 .test-pill {
   background-color: rgba(255, 255, 255, 0.08);
   color: #f0f0f0;

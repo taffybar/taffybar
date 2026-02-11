@@ -152,6 +152,7 @@ pkgs.testers.nixosTest (
       )
 
       out_png = "/tmp/appearance-hyprland-bar.png"
+      out_levels_png = "/tmp/appearance-hyprland-bar-levels.png"
       css = "/etc/taffybar/appearance-test.css"
 
       # Sanity check: ensure grim can capture from this Wayland session.
@@ -223,6 +224,22 @@ pkgs.testers.nixosTest (
           raise Exception(f"taffybar-appearance-snap-hyprland failed with exit code {status}")
 
       machine.succeed(f"test -s {out_png}")
+
+      # Exercise barLevels rendering path (stacked rows) in the Hyprland VM.
+      levels_status, levels_out = run_as(
+          "${user}",
+          f"env {env} taffybar-appearance-snap-hyprland --out {out_levels_png} --css {css} --levels",
+      )
+      if levels_out.strip():
+          machine.log("taffybar-appearance-snap-hyprland (--levels) output:\n" + levels_out)
+      if machine.execute(f"test -f {out_levels_png}")[0] == 0:
+          machine.copy_from_vm(out_levels_png, "artifacts")
+      if levels_status != 0:
+          raise Exception(f"taffybar-appearance-snap-hyprland (--levels) failed with exit code {levels_status}")
+
+      machine.succeed(f"test -s {out_levels_png}")
+      machine.succeed(f"test \"$(identify -format '%h' {out_levels_png})\" -ge 70")
+      machine.succeed(f"convert {out_levels_png} -format %c histogram:info:- | grep -Eiq '3a7a5a'")
 
       if ${if compare then "True" else "False"}:
           golden = "/etc/taffybar/appearance-hyprland-bar.png"

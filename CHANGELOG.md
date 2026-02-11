@@ -1,5 +1,19 @@
 # Unreleased
 
+## New Features
+
+ * Add optional `barLevels` support to `BarConfig`/`SimpleTaffyConfig` for
+   stacked multi-row bars with per-level `start`/`center`/`end` widget lists.
+ * Keep backward compatibility for existing configs: when `barLevels` is
+   `Nothing`, the legacy single-row widget fields are used unchanged.
+
+## Tests
+
+ * Add a new X11 appearance golden test for two-level bars
+   (`appearance-ewmh-bar-levels.png`).
+ * Extend Hyprland VM appearance checks to exercise `--levels` rendering and
+   assert multi-row output markers.
+
 # 5.1.1
 
 ## Dependency Bumps
