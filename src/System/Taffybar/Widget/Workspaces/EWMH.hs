@@ -20,7 +20,7 @@
 module System.Taffybar.Widget.Workspaces.EWMH
   ( module System.Taffybar.Widget.Workspaces.EWMH,
     module System.Taffybar.Widget.Workspaces.Shared,
-    module System.Taffybar.Widget.Workspaces.Config,
+    WorkspaceWidgetCommonConfig,
   )
 where
 
@@ -58,6 +58,9 @@ import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.ScalingImage (getScalingImageStrategy)
 import System.Taffybar.Widget.Util
 import System.Taffybar.Widget.Workspaces.Config
+  ( WorkspaceWidgetCommonConfig (WorkspaceWidgetCommonConfig),
+  )
+import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceWidgetConfig
 import System.Taffybar.Widget.Workspaces.Shared
   ( WorkspaceState (..),
     buildWorkspaceIconLabelOverlay,
@@ -147,15 +150,15 @@ workspacesCommonConfig ::
   WorkspaceWidgetCommonConfig (ReaderT WorkspacesContext IO) Workspace WindowData WWC
 workspacesCommonConfig cfg =
   WorkspaceWidgetCommonConfig
-    { commonWidgetBuilder = widgetBuilder cfg,
-      commonWidgetGap = widgetGap cfg,
-      commonMaxIcons = maxIcons cfg,
-      commonMinIcons = minIcons cfg,
-      commonGetWindowIconPixbuf = getWindowIconPixbuf cfg,
-      commonLabelSetter = labelSetter cfg,
-      commonShowWorkspaceFn = showWorkspaceFn cfg,
-      commonIconSort = iconSort cfg,
-      commonUrgentWorkspaceState = urgentWorkspaceState cfg
+    { WorkspaceWidgetConfig.widgetBuilder = widgetBuilder cfg,
+      WorkspaceWidgetConfig.widgetGap = widgetGap cfg,
+      WorkspaceWidgetConfig.maxIcons = maxIcons cfg,
+      WorkspaceWidgetConfig.minIcons = minIcons cfg,
+      WorkspaceWidgetConfig.getWindowIconPixbuf = getWindowIconPixbuf cfg,
+      WorkspaceWidgetConfig.labelSetter = labelSetter cfg,
+      WorkspaceWidgetConfig.showWorkspaceFn = showWorkspaceFn cfg,
+      WorkspaceWidgetConfig.iconSort = iconSort cfg,
+      WorkspaceWidgetConfig.urgentWorkspaceState = urgentWorkspaceState cfg
     }
 
 applyCommonWorkspacesConfig ::
@@ -164,15 +167,15 @@ applyCommonWorkspacesConfig ::
   WorkspacesConfig
 applyCommonWorkspacesConfig common cfg =
   cfg
-    { widgetBuilder = commonWidgetBuilder common,
-      widgetGap = commonWidgetGap common,
-      maxIcons = commonMaxIcons common,
-      minIcons = commonMinIcons common,
-      getWindowIconPixbuf = commonGetWindowIconPixbuf common,
-      labelSetter = commonLabelSetter common,
-      showWorkspaceFn = commonShowWorkspaceFn common,
-      iconSort = commonIconSort common,
-      urgentWorkspaceState = commonUrgentWorkspaceState common
+    { widgetBuilder = WorkspaceWidgetConfig.widgetBuilder common,
+      widgetGap = WorkspaceWidgetConfig.widgetGap common,
+      maxIcons = WorkspaceWidgetConfig.maxIcons common,
+      minIcons = WorkspaceWidgetConfig.minIcons common,
+      getWindowIconPixbuf = WorkspaceWidgetConfig.getWindowIconPixbuf common,
+      labelSetter = WorkspaceWidgetConfig.labelSetter common,
+      showWorkspaceFn = WorkspaceWidgetConfig.showWorkspaceFn common,
+      iconSort = WorkspaceWidgetConfig.iconSort common,
+      urgentWorkspaceState = WorkspaceWidgetConfig.urgentWorkspaceState common
     }
 
 defaultWorkspacesConfig :: WorkspacesConfig
@@ -255,7 +258,7 @@ buildWorkspaceData _ =
         getWorkspaceState idx ws
           | idx == active = Active
           | idx `elem` visible = Visible
-          | commonUrgentWorkspaceState common
+          | WorkspaceWidgetConfig.urgentWorkspaceState common
               && not (null (ws `intersect` urgentWindows)) =
               Urgent
           | null ws = Empty
@@ -311,7 +314,7 @@ workspacesNew :: WorkspacesConfig -> TaffyIO Gtk.Widget
 workspacesNew cfg =
   ask >>= \tContext -> lift $ do
     let common = workspacesCommonConfig cfg
-    cont <- Gtk.boxNew Gtk.OrientationHorizontal $ fromIntegral (commonWidgetGap common)
+    cont <- Gtk.boxNew Gtk.OrientationHorizontal $ fromIntegral (WorkspaceWidgetConfig.widgetGap common)
     controllersRef <- MV.newMVar M.empty
     workspacesRef <- MV.newMVar M.empty
     let context =
@@ -390,7 +393,7 @@ setControllerWidgetVisibility = do
     controllersMap <- MV.readMVar controllersRef
     forM_ (M.elems workspacesMap) $ \ws ->
       let action =
-            if commonShowWorkspaceFn common ws
+            if WorkspaceWidgetConfig.showWorkspaceFn common ws
               then Gtk.widgetShow
               else Gtk.widgetHide
        in traverse
@@ -431,7 +434,7 @@ updateWorkspaceControllers = do
   when (existingWorkspacesSet /= newWorkspacesSet) $ do
     let addWorkspaces = Set.difference newWorkspacesSet existingWorkspacesSet
         removeWorkspaces = Set.difference existingWorkspacesSet newWorkspacesSet
-        builder = commonWidgetBuilder common
+        builder = WorkspaceWidgetConfig.widgetBuilder common
 
     _ <- updateVar controllersRef $ \controllers -> do
       let oldRemoved = F.foldl' (flip M.delete) controllers removeWorkspaces
@@ -617,7 +620,7 @@ instance WorkspaceWidgetController LabelController where
   updateWidget lc (WorkspaceUpdate newWorkspace) = do
     WorkspacesContext {workspacesConfig = cfg} <- ask
     let common = workspacesCommonConfig cfg
-    labelText <- commonLabelSetter common newWorkspace
+    labelText <- WorkspaceWidgetConfig.labelSetter common newWorkspace
     lift $ do
       Gtk.labelSetMarkup (label lc) $ T.pack labelText
       setWorkspaceWidgetStatusClass (workspaceState newWorkspace) $ label lc
@@ -633,7 +636,7 @@ buildIconWidget transparentOnNone ws = do
       cfg = workspacesConfig ctx
       common = workspacesCommonConfig cfg
       getPB size windowData =
-        runReaderT (commonGetWindowIconPixbuf common size windowData) tContext
+        runReaderT (WorkspaceWidgetConfig.getWindowIconPixbuf common size windowData) tContext
   strategy <- liftContext getScalingImageStrategy
   lift $ do
     iconWidget <-
@@ -793,10 +796,13 @@ updateImages :: IconController -> Workspace -> WorkspacesIO [IconWidget]
 updateImages ic ws = do
   WorkspacesContext {workspacesConfig = cfg} <- ask
   let common = workspacesCommonConfig cfg
-  sortedWindows <- commonIconSort common $ windows ws
+  sortedWindows <- WorkspaceWidgetConfig.iconSort common $ windows ws
   wLog DEBUG $ printf "Updating images for %s" (show ws)
   let (effectiveMinIcons, _targetLen, paddedWindows) =
-        computeIconStripLayout (commonMinIcons common) (commonMaxIcons common) sortedWindows
+        computeIconStripLayout
+          (WorkspaceWidgetConfig.minIcons common)
+          (WorkspaceWidgetConfig.maxIcons common)
+          sortedWindows
       buildOne i = buildIconWidget (i < effectiveMinIcons) ws
       updateOne = updateIconWidget ic
   syncWidgetPool (iconsContainer ic) (iconImages ic) paddedWindows buildOne iconContainer updateOne

@@ -66,6 +66,9 @@ import System.Taffybar.Widget.Util
     windowStatusClassFromFlags,
   )
 import System.Taffybar.Widget.Workspaces.Config
+  ( WorkspaceWidgetCommonConfig (WorkspaceWidgetCommonConfig),
+  )
+import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceWidgetConfig
 import System.Taffybar.Widget.Workspaces.Shared
   ( WorkspaceState (..),
     buildWorkspaceIconLabelOverlay,
@@ -165,15 +168,15 @@ hyprlandWorkspacesCommonConfig ::
   WorkspaceWidgetCommonConfig (ReaderT Context IO) HyprlandWorkspace HyprlandWindow HyprlandWWC
 hyprlandWorkspacesCommonConfig cfg =
   WorkspaceWidgetCommonConfig
-    { commonWidgetBuilder = widgetBuilder cfg,
-      commonWidgetGap = widgetGap cfg,
-      commonMaxIcons = maxIcons cfg,
-      commonMinIcons = minIcons cfg,
-      commonGetWindowIconPixbuf = getWindowIconPixbuf cfg,
-      commonLabelSetter = labelSetter cfg,
-      commonShowWorkspaceFn = showWorkspaceFn cfg,
-      commonIconSort = iconSort cfg,
-      commonUrgentWorkspaceState = urgentWorkspaceState cfg
+    { WorkspaceWidgetConfig.widgetBuilder = widgetBuilder cfg,
+      WorkspaceWidgetConfig.widgetGap = widgetGap cfg,
+      WorkspaceWidgetConfig.maxIcons = maxIcons cfg,
+      WorkspaceWidgetConfig.minIcons = minIcons cfg,
+      WorkspaceWidgetConfig.getWindowIconPixbuf = getWindowIconPixbuf cfg,
+      WorkspaceWidgetConfig.labelSetter = labelSetter cfg,
+      WorkspaceWidgetConfig.showWorkspaceFn = showWorkspaceFn cfg,
+      WorkspaceWidgetConfig.iconSort = iconSort cfg,
+      WorkspaceWidgetConfig.urgentWorkspaceState = urgentWorkspaceState cfg
     }
 
 applyCommonHyprlandWorkspacesConfig ::
@@ -182,15 +185,15 @@ applyCommonHyprlandWorkspacesConfig ::
   HyprlandWorkspacesConfig
 applyCommonHyprlandWorkspacesConfig common cfg =
   cfg
-    { widgetBuilder = commonWidgetBuilder common,
-      widgetGap = commonWidgetGap common,
-      maxIcons = commonMaxIcons common,
-      minIcons = commonMinIcons common,
-      getWindowIconPixbuf = commonGetWindowIconPixbuf common,
-      labelSetter = commonLabelSetter common,
-      showWorkspaceFn = commonShowWorkspaceFn common,
-      iconSort = commonIconSort common,
-      urgentWorkspaceState = commonUrgentWorkspaceState common
+    { widgetBuilder = WorkspaceWidgetConfig.widgetBuilder common,
+      widgetGap = WorkspaceWidgetConfig.widgetGap common,
+      maxIcons = WorkspaceWidgetConfig.maxIcons common,
+      minIcons = WorkspaceWidgetConfig.minIcons common,
+      getWindowIconPixbuf = WorkspaceWidgetConfig.getWindowIconPixbuf common,
+      labelSetter = WorkspaceWidgetConfig.labelSetter common,
+      showWorkspaceFn = WorkspaceWidgetConfig.showWorkspaceFn common,
+      iconSort = WorkspaceWidgetConfig.iconSort common,
+      urgentWorkspaceState = WorkspaceWidgetConfig.urgentWorkspaceState common
     }
 
 defaultHyprlandWorkspacesConfig :: HyprlandWorkspacesConfig
@@ -224,7 +227,7 @@ hyprlandWorkspacesNew cfg = do
   cont <-
     liftIO $
       Gtk.boxNew Gtk.OrientationHorizontal $
-        fromIntegral (commonWidgetGap common)
+        fromIntegral (WorkspaceWidgetConfig.widgetGap common)
   _ <- widgetSetClassGI cont "workspaces"
   ctx <- ask
   let refresh = runReaderT (refreshWorkspaces cfg cont) ctx
@@ -296,9 +299,9 @@ refreshWorkspaces cfg cont = do
         printf
           "Hyprland workspaces refresh: total=%d shown=%d (minIcons=%d maxIcons=%s) widgetsStale=%s %s"
           (length ws)
-          (length (filter (commonShowWorkspaceFn common) ws))
-          (commonMinIcons common)
-          (show (commonMaxIcons common))
+          (length (filter (WorkspaceWidgetConfig.showWorkspaceFn common) ws))
+          (WorkspaceWidgetConfig.minIcons common)
+          (show (WorkspaceWidgetConfig.maxIcons common))
           (show widgetsStale)
           (summarizeWorkspaces ws)
     _ <- setState (HyprlandWorkspaceCache ws)
@@ -334,7 +337,7 @@ renderWorkspaces cfg cont workspaces = do
                 newCtrl <- hwcUpdateWidget (hweController prevEntry) ws
                 return prevEntry {hweController = newCtrl, hweLast = ws}
           Nothing -> do
-            ctrl <- commonWidgetBuilder common ws
+            ctrl <- WorkspaceWidgetConfig.widgetBuilder common ws
             ctrlWidget <- liftIO $ hwcGetWidget ctrl
             wrapperBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
             liftIO $ Gtk.containerAdd wrapperBox ctrlWidget
@@ -357,7 +360,7 @@ renderWorkspaces cfg cont workspaces = do
       workspaces'
   let orderedEntries = reverse orderedEntriesRev
 
-  let primaryShowFn = commonShowWorkspaceFn common
+  let primaryShowFn = WorkspaceWidgetConfig.showWorkspaceFn common
       primaryShownCount = length $ filter (primaryShowFn . fst) orderedEntries
       fallbackShowFn ws = workspaceState ws /= Empty
       fallbackShownCount = length $ filter (fallbackShowFn . fst) orderedEntries
@@ -427,7 +430,7 @@ summarizeWorkspaces wss =
 
 applyUrgentState :: HyprlandWorkspacesConfig -> HyprlandWorkspace -> HyprlandWorkspace
 applyUrgentState cfg ws
-  | commonUrgentWorkspaceState (hyprlandWorkspacesCommonConfig cfg)
+  | WorkspaceWidgetConfig.urgentWorkspaceState (hyprlandWorkspacesCommonConfig cfg)
       && workspaceState ws == Hidden
       && any windowUrgent (windows ws) =
       ws {workspaceState = Urgent}
@@ -454,14 +457,14 @@ hyprlandBuildLabelController cfg ws = do
   let common = hyprlandWorkspacesCommonConfig cfg
   lbl <- liftIO $ Gtk.labelNew Nothing
   _ <- widgetSetClassGI lbl "workspace-label"
-  labelText <- commonLabelSetter common ws
+  labelText <- WorkspaceWidgetConfig.labelSetter common ws
   liftIO $ Gtk.labelSetMarkup lbl (T.pack labelText)
   liftIO $ setWorkspaceWidgetStatusClass (workspaceState ws) lbl
   return $
     HyprlandWWC $
       HyprlandLabelController
         { hlcLabel = lbl,
-          hlcLabelSetter = commonLabelSetter common
+          hlcLabelSetter = WorkspaceWidgetConfig.labelSetter common
         }
 
 data HyprlandIconController = HyprlandIconController
@@ -612,9 +615,12 @@ updateIcons ::
   ReaderT Context IO [HyprlandIconWidget]
 updateIcons cfg ws iconsBox iconWidgets = do
   let common = hyprlandWorkspacesCommonConfig cfg
-  sortedWindows <- commonIconSort common $ windows ws
+  sortedWindows <- WorkspaceWidgetConfig.iconSort common $ windows ws
   let (effectiveMinIcons, _targetLen, paddedWindows) =
-        computeIconStripLayout (commonMinIcons common) (commonMaxIcons common) sortedWindows
+        computeIconStripLayout
+          (WorkspaceWidgetConfig.minIcons common)
+          (WorkspaceWidgetConfig.maxIcons common)
+          sortedWindows
       buildOne i = buildIconWidget (i < effectiveMinIcons) cfg
   syncWidgetPool iconsBox iconWidgets paddedWindows buildOne iconContainer updateIconWidget
 
@@ -628,7 +634,7 @@ buildIconWidget transparentOnNone cfg = do
       strategy
       (Just $ iconSize cfg)
       transparentOnNone
-      (\size w -> runReaderT (commonGetWindowIconPixbuf common size w) ctx)
+      (\size w -> runReaderT (WorkspaceWidgetConfig.getWindowIconPixbuf common size w) ctx)
       (`pixBufFromColor` 0)
 
 updateIconWidget :: HyprlandIconWidget -> Maybe HyprlandWindow -> ReaderT Context IO ()

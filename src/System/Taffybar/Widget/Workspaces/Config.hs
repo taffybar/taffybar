@@ -29,13 +29,13 @@ import System.Taffybar.Context (TaffyIO)
 -- widget/controller updates.
 data WorkspaceWidgetCommonConfig m workspace window controller
   = WorkspaceWidgetCommonConfig
-  { commonWidgetBuilder :: workspace -> m controller,
-    commonWidgetGap :: Int,
-    commonMaxIcons :: Maybe Int,
-    commonMinIcons :: Int,
-    commonGetWindowIconPixbuf :: Int32 -> window -> TaffyIO (Maybe Gdk.Pixbuf),
-    commonLabelSetter :: workspace -> m String,
-    commonShowWorkspaceFn :: workspace -> Bool,
-    commonIconSort :: [window] -> m [window],
-    commonUrgentWorkspaceState :: Bool
+  { widgetBuilder :: workspace -> m controller,
+    widgetGap :: Int,
+    maxIcons :: Maybe Int,
+    minIcons :: Int,
+    getWindowIconPixbuf :: Int32 -> window -> TaffyIO (Maybe Gdk.Pixbuf),
+    labelSetter :: workspace -> m String,
+    showWorkspaceFn :: workspace -> Bool,
+    iconSort :: [window] -> m [window],
+    urgentWorkspaceState :: Bool
   }
