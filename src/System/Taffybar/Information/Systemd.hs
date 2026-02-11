@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.Systemd
 -- Copyright   : (c) Ivan A. Malison
@@ -12,64 +16,79 @@
 -- This module provides information about systemd failed units using the
 -- org.freedesktop.systemd1 DBus interface. It monitors both the system bus
 -- (for system units) and the session bus (for user units).
------------------------------------------------------------------------------
 module System.Taffybar.Information.Systemd
-  ( SystemdState(..)
-  , SystemdInfo(..)
-  , getSystemdInfo
-  , getSystemdInfoFromClients
-  , getSystemdInfoChan
-  , getSystemdInfoState
-  , systemdUnknownInfo
-  ) where
+  ( SystemdState (..),
+    SystemdInfo (..),
+    getSystemdInfo,
+    getSystemdInfoFromClients,
+    getSystemdInfoChan,
+    getSystemdInfoState,
+    systemdUnknownInfo,
+  )
+where
 
-import           Control.Concurrent
-import           Control.Concurrent.STM.TChan
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.STM (atomically)
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Reader
-import           DBus
-import           DBus.Client
+import Control.Concurrent
+import Control.Concurrent.STM.TChan
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.STM (atomically)
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Reader
+import DBus
+import DBus.Client
 import qualified DBus.TH as DBus
-import           Data.Maybe (fromMaybe)
-import           Data.Text (Text)
+import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 import qualified Data.Text as T
-import           Data.Word (Word32)
-import           System.Log.Logger
-import           System.Taffybar.Context
+import Data.Word (Word32)
+import System.Log.Logger
+import System.Taffybar.Context
 
 -- | The state of a systemd instance (system or user).
 data SystemdState
-  = SystemdRunning        -- ^ All units are running properly
-  | SystemdDegraded       -- ^ Some units have failed
-  | SystemdStarting       -- ^ System is starting up
-  | SystemdStopping       -- ^ System is shutting down
-  | SystemdMaintenance    -- ^ System is in maintenance mode
-  | SystemdInitializing   -- ^ System is initializing
-  | SystemdOther Text     -- ^ Unknown state
-  | SystemdUnavailable    -- ^ systemd is not available on this bus
+  = -- | All units are running properly
+    SystemdRunning
+  | -- | Some units have failed
+    SystemdDegraded
+  | -- | System is starting up
+    SystemdStarting
+  | -- | System is shutting down
+    SystemdStopping
+  | -- | System is in maintenance mode
+    SystemdMaintenance
+  | -- | System is initializing
+    SystemdInitializing
+  | -- | Unknown state
+    SystemdOther Text
+  | -- | systemd is not available on this bus
+    SystemdUnavailable
   deriving (Eq, Show)
 
 -- | Information about systemd failed units.
 data SystemdInfo = SystemdInfo
-  { systemState :: SystemdState        -- ^ State of system systemd
-  , userState :: SystemdState          -- ^ State of user systemd
-  , systemFailedCount :: Int           -- ^ Number of failed system units
-  , userFailedCount :: Int             -- ^ Number of failed user units
-  , totalFailedCount :: Int            -- ^ Total failed units (system + user)
-  } deriving (Eq, Show)
+  { -- | State of system systemd
+    systemState :: SystemdState,
+    -- | State of user systemd
+    userState :: SystemdState,
+    -- | Number of failed system units
+    systemFailedCount :: Int,
+    -- | Number of failed user units
+    userFailedCount :: Int,
+    -- | Total failed units (system + user)
+    totalFailedCount :: Int
+  }
+  deriving (Eq, Show)
 
 -- | Default info when systemd is unknown/unavailable.
 systemdUnknownInfo :: SystemdInfo
-systemdUnknownInfo = SystemdInfo
-  { systemState = SystemdUnavailable
-  , userState = SystemdUnavailable
-  , systemFailedCount = 0
-  , userFailedCount = 0
-  , totalFailedCount = 0
-  }
+systemdUnknownInfo =
+  SystemdInfo
+    { systemState = SystemdUnavailable,
+      userState = SystemdUnavailable,
+      systemFailedCount = 0,
+      userFailedCount = 0,
+      totalFailedCount = 0
+    }
 
 systemdLogPath :: String
 systemdLogPath = "System.Taffybar.Information.Systemd"
@@ -88,13 +107,13 @@ systemdManagerInterface = "org.freedesktop.systemd1.Manager"
 parseSystemdState :: Text -> SystemdState
 parseSystemdState txt =
   case T.toLower txt of
-    "running"      -> SystemdRunning
-    "degraded"     -> SystemdDegraded
-    "starting"     -> SystemdStarting
-    "stopping"     -> SystemdStopping
-    "maintenance"  -> SystemdMaintenance
+    "running" -> SystemdRunning
+    "degraded" -> SystemdDegraded
+    "starting" -> SystemdStarting
+    "stopping" -> SystemdStopping
+    "maintenance" -> SystemdMaintenance
     "initializing" -> SystemdInitializing
-    _              -> SystemdOther txt
+    _ -> SystemdOther txt
 
 -- | Newtype wrapper for the channel/var pair stored in Context.
 newtype SystemdInfoChanVar = SystemdInfoChanVar (TChan SystemdInfo, MVar SystemdInfo)
@@ -143,20 +162,26 @@ monitorSystemdInfo = do
         signalCallback _ _ _ _ = runReaderT debouncedUpdate ctx
 
     -- Register for PropertiesChanged on system bus
-    _ <- lift $ DBus.registerForPropertiesChanged
-      systemClient
-      matchAny { matchInterface = Just systemdManagerInterface
-               , matchPath = Just systemdObjectPath
-               }
-      signalCallback
+    _ <-
+      lift $
+        DBus.registerForPropertiesChanged
+          systemClient
+          matchAny
+            { matchInterface = Just systemdManagerInterface,
+              matchPath = Just systemdObjectPath
+            }
+          signalCallback
 
     -- Register for PropertiesChanged on session bus
-    _ <- lift $ DBus.registerForPropertiesChanged
-      sessionClient
-      matchAny { matchInterface = Just systemdManagerInterface
-               , matchPath = Just systemdObjectPath
-               }
-      signalCallback
+    _ <-
+      lift $
+        DBus.registerForPropertiesChanged
+          sessionClient
+          matchAny
+            { matchInterface = Just systemdManagerInterface,
+              matchPath = Just systemdObjectPath
+            }
+          signalCallback
 
     -- Initial update
     doUpdate
@@ -164,12 +189,12 @@ monitorSystemdInfo = do
   return (chan, infoVar)
 
 -- | Update the systemd info by querying both buses.
-updateSystemdInfo
-  :: TChan SystemdInfo
-  -> MVar SystemdInfo
-  -> Client
-  -> Client
-  -> TaffyIO ()
+updateSystemdInfo ::
+  TChan SystemdInfo ->
+  MVar SystemdInfo ->
+  Client ->
+  Client ->
+  TaffyIO ()
 updateSystemdInfo chan var systemClient sessionClient = do
   info <- liftIO $ getSystemdInfoFromClients systemClient sessionClient
   liftIO $ do
@@ -188,13 +213,14 @@ getSystemdInfoFromClients :: Client -> Client -> IO SystemdInfo
 getSystemdInfoFromClients systemClient sessionClient = do
   (sysState, sysFailed) <- getSystemdStateAndFailed systemClient "system"
   (usrState, usrFailed) <- getSystemdStateAndFailed sessionClient "user"
-  return SystemdInfo
-    { systemState = sysState
-    , userState = usrState
-    , systemFailedCount = sysFailed
-    , userFailedCount = usrFailed
-    , totalFailedCount = sysFailed + usrFailed
-    }
+  return
+    SystemdInfo
+      { systemState = sysState,
+        userState = usrState,
+        systemFailedCount = sysFailed,
+        userFailedCount = usrFailed,
+        totalFailedCount = sysFailed + usrFailed
+      }
 
 -- | Query a single systemd instance for its state and failed count.
 getSystemdStateAndFailed :: Client -> String -> IO (SystemdState, Int)
@@ -206,9 +232,11 @@ getSystemdStateAndFailed client busType = do
         "Failed to get " ++ busType ++ " systemd state: " ++ show err
       return (SystemdUnavailable, 0)
     Right stateVariant -> do
-      let state = maybe (SystemdOther "unknown")
-                        parseSystemdState
-                        (fromVariant stateVariant :: Maybe Text)
+      let state =
+            maybe
+              (SystemdOther "unknown")
+              parseSystemdState
+              (fromVariant stateVariant :: Maybe Text)
       -- Only query failed count if degraded
       if state == SystemdDegraded
         then do
@@ -226,21 +254,31 @@ getSystemdStateAndFailed client busType = do
 -- | Get a property from the systemd1.Manager interface.
 getSystemdProperty :: Client -> MemberName -> IO (Either MethodError Variant)
 getSystemdProperty client propName = do
-  reply <- call client $ (methodCall systemdObjectPath
-                           "org.freedesktop.DBus.Properties"
-                           "Get")
-    { methodCallDestination = Just systemdBusName
-    , methodCallBody = [toVariant systemdManagerInterface, toVariant propName]
-    }
+  reply <-
+    call client $
+      ( methodCall
+          systemdObjectPath
+          "org.freedesktop.DBus.Properties"
+          "Get"
+      )
+        { methodCallDestination = Just systemdBusName,
+          methodCallBody = [toVariant systemdManagerInterface, toVariant propName]
+        }
   case reply of
     Left err -> return $ Left err
     Right ret ->
       case methodReturnBody ret of
         [v] -> case fromVariant v of
           Just inner -> return $ Right inner
-          Nothing -> return $ Left $ methodError
-            (methodReturnSerial ret)
-            (errorName_ "org.taffybar.Systemd.TypeMismatch")
-        _ -> return $ Left $ methodError
-          (methodReturnSerial ret)
-          (errorName_ "org.taffybar.Systemd.InvalidResponse")
+          Nothing ->
+            return $
+              Left $
+                methodError
+                  (methodReturnSerial ret)
+                  (errorName_ "org.taffybar.Systemd.TypeMismatch")
+        _ ->
+          return $
+            Left $
+              methodError
+                (methodReturnSerial ret)
+                (errorName_ "org.taffybar.Systemd.InvalidResponse")

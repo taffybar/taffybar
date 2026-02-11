@@ -8,93 +8,86 @@
 -- this executable in CI.
 module Main (main) where
 
-import Control.Concurrent (MVar, forkIO, newEmptyMVar, threadDelay, takeMVar)
+import qualified Codec.Picture as JP
+import Control.Concurrent (MVar, forkIO, newEmptyMVar, takeMVar, threadDelay)
 import Control.Concurrent.MVar (readMVar, tryPutMVar, tryReadMVar)
 import Control.Exception (SomeException, bracket, try)
 import Control.Monad (filterM, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
-import Data.Bits ((.|.), shiftL)
+import Data.Bits (shiftL, (.|.))
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
 import Data.Default (def)
 import Data.Maybe (listToMaybe)
-import Data.Unique (newUnique)
 import qualified Data.Text as T
+import Data.Unique (newUnique)
+import Data.Word (Word32)
+import Foreign.C.Types (CLong)
+import qualified GI.Gdk as Gdk
+import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
+import qualified GI.Gtk as Gtk
+import Graphics.UI.GIGtkStrut
+  ( StrutConfig (..),
+    StrutPosition (TopPos),
+    StrutSize (ExactSize),
+    defaultStrutConfig,
+  )
+import Graphics.X11.Xlib
+  ( Atom,
+    Display,
+    Window,
+    closeDisplay,
+    createSimpleWindow,
+    defaultRootWindow,
+    internAtom,
+    mapWindow,
+    openDisplay,
+    storeName,
+    sync,
+  )
+import Graphics.X11.Xlib.Extras
+  ( ClassHint (..),
+    changeProperty32,
+    getWindowProperty32,
+    propModeReplace,
+    setClassHint,
+  )
 import System.Directory (createDirectoryIfMissing, doesFileExist, findExecutable, makeAbsolute)
 import System.Environment (getArgs, setEnv, unsetEnv)
 import System.Exit (ExitCode (..), exitWith)
 import System.FilePath (takeDirectory, (</>))
-import System.Info (arch, os)
 import System.IO (hPutStrLn, stderr)
-import Data.Word (Word32)
-
-import UnliftIO.Temporary (withSystemTempDirectory)
-
-import Foreign.C.Types (CLong)
-import System.Posix.Process (exitImmediately)
-import System.Posix.Signals (signalProcess, sigKILL, sigTERM)
-
-import qualified Codec.Picture as JP
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
-
-import qualified GI.Gdk as Gdk
-import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
-import qualified GI.Gtk as Gtk
-
-import Graphics.X11.Xlib
-  ( Atom
-  , Display
-  , Window
-  , closeDisplay
-  , createSimpleWindow
-  , defaultRootWindow
-  , internAtom
-  , mapWindow
-  , openDisplay
-  , storeName
-  , sync
-  )
-import Graphics.X11.Xlib.Extras
-  ( ClassHint (..)
-  , changeProperty32
-  , getWindowProperty32
-  , propModeReplace
-  , setClassHint
-  )
-
-import Graphics.UI.GIGtkStrut
-  ( StrutConfig (..)
-  , StrutPosition (TopPos)
-  , StrutSize (ExactSize)
-  , defaultStrutConfig
-  )
+import System.Info (arch, os)
 import System.Posix.Files (createSymbolicLink, removeLink)
+import System.Posix.Process (exitImmediately)
+import System.Posix.Signals (sigKILL, sigTERM, signalProcess)
 import System.Process.Typed (Process, getPid, proc, startProcess)
-
 import System.Taffybar (startTaffybar)
 import System.Taffybar.Context
-  ( BarConfig (..)
-  , Context (..)
-  , TaffyIO
-  , TaffybarConfig (..)
-  , exitTaffybar
+  ( BarConfig (..),
+    Context (..),
+    TaffyIO,
+    TaffybarConfig (..),
+    exitTaffybar,
   )
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Workspaces
-  ( WorkspacesConfig (..)
-  , getWindowIconPixbufFromEWMH
-  , sortWindowsByStackIndex
-  , workspacesNew
+  ( WorkspacesConfig (..),
+    getWindowIconPixbufFromEWMH,
+    sortWindowsByStackIndex,
+    workspacesNew,
   )
+import UnliftIO.Temporary (withSystemTempDirectory)
 
 data Args = Args
-  { outFile :: FilePath
-  , cssFile :: FilePath
+  { outFile :: FilePath,
+    cssFile :: FilePath
   }
 
 main :: IO ()
 main = do
-  Args { outFile = outPath, cssFile = cssPath } <- parseArgs =<< getArgs
+  Args {outFile = outPath, cssFile = cssPath} <- parseArgs =<< getArgs
 
   -- Force X11 backend selection even if the surrounding session is Wayland.
   unsetEnv "WAYLAND_DISPLAY"
@@ -158,39 +151,39 @@ runUnderWm wmProc outPath cssPath = do
   barUnique <- newUnique
   let wsCfg =
         (def :: WorkspacesConfig)
-          -- Avoid font-dependent output in the appearance golden: we only care
-          -- that icons/layout render deterministically.
-          { labelSetter = const (pure "")
-          , maxIcons = Just 1
-          , minIcons = 1
-          , getWindowIconPixbuf = getWindowIconPixbufFromEWMH
-          , iconSort = sortWindowsByStackIndex
+          { -- Avoid font-dependent output in the appearance golden: we only care
+            -- that icons/layout render deterministically.
+            labelSetter = const (pure ""),
+            maxIcons = Just 1,
+            minIcons = 1,
+            getWindowIconPixbuf = getWindowIconPixbufFromEWMH,
+            iconSort = sortWindowsByStackIndex
           }
       barCfg =
         BarConfig
           { strutConfig =
               defaultStrutConfig
-                { strutHeight = ExactSize 40
-                , strutMonitor = Just 0
-                , strutPosition = TopPos
-                }
-          , widgetSpacing = 8
-          , startWidgets = [workspacesNew wsCfg]
-          , centerWidgets = [testBoxWidget "test-center-box" 200 20]
-          , endWidgets =
-              [ testBoxWidget "test-pill" 52 20
-              , testBoxWidget "test-pill" 52 20
-              , testBoxWidget "test-right-box" 16 16
-              ]
-          , barId = barUnique
+                { strutHeight = ExactSize 40,
+                  strutMonitor = Just 0,
+                  strutPosition = TopPos
+                },
+            widgetSpacing = 8,
+            startWidgets = [workspacesNew wsCfg],
+            centerWidgets = [testBoxWidget "test-center-box" 200 20],
+            endWidgets =
+              [ testBoxWidget "test-pill" 52 20,
+                testBoxWidget "test-pill" 52 20,
+                testBoxWidget "test-right-box" 16 16
+              ],
+            barId = barUnique
           }
       cfg =
         def
-          { dbusClientParam = Nothing
-          , cssPaths = [cssPath]
-          , getBarConfigsParam = pure [barCfg]
-          , startupHook = scheduleSnapshot ctxVar resultVar
-          , errorMsg = Nothing
+          { dbusClientParam = Nothing,
+            cssPaths = [cssPath],
+            getBarConfigsParam = pure [barCfg],
+            startupHook = scheduleSnapshot ctxVar resultVar,
+            errorMsg = Nothing
           }
 
   withTestWindows $ do
@@ -248,7 +241,6 @@ withTestWindows action =
 
       setIcon w1 (argb 0xFF 0xE0 0x3A 0x3A) -- red
       setIcon w2 (argb 0xFF 0x3A 0xE0 0x6A) -- green
-
       mapWindow d w1
       mapWindow d w2
       sync d False
@@ -281,12 +273,12 @@ scheduleSnapshot ctxVar resultVar = do
           threadDelay 50_000
           pollLoop ctx'
 
-finalizeThread
-  :: MVar Context
-  -> MVar (Either String BL.ByteString)
-  -> MVar ExitCode
-  -> FilePath
-  -> IO ()
+finalizeThread ::
+  MVar Context ->
+  MVar (Either String BL.ByteString) ->
+  MVar ExitCode ->
+  FilePath ->
+  IO ()
 finalizeThread ctxVar resultVar doneVar outPath = do
   res <- takeMVar resultVar
   case res of
@@ -303,13 +295,13 @@ finalizeThread ctxVar resultVar doneVar outPath = do
     Nothing -> pure ()
     Just ctx -> void (try (exitTaffybar ctx) :: IO (Either SomeException ()))
 
-watchdogThread
-  :: Process () () ()
-  -> MVar Context
-  -> MVar (Either String BL.ByteString)
-  -> MVar ExitCode
-  -> Int
-  -> IO ()
+watchdogThread ::
+  Process () () () ->
+  MVar Context ->
+  MVar (Either String BL.ByteString) ->
+  MVar ExitCode ->
+  Int ->
+  IO ()
 watchdogThread wmProc ctxVar resultVar doneVar usec = do
   threadDelay usec
   didSet <- tryPutMVar resultVar (Left "Timed out waiting for appearance snapshot")
@@ -343,7 +335,7 @@ findComponentExecutable name localCandidates = do
     Nothing -> do
       existing <- filterM doesFileExist localCandidates
       case existing of
-        (p:_) -> makeAbsolute p
+        (p : _) -> makeAbsolute p
         [] -> die (name ++ " not found on PATH")
 
 waitForEwmh :: Int -> IO ()
@@ -393,10 +385,10 @@ imageHasTestIcons img =
       opaqueThreshold :: Int
       opaqueThreshold = 5000
       near (JP.PixelRGBA8 r g b a) (tr, tg, tb) =
-        a > 200 &&
-        abs (fromIntegral r - tr) <= tol &&
-        abs (fromIntegral g - tg) <= tol &&
-        abs (fromIntegral b - tb) <= tol
+        a > 200
+          && abs (fromIntegral r - tr) <= tol
+          && abs (fromIntegral g - tg) <= tol
+          && abs (fromIntegral b - tb) <= tol
       redTarget :: (Int, Int, Int)
       redTarget = (224, 58, 58)
       greenTarget :: (Int, Int, Int)
@@ -466,8 +458,8 @@ drainGtkEvents n = do
 parseArgs :: [String] -> IO Args
 parseArgs args =
   case args of
-    ["--out", outPath, "--css", cssPath] -> pure Args { outFile = outPath, cssFile = cssPath }
-    ["--css", cssPath, "--out", outPath] -> pure Args { outFile = outPath, cssFile = cssPath }
+    ["--out", outPath, "--css", cssPath] -> pure Args {outFile = outPath, cssFile = cssPath}
+    ["--css", cssPath, "--out", outPath] -> pure Args {outFile = outPath, cssFile = cssPath}
     _ -> die "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css"
 
 die :: String -> IO a

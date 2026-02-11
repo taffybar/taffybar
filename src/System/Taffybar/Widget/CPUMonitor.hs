@@ -1,4 +1,7 @@
 --------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.CPUMonitor
 -- Copyright   : (c) José A. Romero L.
@@ -10,8 +13,6 @@
 --
 -- Simple CPU monitor that uses a PollingGraph to visualize variations in the
 -- user and system CPU times in one selected core, or in all cores available.
---
---------------------------------------------------------------------------------
 module System.Taffybar.Widget.CPUMonitor where
 
 import Control.Monad.IO.Class
@@ -24,20 +25,23 @@ import System.Taffybar.Widget.Generic.PollingGraph
 -- | Creates a new CPU monitor. This is a PollingGraph fed by regular calls to
 -- getCPUInfo, associated to an IORef used to remember the values yielded by the
 -- last call to this function.
-cpuMonitorNew
-  :: MonadIO m
-  => GraphConfig -- ^ Configuration data for the Graph.
-  -> Double -- ^ Polling period (in seconds).
-  -> String -- ^ Name of the core to watch (e.g. \"cpu\", \"cpu0\").
-  -> m GI.Gtk.Widget
+cpuMonitorNew ::
+  (MonadIO m) =>
+  -- | Configuration data for the Graph.
+  GraphConfig ->
+  -- | Polling period (in seconds).
+  Double ->
+  -- | Name of the core to watch (e.g. \"cpu\", \"cpu0\").
+  String ->
+  m GI.Gtk.Widget
 cpuMonitorNew cfg interval cpu = liftIO $ do
-    info <- getCPUInfo cpu
-    sample <- newIORef info
-    pollingGraphNew cfg interval $ probe sample cpu
+  info <- getCPUInfo cpu
+  sample <- newIORef info
+  pollingGraphNew cfg interval $ probe sample cpu
 
 probe :: IORef [Int] -> String -> IO [Double]
 probe sample cpuName = do
-    load <- getAccLoad sample $ getCPUInfo cpuName
-    case load of
-      l0:l1:l2:_ -> return [ l0 + l1, l2 ] -- user, system
-      _ -> return []
+  load <- getAccLoad sample $ getCPUInfo cpuName
+  case load of
+    l0 : l1 : l2 : _ -> return [l0 + l1, l2] -- user, system
+    _ -> return []

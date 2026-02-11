@@ -8,63 +8,58 @@
 -- this executable in CI.
 module Main (main) where
 
-import Control.Concurrent (MVar, forkIO, newEmptyMVar, threadDelay, takeMVar)
+import qualified Codec.Picture as JP
+import Control.Concurrent (MVar, forkIO, newEmptyMVar, takeMVar, threadDelay)
 import Control.Concurrent.MVar (tryPutMVar, tryReadMVar)
 import Control.Exception (SomeException, try)
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
 import Data.Default (def)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import qualified Data.Text as T
 import Data.Unique (newUnique)
+import qualified GI.Gtk as Gtk
+import Graphics.UI.GIGtkStrut
+  ( StrutConfig (..),
+    StrutPosition (TopPos),
+    StrutSize (ExactSize),
+    defaultStrutConfig,
+  )
 import System.Directory
-  ( createDirectoryIfMissing
-  , findExecutable
-  , makeAbsolute
+  ( createDirectoryIfMissing,
+    findExecutable,
+    makeAbsolute,
   )
 import System.Environment (getArgs, lookupEnv, setEnv, unsetEnv)
 import System.Exit (ExitCode (..), exitWith)
 import System.FilePath (takeDirectory, (</>))
 import System.IO (hPutStrLn, stderr)
 import System.Posix.Process (exitImmediately)
-
-import qualified Codec.Picture as JP
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Text as T
-import UnliftIO.Temporary (withSystemTempDirectory)
-
 import System.Process.Typed
-  ( proc
-  , readProcess
+  ( proc,
+    readProcess,
   )
-
-import qualified GI.Gtk as Gtk
-
-import Graphics.UI.GIGtkStrut
-  ( StrutConfig (..)
-  , StrutPosition (TopPos)
-  , StrutSize (ExactSize)
-  , defaultStrutConfig
-  )
-
 import System.Taffybar (startTaffybar)
 import System.Taffybar.Context
-  ( BarConfig (..)
-  , Context (..)
-  , TaffyIO
-  , TaffybarConfig (..)
-  , exitTaffybar
+  ( BarConfig (..),
+    Context (..),
+    TaffyIO,
+    TaffybarConfig (..),
+    exitTaffybar,
   )
+import UnliftIO.Temporary (withSystemTempDirectory)
 
 data Args = Args
-  { outFile :: FilePath
-  , cssFile :: FilePath
+  { outFile :: FilePath,
+    cssFile :: FilePath
   }
 
 main :: IO ()
 main = do
-  Args { outFile = outPath, cssFile = cssPath } <- parseArgs =<< getArgs
+  Args {outFile = outPath, cssFile = cssPath} <- parseArgs =<< getArgs
 
   -- Reduce variability (but do not clobber WAYLAND_DISPLAY / XDG_RUNTIME_DIR /
   -- HYPRLAND_INSTANCE_SIGNATURE; those are provided by the compositor session).
@@ -124,28 +119,28 @@ runUnderHyprland outPath cssPath = do
         BarConfig
           { strutConfig =
               defaultStrutConfig
-                { strutHeight = ExactSize 40
-                , strutMonitor = Just 0
-                , strutPosition = TopPos
-                }
-          , widgetSpacing = 8
-          , startWidgets = [testPillBoxWidget "test-pill" 56 20]
-          , centerWidgets = [testBoxWidget "test-center-box" 200 20]
-          , endWidgets =
-              [ testPillBoxWidget "test-pill" 52 20
-              , testPillBoxWidget "test-pill" 46 20
-              , testBoxWidget "test-right-box" 16 16
-              ]
-          , barId = barUnique
+                { strutHeight = ExactSize 40,
+                  strutMonitor = Just 0,
+                  strutPosition = TopPos
+                },
+            widgetSpacing = 8,
+            startWidgets = [testPillBoxWidget "test-pill" 56 20],
+            centerWidgets = [testBoxWidget "test-center-box" 200 20],
+            endWidgets =
+              [ testPillBoxWidget "test-pill" 52 20,
+                testPillBoxWidget "test-pill" 46 20,
+                testBoxWidget "test-right-box" 16 16
+              ],
+            barId = barUnique
           }
 
       cfg =
         def
-          { dbusClientParam = Nothing
-          , cssPaths = [cssPath]
-          , getBarConfigsParam = pure [barCfg]
-          , startupHook = scheduleSnapshot ctxVar resultVar lastShotRef
-          , errorMsg = Nothing
+          { dbusClientParam = Nothing,
+            cssPaths = [cssPath],
+            getBarConfigsParam = pure [barCfg],
+            startupHook = scheduleSnapshot ctxVar resultVar lastShotRef,
+            errorMsg = Nothing
           }
 
   -- Blocks in Gtk.main until we request shutdown.
@@ -204,8 +199,9 @@ takeSnapshotWithRetries lastShotRef resultVar n = do
           prev <- readIORef lastShotRef
           writeIORef lastShotRef (Just encoded)
           case prev of
-            Just prevEncoded | prevEncoded == encoded ->
-              void $ tryPutMVar resultVar (Right encoded)
+            Just prevEncoded
+              | prevEncoded == encoded ->
+                  void $ tryPutMVar resultVar (Right encoded)
             _ -> do
               threadDelay 200_000
               takeSnapshotWithRetries lastShotRef resultVar (n - 1)
@@ -215,8 +211,8 @@ takeSnapshot =
   withSystemTempDirectory "tbshot" $ \tmp -> do
     let shotPath = tmp </> "shot.png"
     e <-
-      try (readProcess (proc "grim" ["-s", "1", "-l", "1", "-g", "0,0 1024x40", shotPath]))
-        :: IO (Either SomeException (ExitCode, BL.ByteString, BL.ByteString))
+      try (readProcess (proc "grim" ["-s", "1", "-l", "1", "-g", "0,0 1024x40", shotPath])) ::
+        IO (Either SomeException (ExitCode, BL.ByteString, BL.ByteString))
     case e of
       Left _ -> pure (Left ("grim failed" :: String))
       Right (ec, _stdout, _stderr) ->
@@ -228,10 +224,9 @@ takeSnapshot =
               Left _ -> pure (Left "PNG decode failed")
               Right dyn ->
                 let img = JP.convertRGBA8 dyn
-                 in
-                  if hasExpectedMarkers img
-                    then pure (Right (JP.encodePng img))
-                    else pure (Left "Expected marker colors not present (bar likely not rendered yet)")
+                 in if hasExpectedMarkers img
+                      then pure (Right (JP.encodePng img))
+                      else pure (Left "Expected marker colors not present (bar likely not rendered yet)")
 
 hasExpectedMarkers :: JP.Image JP.PixelRGBA8 -> Bool
 hasExpectedMarkers img =
@@ -247,20 +242,19 @@ countColor :: JP.Image JP.PixelRGBA8 -> JP.PixelRGBA8 -> Int
 countColor img needle =
   let w = JP.imageWidth img
       h = JP.imageHeight img
-   in
-    length
-      [ ()
-      | y <- [0 .. h - 1]
-      , x <- [0 .. w - 1]
-      , JP.pixelAt img x y == needle
-      ]
+   in length
+        [ ()
+        | y <- [0 .. h - 1],
+          x <- [0 .. w - 1],
+          JP.pixelAt img x y == needle
+        ]
 
-finalizeThread
-  :: MVar Context
-  -> MVar (Either String BL.ByteString)
-  -> MVar ExitCode
-  -> FilePath
-  -> IO ()
+finalizeThread ::
+  MVar Context ->
+  MVar (Either String BL.ByteString) ->
+  MVar ExitCode ->
+  FilePath ->
+  IO ()
 finalizeThread ctxVar resultVar doneVar outPath = do
   res <- takeMVar resultVar
   case res of
@@ -277,13 +271,13 @@ finalizeThread ctxVar resultVar doneVar outPath = do
     Nothing -> pure ()
     Just ctx -> void (try (exitTaffybar ctx) :: IO (Either SomeException ()))
 
-watchdogThread
-  :: MVar Context
-  -> MVar (Either String BL.ByteString)
-  -> MVar ExitCode
-  -> IORef (Maybe BL.ByteString)
-  -> Int
-  -> IO ()
+watchdogThread ::
+  MVar Context ->
+  MVar (Either String BL.ByteString) ->
+  MVar ExitCode ->
+  IORef (Maybe BL.ByteString) ->
+  Int ->
+  IO ()
 watchdogThread ctxVar resultVar doneVar lastShotRef usec = do
   threadDelay usec
   void $ tryPutMVar doneVar (ExitFailure 124)
@@ -317,8 +311,8 @@ requireEnv name = do
 parseArgs :: [String] -> IO Args
 parseArgs args =
   case args of
-    ["--out", outPath, "--css", cssPath] -> pure Args { outFile = outPath, cssFile = cssPath }
-    ["--css", cssPath, "--out", outPath] -> pure Args { outFile = outPath, cssFile = cssPath }
+    ["--out", outPath, "--css", cssPath] -> pure Args {outFile = outPath, cssFile = cssPath}
+    ["--css", cssPath, "--out", outPath] -> pure Args {outFile = outPath, cssFile = cssPath}
     _ -> fail "usage: taffybar-appearance-snap-hyprland --out OUT.png --css appearance-test.css"
 
 die :: String -> IO a

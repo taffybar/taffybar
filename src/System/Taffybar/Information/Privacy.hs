@@ -4,6 +4,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.Privacy
 -- Copyright   : (c) Ivan A. Malison
@@ -16,23 +19,24 @@
 -- PipeWire-based privacy monitoring for microphone, camera, and screen sharing.
 --
 -- This module uses @pw-dump@ to detect active audio/video streams.
---
------------------------------------------------------------------------------
-
 module System.Taffybar.Information.Privacy
   ( -- * Data types
-    PrivacyInfo(..)
-  , PrivacyNode(..)
-  , NodeType(..)
+    PrivacyInfo (..),
+    PrivacyNode (..),
+    NodeType (..),
+
     -- * Query functions
-  , getPrivacyInfo
+    getPrivacyInfo,
+
     -- * Channel-based monitoring
-  , getPrivacyInfoChan
-  , getPrivacyInfoState
+    getPrivacyInfoChan,
+    getPrivacyInfoState,
+
     -- * Configuration
-  , PrivacyConfig(..)
-  , defaultPrivacyConfig
-  ) where
+    PrivacyConfig (..),
+    defaultPrivacyConfig,
+  )
+where
 
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
@@ -42,61 +46,72 @@ import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Data.Aeson
-  ( FromJSON(..)
-  , (.:)
-  , (.:?)
-  , withObject
+  ( FromJSON (..),
+    withObject,
+    (.:),
+    (.:?),
   )
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
-import Data.Default (Default(..))
-import qualified Data.Text.Encoding as TE
+import Data.Default (Default (..))
 import Data.List (nubBy)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import GHC.Generics (Generic)
-import System.Log.Logger (Priority(..))
+import System.Log.Logger (Priority (..))
 import System.Taffybar.Context (TaffyIO, getStateDefault)
 import System.Taffybar.Util (logPrintF, runCommand)
 
 -- | Type of privacy-relevant node.
 data NodeType
-  = AudioInput   -- ^ Microphone / audio capture
-  | AudioOutput  -- ^ Audio playback (less privacy-sensitive, but useful)
-  | VideoInput   -- ^ Camera / screen capture
+  = -- | Microphone / audio capture
+    AudioInput
+  | -- | Audio playback (less privacy-sensitive, but useful)
+    AudioOutput
+  | -- | Camera / screen capture
+    VideoInput
   deriving (Eq, Show, Generic, Ord)
 
 -- | Information about an active privacy-relevant node.
 data PrivacyNode = PrivacyNode
-  { nodeType :: NodeType
-  , appName :: Text
-  , appIcon :: Maybe Text
-  , nodeName :: Text
-  , isMonitor :: Bool
-  } deriving (Eq, Show, Generic)
+  { nodeType :: NodeType,
+    appName :: Text,
+    appIcon :: Maybe Text,
+    nodeName :: Text,
+    isMonitor :: Bool
+  }
+  deriving (Eq, Show, Generic)
 
 -- | Aggregated privacy information.
 newtype PrivacyInfo = PrivacyInfo
   { activeNodes :: [PrivacyNode]
-  } deriving (Eq, Show, Generic)
+  }
+  deriving (Eq, Show, Generic)
 
 -- | Configuration for the privacy monitor.
 data PrivacyConfig = PrivacyConfig
-  { privacyPollingInterval :: Double  -- ^ Polling interval in seconds
-  , privacyPwDumpPath :: FilePath     -- ^ Path to pw-dump command
-  , privacyIgnoreMonitors :: Bool     -- ^ Whether to ignore monitor streams
-  , privacyIgnoreAudioOutput :: Bool  -- ^ Whether to ignore audio output streams
-  } deriving (Eq, Show, Generic)
+  { -- | Polling interval in seconds
+    privacyPollingInterval :: Double,
+    -- | Path to pw-dump command
+    privacyPwDumpPath :: FilePath,
+    -- | Whether to ignore monitor streams
+    privacyIgnoreMonitors :: Bool,
+    -- | Whether to ignore audio output streams
+    privacyIgnoreAudioOutput :: Bool
+  }
+  deriving (Eq, Show, Generic)
 
 -- | Default privacy configuration.
 defaultPrivacyConfig :: PrivacyConfig
-defaultPrivacyConfig = PrivacyConfig
-  { privacyPollingInterval = 2.0
-  , privacyPwDumpPath = "pw-dump"
-  , privacyIgnoreMonitors = True
-  , privacyIgnoreAudioOutput = True
-  }
+defaultPrivacyConfig =
+  PrivacyConfig
+    { privacyPollingInterval = 2.0,
+      privacyPwDumpPath = "pw-dump",
+      privacyIgnoreMonitors = True,
+      privacyIgnoreAudioOutput = True
+    }
 
 instance Default PrivacyConfig where
   def = defaultPrivacyConfig
@@ -104,51 +119,57 @@ instance Default PrivacyConfig where
 privacyLogPath :: String
 privacyLogPath = "System.Taffybar.Information.Privacy"
 
-privacyLogF :: Show t => Priority -> String -> t -> IO ()
+privacyLogF :: (Show t) => Priority -> String -> t -> IO ()
 privacyLogF = logPrintF privacyLogPath
 
 -- | Internal representation of a PipeWire object from pw-dump.
 data PwObject = PwObject
-  { pwId :: Int
-  , pwType :: Text
-  , pwInfo :: Maybe PwInfo
-  } deriving (Eq, Show, Generic)
+  { pwId :: Int,
+    pwType :: Text,
+    pwInfo :: Maybe PwInfo
+  }
+  deriving (Eq, Show, Generic)
 
 data PwInfo = PwInfo
-  { pwState :: Maybe Text
-  , pwProps :: Maybe PwProps
-  } deriving (Eq, Show, Generic)
+  { pwState :: Maybe Text,
+    pwProps :: Maybe PwProps
+  }
+  deriving (Eq, Show, Generic)
 
 data PwProps = PwProps
-  { propMediaClass :: Maybe Text
-  , propMediaName :: Maybe Text
-  , propNodeName :: Maybe Text
-  , propAppName :: Maybe Text
-  , propAppIconName :: Maybe Text
-  , propPortalAppId :: Maybe Text
-  , propStreamMonitor :: Maybe Text
-  } deriving (Eq, Show, Generic)
+  { propMediaClass :: Maybe Text,
+    propMediaName :: Maybe Text,
+    propNodeName :: Maybe Text,
+    propAppName :: Maybe Text,
+    propAppIconName :: Maybe Text,
+    propPortalAppId :: Maybe Text,
+    propStreamMonitor :: Maybe Text
+  }
+  deriving (Eq, Show, Generic)
 
 instance FromJSON PwObject where
-  parseJSON = withObject "PwObject" $ \v -> PwObject
-    <$> v .: "id"
-    <*> v .: "type"
-    <*> v .:? "info"
+  parseJSON = withObject "PwObject" $ \v ->
+    PwObject
+      <$> v .: "id"
+      <*> v .: "type"
+      <*> v .:? "info"
 
 instance FromJSON PwInfo where
-  parseJSON = withObject "PwInfo" $ \v -> PwInfo
-    <$> v .:? "state"
-    <*> v .:? "props"
+  parseJSON = withObject "PwInfo" $ \v ->
+    PwInfo
+      <$> v .:? "state"
+      <*> v .:? "props"
 
 instance FromJSON PwProps where
-  parseJSON = withObject "PwProps" $ \v -> PwProps
-    <$> v .:? "media.class"
-    <*> v .:? "media.name"
-    <*> v .:? "node.name"
-    <*> v .:? "application.name"
-    <*> v .:? "application.icon-name"
-    <*> v .:? "pipewire.access.portal.app_id"
-    <*> v .:? "stream.monitor"
+  parseJSON = withObject "PwProps" $ \v ->
+    PwProps
+      <$> v .:? "media.class"
+      <*> v .:? "media.name"
+      <*> v .:? "node.name"
+      <*> v .:? "application.name"
+      <*> v .:? "application.icon-name"
+      <*> v .:? "pipewire.access.portal.app_id"
+      <*> v .:? "stream.monitor"
 
 -- | Get current privacy information by running pw-dump.
 getPrivacyInfo :: PrivacyConfig -> IO PrivacyInfo
@@ -193,29 +214,32 @@ toPrivacyNode _config obj = do
           nType <- classToNodeType mediaClass
 
           -- Get application name (try multiple sources)
-          let name = fromMaybe "Unknown" $
-                propAppName props
-                  <|> propPortalAppId props
-                  <|> propNodeName props
-                  <|> propMediaName props
+          let name =
+                fromMaybe "Unknown" $
+                  propAppName props
+                    <|> propPortalAppId props
+                    <|> propNodeName props
+                    <|> propMediaName props
 
               -- Get icon name
-              icon = propAppIconName props
-                       <|> propPortalAppId props
-                       <|> propAppName props
+              icon =
+                propAppIconName props
+                  <|> propPortalAppId props
+                  <|> propAppName props
 
               -- Check if it's a monitor stream
               monitor = propStreamMonitor props == Just "true"
 
               nName = fromMaybe "" $ propNodeName props
 
-          Just PrivacyNode
-            { nodeType = nType
-            , appName = name
-            , appIcon = icon
-            , nodeName = nName
-            , isMonitor = monitor
-            }
+          Just
+            PrivacyNode
+              { nodeType = nType,
+                appName = name,
+                appIcon = icon,
+                nodeName = nName,
+                isMonitor = monitor
+              }
   where
     (<|>) :: Maybe a -> Maybe a -> Maybe a
     (<|>) ma mb = case ma of
@@ -243,8 +267,9 @@ filterNodes config = filter keep
       | otherwise = True
 
 -- | State for the privacy info channel.
-newtype PrivacyInfoChanVar = PrivacyInfoChanVar
-  (TChan PrivacyInfo, MVar PrivacyInfo)
+newtype PrivacyInfoChanVar
+  = PrivacyInfoChanVar
+      (TChan PrivacyInfo, MVar PrivacyInfo)
 
 -- | Get a broadcast channel for privacy info updates.
 --
@@ -276,19 +301,18 @@ monitorPrivacyInfo ::
   MVar PrivacyInfo ->
   IO ()
 monitorPrivacyInfo config chan var = do
-  let
-    intervalMicros :: Int
-    intervalMicros = max 100000 (floor (privacyPollingInterval config * 1000000))
+  let intervalMicros :: Int
+      intervalMicros = max 100000 (floor (privacyPollingInterval config * 1000000))
 
-    writeInfo info = do
-      _ <- swapMVar var info
-      atomically $ writeTChan chan info
+      writeInfo info = do
+        _ <- swapMVar var info
+        atomically $ writeTChan chan info
 
-    refresh = do
-      info <- catch (getPrivacyInfo config) $ \(e :: SomeException) -> do
-        privacyLogF WARNING "Privacy info refresh failed: %s" e
-        return $ PrivacyInfo []
-      writeInfo info
+      refresh = do
+        info <- catch (getPrivacyInfo config) $ \(e :: SomeException) -> do
+          privacyLogF WARNING "Privacy info refresh failed: %s" e
+          return $ PrivacyInfo []
+        writeInfo info
 
   -- Initial refresh
   refresh

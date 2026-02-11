@@ -6,39 +6,40 @@
 -- (plain IO with an explicit strategy) instead of calling the underlying
 -- implementations directly.
 module System.Taffybar.Widget.Generic.ScalingImage
-  ( scalingImageNew
-  , scalingImage
-  , getScalingImageStrategy
-  , setScalingImageStrategy
-  ) where
+  ( scalingImageNew,
+    scalingImage,
+    getScalingImageStrategy,
+    setScalingImageStrategy,
+  )
+where
 
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Data.Int
-import           Data.Typeable
+import Control.Monad
+import Control.Monad.IO.Class
+import Data.Int
+import Data.Typeable
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import           StatusNotifier.Tray (scalePixbufToSize)
-import           System.Taffybar.Context
-import           System.Taffybar.Widget.Generic.AutoFillImage (autoFillImage)
-import           System.Taffybar.Widget.Generic.AutoSizeImage
-  ( ImageScaleStrategy(..)
-  , autoSizeImage
+import StatusNotifier.Tray (scalePixbufToSize)
+import System.Taffybar.Context
+import System.Taffybar.Widget.Generic.AutoFillImage (autoFillImage)
+import System.Taffybar.Widget.Generic.AutoSizeImage
+  ( ImageScaleStrategy (..),
+    autoSizeImage,
   )
 
-newtype ScalingImageStrategySetting =
-  ScalingImageStrategySetting ImageScaleStrategy
-  deriving Typeable
+newtype ScalingImageStrategySetting
+  = ScalingImageStrategySetting ImageScaleStrategy
+  deriving (Typeable)
 
 -- | Create a scaling image widget using the given strategy.
 --
 -- Returns a @(widget, refreshAction)@ pair. The widget is a generic
 -- 'Gtk.Widget' regardless of which strategy is used.
-scalingImageNew
-  :: ImageScaleStrategy
-  -> (Int32 -> IO (Maybe Gdk.Pixbuf))
-  -> Gtk.Orientation
-  -> IO (Gtk.Widget, IO ())
+scalingImageNew ::
+  ImageScaleStrategy ->
+  (Int32 -> IO (Maybe Gdk.Pixbuf)) ->
+  Gtk.Orientation ->
+  IO (Gtk.Widget, IO ())
 scalingImageNew ImageResize getPixbuf orientation = do
   image <- Gtk.imageNew
   let scaledGetter size =
@@ -53,10 +54,10 @@ scalingImageNew ImageDraw getPixbuf orientation = do
   return (widget, refresh)
 
 -- | TaffyIO variant that reads the strategy from context state.
-scalingImage
-  :: (Int32 -> IO (Maybe Gdk.Pixbuf))
-  -> Gtk.Orientation
-  -> TaffyIO (Gtk.Widget, IO ())
+scalingImage ::
+  (Int32 -> IO (Maybe Gdk.Pixbuf)) ->
+  Gtk.Orientation ->
+  TaffyIO (Gtk.Widget, IO ())
 scalingImage getPixbuf orientation = do
   strategy <- getScalingImageStrategy
   liftIO $ scalingImageNew strategy getPixbuf orientation

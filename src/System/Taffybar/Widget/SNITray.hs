@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.SNITray
 -- Copyright   : (c) Ivan A. Malison
@@ -24,22 +28,21 @@
 -- generally not recommended, because it can lead to issues with the
 -- registration of tray icons if taffybar crashes/restarts, or if tray icon
 -- providing applications are ever started before taffybar.
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.SNITray
-  ( TrayParams
-  , module System.Taffybar.Widget.SNITray
-  ) where
+  ( TrayParams,
+    module System.Taffybar.Widget.SNITray,
+  )
+where
 
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Reader
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Reader
 import qualified GI.Gtk
 import qualified StatusNotifier.Host.Service as H
-import           StatusNotifier.Tray
-import           System.Posix.Process
-import           System.Taffybar.Context
-import           System.Taffybar.Widget.Util
-import           Text.Printf
+import StatusNotifier.Tray
+import System.Posix.Process
+import System.Taffybar.Context
+import System.Taffybar.Widget.Util
+import Text.Printf
 
 -- | Build a new StatusNotifierItem tray that will share a host with any other
 -- trays that are constructed automatically
@@ -76,10 +79,12 @@ getTrayHost :: Bool -> TaffyIO H.Host
 getTrayHost startWatcher = getStateDefault $ do
   pid <- lift getProcessID
   client <- asks sessionDBusClient
-  Just host <- lift $ H.build H.defaultParams
-     { H.dbusClient = Just client
-     , H.uniqueIdentifier = printf "taffybar-%s" $ show pid
-     , H.startWatcher = startWatcher
-     }
+  Just host <-
+    lift $
+      H.build
+        H.defaultParams
+          { H.dbusClient = Just client,
+            H.uniqueIdentifier = printf "taffybar-%s" $ show pid,
+            H.startWatcher = startWatcher
+          }
   return host
-

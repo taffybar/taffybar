@@ -1,33 +1,28 @@
 module System.Taffybar.AppearanceSpec (spec) where
 
+import Codec.Picture qualified as JP
 import Control.Monad (when)
+import Data.ByteString.Lazy qualified as BL
 import System.Directory (doesFileExist, findExecutable, makeAbsolute)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
-import System.Timeout (timeout)
-
-import qualified Codec.Picture as JP
-import qualified Data.ByteString.Lazy as BL
-
-import Test.Hspec
-
-import UnliftIO.Directory (createDirectoryIfMissing)
-import UnliftIO.Environment (lookupEnv)
-import UnliftIO.Temporary (withSystemTempDirectory)
-
 import System.Process.Typed
-  ( inherit
-  , proc
-  , setStderr
-  , setStdout
-  , stopProcess
-  , waitExitCode
-  , withProcessTerm
+  ( inherit,
+    proc,
+    setStderr,
+    setStdout,
+    stopProcess,
+    waitExitCode,
+    withProcessTerm,
   )
-
 import System.Taffybar.Test.DBusSpec (withTestDBus)
 import System.Taffybar.Test.UtilSpec (withEnv, withSetEnv)
 import System.Taffybar.Test.XvfbSpec (setDefaultDisplay_, withXvfb)
+import System.Timeout (timeout)
+import Test.Hspec
+import UnliftIO.Directory (createDirectoryIfMissing)
+import UnliftIO.Environment (lookupEnv)
+import UnliftIO.Temporary (withSystemTempDirectory)
 
 spec :: Spec
 spec = aroundAll withIntegrationEnv $ do
@@ -50,8 +45,9 @@ spec = aroundAll withIntegrationEnv $ do
           BL.writeFile "dist/appearance-actual.png" actualPng
           BL.writeFile "dist/appearance-golden.png" goldenPng
           expectationFailure $
-            "Appearance golden mismatch: " ++ goldenFile ++
-            " (wrote dist/appearance-actual.png and dist/appearance-golden.png)"
+            "Appearance golden mismatch: "
+              ++ goldenFile
+              ++ " (wrote dist/appearance-actual.png and dist/appearance-golden.png)"
 
 newtype Env = Env
   { envTmpDir :: FilePath
@@ -68,28 +64,28 @@ withIntegrationEnv action =
 
           -- Keep user/system config out of the test run and reduce variability.
           withEnv
-            [ ("WAYLAND_DISPLAY", const Nothing)
-            , ("HYPRLAND_INSTANCE_SIGNATURE", const Nothing)
-            ] $
-              withSetEnv
-              [ ("GDK_BACKEND", "x11")
-              , ("GDK_SCALE", "1")
-              , ("GDK_DPI_SCALE", "1")
-              , ("GTK_CSD", "0")
-              , ("GTK_THEME", "Adwaita")
-              , ("XDG_SESSION_TYPE", "x11")
-              , ("XDG_RUNTIME_DIR", runtimeDir)
-              , ("NO_AT_BRIDGE", "1")
-              , ("GSETTINGS_BACKEND", "memory")
-              , ("HOME", tmp)
-              , ("XDG_CONFIG_HOME", tmp </> "xdg-config")
-              , ("XDG_CACHE_HOME", tmp </> "xdg-cache")
-              , ("XDG_DATA_HOME", tmp </> "xdg-data")
-              ] $
-              action (Env { envTmpDir = tmp })
+            [ ("WAYLAND_DISPLAY", const Nothing),
+              ("HYPRLAND_INSTANCE_SIGNATURE", const Nothing)
+            ]
+            $ withSetEnv
+              [ ("GDK_BACKEND", "x11"),
+                ("GDK_SCALE", "1"),
+                ("GDK_DPI_SCALE", "1"),
+                ("GTK_CSD", "0"),
+                ("GTK_THEME", "Adwaita"),
+                ("XDG_SESSION_TYPE", "x11"),
+                ("XDG_RUNTIME_DIR", runtimeDir),
+                ("NO_AT_BRIDGE", "1"),
+                ("GSETTINGS_BACKEND", "memory"),
+                ("HOME", tmp),
+                ("XDG_CONFIG_HOME", tmp </> "xdg-config"),
+                ("XDG_CACHE_HOME", tmp </> "xdg-cache"),
+                ("XDG_DATA_HOME", tmp </> "xdg-data")
+              ]
+            $ action (Env {envTmpDir = tmp})
 
 renderBarScreenshot :: Env -> IO BL.ByteString
-renderBarScreenshot Env { envTmpDir = tmp } = do
+renderBarScreenshot Env {envTmpDir = tmp} = do
   exePath <-
     findComponentExecutable
       "taffybar-appearance-snap"
@@ -124,7 +120,7 @@ findComponentExecutable name localCandidates = do
     Nothing -> go localCandidates
   where
     go [] = fail (name ++ " not found on PATH")
-    go (p:ps) = do
+    go (p : ps) = do
       exists <- doesFileExist p
       if exists then makeAbsolute p else go ps
 

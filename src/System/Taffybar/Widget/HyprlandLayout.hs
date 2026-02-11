@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.HyprlandLayout
 -- Copyright   : (c) Ivan A. Malison
@@ -12,41 +15,40 @@
 --
 -- Simple text widget that shows the Hyprland layout used in the currently
 -- active workspace.
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.HyprlandLayout
-  ( HyprlandLayoutConfig(..)
-  , defaultHyprlandLayoutConfig
-  , hyprlandLayoutNew
-  ) where
+  ( HyprlandLayoutConfig (..),
+    defaultHyprlandLayoutConfig,
+    hyprlandLayoutNew,
+  )
+where
 
-import           Control.Applicative ((<|>))
-import           Control.Concurrent (killThread)
-import           Control.Monad (void)
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Reader
-import           Data.Aeson (FromJSON(..), withObject, (.:?))
-import           Data.Default (Default(..))
-import           Data.Maybe (fromMaybe)
-import           Data.Text (Text)
+import Control.Applicative ((<|>))
+import Control.Concurrent (killThread)
+import Control.Monad (void)
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Reader
+import Data.Aeson (FromJSON (..), withObject, (.:?))
+import Data.Default (Default (..))
+import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 import qualified Data.Text as T
-import           GI.Gdk
+import GI.Gdk
 import qualified GI.Gtk as Gtk
-import           System.Log.Logger (Priority(..))
-import           System.Taffybar.Context
-import           System.Taffybar.Hyprland
-  ( runHyprlandCommandJsonT
-  , runHyprlandCommandRawT
+import System.Log.Logger (Priority (..))
+import System.Taffybar.Context
+import System.Taffybar.Hyprland
+  ( runHyprlandCommandJsonT,
+    runHyprlandCommandRawT,
   )
 import qualified System.Taffybar.Information.Hyprland as Hypr
-import           System.Taffybar.Util
-import           System.Taffybar.Widget.Util
+import System.Taffybar.Util
+import System.Taffybar.Widget.Util
 
 data HyprlandLayoutConfig = HyprlandLayoutConfig
-  { formatLayout :: T.Text -> TaffyIO T.Text
-  , updateIntervalSeconds :: Double
-  , onLeftClick :: Maybe [String]
-  , onRightClick :: Maybe [String]
+  { formatLayout :: T.Text -> TaffyIO T.Text,
+    updateIntervalSeconds :: Double,
+    onLeftClick :: Maybe [String],
+    onRightClick :: Maybe [String]
   }
 
 instance Default HyprlandLayoutConfig where
@@ -55,11 +57,11 @@ instance Default HyprlandLayoutConfig where
 defaultHyprlandLayoutConfig :: HyprlandLayoutConfig
 defaultHyprlandLayoutConfig =
   HyprlandLayoutConfig
-  { formatLayout = return
-  , updateIntervalSeconds = 1
-  , onLeftClick = Nothing
-  , onRightClick = Nothing
-  }
+    { formatLayout = return,
+      updateIntervalSeconds = 1,
+      onLeftClick = Nothing,
+      onRightClick = Nothing
+    }
 
 -- | Create a new Hyprland Layout widget.
 hyprlandLayoutNew :: HyprlandLayoutConfig -> TaffyIO Gtk.Widget
@@ -74,8 +76,11 @@ hyprlandLayoutNew config = do
         lift $ postGUIASync $ Gtk.labelSetMarkup label markup
 
   void refresh
-  threadId <- lift $ foreverWithDelay (updateIntervalSeconds config) $
-    void $ runReaderT refresh ctx
+  threadId <-
+    lift $
+      foreverWithDelay (updateIntervalSeconds config) $
+        void $
+          runReaderT refresh ctx
 
   ebox <- lift Gtk.eventBoxNew
   lift $ Gtk.containerAdd ebox label
@@ -106,15 +111,19 @@ dispatchMaybe maybeArgs =
       result <- runHyprlandCommandRawT (Hypr.hyprCommand ("dispatch" : args))
       case result of
         Left err ->
-          logPrintF "System.Taffybar.Widget.HyprlandLayout" WARNING
-            "Failed to dispatch Hyprland command: %s" (show err)
+          logPrintF
+            "System.Taffybar.Widget.HyprlandLayout"
+            WARNING
+            "Failed to dispatch Hyprland command: %s"
+            (show err)
         Right _ -> return ()
 
 -- Hyprland JSON helpers
 
 newtype HyprlandActiveWorkspace = HyprlandActiveWorkspace
   { hawLayout :: Maybe Text
-  } deriving (Show, Eq)
+  }
+  deriving (Show, Eq)
 
 instance FromJSON HyprlandActiveWorkspace where
   parseJSON = withObject "HyprlandActiveWorkspace" $ \v -> do
@@ -126,17 +135,20 @@ getHyprlandLayoutText = do
   result <- runHyprctlJson ["-j", "activeworkspace"]
   case result of
     Left err ->
-      logPrintF "System.Taffybar.Widget.HyprlandLayout" WARNING
-        "hyprctl activeworkspace failed: %s" err >>
-      return ""
+      logPrintF
+        "System.Taffybar.Widget.HyprlandLayout"
+        WARNING
+        "hyprctl activeworkspace failed: %s"
+        err
+        >> return ""
     Right (HyprlandActiveWorkspace layout) ->
       return $ fromMaybe "" layout
 
-runHyprctlJson :: FromJSON a => [String] -> TaffyIO (Either String a)
+runHyprctlJson :: (FromJSON a) => [String] -> TaffyIO (Either String a)
 runHyprctlJson args = do
   let args' =
         case args of
-          ("-j":rest) -> rest
+          ("-j" : rest) -> rest
           _ -> args
   result <- runHyprlandCommandJsonT (Hypr.hyprCommandJson args')
   pure $ case result of

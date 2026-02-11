@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.NetworkManager
 -- Copyright   : (c) Ivan A. Malison
@@ -10,85 +14,78 @@
 -- Portability : unportable
 --
 -- Network widgets backed by NetworkManager's DBus API.
------------------------------------------------------------------------------
 module System.Taffybar.Widget.NetworkManager
-  ( WifiWidgetConfig(..)
-  , defaultWifiWidgetConfig
-  , networkManagerWifiLabelNew
-  , networkManagerWifiLabelNewWith
+  ( WifiWidgetConfig (..),
+    defaultWifiWidgetConfig,
+    networkManagerWifiLabelNew,
+    networkManagerWifiLabelNewWith,
+    NetworkManagerWifiIconConfig (..),
+    defaultNetworkManagerWifiIconConfig,
+    networkManagerWifiIconNew,
+    networkManagerWifiIconNewWith,
+    networkManagerWifiNew,
+    networkManagerWifiNewWith,
+    -- Wifi text icon (nerd font label)
+    networkManagerWifiTextIconNew,
+    networkManagerWifiTextIconNewWith,
+    -- Wifi combined icon-label
+    networkManagerWifiIconLabelNew,
+    networkManagerWifiIconLabelNewWith,
+    NetworkWidgetConfig (..),
+    defaultNetworkWidgetConfig,
+    networkManagerNetworkLabelNew,
+    networkManagerNetworkLabelNewWith,
+    NetworkManagerNetworkIconConfig (..),
+    defaultNetworkManagerNetworkIconConfig,
+    networkManagerNetworkIconNew,
+    networkManagerNetworkIconNewWith,
+    networkManagerNetworkNew,
+    networkManagerNetworkNewWith,
+    -- Network text icon (nerd font label)
+    networkManagerNetworkTextIconNew,
+    networkManagerNetworkTextIconNewWith,
+    -- Network combined icon-label
+    networkManagerNetworkIconLabelNew,
+    networkManagerNetworkIconLabelNewWith,
+  )
+where
 
-  , NetworkManagerWifiIconConfig(..)
-  , defaultNetworkManagerWifiIconConfig
-  , networkManagerWifiIconNew
-  , networkManagerWifiIconNewWith
-
-  , networkManagerWifiNew
-  , networkManagerWifiNewWith
-
-  -- Wifi text icon (nerd font label)
-  , networkManagerWifiTextIconNew
-  , networkManagerWifiTextIconNewWith
-  -- Wifi combined icon-label
-  , networkManagerWifiIconLabelNew
-  , networkManagerWifiIconLabelNewWith
-
-  , NetworkWidgetConfig(..)
-  , defaultNetworkWidgetConfig
-  , networkManagerNetworkLabelNew
-  , networkManagerNetworkLabelNewWith
-
-  , NetworkManagerNetworkIconConfig(..)
-  , defaultNetworkManagerNetworkIconConfig
-  , networkManagerNetworkIconNew
-  , networkManagerNetworkIconNewWith
-
-  , networkManagerNetworkNew
-  , networkManagerNetworkNewWith
-
-  -- Network text icon (nerd font label)
-  , networkManagerNetworkTextIconNew
-  , networkManagerNetworkTextIconNewWith
-  -- Network combined icon-label
-  , networkManagerNetworkIconLabelNew
-  , networkManagerNetworkIconLabelNewWith
-  ) where
-
-import           Control.Applicative ((<|>))
-import           Control.Concurrent.MVar
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Reader
-import           Data.Default (Default(..))
-import           Data.Int (Int32)
-import           Data.IORef (newIORef, readIORef, writeIORef)
-import           Data.Maybe (fromMaybe)
+import Control.Applicative ((<|>))
+import Control.Concurrent.MVar
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader
+import Data.Default (Default (..))
+import Data.IORef (newIORef, readIORef, writeIORef)
+import Data.Int (Int32)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified GI.GLib as G
-import           GI.Gtk
-import           System.Taffybar.Context
-import           System.Taffybar.Information.NetworkManager
-import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.ChannelWidget
-import           System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
-import           System.Taffybar.Widget.Util (buildIconLabelBox)
-import           Text.StringTemplate
+import GI.Gtk
+import System.Taffybar.Context
+import System.Taffybar.Information.NetworkManager
+import System.Taffybar.Util
+import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
+import System.Taffybar.Widget.Util (buildIconLabelBox)
+import Text.StringTemplate
 
 data WifiWidgetConfig = WifiWidgetConfig
-  { wifiConnectedFormat :: String
-  , wifiDisconnectedFormat :: String
-  , wifiDisabledFormat :: String
-  , wifiUnknownFormat :: String
-  , wifiTooltipFormat :: Maybe String
+  { wifiConnectedFormat :: String,
+    wifiDisconnectedFormat :: String,
+    wifiDisabledFormat :: String,
+    wifiUnknownFormat :: String,
+    wifiTooltipFormat :: Maybe String
   }
 
 defaultWifiWidgetConfig :: WifiWidgetConfig
 defaultWifiWidgetConfig =
   WifiWidgetConfig
-    { wifiConnectedFormat = "$ssid$ $strength$%"
-    , wifiDisconnectedFormat = "disconnected"
-    , wifiDisabledFormat = "off"
-    , wifiUnknownFormat = "unknown"
-    , wifiTooltipFormat =
+    { wifiConnectedFormat = "$ssid$ $strength$%",
+      wifiDisconnectedFormat = "disconnected",
+      wifiDisabledFormat = "off",
+      wifiUnknownFormat = "unknown",
+      wifiTooltipFormat =
         Just "SSID: $ssid$\nStrength: $strength$%\nConnection: $connection$\nState: $state$"
     }
 
@@ -109,34 +106,35 @@ networkManagerWifiLabelNewWith config = do
           postGUIASync $ do
             labelSetMarkup label labelText
             widgetSetTooltipMarkup label tooltipText
-    void $ onWidgetRealize label $
-      runReaderT getWifiInfoState ctx >>= updateWidget
+    void $
+      onWidgetRealize label $
+        runReaderT getWifiInfoState ctx >>= updateWidget
     toWidget =<< channelWidgetNew label chan updateWidget
 
 data NetworkManagerWifiIconConfig = NetworkManagerWifiIconConfig
-  { wifiIconNone :: String
-  , wifiIconWeak :: String
-  , wifiIconOk :: String
-  , wifiIconGood :: String
-  , wifiIconExcellent :: String
-  , wifiIconDisconnected :: String
-  , wifiIconDisabled :: String
-  , wifiIconUnknown :: String
-  , wifiIconTooltipFormat :: Maybe String
+  { wifiIconNone :: String,
+    wifiIconWeak :: String,
+    wifiIconOk :: String,
+    wifiIconGood :: String,
+    wifiIconExcellent :: String,
+    wifiIconDisconnected :: String,
+    wifiIconDisabled :: String,
+    wifiIconUnknown :: String,
+    wifiIconTooltipFormat :: Maybe String
   }
 
 defaultNetworkManagerWifiIconConfig :: NetworkManagerWifiIconConfig
 defaultNetworkManagerWifiIconConfig =
   NetworkManagerWifiIconConfig
-    { wifiIconNone = "network-wireless-signal-none-symbolic"
-    , wifiIconWeak = "network-wireless-signal-weak-symbolic"
-    , wifiIconOk = "network-wireless-signal-ok-symbolic"
-    , wifiIconGood = "network-wireless-signal-good-symbolic"
-    , wifiIconExcellent = "network-wireless-signal-excellent-symbolic"
-    , wifiIconDisconnected = "network-wireless-offline-symbolic"
-    , wifiIconDisabled = "network-wireless-disabled-symbolic"
-    , wifiIconUnknown = "network-wireless-symbolic"
-    , wifiIconTooltipFormat =
+    { wifiIconNone = "network-wireless-signal-none-symbolic",
+      wifiIconWeak = "network-wireless-signal-weak-symbolic",
+      wifiIconOk = "network-wireless-signal-ok-symbolic",
+      wifiIconGood = "network-wireless-signal-good-symbolic",
+      wifiIconExcellent = "network-wireless-signal-excellent-symbolic",
+      wifiIconDisconnected = "network-wireless-offline-symbolic",
+      wifiIconDisabled = "network-wireless-disabled-symbolic",
+      wifiIconUnknown = "network-wireless-symbolic",
+      wifiIconTooltipFormat =
         Just "SSID: $ssid$\nStrength: $strength$%\nConnection: $connection$\nState: $state$"
     }
 
@@ -154,36 +152,34 @@ networkManagerWifiIconNewWith config = do
   initialInfo <- liftIO $ runReaderT getWifiInfoState ctx
   infoVar <- liftIO $ newMVar initialInfo
   imageWidgetRef <- liftIO $ newIORef (error "imageWidget not initialised")
-  let
-    setIconForSize size = do
-      iw <- readIORef imageWidgetRef
-      styleCtx <- widgetGetStyleContext iw
-      info <- readMVar infoVar
-      let iconNames = wifiIconCandidates config info
-      iconInfo <- lookupFirstIcon defaultTheme size iconNames
-      traverse (extractPixbuf styleCtx) iconInfo
-    extractPixbuf styleCtx iconInfo =
-      fst <$> iconInfoLoadSymbolicForContext iconInfo styleCtx
+  let setIconForSize size = do
+        iw <- readIORef imageWidgetRef
+        styleCtx <- widgetGetStyleContext iw
+        info <- readMVar infoVar
+        let iconNames = wifiIconCandidates config info
+        iconInfo <- lookupFirstIcon defaultTheme size iconNames
+        traverse (extractPixbuf styleCtx) iconInfo
+      extractPixbuf styleCtx iconInfo =
+        fst <$> iconInfoLoadSymbolicForContext iconInfo styleCtx
   (imageWidget, updateImage) <- scalingImage setIconForSize OrientationHorizontal
   liftIO $ do
     writeIORef imageWidgetRef imageWidget
-    let
-      updateWidget info = do
-        _ <- swapMVar infoVar info
-        (_, tooltipText) <- formatWifiWidget (iconTooltipAsLabelConfig config) info
-        postGUIASync $ do
-          widgetSetTooltipMarkup imageWidget tooltipText
-          updateImage
+    let updateWidget info = do
+          _ <- swapMVar infoVar info
+          (_, tooltipText) <- formatWifiWidget (iconTooltipAsLabelConfig config) info
+          postGUIASync $ do
+            widgetSetTooltipMarkup imageWidget tooltipText
+            updateImage
     void $ onWidgetRealize imageWidget $ updateWidget initialInfo
     toWidget =<< channelWidgetNew imageWidget chan updateWidget
 
 iconTooltipAsLabelConfig :: NetworkManagerWifiIconConfig -> WifiWidgetConfig
 iconTooltipAsLabelConfig cfg =
-  defaultWifiWidgetConfig { wifiTooltipFormat = wifiIconTooltipFormat cfg }
+  defaultWifiWidgetConfig {wifiTooltipFormat = wifiIconTooltipFormat cfg}
 
 lookupFirstIcon :: IconTheme -> Int32 -> [String] -> IO (Maybe IconInfo)
 lookupFirstIcon _ _ [] = return Nothing
-lookupFirstIcon theme size (name:names) = do
+lookupFirstIcon theme size (name : names) = do
   info <- iconThemeLookupIcon theme (T.pack name) size themeLoadFlags
   case info of
     Just _ -> return info
@@ -193,25 +189,25 @@ wifiIconCandidates :: NetworkManagerWifiIconConfig -> WifiInfo -> [String]
 wifiIconCandidates cfg info =
   case wifiState info of
     WifiDisabled ->
-      [ wifiIconDisabled cfg
-      , wifiIconDisconnected cfg
-      , wifiIconNone cfg
+      [ wifiIconDisabled cfg,
+        wifiIconDisconnected cfg,
+        wifiIconNone cfg
       ]
     WifiDisconnected ->
-      [ wifiIconDisconnected cfg
-      , wifiIconNone cfg
+      [ wifiIconDisconnected cfg,
+        wifiIconNone cfg
       ]
     WifiUnknown ->
-      [ wifiIconUnknown cfg
-      , wifiIconNone cfg
+      [ wifiIconUnknown cfg,
+        wifiIconNone cfg
       ]
     WifiConnected ->
-      strengthIconName cfg (wifiStrength info) :
-      [ wifiIconGood cfg
-      , wifiIconOk cfg
-      , wifiIconWeak cfg
-      , wifiIconNone cfg
-      ]
+      strengthIconName cfg (wifiStrength info)
+        : [ wifiIconGood cfg,
+            wifiIconOk cfg,
+            wifiIconWeak cfg,
+            wifiIconNone cfg
+          ]
 
 strengthIconName :: NetworkManagerWifiIconConfig -> Maybe Int -> String
 strengthIconName cfg strength =
@@ -226,10 +222,10 @@ strengthIconName cfg strength =
 networkManagerWifiNew :: TaffyIO Widget
 networkManagerWifiNew = networkManagerWifiNewWith defaultWifiWidgetConfig defaultNetworkManagerWifiIconConfig
 
-networkManagerWifiNewWith
-  :: WifiWidgetConfig
-  -> NetworkManagerWifiIconConfig
-  -> TaffyIO Widget
+networkManagerWifiNewWith ::
+  WifiWidgetConfig ->
+  NetworkManagerWifiIconConfig ->
+  TaffyIO Widget
 networkManagerWifiNewWith labelCfg iconCfg = do
   iconWidget <- networkManagerWifiIconNewWith iconCfg
   labelWidget <- networkManagerWifiLabelNewWith labelCfg
@@ -240,10 +236,10 @@ networkManagerWifiNewWith labelCfg iconCfg = do
     widgetShowAll box
     toWidget box
 
-formatWifiWidget
-  :: WifiWidgetConfig
-  -> WifiInfo
-  -> IO (T.Text, Maybe T.Text)
+formatWifiWidget ::
+  WifiWidgetConfig ->
+  WifiInfo ->
+  IO (T.Text, Maybe T.Text)
 formatWifiWidget config info = do
   attrs <- buildAttrs info
   let labelTemplate = case wifiState info of
@@ -260,27 +256,25 @@ renderTemplate template attrs = render $ setManyAttrib attrs (newSTMP template)
 
 buildAttrs :: WifiInfo -> IO [(String, String)]
 buildAttrs info = do
-  let
-    displayName =
-      fromMaybe "" (wifiSsid info <|> wifiConnectionId info)
-    ssidText = if T.null displayName then "unknown" else displayName
-    strengthText = maybe "?" show (wifiStrength info)
-    stateText = wifiStateText (wifiState info)
-    connectionText = fromMaybe "" (wifiConnectionId info)
+  let displayName =
+        fromMaybe "" (wifiSsid info <|> wifiConnectionId info)
+      ssidText = if T.null displayName then "unknown" else displayName
+      strengthText = maybe "?" show (wifiStrength info)
+      stateText = wifiStateText (wifiState info)
+      connectionText = fromMaybe "" (wifiConnectionId info)
   ssid <- escapeText ssidText
   strength <- escapeText (T.pack strengthText)
   state <- escapeText (T.pack stateText)
   connection <- escapeText connectionText
   return
-    [ ("ssid", ssid)
-    , ("strength", strength)
-    , ("state", state)
-    , ("connection", connection)
+    [ ("ssid", ssid),
+      ("strength", strength),
+      ("state", state),
+      ("connection", connection)
     ]
 
 escapeText :: T.Text -> IO String
 escapeText input = T.unpack <$> G.markupEscapeText input (-1)
-
 
 wifiStateText :: WifiState -> String
 wifiStateText WifiDisabled = "disabled"
@@ -301,27 +295,27 @@ wifiTextIcon info =
 -- Network (WiFi + wired + vpn + disconnected)
 
 data NetworkWidgetConfig = NetworkWidgetConfig
-  { networkWifiFormat :: String
-  , networkWiredFormat :: String
-  , networkVpnFormat :: String
-  , networkOtherFormat :: String
-  , networkDisconnectedFormat :: String
-  , networkWifiDisabledFormat :: String
-  , networkUnknownFormat :: String
-  , networkTooltipFormat :: Maybe String
+  { networkWifiFormat :: String,
+    networkWiredFormat :: String,
+    networkVpnFormat :: String,
+    networkOtherFormat :: String,
+    networkDisconnectedFormat :: String,
+    networkWifiDisabledFormat :: String,
+    networkUnknownFormat :: String,
+    networkTooltipFormat :: Maybe String
   }
 
 defaultNetworkWidgetConfig :: NetworkWidgetConfig
 defaultNetworkWidgetConfig =
   NetworkWidgetConfig
-    { networkWifiFormat = "$ssid$ $strength$%"
-    , networkWiredFormat = "$connection$"
-    , networkVpnFormat = "$connection$"
-    , networkOtherFormat = "$type$ $connection$"
-    , networkDisconnectedFormat = "disconnected"
-    , networkWifiDisabledFormat = "disconnected (wifi off)"
-    , networkUnknownFormat = "unknown"
-    , networkTooltipFormat =
+    { networkWifiFormat = "$ssid$ $strength$%",
+      networkWiredFormat = "$connection$",
+      networkVpnFormat = "$connection$",
+      networkOtherFormat = "$type$ $connection$",
+      networkDisconnectedFormat = "disconnected",
+      networkWifiDisabledFormat = "disconnected (wifi off)",
+      networkUnknownFormat = "unknown",
+      networkTooltipFormat =
         Just "Type: $type$\nConnection: $connection$\nSSID: $ssid$\nStrength: $strength$%\nState: $state$"
     }
 
@@ -343,40 +337,41 @@ networkManagerNetworkLabelNewWith config = do
           postGUIASync $ do
             labelSetMarkup label labelText
             widgetSetTooltipMarkup label tooltipText
-    void $ onWidgetRealize label $
-      runReaderT getNetworkInfoState ctx >>= updateWidget
+    void $
+      onWidgetRealize label $
+        runReaderT getNetworkInfoState ctx >>= updateWidget
     toWidget =<< channelWidgetNew label chan updateWidget
 
 data NetworkManagerNetworkIconConfig = NetworkManagerNetworkIconConfig
-  { netIconWired :: String
-  , netIconVpn :: String
-  , netIconOther :: String
-  , netIconDisconnected :: String
-  , netIconUnknown :: String
-  , netIconWifiDisabled :: String
-  , netWifiIconNone :: String
-  , netWifiIconWeak :: String
-  , netWifiIconOk :: String
-  , netWifiIconGood :: String
-  , netWifiIconExcellent :: String
-  , netIconTooltipFormat :: Maybe String
+  { netIconWired :: String,
+    netIconVpn :: String,
+    netIconOther :: String,
+    netIconDisconnected :: String,
+    netIconUnknown :: String,
+    netIconWifiDisabled :: String,
+    netWifiIconNone :: String,
+    netWifiIconWeak :: String,
+    netWifiIconOk :: String,
+    netWifiIconGood :: String,
+    netWifiIconExcellent :: String,
+    netIconTooltipFormat :: Maybe String
   }
 
 defaultNetworkManagerNetworkIconConfig :: NetworkManagerNetworkIconConfig
 defaultNetworkManagerNetworkIconConfig =
   NetworkManagerNetworkIconConfig
-    { netIconWired = "network-wired-symbolic"
-    , netIconVpn = "network-vpn-symbolic"
-    , netIconOther = "network-transmit-receive-symbolic"
-    , netIconDisconnected = "network-offline-symbolic"
-    , netIconUnknown = "network-error-symbolic"
-    , netIconWifiDisabled = "network-wireless-disabled-symbolic"
-    , netWifiIconNone = "network-wireless-signal-none-symbolic"
-    , netWifiIconWeak = "network-wireless-signal-weak-symbolic"
-    , netWifiIconOk = "network-wireless-signal-ok-symbolic"
-    , netWifiIconGood = "network-wireless-signal-good-symbolic"
-    , netWifiIconExcellent = "network-wireless-signal-excellent-symbolic"
-    , netIconTooltipFormat =
+    { netIconWired = "network-wired-symbolic",
+      netIconVpn = "network-vpn-symbolic",
+      netIconOther = "network-transmit-receive-symbolic",
+      netIconDisconnected = "network-offline-symbolic",
+      netIconUnknown = "network-error-symbolic",
+      netIconWifiDisabled = "network-wireless-disabled-symbolic",
+      netWifiIconNone = "network-wireless-signal-none-symbolic",
+      netWifiIconWeak = "network-wireless-signal-weak-symbolic",
+      netWifiIconOk = "network-wireless-signal-ok-symbolic",
+      netWifiIconGood = "network-wireless-signal-good-symbolic",
+      netWifiIconExcellent = "network-wireless-signal-excellent-symbolic",
+      netIconTooltipFormat =
         Just "Type: $type$\nConnection: $connection$\nSSID: $ssid$\nStrength: $strength$%\nState: $state$"
     }
 
@@ -392,76 +387,74 @@ networkManagerNetworkIconNewWith config = do
   initialInfo <- liftIO $ runReaderT getNetworkInfoState ctx
   infoVar <- liftIO $ newMVar initialInfo
   imageWidgetRef <- liftIO $ newIORef (error "imageWidget not initialised")
-  let
-    setIconForSize size = do
-      iw <- readIORef imageWidgetRef
-      styleCtx <- widgetGetStyleContext iw
-      info <- readMVar infoVar
-      let iconNames = networkIconCandidates config info
-      iconInfo <- lookupFirstIcon defaultTheme size iconNames
-      traverse (extractPixbuf styleCtx) iconInfo
-    extractPixbuf styleCtx iconInfo =
-      fst <$> iconInfoLoadSymbolicForContext iconInfo styleCtx
+  let setIconForSize size = do
+        iw <- readIORef imageWidgetRef
+        styleCtx <- widgetGetStyleContext iw
+        info <- readMVar infoVar
+        let iconNames = networkIconCandidates config info
+        iconInfo <- lookupFirstIcon defaultTheme size iconNames
+        traverse (extractPixbuf styleCtx) iconInfo
+      extractPixbuf styleCtx iconInfo =
+        fst <$> iconInfoLoadSymbolicForContext iconInfo styleCtx
   (imageWidget, updateImage) <- scalingImage setIconForSize OrientationHorizontal
   liftIO $ do
     writeIORef imageWidgetRef imageWidget
-    let
-      updateWidget info = do
-        _ <- swapMVar infoVar info
-        (_, tooltipText) <- formatNetworkWidget (iconTooltipAsNetworkLabelConfig config) info
-        postGUIASync $ do
-          widgetSetTooltipMarkup imageWidget tooltipText
-          updateImage
+    let updateWidget info = do
+          _ <- swapMVar infoVar info
+          (_, tooltipText) <- formatNetworkWidget (iconTooltipAsNetworkLabelConfig config) info
+          postGUIASync $ do
+            widgetSetTooltipMarkup imageWidget tooltipText
+            updateImage
     void $ onWidgetRealize imageWidget $ updateWidget initialInfo
     toWidget =<< channelWidgetNew imageWidget chan updateWidget
 
 iconTooltipAsNetworkLabelConfig :: NetworkManagerNetworkIconConfig -> NetworkWidgetConfig
 iconTooltipAsNetworkLabelConfig cfg =
-  defaultNetworkWidgetConfig { networkTooltipFormat = netIconTooltipFormat cfg }
+  defaultNetworkWidgetConfig {networkTooltipFormat = netIconTooltipFormat cfg}
 
 networkIconCandidates :: NetworkManagerNetworkIconConfig -> NetworkInfo -> [String]
 networkIconCandidates cfg info =
   case networkState info of
     NetworkUnknown ->
-      [ netIconUnknown cfg
-      , netIconOther cfg
-      , netIconDisconnected cfg
+      [ netIconUnknown cfg,
+        netIconOther cfg,
+        netIconDisconnected cfg
       ]
     NetworkDisconnected ->
       case networkWirelessEnabled info of
         Just False ->
-          [ netIconWifiDisabled cfg
-          , netIconDisconnected cfg
+          [ netIconWifiDisabled cfg,
+            netIconDisconnected cfg
           ]
         _ ->
-          [ netIconDisconnected cfg
-          , netIconOther cfg
+          [ netIconDisconnected cfg,
+            netIconOther cfg
           ]
     NetworkConnected ->
       case networkType info of
         Just NetworkWired ->
-          [ netIconWired cfg
-          , netIconOther cfg
+          [ netIconWired cfg,
+            netIconOther cfg
           ]
         Just NetworkVpn ->
-          [ netIconVpn cfg
-          , netIconOther cfg
+          [ netIconVpn cfg,
+            netIconOther cfg
           ]
         Just NetworkWifi ->
-          strengthToWifiIcon cfg (networkStrength info) :
-          [ netWifiIconGood cfg
-          , netWifiIconOk cfg
-          , netWifiIconWeak cfg
-          , netWifiIconNone cfg
-          ]
+          strengthToWifiIcon cfg (networkStrength info)
+            : [ netWifiIconGood cfg,
+                netWifiIconOk cfg,
+                netWifiIconWeak cfg,
+                netWifiIconNone cfg
+              ]
         Just (NetworkOther _) ->
-          [ netIconOther cfg
-          , netIconWired cfg
+          [ netIconOther cfg,
+            netIconWired cfg
           ]
         Nothing ->
-          [ netIconOther cfg
-          , netIconWired cfg
-          , netIconDisconnected cfg
+          [ netIconOther cfg,
+            netIconWired cfg,
+            netIconDisconnected cfg
           ]
 
 strengthToWifiIcon :: NetworkManagerNetworkIconConfig -> Maybe Int -> String
@@ -478,10 +471,10 @@ networkManagerNetworkNew :: TaffyIO Widget
 networkManagerNetworkNew =
   networkManagerNetworkNewWith defaultNetworkWidgetConfig defaultNetworkManagerNetworkIconConfig
 
-networkManagerNetworkNewWith
-  :: NetworkWidgetConfig
-  -> NetworkManagerNetworkIconConfig
-  -> TaffyIO Widget
+networkManagerNetworkNewWith ::
+  NetworkWidgetConfig ->
+  NetworkManagerNetworkIconConfig ->
+  TaffyIO Widget
 networkManagerNetworkNewWith labelCfg iconCfg = do
   iconWidget <- networkManagerNetworkIconNewWith iconCfg
   labelWidget <- networkManagerNetworkLabelNewWith labelCfg
@@ -492,10 +485,10 @@ networkManagerNetworkNewWith labelCfg iconCfg = do
     widgetShowAll box
     toWidget box
 
-formatNetworkWidget
-  :: NetworkWidgetConfig
-  -> NetworkInfo
-  -> IO (T.Text, Maybe T.Text)
+formatNetworkWidget ::
+  NetworkWidgetConfig ->
+  NetworkInfo ->
+  IO (T.Text, Maybe T.Text)
 formatNetworkWidget config info = do
   attrs <- buildNetworkAttrs info
   let labelTemplate =
@@ -518,25 +511,24 @@ formatNetworkWidget config info = do
 
 buildNetworkAttrs :: NetworkInfo -> IO [(String, String)]
 buildNetworkAttrs info = do
-  let
-    rawConnText = fromMaybe "" (networkConnectionId info)
-    connText = if T.null rawConnText then "unknown" else rawConnText
-    typeText = networkTypeText (networkType info)
-    displaySsid = fromMaybe "" (networkSsid info)
-    ssidText = if T.null displaySsid then "unknown" else displaySsid
-    strengthText = maybe "?" show (networkStrength info)
-    stateText = networkStateText (networkState info)
+  let rawConnText = fromMaybe "" (networkConnectionId info)
+      connText = if T.null rawConnText then "unknown" else rawConnText
+      typeText = networkTypeText (networkType info)
+      displaySsid = fromMaybe "" (networkSsid info)
+      ssidText = if T.null displaySsid then "unknown" else displaySsid
+      strengthText = maybe "?" show (networkStrength info)
+      stateText = networkStateText (networkState info)
   conn <- escapeText connText
   typ <- escapeText typeText
   ssid <- escapeText ssidText
   strength <- escapeText (T.pack strengthText)
   state <- escapeText (T.pack stateText)
   return
-    [ ("connection", conn)
-    , ("type", typ)
-    , ("ssid", ssid)
-    , ("strength", strength)
-    , ("state", state)
+    [ ("connection", conn),
+      ("type", typ),
+      ("ssid", ssid),
+      ("strength", strength),
+      ("state", state)
     ]
 
 networkTypeText :: Maybe NetworkType -> T.Text
@@ -583,8 +575,9 @@ networkManagerWifiTextIconNewWith _config = do
     let updateIcon info = do
           let iconText = wifiTextIcon info
           postGUIASync $ labelSetText label iconText
-    void $ onWidgetRealize label $
-      runReaderT getWifiInfoState ctx >>= updateIcon
+    void $
+      onWidgetRealize label $
+        runReaderT getWifiInfoState ctx >>= updateIcon
     toWidget =<< channelWidgetNew label chan updateIcon
 
 -- Wifi icon-label
@@ -614,8 +607,9 @@ networkManagerNetworkTextIconNewWith _config = do
     let updateIcon info = do
           let iconText = networkTextIcon info
           postGUIASync $ labelSetText label iconText
-    void $ onWidgetRealize label $
-      runReaderT getNetworkInfoState ctx >>= updateIcon
+    void $
+      onWidgetRealize label $
+        runReaderT getNetworkInfoState ctx >>= updateIcon
     toWidget =<< channelWidgetNew label chan updateIcon
 
 -- Network icon-label

@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.DiskUsage
 -- Copyright   : (c) Ivan A. Malison
@@ -16,22 +20,21 @@
 -- @$usedPercent$@, @$freePercent$@, @$path$@.
 --
 -- Size values are auto-formatted with appropriate units (GiB, TiB, etc.).
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.DiskUsage
-  ( DiskUsageWidgetConfig(..)
-  , defaultDiskUsageWidgetConfig
-  , diskUsageIconNew
-  , diskUsageIconNewWith
-  , diskUsageLabelNew
-  , diskUsageLabelNewWith
-  , diskUsageNew
-  , diskUsageNewWith
-  ) where
+  ( DiskUsageWidgetConfig (..),
+    defaultDiskUsageWidgetConfig,
+    diskUsageIconNew,
+    diskUsageIconNewWith,
+    diskUsageLabelNew,
+    diskUsageLabelNewWith,
+    diskUsageNew,
+    diskUsageNewWith,
+  )
+where
 
 import Control.Monad (void)
 import Control.Monad.IO.Class
-import Data.Default (Default(..))
+import Data.Default (Default (..))
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO)
@@ -43,27 +46,28 @@ import Text.Printf (printf)
 import Text.StringTemplate
 
 data DiskUsageWidgetConfig = DiskUsageWidgetConfig
-  { diskUsagePath         :: FilePath
-  -- ^ Filesystem path to monitor (default @\/@).
-  , diskUsagePollInterval :: Double
-  -- ^ Polling interval in seconds (default 60).
-  , diskUsageFormat       :: String
-  -- ^ Label format string (default @\"$free$\"@).
-  , diskUsageTooltipFormat :: Maybe String
-  -- ^ Optional tooltip format string.
-  , diskUsageIcon :: T.Text
-  -- ^ Nerd font icon character (default U+F0A0, ).
+  { -- | Filesystem path to monitor (default @\/@).
+    diskUsagePath :: FilePath,
+    -- | Polling interval in seconds (default 60).
+    diskUsagePollInterval :: Double,
+    -- | Label format string (default @\"$free$\"@).
+    diskUsageFormat :: String,
+    -- | Optional tooltip format string.
+    diskUsageTooltipFormat :: Maybe String,
+    -- | Nerd font icon character (default U+F0A0, ).
+    diskUsageIcon :: T.Text
   }
 
 defaultDiskUsageWidgetConfig :: DiskUsageWidgetConfig
-defaultDiskUsageWidgetConfig = DiskUsageWidgetConfig
-  { diskUsagePath         = "/"
-  , diskUsagePollInterval = 60
-  , diskUsageFormat       = "$free$"
-  , diskUsageTooltipFormat =
-      Just "$path$: $used$ / $total$ ($usedPercent$% used)"
-  , diskUsageIcon = T.pack "\xF0A0" --
-  }
+defaultDiskUsageWidgetConfig =
+  DiskUsageWidgetConfig
+    { diskUsagePath = "/",
+      diskUsagePollInterval = 60,
+      diskUsageFormat = "$free$",
+      diskUsageTooltipFormat =
+        Just "$path$: $used$ / $total$ ($usedPercent$% used)",
+      diskUsageIcon = T.pack "\xF0A0" --
+    }
 
 instance Default DiskUsageWidgetConfig where
   def = defaultDiskUsageWidgetConfig
@@ -75,9 +79,9 @@ diskUsageLabelNew = diskUsageLabelNewWith defaultDiskUsageWidgetConfig
 -- | Create a disk usage label with the given configuration.
 diskUsageLabelNewWith :: DiskUsageWidgetConfig -> TaffyIO Gtk.Widget
 diskUsageLabelNewWith config = do
-  let path     = diskUsagePath config
+  let path = diskUsagePath config
       interval = diskUsagePollInterval config
-  chan        <- getDiskUsageInfoChan interval path
+  chan <- getDiskUsageInfoChan interval path
   initialInfo <- getDiskUsageInfoState interval path
 
   liftIO $ do
@@ -120,9 +124,9 @@ diskUsageNewWith config = do
 formatDiskUsage :: DiskUsageWidgetConfig -> DiskUsageInfo -> (T.Text, Maybe T.Text)
 formatDiskUsage config info =
   let attrs = diskUsageAttrs (diskUsagePath config) info
-      labelText   = renderTpl (diskUsageFormat config) attrs
+      labelText = renderTpl (diskUsageFormat config) attrs
       tooltipText = renderTpl <$> diskUsageTooltipFormat config <*> pure attrs
-  in (labelText, tooltipText)
+   in (labelText, tooltipText)
 
 renderTpl :: String -> [(String, String)] -> T.Text
 renderTpl template attrs =
@@ -130,23 +134,23 @@ renderTpl template attrs =
 
 diskUsageAttrs :: FilePath -> DiskUsageInfo -> [(String, String)]
 diskUsageAttrs path info =
-  [ ("total",       formatBytes (diskInfoTotal info))
-  , ("used",        formatBytes (diskInfoUsed info))
-  , ("free",        formatBytes (diskInfoFree info))
-  , ("available",   formatBytes (diskInfoAvailable info))
-  , ("usedPercent", printf "%.0f" (diskInfoUsedPercent info))
-  , ("freePercent", printf "%.0f" (diskInfoFreePercent info))
-  , ("path",        path)
+  [ ("total", formatBytes (diskInfoTotal info)),
+    ("used", formatBytes (diskInfoUsed info)),
+    ("free", formatBytes (diskInfoFree info)),
+    ("available", formatBytes (diskInfoAvailable info)),
+    ("usedPercent", printf "%.0f" (diskInfoUsedPercent info)),
+    ("freePercent", printf "%.0f" (diskInfoFreePercent info)),
+    ("path", path)
   ]
 
 -- | Format a byte count with auto-scaled units.
 formatBytes :: Integer -> String
 formatBytes bytes
   | gb >= 1024 = printf "%.1f TiB" (gb / 1024 :: Double)
-  | gb >= 1    = printf "%.1f GiB" gb
-  | mb >= 1    = printf "%.0f MiB" mb
-  | otherwise  = printf "%.0f KiB" kb
+  | gb >= 1 = printf "%.1f GiB" gb
+  | mb >= 1 = printf "%.0f MiB" mb
+  | otherwise = printf "%.0f KiB" kb
   where
-    kb = fromIntegral bytes / 1024        :: Double
+    kb = fromIntegral bytes / 1024 :: Double
     mb = kb / 1024
     gb = mb / 1024

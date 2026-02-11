@@ -1,5 +1,9 @@
 {-# LANGUAGE TupleSections #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.CPU2
 -- Copyright   : (c) José A. Romero L.
@@ -14,9 +18,6 @@
 -- "System.Taffybar.Information.StreamInfo" module.
 -- And also provides information about the temperature of cores.
 -- (Now supports only physical cpu).
---
------------------------------------------------------------------------------
-
 module System.Taffybar.Information.CPU2 where
 
 import Control.Monad
@@ -47,26 +48,33 @@ getCPULoad :: String -> IO [Double]
 getCPULoad cpu = do
   load <- getLoad 0.05 $ getCPUInfo cpu
   case load of
-    l0:l1:l2:_ -> return [ l0 + l1, l2 ]
+    l0 : l1 : l2 : _ -> return [l0 + l1, l2]
     _ -> return []
 
 -- | Get the directory in which core temperature files are kept.
 getCPUTemperatureDirectory :: IO FilePath
 getCPUTemperatureDirectory =
-  (baseDir </>) . fromMaybe "hwmon0" .
-  find (isPrefixOf "hwmon")
-  <$> listDirectory baseDir
-  where baseDir =
-          "/"  </> "sys" </> "bus" </> "platform" </>
-          "devices" </> "coretemp.0" </> "hwmon"
+  (baseDir </>)
+    . fromMaybe "hwmon0"
+    . find (isPrefixOf "hwmon")
+    <$> listDirectory baseDir
+  where
+    baseDir =
+      "/"
+        </> "sys"
+        </> "bus"
+        </> "platform"
+        </> "devices"
+        </> "coretemp.0"
+        </> "hwmon"
 
 readCPUTempFile :: FilePath -> IO Double
 readCPUTempFile cpuTempFilePath = (/ 1000) . read <$> readFile cpuTempFilePath
 
 getAllTemperatureFiles :: FilePath -> IO [FilePath]
 getAllTemperatureFiles temperaturesDirectory =
-  filter (liftM2 (&&) (isPrefixOf "temp") (isSuffixOf "input")) <$>
-         listDirectory temperaturesDirectory
+  filter (liftM2 (&&) (isPrefixOf "temp") (isSuffixOf "input"))
+    <$> listDirectory temperaturesDirectory
 
 getCPUTemperatures :: IO [(String, Double)]
 getCPUTemperatures = do

@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.DBus.Toggle
 -- Copyright   : (c) Ivan A. Malison
@@ -11,32 +15,30 @@
 --
 -- This module provides a dbus interface that allows users to toggle the display
 -- of taffybar on each monitor while it is running.
------------------------------------------------------------------------------
-
-module System.Taffybar.DBus.Toggle ( handleDBusToggles ) where
+module System.Taffybar.DBus.Toggle (handleDBusToggles) where
 
 import qualified Control.Concurrent.MVar as MV
-import           Control.Exception
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Maybe
-import           Control.Monad.Trans.Reader
-import           DBus
-import           DBus.Client
-import           Data.Int
+import Control.Exception
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Reader
+import DBus
+import DBus.Client
+import Data.Int
 import qualified Data.Map as M
-import           Data.Maybe
+import Data.Maybe
 import qualified GI.Gdk as Gdk
-import           Graphics.UI.GIGtkStrut
-import           System.Directory
-import           System.FilePath.Posix
-import           System.Log.Logger
-import           System.Taffybar.Context
-import           System.Taffybar.Information.Hyprland (getFocusedMonitorPosition)
-import           System.Taffybar.Util
-import           Text.Printf
-import           Text.Read ( readMaybe )
+import Graphics.UI.GIGtkStrut
+import System.Directory
+import System.FilePath.Posix
+import System.Log.Logger
+import System.Taffybar.Context
+import System.Taffybar.Information.Hyprland (getFocusedMonitorPosition)
+import System.Taffybar.Util
+import Text.Printf
+import Text.Read (readMaybe)
 
 -- $usage
 --
@@ -53,7 +55,7 @@ import           Text.Read ( readMaybe )
 logIO :: System.Log.Logger.Priority -> String -> IO ()
 logIO = logM "System.Taffybar.DBus.Toggle"
 
-logT :: MonadIO m => System.Log.Logger.Priority -> String -> m ()
+logT :: (MonadIO m) => System.Log.Logger.Priority -> String -> m ()
 logT p = liftIO . logIO p
 
 getActiveMonitorNumber :: Context -> MaybeT IO Int
@@ -75,26 +77,30 @@ getActiveMonitorNumberWayland :: Context -> MaybeT IO Int
 getActiveMonitorNumberWayland ctx = do
   (x, y) <- MaybeT $ getFocusedMonitorPosition (hyprlandClient ctx)
   display <- MaybeT Gdk.displayGetDefault
-  monitor <- lift $ Gdk.displayGetMonitorAtPoint display
-               (fromIntegral x) (fromIntegral y)
+  monitor <-
+    lift $
+      Gdk.displayGetMonitorAtPoint
+        display
+        (fromIntegral x)
+        (fromIntegral y)
   lift $ getMonitorNumber monitor
 
 getMonitorNumber :: Gdk.Monitor -> IO Int
 getMonitorNumber monitor = do
   display <- Gdk.monitorGetDisplay monitor
   monitorCount <- Gdk.displayGetNMonitors display
-  monitors <- mapM (Gdk.displayGetMonitor display) [0..(monitorCount-1)]
+  monitors <- mapM (Gdk.displayGetMonitor display) [0 .. (monitorCount - 1)]
   monitorGeometry <- Gdk.getMonitorGeometry monitor
   let equalsMonitor (Just other, _) =
         do
           otherGeometry <- Gdk.getMonitorGeometry other
           case (otherGeometry, monitorGeometry) of
-               (Nothing, Nothing) -> return True
-               (Just g1, Just g2) -> Gdk.rectangleEqual g1 g2
-               _ -> return False
+            (Nothing, Nothing) -> return True
+            (Just g1, Just g2) -> Gdk.rectangleEqual g1 g2
+            _ -> return False
       equalsMonitor _ = return False
-  snd . fromMaybe (Nothing, 0) . listToMaybe <$>
-      filterM equalsMonitor (zip monitors [0..])
+  snd . fromMaybe (Nothing, 0) . listToMaybe
+    <$> filterM equalsMonitor (zip monitors [0 ..])
 
 taffybarTogglePath :: ObjectPath
 taffybarTogglePath = "/taffybar/toggle"
@@ -130,11 +136,17 @@ exportTogglesInterface = do
         lift $ MV.modifyMVar_ enabledVar $ \numToEnabled -> do
           let current = fromMaybe True $ M.lookup mon numToEnabled
               result = M.insert mon (fn current) numToEnabled
-          logIO DEBUG $ printf "Toggle state before: %s, after %s"
-                  (show numToEnabled) (show result)
+          logIO DEBUG $
+            printf
+              "Toggle state before: %s, after %s"
+              (show numToEnabled)
+              (show result)
           catch (writeFile stateFile (show result)) $ \e ->
-            logIO WARNING $ printf "Unable to write to toggle state file %s, error: %s"
-                  (show stateFile) (show (e :: SomeException))
+            logIO WARNING $
+              printf
+                "Unable to write to toggle state file %s, error: %s"
+                (show stateFile)
+                (show (e :: SomeException))
           return result
         refreshTaffyWindows
       toggleTaffy = do
@@ -145,21 +157,26 @@ exportTogglesInterface = do
   client <- asks sessionDBusClient
   let interface =
         defaultInterface
-        { interfaceName = taffybarToggleInterface
-        , interfaceMethods =
-          [ autoMethod "toggleCurrent" toggleTaffy
-          , autoMethod "toggleOnMonitor" $ takeInt $ toggleTaffyOnMon not
-          , autoMethod "hideOnMonitor" $
-            takeInt $ toggleTaffyOnMon (const False)
-          , autoMethod "showOnMonitor" $
-            takeInt $ toggleTaffyOnMon (const True)
-          , autoMethod "refresh" $ runReaderT refreshTaffyWindows ctx
-          , autoMethod "exit" $ exitTaffybar ctx
-          ]
-        }
+          { interfaceName = taffybarToggleInterface,
+            interfaceMethods =
+              [ autoMethod "toggleCurrent" toggleTaffy,
+                autoMethod "toggleOnMonitor" $ takeInt $ toggleTaffyOnMon not,
+                autoMethod "hideOnMonitor" $
+                  takeInt $
+                    toggleTaffyOnMon (const False),
+                autoMethod "showOnMonitor" $
+                  takeInt $
+                    toggleTaffyOnMon (const True),
+                autoMethod "refresh" $ runReaderT refreshTaffyWindows ctx,
+                autoMethod "exit" $ exitTaffybar ctx
+              ]
+          }
   lift $ do
-    _ <- requestName client "taffybar.toggle"
-       [nameAllowReplacement, nameReplaceExisting]
+    _ <-
+      requestName
+        client
+        "taffybar.toggle"
+        [nameAllowReplacement, nameReplaceExisting]
     export client taffybarTogglePath interface
 
 dbusTogglesStartupHook :: TaffyIO ()
@@ -171,17 +188,18 @@ dbusTogglesStartupHook = do
     filepathExists <- doesFileExist stateFilepath
     mStartingMap <-
       if filepathExists
-      then
-        readMaybe <$> readFile stateFilepath
-      else
-        return Nothing
+        then
+          readMaybe <$> readFile stateFilepath
+        else
+          return Nothing
     MV.modifyMVar_ enabledVar $ const $ return $ fromMaybe M.empty mStartingMap
   logT DEBUG "Exporting toggles interface"
   exportTogglesInterface
 
 handleDBusToggles :: TaffybarConfig -> TaffybarConfig
 handleDBusToggles config =
-  config { getBarConfigsParam =
-             toggleBarConfigGetter $ getBarConfigsParam config
-         , startupHook = startupHook config >> dbusTogglesStartupHook
-         }
+  config
+    { getBarConfigsParam =
+        toggleBarConfigGetter $ getBarConfigsParam config,
+      startupHook = startupHook config >> dbusTogglesStartupHook
+    }

@@ -1,4 +1,7 @@
 --------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.Temperature
 -- Copyright   : (c) Ivan Malison
@@ -10,21 +13,19 @@
 --
 -- This module provides functions to read system temperature information from
 -- Linux thermal zones and hwmon devices.
---
---------------------------------------------------------------------------------
-
 module System.Taffybar.Information.Temperature
-  ( TemperatureInfo(..)
-  , ThermalSensor(..)
-  , TemperatureUnit(..)
-  , discoverSensors
-  , readSensorTemperature
-  , readAllTemperatures
-  , readTemperaturesFrom
-  , convertTemperature
-  ) where
+  ( TemperatureInfo (..),
+    ThermalSensor (..),
+    TemperatureUnit (..),
+    discoverSensors,
+    readSensorTemperature,
+    readAllTemperatures,
+    readTemperaturesFrom,
+    convertTemperature,
+  )
+where
 
-import Control.Exception (try, SomeException)
+import Control.Exception (SomeException, try)
 import Control.Monad (forM)
 import Data.List (sortOn)
 import Data.Maybe (catMaybes, fromMaybe)
@@ -38,16 +39,23 @@ data TemperatureUnit = Celsius | Fahrenheit | Kelvin
 
 -- | Information about a thermal sensor
 data ThermalSensor = ThermalSensor
-  { sensorName :: String      -- ^ Human-readable sensor name
-  , sensorPath :: FilePath    -- ^ Path to the temperature file
-  , sensorZone :: String      -- ^ Zone or hwmon identifier
-  } deriving (Show, Eq)
+  { -- | Human-readable sensor name
+    sensorName :: String,
+    -- | Path to the temperature file
+    sensorPath :: FilePath,
+    -- | Zone or hwmon identifier
+    sensorZone :: String
+  }
+  deriving (Show, Eq)
 
 -- | Temperature reading from a sensor
 data TemperatureInfo = TemperatureInfo
-  { tempCelsius :: Double     -- ^ Temperature in Celsius
-  , tempSensor :: ThermalSensor  -- ^ The sensor this reading is from
-  } deriving (Show, Eq)
+  { -- | Temperature in Celsius
+    tempCelsius :: Double,
+    -- | The sensor this reading is from
+    tempSensor :: ThermalSensor
+  }
+  deriving (Show, Eq)
 
 -- | Convert temperature from Celsius to another unit
 convertTemperature :: TemperatureUnit -> Double -> Double
@@ -80,11 +88,13 @@ discoverThermalZones = do
         if tempExists
           then do
             sensorType <- readFileSafe typePath
-            return $ Just ThermalSensor
-              { sensorName = fromMaybe zone sensorType
-              , sensorPath = tempPath
-              , sensorZone = zone
-              }
+            return $
+              Just
+                ThermalSensor
+                  { sensorName = fromMaybe zone sensorType,
+                    sensorPath = tempPath,
+                    sensorZone = zone
+                  }
           else return Nothing
       return $ catMaybes sensors
   where
@@ -116,11 +126,12 @@ discoverHwmon = do
                 (Just l, _) -> l
                 (_, Just n) -> n ++ "_temp" ++ sensorId
                 _ -> hwmon ++ "_temp" ++ sensorId
-          return ThermalSensor
-            { sensorName = name
-            , sensorPath = tempPath
-            , sensorZone = hwmon
-            }
+          return
+            ThermalSensor
+              { sensorName = name,
+                sensorPath = tempPath,
+                sensorZone = hwmon
+              }
       return $ concat sensorLists
   where
     isPrefixOf prefix str = take (length prefix) str == prefix
@@ -128,12 +139,12 @@ discoverHwmon = do
     isSuffixOf suffix str =
       let suffixLen = length suffix
           strLen = length str
-      in strLen >= suffixLen && drop (strLen - suffixLen) str == suffix
+       in strLen >= suffixLen && drop (strLen - suffixLen) str == suffix
     -- Extract sensor number from "temp1_input" -> "1"
     extractSensorId file =
-      let withoutPrefix = drop 4 file  -- remove "temp"
-          withoutSuffix = take (length withoutPrefix - 6) withoutPrefix  -- remove "_input"
-      in withoutSuffix
+      let withoutPrefix = drop 4 file -- remove "temp"
+          withoutSuffix = take (length withoutPrefix - 6) withoutPrefix -- remove "_input"
+       in withoutSuffix
 
 -- | Read temperature from a file, returns Nothing if file cannot be read
 readFileSafe :: FilePath -> IO (Maybe String)
@@ -159,10 +170,13 @@ readSensorTemperature sensor = do
     Right content ->
       case readMaybe (strip content) :: Maybe Integer of
         Nothing -> return Nothing
-        Just milliDegrees -> return $ Just TemperatureInfo
-          { tempCelsius = fromIntegral milliDegrees / 1000.0
-          , tempSensor = sensor
-          }
+        Just milliDegrees ->
+          return $
+            Just
+              TemperatureInfo
+                { tempCelsius = fromIntegral milliDegrees / 1000.0,
+                  tempSensor = sensor
+                }
   where
     strip = dropWhile (== ' ') . reverse . dropWhile (== '\n') . reverse . dropWhile (== ' ')
 

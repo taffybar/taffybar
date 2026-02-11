@@ -1,4 +1,7 @@
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Hooks
 -- Copyright   : (c) Ivan A. Malison
@@ -10,40 +13,39 @@
 --
 -- This module provides various startup hooks that can be added to
 -- 'TaffybarConfig'.
------------------------------------------------------------------------------
-
 module System.Taffybar.Hooks
-  ( module System.Taffybar.DBus
-  , module System.Taffybar.Hooks
-  , module System.Taffybar.LogLevels
-  , ChromeTabImageData(..)
-  , getChromeTabImageDataChannel
-  , getChromeTabImageDataTable
-  , getX11WindowToChromeTabId
-  , refreshBatteriesOnPropChange
-  ) where
+  ( module System.Taffybar.DBus,
+    module System.Taffybar.Hooks,
+    module System.Taffybar.LogLevels,
+    ChromeTabImageData (..),
+    getChromeTabImageDataChannel,
+    getChromeTabImageDataTable,
+    getX11WindowToChromeTabId,
+    refreshBatteriesOnPropChange,
+  )
+where
 
-import           Control.Concurrent
-import           Control.Concurrent.STM.TChan
-import           Control.Monad
-import           Control.Monad.STM (atomically)
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Reader
+import Control.Concurrent
+import Control.Concurrent.STM.TChan
+import Control.Monad
+import Control.Monad.STM (atomically)
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Reader
 import qualified Data.MultiMap as MM
-import           System.Log.Logger
-import           System.Taffybar.Context
-import           System.Taffybar.DBus
-import           System.Taffybar.Information.Battery
-import           System.Taffybar.Information.Chrome
-import           System.Taffybar.Information.Network
-import           System.Environment.XDG.DesktopEntry
-import           System.Taffybar.LogFormatter
-import           System.Taffybar.LogLevels
-import           System.Taffybar.Util
+import System.Environment.XDG.DesktopEntry
+import System.Log.Logger
+import System.Taffybar.Context
+import System.Taffybar.DBus
+import System.Taffybar.Information.Battery
+import System.Taffybar.Information.Chrome
+import System.Taffybar.Information.Network
+import System.Taffybar.LogFormatter
+import System.Taffybar.LogLevels
+import System.Taffybar.Util
 
 -- | The type of the channel that provides network information in taffybar.
-newtype NetworkInfoChan =
-  NetworkInfoChan (TChan [(String, (Rational, Rational))])
+newtype NetworkInfoChan
+  = NetworkInfoChan (TChan [(String, (Rational, Rational))])
 
 -- | Build a 'NetworkInfoChan' that refreshes at the provided interval.
 buildNetworkInfoChan :: Double -> IO NetworkInfoChan
@@ -83,8 +85,10 @@ withBatteryRefresh = appendHook refreshBatteriesOnPropChange
 --
 -- To use a custom path instead, call 'loadLogLevelsFromFile' directly.
 withLogLevels :: TaffybarConfig -> TaffybarConfig
-withLogLevels = appendHook $
-  lift $ defaultLogLevelsPath >>= loadLogLevelsFromFile
+withLogLevels =
+  appendHook $
+    lift $
+      defaultLogLevelsPath >>= loadLogLevelsFromFile
 
 -- | Load the 'DesktopEntry' cache from 'Context' state.
 getDirectoryEntriesByClassName :: TaffyIO (MM.MultiMap String DesktopEntry)
@@ -93,12 +97,18 @@ getDirectoryEntriesByClassName =
 
 -- | Update the 'DesktopEntry' cache every 60 seconds.
 updateDirectoryEntriesCache :: TaffyIO ()
-updateDirectoryEntriesCache = ask >>= \ctx ->
-  void $ lift $ foreverWithDelay (60 :: Double) $ flip runReaderT ctx $
-       void $ putState readDirectoryEntriesDefault
+updateDirectoryEntriesCache =
+  ask >>= \ctx ->
+    void $
+      lift $
+        foreverWithDelay (60 :: Double) $
+          flip runReaderT ctx $
+            void $
+              putState readDirectoryEntriesDefault
 
 -- | Read 'DesktopEntry' values into a 'MM.Multimap', where they are indexed by
 -- the class name specified in the 'DesktopEntry'.
 readDirectoryEntriesDefault :: TaffyIO (MM.MultiMap String DesktopEntry)
-readDirectoryEntriesDefault = lift $
-  indexDesktopEntriesByClassName <$> getDirectoryEntriesDefault
+readDirectoryEntriesDefault =
+  lift $
+    indexDesktopEntriesByClassName <$> getDirectoryEntriesDefault

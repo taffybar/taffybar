@@ -16,8 +16,10 @@ channelWidgetNew ::
 channelWidgetNew widget channel updateWidget = do
   void $ onWidgetRealize widget $ do
     ourChan <- atomically $ dupTChan channel
-    processingThreadId <- forkIO $ forever $
-      atomically (readTChan ourChan) >>= updateWidget
+    processingThreadId <-
+      forkIO $
+        forever $
+          atomically (readTChan ourChan) >>= updateWidget
     void $ onWidgetUnrealize widget $ killThread processingThreadId
   widgetShowAll widget
   return widget

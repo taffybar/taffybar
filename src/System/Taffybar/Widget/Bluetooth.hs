@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.Bluetooth
 -- Copyright   : (c) Ivan A. Malison
@@ -14,21 +18,21 @@
 --
 -- The widget uses the 'TChan'-based system from
 -- "System.Taffybar.Information.Bluetooth" for receiving updates.
------------------------------------------------------------------------------
 module System.Taffybar.Widget.Bluetooth
-  ( BluetoothWidgetConfig(..)
-  , defaultBluetoothWidgetConfig
-  , bluetoothIconNew
-  , bluetoothIconNewWith
-  , bluetoothLabelNew
-  , bluetoothLabelNewWith
-  , bluetoothNew
-  , bluetoothNewWith
-  ) where
+  ( BluetoothWidgetConfig (..),
+    defaultBluetoothWidgetConfig,
+    bluetoothIconNew,
+    bluetoothIconNewWith,
+    bluetoothLabelNew,
+    bluetoothLabelNewWith,
+    bluetoothNew,
+    bluetoothNewWith,
+  )
+where
 
 import Control.Monad (void)
 import Control.Monad.IO.Class
-import Data.Default (Default(..))
+import Data.Default (Default (..))
 import Data.List (intercalate)
 import qualified Data.Text as T
 import qualified GI.GLib as G
@@ -42,45 +46,47 @@ import Text.StringTemplate
 
 -- | Configuration for the Bluetooth widget.
 data BluetoothWidgetConfig = BluetoothWidgetConfig
-  { -- | Format string when Bluetooth is connected.
+  { -- \$num_connections$, $controller_alias$
+
+    -- | Format string when Bluetooth is connected.
     -- Available variables: $status$, $device_alias$, $device_battery$,
-    -- $num_connections$, $controller_alias$
-    bluetoothFormatConnected :: String
+    bluetoothFormatConnected :: String,
     -- | Format string when Bluetooth is on but not connected.
-  , bluetoothFormatOn :: String
+    bluetoothFormatOn :: String,
     -- | Format string when Bluetooth is off (powered down).
-  , bluetoothFormatOff :: String
+    bluetoothFormatOff :: String,
     -- | Format string when no Bluetooth controller is found.
-  , bluetoothFormatNoController :: String
+    bluetoothFormatNoController :: String,
     -- | Optional tooltip format.
     -- Additional variable: $device_list$
-  , bluetoothTooltipFormat :: Maybe String
+    bluetoothTooltipFormat :: Maybe String,
     -- | Format for each device in the tooltip device list.
     -- Variables: $device_alias$, $device_battery$
-  , bluetoothDeviceListFormat :: String
+    bluetoothDeviceListFormat :: String,
     -- | Icon to display when Bluetooth is connected.
-  , bluetoothConnectedIcon :: T.Text
+    bluetoothConnectedIcon :: T.Text,
     -- | Icon to display when Bluetooth is on but not connected.
-  , bluetoothOnIcon :: T.Text
+    bluetoothOnIcon :: T.Text,
     -- | Icon to display when Bluetooth is off (powered down).
-  , bluetoothOffIcon :: T.Text
+    bluetoothOffIcon :: T.Text,
     -- | Icon to display when no Bluetooth controller is found.
-  , bluetoothNoControllerIcon :: T.Text
+    bluetoothNoControllerIcon :: T.Text
   }
 
 defaultBluetoothWidgetConfig :: BluetoothWidgetConfig
-defaultBluetoothWidgetConfig = BluetoothWidgetConfig
-  { bluetoothFormatConnected = "$device_alias$"
-  , bluetoothFormatOn = ""
-  , bluetoothFormatOff = ""
-  , bluetoothFormatNoController = ""
-  , bluetoothTooltipFormat = Just "Bluetooth: $status$\nController: $controller_alias$\n$device_list$"
-  , bluetoothDeviceListFormat = "$device_alias$ ($device_battery$%)"
-  , bluetoothConnectedIcon = T.pack "\xF293"
-  , bluetoothOnIcon = T.pack "\xF293"
-  , bluetoothOffIcon = T.pack "\xF294"
-  , bluetoothNoControllerIcon = T.pack "\xF294"
-  }
+defaultBluetoothWidgetConfig =
+  BluetoothWidgetConfig
+    { bluetoothFormatConnected = "$device_alias$",
+      bluetoothFormatOn = "",
+      bluetoothFormatOff = "",
+      bluetoothFormatNoController = "",
+      bluetoothTooltipFormat = Just "Bluetooth: $status$\nController: $controller_alias$\n$device_list$",
+      bluetoothDeviceListFormat = "$device_alias$ ($device_battery$%)",
+      bluetoothConnectedIcon = T.pack "\xF293",
+      bluetoothOnIcon = T.pack "\xF293",
+      bluetoothOffIcon = T.pack "\xF294",
+      bluetoothNoControllerIcon = T.pack "\xF294"
+    }
 
 instance Default BluetoothWidgetConfig where
   def = defaultBluetoothWidgetConfig
@@ -193,7 +199,7 @@ buildAttrs info = do
       -- Get the first connected device for primary display
       primaryDevice = case bluetoothConnectedDevices info of
         [] -> Nothing
-        (d:_) -> Just d
+        (d : _) -> Just d
 
       deviceAliasText = maybe "" deviceAlias primaryDevice
       deviceBatteryText = maybe "?" (maybe "?" show . deviceBatteryPercentage) primaryDevice
@@ -201,12 +207,13 @@ buildAttrs info = do
       controllerAliasText = maybe "none" controllerAlias (bluetoothController info)
 
       -- Build device list for tooltip
-      deviceListText = intercalate "\n" $
-        map formatDeviceEntry (bluetoothConnectedDevices info)
+      deviceListText =
+        intercalate "\n" $
+          map formatDeviceEntry (bluetoothConnectedDevices info)
 
       formatDeviceEntry dev =
         let battery = maybe "?" show (deviceBatteryPercentage dev)
-        in deviceAlias dev ++ " (" ++ battery ++ "%)"
+         in deviceAlias dev ++ " (" ++ battery ++ "%)"
 
   status <- escapeText $ T.pack statusText
   deviceAliasEsc <- escapeText $ T.pack deviceAliasText
@@ -215,12 +222,12 @@ buildAttrs info = do
   deviceListEsc <- escapeText $ T.pack deviceListText
 
   return
-    [ ("status", status)
-    , ("device_alias", deviceAliasEsc)
-    , ("device_battery", deviceBatteryEsc)
-    , ("num_connections", show numConnections)
-    , ("controller_alias", controllerAliasEsc)
-    , ("device_list", deviceListEsc)
+    [ ("status", status),
+      ("device_alias", deviceAliasEsc),
+      ("device_battery", deviceBatteryEsc),
+      ("num_connections", show numConnections),
+      ("controller_alias", controllerAliasEsc),
+      ("device_list", deviceListEsc)
     ]
 
 -- | Render a template with the given attributes.

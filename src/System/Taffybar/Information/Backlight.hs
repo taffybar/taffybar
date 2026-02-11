@@ -5,6 +5,9 @@
 {-# LANGUAGE TypeApplications #-}
 
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.Backlight
 -- Copyright   : (c) Ivan A. Malison
@@ -15,17 +18,15 @@
 -- Portability : unportable
 --
 -- Simple helpers to read backlight status from /sys/class/backlight.
---
------------------------------------------------------------------------------
-
 module System.Taffybar.Information.Backlight
-  ( BacklightInfo(..)
-  , getBacklightDevices
-  , getBacklightInfo
-  , getBacklightInfoChan
-  , getBacklightInfoChanWithInterval
-  , getBacklightInfoState
-  ) where
+  ( BacklightInfo (..),
+    getBacklightDevices,
+    getBacklightInfo,
+    getBacklightInfoChan,
+    getBacklightInfoChanWithInterval,
+    getBacklightInfoState,
+  )
+where
 
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
@@ -36,19 +37,19 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Data.List (sort, sortBy)
 import Data.Maybe (fromMaybe, listToMaybe)
-import Data.Ord (Down(..), comparing)
-import Data.Proxy (Proxy(..))
+import Data.Ord (Down (..), comparing)
+import Data.Proxy (Proxy (..))
 import GHC.Conc (threadWaitRead)
-import GHC.TypeLits (KnownSymbol, SomeSymbol(..), Symbol, someSymbolVal)
+import GHC.TypeLits (KnownSymbol, SomeSymbol (..), Symbol, someSymbolVal)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.FilePath ((</>))
-import System.Log.Logger (Priority(..))
+import System.Log.Logger (Priority (..))
 import System.Taffybar.Context (TaffyIO, getStateDefault)
 import System.Taffybar.Information.Udev
-  ( backlightMonitorFd
-  , closeBacklightMonitor
-  , drainBacklightMonitor
-  , openBacklightMonitor
+  ( backlightMonitorFd,
+    closeBacklightMonitor,
+    drainBacklightMonitor,
+    openBacklightMonitor,
   )
 import System.Taffybar.Util (logPrintF)
 import System.Timeout (timeout)
@@ -62,11 +63,12 @@ defaultBacklightRefreshIntervalSeconds = 2
 
 -- | Information about a backlight device.
 data BacklightInfo = BacklightInfo
-  { backlightDevice :: FilePath
-  , backlightBrightness :: Int
-  , backlightMaxBrightness :: Int
-  , backlightPercent :: Int
-  } deriving (Eq, Show)
+  { backlightDevice :: FilePath,
+    backlightBrightness :: Int,
+    backlightMaxBrightness :: Int,
+    backlightPercent :: Int
+  }
+  deriving (Eq, Show)
 
 -- | List all backlight device names under /sys/class/backlight.
 getBacklightDevices :: IO [FilePath]
@@ -89,7 +91,7 @@ getBacklightInfo deviceOverride = do
 backlightLogPath :: String
 backlightLogPath = "System.Taffybar.Information.Backlight"
 
-backlightLogF :: Show t => Priority -> String -> t -> IO ()
+backlightLogF :: (Show t) => Priority -> String -> t -> IO ()
 backlightLogF = logPrintF backlightLogPath
 
 newtype BacklightInfoChanVar (a :: Symbol)
@@ -123,33 +125,33 @@ getBacklightInfoState deviceOverride =
   case someSymbolVal (fromMaybe "__default__" deviceOverride) of
     SomeSymbol (Proxy :: Proxy sym) -> getBacklightInfoStateFor @sym deviceOverride
 
-getBacklightInfoChanFor
-  :: forall (a :: Symbol)
-   . KnownSymbol a
-  => Maybe FilePath
-  -> Double
-  -> TaffyIO (TChan (Maybe BacklightInfo))
+getBacklightInfoChanFor ::
+  forall (a :: Symbol).
+  (KnownSymbol a) =>
+  Maybe FilePath ->
+  Double ->
+  TaffyIO (TChan (Maybe BacklightInfo))
 getBacklightInfoChanFor deviceOverride intervalSeconds = do
   BacklightInfoChanVar (chan, _) <-
     getBacklightInfoChanVarFor @a deviceOverride intervalSeconds
   pure chan
 
-getBacklightInfoStateFor
-  :: forall (a :: Symbol)
-   . KnownSymbol a
-  => Maybe FilePath
-  -> TaffyIO (Maybe BacklightInfo)
+getBacklightInfoStateFor ::
+  forall (a :: Symbol).
+  (KnownSymbol a) =>
+  Maybe FilePath ->
+  TaffyIO (Maybe BacklightInfo)
 getBacklightInfoStateFor deviceOverride = do
   BacklightInfoChanVar (_, var) <-
     getBacklightInfoChanVarFor @a deviceOverride defaultBacklightRefreshIntervalSeconds
   liftIO $ readMVar var
 
-getBacklightInfoChanVarFor
-  :: forall (a :: Symbol)
-   . KnownSymbol a
-  => Maybe FilePath
-  -> Double
-  -> TaffyIO (BacklightInfoChanVar a)
+getBacklightInfoChanVarFor ::
+  forall (a :: Symbol).
+  (KnownSymbol a) =>
+  Maybe FilePath ->
+  Double ->
+  TaffyIO (BacklightInfoChanVar a)
 getBacklightInfoChanVarFor deviceOverride intervalSeconds =
   getStateDefault $ do
     liftIO $ do
@@ -165,23 +167,22 @@ monitorBacklightInfo ::
   MVar (Maybe BacklightInfo) ->
   IO ()
 monitorBacklightInfo deviceOverride intervalSeconds chan var = do
-  let
-    intervalMicros :: Int
-    intervalMicros = max 1 (floor (intervalSeconds * 1000000))
+  let intervalMicros :: Int
+      intervalMicros = max 1 (floor (intervalSeconds * 1000000))
 
-    writeInfo info = do
-      _ <- swapMVar var info
-      atomically $ writeTChan chan info
+      writeInfo info = do
+        _ <- swapMVar var info
+        atomically $ writeTChan chan info
 
-    refresh = getBacklightInfo deviceOverride >>= writeInfo
+      refresh = getBacklightInfo deviceOverride >>= writeInfo
 
-    pollingFallback e = do
-      -- Polling is a last resort, but we prefer it to a stuck widget.
-      backlightLogF WARNING "Backlight udev monitor unavailable, falling back to polling: %s" e
-      refresh
-      forever $ do
-        threadDelay intervalMicros
+      pollingFallback e = do
+        -- Polling is a last resort, but we prefer it to a stuck widget.
+        backlightLogF WARNING "Backlight udev monitor unavailable, falling back to polling: %s" e
         refresh
+        forever $ do
+          threadDelay intervalMicros
+          refresh
 
   monitorResult <- try openBacklightMonitor
   case monitorResult of
@@ -219,12 +220,14 @@ readDevice device = do
   case (brightness, maxBrightness) of
     (Just current, Just maxVal) | maxVal > 0 -> do
       let percent = round $ (fromIntegral current * 100 :: Double) / fromIntegral maxVal
-      return $ Just BacklightInfo
-        { backlightDevice = device
-        , backlightBrightness = current
-        , backlightMaxBrightness = maxVal
-        , backlightPercent = percent
-        }
+      return $
+        Just
+          BacklightInfo
+            { backlightDevice = device,
+              backlightBrightness = current,
+              backlightMaxBrightness = maxVal,
+              backlightPercent = percent
+            }
     _ -> return Nothing
 
 readMaxBrightness :: FilePath -> IO (Maybe Int)
@@ -233,9 +236,11 @@ readMaxBrightness device =
 
 readIntFile :: FilePath -> IO (Maybe Int)
 readIntFile path =
-  catch (do
-    contents <- readFile path
-    case words contents of
-      (val:_) -> return $ readMaybe val
-      _ -> return Nothing
-  ) $ \(_ :: SomeException) -> return Nothing
+  catch
+    ( do
+        contents <- readFile path
+        case words contents of
+          (val : _) -> return $ readMaybe val
+          _ -> return Nothing
+    )
+    $ \(_ :: SomeException) -> return Nothing

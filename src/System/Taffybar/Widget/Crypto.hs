@@ -1,9 +1,13 @@
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.Crypto
 -- Copyright   : (c) Ivan A. Malison
@@ -15,34 +19,33 @@
 --
 -- This module provides widgets for tracking the price of crypto currency
 -- assets.
------------------------------------------------------------------------------
 module System.Taffybar.Widget.Crypto where
 
-import           Control.Concurrent
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Maybe
-import           Control.Monad.Trans.Reader
-import           Data.Aeson
-import           Data.Aeson.Types
+import Control.Concurrent
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Reader
+import Data.Aeson
 import qualified Data.Aeson.Key as Key
+import Data.Aeson.Types
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Maybe
-import           Data.Proxy
+import Data.Maybe
+import Data.Proxy
 import qualified Data.Text
-import           GHC.TypeLits
+import GHC.TypeLits
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import           Network.HTTP.Simple hiding (Proxy)
-import           System.FilePath.Posix
-import           System.Taffybar.Context
-import           System.Taffybar.Information.Crypto hiding (symbol)
-import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.ChannelWidget
-import           System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
-import           System.Taffybar.WindowIcon
-import           Text.Printf
+import Network.HTTP.Simple hiding (Proxy)
+import System.FilePath.Posix
+import System.Taffybar.Context
+import System.Taffybar.Information.Crypto hiding (symbol)
+import System.Taffybar.Util
+import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
+import System.Taffybar.WindowIcon
+import Text.Printf
 
 -- | Extends 'cryptoPriceLabel' with an icon corresponding to the symbol of the
 -- purchase crypto that will appear to the left of the price label. See the
@@ -53,7 +56,7 @@ import           Text.Printf
 -- symbol of the relevant token and the underlying currency in which its price
 -- should be expressed. See the docstring of 'cryptoPriceLabel' for details
 -- about the exact format that this string should take.
-cryptoPriceLabelWithIcon :: forall a. KnownSymbol a => TaffyIO Gtk.Widget
+cryptoPriceLabelWithIcon :: forall a. (KnownSymbol a) => TaffyIO Gtk.Widget
 cryptoPriceLabelWithIcon = do
   label <- cryptoPriceLabel @a
   let symbolPair = symbolVal (Proxy :: Proxy a)
@@ -62,8 +65,10 @@ cryptoPriceLabelWithIcon = do
 
   ctx <- ask
   let refresh size =
-        Just <$> runReaderT
-        (fromMaybe <$> pixBufFromColor size 0 <*> getCryptoPixbuf symbol) ctx
+        Just
+          <$> runReaderT
+            (fromMaybe <$> pixBufFromColor size 0 <*> getCryptoPixbuf symbol)
+            ctx
   (image, _) <- scalingImage refresh Gtk.OrientationHorizontal
 
   Gtk.containerAdd hbox image
@@ -92,17 +97,20 @@ setCMCAPIKey key =
 -- associated with the asset that you want to track as follows:
 --
 -- > cryptoPriceLabel @"BTC-USD"
-cryptoPriceLabel :: forall a. KnownSymbol a => TaffyIO Gtk.Widget
+cryptoPriceLabel :: forall a. (KnownSymbol a) => TaffyIO Gtk.Widget
 cryptoPriceLabel = getCryptoPriceChannel @a >>= cryptoPriceLabel'
 
 cryptoPriceLabel' :: CryptoPriceChannel a -> TaffyIO Gtk.Widget
 cryptoPriceLabel' (CryptoPriceChannel (chan, var)) = do
   label <- Gtk.labelNew Nothing
-  let updateWidget CryptoPriceInfo { lastPrice = cryptoPrice } =
-        postGUIASync $ Gtk.labelSetMarkup label $
-                     Data.Text.pack $ show cryptoPrice
-  void $ Gtk.onWidgetRealize label $
-       readMVar var >>= updateWidget
+  let updateWidget CryptoPriceInfo {lastPrice = cryptoPrice} =
+        postGUIASync $
+          Gtk.labelSetMarkup label $
+            Data.Text.pack $
+              show cryptoPrice
+  void $
+    Gtk.onWidgetRealize label $
+      readMVar var >>= updateWidget
   Gtk.toWidget =<< channelWidgetNew label chan updateWidget
 
 cryptoIconsDir :: IO FilePath
@@ -120,9 +128,10 @@ pathForCryptoSymbol symbol =
 getCryptoPixbuf :: String -> TaffyIO (Maybe Gdk.Pixbuf)
 getCryptoPixbuf = getCryptoIconFromCache <||> getCryptoIconFromCMC
 
-getCryptoIconFromCache :: MonadIO m => String -> m (Maybe Gdk.Pixbuf)
-getCryptoIconFromCache symbol = liftIO $
-  pathForCryptoSymbol symbol >>= safePixbufNewFromFile
+getCryptoIconFromCache :: (MonadIO m) => String -> m (Maybe Gdk.Pixbuf)
+getCryptoIconFromCache symbol =
+  liftIO $
+    pathForCryptoSymbol symbol >>= safePixbufNewFromFile
 
 getCryptoIconFromCMC :: String -> TaffyIO (Maybe Gdk.Pixbuf)
 getCryptoIconFromCMC symbol =
@@ -140,5 +149,6 @@ getCryptoIconFromCMC' cmcAPIKey symbol = do
 
 getIconURIFromJSON :: String -> LBS.ByteString -> Maybe Data.Text.Text
 getIconURIFromJSON symbol jsonText =
-  decode jsonText >>= parseMaybe
-           ((.: "data") >=> (.: Key.fromString symbol) >=> (.: "logo"))
+  decode jsonText
+    >>= parseMaybe
+      ((.: "data") >=> (.: Key.fromString symbol) >=> (.: "logo"))

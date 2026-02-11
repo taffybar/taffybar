@@ -1,4 +1,7 @@
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.EWMHDesktopInfo
 -- Copyright   : (c) José A. Romero L.
@@ -16,50 +19,48 @@
 -- > import XMonad.Hooks.EwmhDesktops (ewmh)
 -- >
 -- > main = xmonad $ ewmh $ ...
---
------------------------------------------------------------------------------
-
 module System.Taffybar.Information.EWMHDesktopInfo
-  ( EWMHIcon(..)
-  , EWMHIconData
-  , WorkspaceId(..)
-  , X11Window
-  , allEWMHProperties
-  , ewmhActiveWindow
-  , ewmhClientList
-  , ewmhClientListStacking
-  , ewmhCurrentDesktop
-  , ewmhDesktopNames
-  , ewmhNumberOfDesktops
-  , ewmhStateHidden
-  , ewmhWMClass
-  , ewmhWMDesktop
-  , ewmhWMIcon
-  , ewmhWMName
-  , ewmhWMName2
-  , ewmhWMState
-  , ewmhWMStateHidden
-  , focusWindow
-  , getActiveWindow
-  , getCurrentWorkspace
-  , getVisibleWorkspaces
-  , getWindowClass
-  , getWindowIconsData
-  , getWindowMinimized
-  , getWindowState
-  , getWindowStateProperty
-  , getWindowTitle
-  , getWindows
-  , getWindowsStacking
-  , getWorkspace
-  , getWorkspaceNames
-  , isWindowUrgent
-  , parseWindowClasses
-  , switchOneWorkspace
-  , switchToWorkspace
-  , withX11Context
-  , withEWMHIcons
-  ) where
+  ( EWMHIcon (..),
+    EWMHIconData,
+    WorkspaceId (..),
+    X11Window,
+    allEWMHProperties,
+    ewmhActiveWindow,
+    ewmhClientList,
+    ewmhClientListStacking,
+    ewmhCurrentDesktop,
+    ewmhDesktopNames,
+    ewmhNumberOfDesktops,
+    ewmhStateHidden,
+    ewmhWMClass,
+    ewmhWMDesktop,
+    ewmhWMIcon,
+    ewmhWMName,
+    ewmhWMName2,
+    ewmhWMState,
+    ewmhWMStateHidden,
+    focusWindow,
+    getActiveWindow,
+    getCurrentWorkspace,
+    getVisibleWorkspaces,
+    getWindowClass,
+    getWindowIconsData,
+    getWindowMinimized,
+    getWindowState,
+    getWindowStateProperty,
+    getWindowTitle,
+    getWindows,
+    getWindowsStacking,
+    getWorkspace,
+    getWorkspaceNames,
+    isWindowUrgent,
+    parseWindowClasses,
+    switchOneWorkspace,
+    switchToWorkspace,
+    withX11Context,
+    withEWMHIcons,
+  )
+where
 
 import Control.Monad ((>=>))
 import Control.Monad.IO.Class
@@ -77,7 +78,7 @@ import System.Log.Logger
 import System.Taffybar.Information.SafeX11
 import System.Taffybar.Information.X11DesktopInfo
 
-logHere :: MonadIO m => Priority -> String -> m ()
+logHere :: (MonadIO m) => Priority -> String -> m ()
 logHere p = liftIO . logM "System.Taffybar.Information.EWMHDesktopInfo" p
 
 newtype WorkspaceId = WorkspaceId Int deriving (Show, Read, Ord, Eq)
@@ -111,29 +112,30 @@ ewmhWMStateHidden = "_NET_WM_STATE_HIDDEN"
 
 allEWMHProperties :: [EWMHProperty]
 allEWMHProperties =
-  [ ewmhActiveWindow
-  , ewmhClientList
-  , ewmhClientListStacking
-  , ewmhCurrentDesktop
-  , ewmhDesktopNames
-  , ewmhNumberOfDesktops
-  , ewmhStateHidden
-  , ewmhWMClass
-  , ewmhWMDesktop
-  , ewmhWMIcon
-  , ewmhWMName
-  , ewmhWMName2
-  , ewmhWMState
-  , ewmhWMStateHidden
+  [ ewmhActiveWindow,
+    ewmhClientList,
+    ewmhClientListStacking,
+    ewmhCurrentDesktop,
+    ewmhDesktopNames,
+    ewmhNumberOfDesktops,
+    ewmhStateHidden,
+    ewmhWMClass,
+    ewmhWMDesktop,
+    ewmhWMIcon,
+    ewmhWMName,
+    ewmhWMName2,
+    ewmhWMState,
+    ewmhWMStateHidden
   ]
 
 type EWMHIconData = (ForeignPtr PixelsWordType, Int)
 
 data EWMHIcon = EWMHIcon
-  { ewmhWidth :: Int
-  , ewmhHeight :: Int
-  , ewmhPixelsARGB :: Ptr PixelsWordType
-  } deriving (Show, Eq)
+  { ewmhWidth :: Int,
+    ewmhHeight :: Int,
+    ewmhPixelsARGB :: Ptr PixelsWordType
+  }
+  deriving (Show, Eq)
 
 getWindowStateProperty :: String -> X11Window -> X11Property Bool
 getWindowStateProperty property window =
@@ -172,7 +174,8 @@ getVisibleWorkspaces = do
 -- available.
 getWorkspaceNames :: X11Property [(WorkspaceId, String)]
 getWorkspaceNames = go <$> readAsListOfString Nothing ewmhDesktopNames
-  where go = zip [WorkspaceId i | i <- [0..]]
+  where
+    go = zip [WorkspaceId i | i <- [0 ..]]
 
 -- | Ask the window manager to switch to the workspace with the given
 -- index, starting from 0.
@@ -190,13 +193,13 @@ switchOneWorkspace dir end = do
 -- | Check for corner case and switch one workspace up
 getPrev :: WorkspaceId -> Int -> WorkspaceId
 getPrev (WorkspaceId idx) end
-  | idx > 0 = WorkspaceId $ idx-1
+  | idx > 0 = WorkspaceId $ idx - 1
   | otherwise = WorkspaceId end
 
 -- | Check for corner case and switch one workspace down
 getNext :: WorkspaceId -> Int -> WorkspaceId
 getNext (WorkspaceId idx) end
-  | idx < end = WorkspaceId $ idx+1
+  | idx < end = WorkspaceId $ idx + 1
   | otherwise = WorkspaceId 0
 
 -- | Get the title of the given X11 window.
@@ -206,7 +209,7 @@ getWindowTitle window = do
   prop <- readAsString w ewmhWMName
   case prop of
     "" -> readAsString w ewmhWMName2
-    _  -> return prop
+    _ -> return prop
 
 -- | Get the class of the given X11 window.
 getWindowClass :: X11Window -> X11Property String
@@ -248,14 +251,14 @@ parseIcons totalSize arr = do
       newArr = advancePtr pixelsPtr thisSize
       thisIcon =
         EWMHIcon
-        { ewmhWidth = iwidth
-        , ewmhHeight = iheight
-        , ewmhPixelsARGB = pixelsPtr
-        }
+          { ewmhWidth = iwidth,
+            ewmhHeight = iheight,
+            ewmhPixelsARGB = pixelsPtr
+          }
       getRes newSize
         | newSize < 0 =
-          logHere ERROR "Attempt to recurse on negative value in parseIcons"
-                    >> return []
+            logHere ERROR "Attempt to recurse on negative value in parseIcons"
+              >> return []
         | otherwise = (thisIcon :) <$> parseIcons newSize newArr
   getRes $ totalSize - fromIntegral (thisSize + 2)
 

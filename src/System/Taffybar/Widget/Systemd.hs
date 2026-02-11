@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.Systemd
 -- Copyright   : (c) Ivan A. Malison
@@ -26,58 +30,60 @@
 -- > .systemd-widget { padding: 0 5px; }
 -- > .systemd-ok { color: #98c379; }
 -- > .systemd-degraded { color: #e06c75; }
------------------------------------------------------------------------------
 module System.Taffybar.Widget.Systemd
-  ( SystemdConfig(..)
-  , defaultSystemdConfig
-  , systemdIconNew
-  , systemdIconNewWithConfig
-  , systemdLabelNew
-  , systemdLabelNewWithConfig
-  , systemdNew
-  , systemdNewWithConfig
-  ) where
+  ( SystemdConfig (..),
+    defaultSystemdConfig,
+    systemdIconNew,
+    systemdIconNewWithConfig,
+    systemdLabelNew,
+    systemdLabelNewWithConfig,
+    systemdNew,
+    systemdNewWithConfig,
+  )
+where
 
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Reader
-import           Data.Default (Default(..))
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader
+import Data.Default (Default (..))
 import qualified Data.Text as T
-import           GI.Gtk as Gtk
-import           System.Taffybar.Context
-import           System.Taffybar.Information.Systemd
-import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.ChannelWidget
-import           System.Taffybar.Widget.Util
-import           Text.StringTemplate
+import GI.Gtk as Gtk
+import System.Taffybar.Context
+import System.Taffybar.Information.Systemd
+import System.Taffybar.Util
+import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Util
+import Text.StringTemplate
 
 -- | Configuration options for the systemd widget.
 data SystemdConfig = SystemdConfig
   { -- | Format string when there are failed units.
     -- Available variables: $count$, $system$, $user$
-    systemdFormat :: String
+    systemdFormat :: String,
     -- | Format string when there are no failures (only used if hideOnOk is False).
-  , systemdFormatOk :: String
+    systemdFormatOk :: String,
     -- | Whether to hide the widget when there are no failed units.
-  , systemdHideOnOk :: Bool
+    systemdHideOnOk :: Bool,
     -- | Whether to monitor system units.
-  , systemdMonitorSystem :: Bool
+    systemdMonitorSystem :: Bool,
     -- | Whether to monitor user units.
-  , systemdMonitorUser :: Bool
+    systemdMonitorUser :: Bool,
     -- | Nerd font icon character (default U+F071, warning triangle).
-  , systemdIcon :: T.Text
-  } deriving (Eq, Show)
+    systemdIcon :: T.Text
+  }
+  deriving (Eq, Show)
 
 -- | Default configuration for the systemd widget.
 defaultSystemdConfig :: SystemdConfig
-defaultSystemdConfig = SystemdConfig
-  { systemdFormat = "$count$"
-  , systemdFormatOk = "\x2713"        -- Check mark
-  , systemdHideOnOk = True
-  , systemdMonitorSystem = True
-  , systemdMonitorUser = True
-  , systemdIcon = T.pack "\xF071"     -- Warning triangle
-  }
+defaultSystemdConfig =
+  SystemdConfig
+    { systemdFormat = "$count$",
+      systemdFormatOk = "\x2713", -- Check mark
+      systemdHideOnOk = True,
+      systemdMonitorSystem = True,
+      systemdMonitorUser = True,
+      systemdIcon = T.pack "\xF071" -- Warning triangle
+    }
 
 instance Default SystemdConfig where
   def = defaultSystemdConfig
@@ -140,7 +146,7 @@ computeEffectiveCount :: SystemdConfig -> SystemdInfo -> Int
 computeEffectiveCount config info =
   let sysCount = if systemdMonitorSystem config then systemFailedCount info else 0
       usrCount = if systemdMonitorUser config then userFailedCount info else 0
-  in sysCount + usrCount
+   in sysCount + usrCount
 
 -- | Update the label text based on the current state.
 updateSystemdLabel :: SystemdConfig -> Gtk.Label -> SystemdInfo -> IO ()
@@ -149,11 +155,13 @@ updateSystemdLabel config label info = do
       isOk = effectiveCount == 0
       formatStr = if isOk then systemdFormatOk config else systemdFormat config
       tpl = newSTMP formatStr
-      tpl' = setManyAttrib
-        [ ("count", show effectiveCount)
-        , ("system", show (systemFailedCount info))
-        , ("user", show (userFailedCount info))
-        ] tpl
+      tpl' =
+        setManyAttrib
+          [ ("count", show effectiveCount),
+            ("system", show (systemFailedCount info)),
+            ("user", show (userFailedCount info))
+          ]
+          tpl
   labelSetMarkup label (render tpl')
 
 -- | Update widget visibility based on configuration.

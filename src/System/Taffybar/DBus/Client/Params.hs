@@ -1,5 +1,6 @@
-{-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
+
 module System.Taffybar.DBus.Client.Params where
 
 import DBus
@@ -8,10 +9,11 @@ import Language.Haskell.TH
 import System.Taffybar.DBus.Client.Util
 
 playerGenerationParams :: GenerationParams
-playerGenerationParams = defaultGenerationParams
-  { genTakeSignalErrorHandler = True
-  , genObjectPath = Just "/org/mpris/MediaPlayer2"
-  }
+playerGenerationParams =
+  defaultGenerationParams
+    { genTakeSignalErrorHandler = True,
+      genObjectPath = Just "/org/mpris/MediaPlayer2"
+    }
 
 -- | The bus name for NetworkManager.
 nmBusName :: BusName
@@ -41,11 +43,11 @@ nmAccessPointPathNamespace =
   "/org/freedesktop/NetworkManager/AccessPoint"
 
 nmGenerationParams :: GenerationParams
-nmGenerationParams = defaultGenerationParams
-  { genTakeSignalErrorHandler = True
-  , genBusName = Just nmBusName
-  }
-
+nmGenerationParams =
+  defaultGenerationParams
+    { genTakeSignalErrorHandler = True,
+      genBusName = Just nmBusName
+    }
 
 -- | The base object path for the UPower interface
 uPowerBaseObjectPath :: ObjectPath
@@ -59,10 +61,11 @@ uPowerDeviceInterfaceName :: InterfaceName
 uPowerDeviceInterfaceName = "org.freedesktop.UPower.Device"
 
 uPowerGenerationParams :: GenerationParams
-uPowerGenerationParams = defaultGenerationParams
-  { genTakeSignalErrorHandler = True
-  , genBusName = Just uPowerBusName
-  }
+uPowerGenerationParams =
+  defaultGenerationParams
+    { genTakeSignalErrorHandler = True,
+      genBusName = Just uPowerBusName
+    }
 
 -- | The bus name for PulseAudio's server lookup on the session bus.
 paServerLookupBusName :: BusName
@@ -86,22 +89,25 @@ paDeviceInterfaceName :: InterfaceName
 paDeviceInterfaceName = "org.PulseAudio.Core1.Device"
 
 paServerLookupGenerationParams :: GenerationParams
-paServerLookupGenerationParams = defaultGenerationParams
-  { genTakeSignalErrorHandler = True
-  , genBusName = Just paServerLookupBusName
-  , genObjectPath = Just paServerLookupObjectPath
-  }
+paServerLookupGenerationParams =
+  defaultGenerationParams
+    { genTakeSignalErrorHandler = True,
+      genBusName = Just paServerLookupBusName,
+      genObjectPath = Just paServerLookupObjectPath
+    }
 
 paCoreGenerationParams :: GenerationParams
-paCoreGenerationParams = defaultGenerationParams
-  { genTakeSignalErrorHandler = True
-  , genObjectPath = Just paCoreObjectPath
-  }
+paCoreGenerationParams =
+  defaultGenerationParams
+    { genTakeSignalErrorHandler = True,
+      genObjectPath = Just paCoreObjectPath
+    }
 
 paDeviceGenerationParams :: GenerationParams
-paDeviceGenerationParams = defaultGenerationParams
-  { genTakeSignalErrorHandler = True
-  }
+paDeviceGenerationParams =
+  defaultGenerationParams
+    { genTakeSignalErrorHandler = True
+    }
 
 data BatteryType
   = BatteryTypeUnknown
@@ -142,4 +148,5 @@ batteryTypeForName name = const $
     "State" -> yes ''BatteryState
     "Technology" -> yes ''BatteryTechnology
     _ -> Nothing
-  where yes = Just . ConT
+  where
+    yes = Just . ConT

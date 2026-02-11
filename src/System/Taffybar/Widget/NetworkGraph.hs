@@ -1,4 +1,7 @@
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.NetworkGraph
 -- Copyright   : (c) Ivan A. Malison
@@ -9,11 +12,9 @@
 -- Portability : unportable
 --
 -- This module provides a channel based network graph widget.
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.NetworkGraph where
 
-import Data.Default (Default(..))
+import Data.Default (Default (..))
 import Data.Foldable (for_)
 import qualified GI.Gtk
 import GI.Gtk.Objects.Widget (widgetSetTooltipMarkup)
@@ -28,26 +29,28 @@ import System.Taffybar.Widget.Text.NetworkMonitor
 
 -- | 'NetworkGraphConfig' configures the network graph widget.
 data NetworkGraphConfig = NetworkGraphConfig
-  { networkGraphGraphConfig :: GraphConfig -- ^ The configuration of the graph itself.
-  -- | A tooltip format string, together with the precision that should be used
-  -- for numbers in the string.
-  , networkGraphTooltipFormat :: Maybe (String, Int)
-  -- | A function to scale the y axis of the network config. The default is
-  -- `logBase $ 2 ** 32`.
-  , networkGraphScale :: Double -> Double
-  -- | A filter function that determines whether a given interface will be
-  -- included in the network stats.
-  , interfacesFilter :: String -> Bool
+  { -- | The configuration of the graph itself.
+    -- | A tooltip format string, together with the precision that should be used
+    -- for numbers in the string.
+    networkGraphGraphConfig :: GraphConfig,
+    networkGraphTooltipFormat :: Maybe (String, Int),
+    -- | A function to scale the y axis of the network config. The default is
+    -- `logBase $ 2 ** 32`.
+    networkGraphScale :: Double -> Double,
+    -- | A filter function that determines whether a given interface will be
+    -- included in the network stats.
+    interfacesFilter :: String -> Bool
   }
 
 -- | Default configuration paramters for the network graph.
 defaultNetworkGraphConfig :: NetworkGraphConfig
-defaultNetworkGraphConfig = NetworkGraphConfig
-  { networkGraphGraphConfig = def
-  , networkGraphTooltipFormat = Just (defaultNetFormat, 3)
-  , networkGraphScale = logBase $ 2 ** 32
-  , interfacesFilter = const True
-  }
+defaultNetworkGraphConfig =
+  NetworkGraphConfig
+    { networkGraphGraphConfig = def,
+      networkGraphTooltipFormat = Just (defaultNetFormat, 3),
+      networkGraphScale = logBase $ 2 ** 32,
+      interfacesFilter = const True
+    }
 
 instance Default NetworkGraphConfig where
   def = defaultNetworkGraphConfig
@@ -56,10 +59,11 @@ instance Default NetworkGraphConfig where
 -- and a list of interfaces.
 networkGraphNew :: GraphConfig -> Maybe [String] -> TaffyIO GI.Gtk.Widget
 networkGraphNew config interfaces =
-  networkGraphNewWith def
-                        { networkGraphGraphConfig = config
-                        , interfacesFilter = maybe (const True) (flip elem) interfaces
-                        }
+  networkGraphNewWith
+    def
+      { networkGraphGraphConfig = config,
+        interfacesFilter = maybe (const True) (flip elem) interfaces
+      }
 
 -- | 'networkGraphNewWith' instantiates a network graph widget from a
 -- 'NetworkGraphConfig'.
@@ -74,5 +78,5 @@ networkGraphNewWith config = do
     channelWidgetNew widget chan $ \speedInfo ->
       let (up, down) = sumSpeeds $ map snd speedInfo
           tooltip = showInfo format precision (fromRational down, fromRational up)
-      in postGUIASync $ widgetSetTooltipMarkup widget $ Just tooltip
+       in postGUIASync $ widgetSetTooltipMarkup widget $ Just tooltip
   return widget

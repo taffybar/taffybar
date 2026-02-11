@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.Layout
 -- Copyright   : (c) Ivan Malison
@@ -13,27 +17,25 @@
 -- workspace, and that allows to change it by clicking with the mouse:
 -- left-click to switch to the next layout in the list, right-click to switch to
 -- the first one (as configured in @xmonad.hs@)
------------------------------------------------------------------------------
-
 module System.Taffybar.Widget.Layout
-  (
-  -- * Usage
-  -- $usage
-    LayoutConfig(..)
-  , defaultLayoutConfig
-  , layoutNew
-  ) where
+  ( -- * Usage
+    -- $usage
+    LayoutConfig (..),
+    defaultLayoutConfig,
+    layoutNew,
+  )
+where
 
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Reader
-import           Data.Default (Default(..))
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Reader
+import Data.Default (Default (..))
 import qualified Data.Text as T
+import GI.Gdk
 import qualified GI.Gtk as Gtk
-import           GI.Gdk
-import           System.Taffybar.Context
-import           System.Taffybar.Information.X11DesktopInfo
-import           System.Taffybar.Util
-import           System.Taffybar.Widget.Util
+import System.Taffybar.Context
+import System.Taffybar.Information.X11DesktopInfo
+import System.Taffybar.Util
+import System.Taffybar.Widget.Util
 
 -- $usage
 --
@@ -102,10 +104,10 @@ dispatchButtonEvent context btn = do
   buttonNumber <- getEventButtonButton btn
   case pressType of
     EventTypeButtonPress ->
-        case buttonNumber of
-          1 -> runReaderT (runX11Def () (switch 1)) context >> return True
-          2 -> runReaderT (runX11Def () (switch (-1))) context >> return True
-          _ -> return False
+      case buttonNumber of
+        1 -> runReaderT (runX11Def () (switch 1)) context >> return True
+        2 -> runReaderT (runX11Def () (switch (-1))) context >> return True
+        _ -> return False
     _ -> return False
 
 -- | Emit a new custom event of type _XMONAD_CURRENT_LAYOUT, that can be

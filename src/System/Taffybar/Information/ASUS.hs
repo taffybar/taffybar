@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Information.ASUS
 -- Copyright   : (c) Ivan A. Malison
@@ -11,45 +15,45 @@
 --
 -- This module provides information about the current ASUS platform profile
 -- and CPU state using the asusd DBus API (xyz.ljones.Asusd) and sysfs.
------------------------------------------------------------------------------
 module System.Taffybar.Information.ASUS
-  ( ASUSPlatformProfile(..)
-  , ASUSInfo(..)
-  , getASUSInfo
-  , getASUSInfoFromClient
-  , getASUSInfoChan
-  , getASUSInfoState
-  , cycleASUSProfile
-  , setASUSProfile
-  , asusProfileToString
-  , asusProfileFromUInt
-  ) where
+  ( ASUSPlatformProfile (..),
+    ASUSInfo (..),
+    getASUSInfo,
+    getASUSInfoFromClient,
+    getASUSInfoChan,
+    getASUSInfoState,
+    cycleASUSProfile,
+    setASUSProfile,
+    asusProfileToString,
+    asusProfileFromUInt,
+  )
+where
 
-import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.MVar
-import           Control.Concurrent.STM.TChan
-import           Control.Exception (SomeException, try)
-import           Control.Monad (forM, forever, void)
-import           Control.Monad.IO.Class
-import           Control.Monad.STM (atomically)
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Except
-import           Control.Monad.Trans.Reader
-import           DBus
-import           DBus.Client
-import           DBus.Internal.Types (Serial(..))
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.MVar
+import Control.Concurrent.STM.TChan
+import Control.Exception (SomeException, try)
+import Control.Monad (forM, forever, void)
+import Control.Monad.IO.Class
+import Control.Monad.STM (atomically)
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Except
+import Control.Monad.Trans.Reader
+import DBus
+import DBus.Client
+import DBus.Internal.Types (Serial (..))
 import qualified DBus.TH as DBus
-import           Data.Map (Map)
+import Data.Map (Map)
 import qualified Data.Map as M
-import           Data.Maybe (catMaybes, fromMaybe, listToMaybe)
-import           Data.Text (Text)
-import           Data.Word (Word32)
-import           System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
-import           System.FilePath ((</>))
-import           System.Log.Logger
-import           System.Taffybar.Context
-import           System.Taffybar.Util (logPrintF, maybeToEither)
-import           Text.Read (readMaybe)
+import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
+import Data.Text (Text)
+import Data.Word (Word32)
+import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
+import System.FilePath ((</>))
+import System.Log.Logger
+import System.Taffybar.Context
+import System.Taffybar.Util (logPrintF, maybeToEither)
+import Text.Read (readMaybe)
 
 -- | ASUS platform profile modes.
 data ASUSPlatformProfile = Quiet | Performance | Balanced
@@ -57,10 +61,13 @@ data ASUSPlatformProfile = Quiet | Performance | Balanced
 
 -- | Combined ASUS platform info with CPU state.
 data ASUSInfo = ASUSInfo
-  { asusProfile    :: ASUSPlatformProfile
-  , asusCpuFreqGHz :: Double        -- ^ Average CPU frequency across all cores
-  , asusCpuTempC   :: Double        -- ^ CPU package temperature in Celsius
-  } deriving (Eq, Show)
+  { asusProfile :: ASUSPlatformProfile,
+    -- | Average CPU frequency across all cores
+    asusCpuFreqGHz :: Double,
+    -- | CPU package temperature in Celsius
+    asusCpuTempC :: Double
+  }
+  deriving (Eq, Show)
 
 -- DBus constants
 
@@ -99,28 +106,34 @@ asusProfileToUInt Balanced = 2
 
 -- | Default info when asusd is unavailable.
 unknownASUSInfo :: ASUSInfo
-unknownASUSInfo = ASUSInfo
-  { asusProfile = Balanced
-  , asusCpuFreqGHz = 0
-  , asusCpuTempC = 0
-  }
+unknownASUSInfo =
+  ASUSInfo
+    { asusProfile = Balanced,
+      asusCpuFreqGHz = 0,
+      asusCpuTempC = 0
+    }
 
 -- XXX: Remove this once it is exposed in haskell-dbus
 dummyMethodError :: MethodError
 dummyMethodError = methodError (Serial 1) $ errorName_ "org.ClientTypeMismatch"
 
-readDictMaybe :: IsVariant a => Map Text Variant -> Text -> Maybe a
+readDictMaybe :: (IsVariant a) => Map Text Variant -> Text -> Maybe a
 readDictMaybe dict key = M.lookup key dict >>= fromVariant
 
-getProperties
-  :: Client
-  -> IO (Either MethodError (Map Text Variant))
+getProperties ::
+  Client ->
+  IO (Either MethodError (Map Text Variant))
 getProperties client = runExceptT $ do
-  reply <- ExceptT $ getAllProperties client $
-    (methodCall asusObjectPath asusInterfaceName "FakeMethod")
-      { methodCallDestination = Just asusBusName }
-  ExceptT $ return $ maybeToEither dummyMethodError $
-    listToMaybe (methodReturnBody reply) >>= fromVariant
+  reply <-
+    ExceptT $
+      getAllProperties client $
+        (methodCall asusObjectPath asusInterfaceName "FakeMethod")
+          { methodCallDestination = Just asusBusName
+          }
+  ExceptT $
+    return $
+      maybeToEither dummyMethodError $
+        listToMaybe (methodReturnBody reply) >>= fromVariant
 
 -- | Read current platform profile from DBus.
 readProfileFromClient :: Client -> IO ASUSPlatformProfile
@@ -132,28 +145,33 @@ readProfileFromClient client = do
       return Balanced
     Right props ->
       let profileVal = readDictMaybe props "PlatformProfile" :: Maybe Word32
-      in return $ fromMaybe Balanced (profileVal >>= asusProfileFromUInt)
+       in return $ fromMaybe Balanced (profileVal >>= asusProfileFromUInt)
 
 -- | Set the ASUS platform profile via DBus property.
 setASUSProfile :: Client -> ASUSPlatformProfile -> IO (Either MethodError ())
 setASUSProfile client profile = do
-  result <- setProperty client
-    (methodCall asusObjectPath asusInterfaceName "PlatformProfile")
-      { methodCallDestination = Just asusBusName }
-    (toVariant (asusProfileToUInt profile))
+  result <-
+    setProperty
+      client
+      (methodCall asusObjectPath asusInterfaceName "PlatformProfile")
+        { methodCallDestination = Just asusBusName
+        }
+      (toVariant (asusProfileToUInt profile))
   return $ case result of
     Left err -> Left err
-    Right _  -> Right ()
+    Right _ -> Right ()
 
 -- | Cycle to the next profile by calling the NextPlatformProfile method.
 cycleASUSProfile :: Client -> IO (Either MethodError ())
 cycleASUSProfile client = do
-  let mc = (methodCall asusObjectPath asusInterfaceName "NextPlatformProfile")
-             { methodCallDestination = Just asusBusName }
+  let mc =
+        (methodCall asusObjectPath asusInterfaceName "NextPlatformProfile")
+          { methodCallDestination = Just asusBusName
+          }
   result <- call client mc
   return $ case result of
     Left err -> Left err
-    Right _  -> Right ()
+    Right _ -> Right ()
 
 -- sysfs CPU frequency reading
 
@@ -184,7 +202,7 @@ readCpuFreqGHz = do
         else do
           result <- try $ readFile path :: IO (Either SomeException String)
           case result of
-            Left _  -> return Nothing
+            Left _ -> return Nothing
             Right s -> return $ fmap fromIntegral (readMaybe (strip s) :: Maybe Integer)
     strip = dropWhile (== ' ') . reverse . dropWhile (== '\n') . reverse . dropWhile (== ' ')
 
@@ -208,11 +226,11 @@ readCpuTempC = do
         tempVal <- readTempFile tempPath
         return $ case tempVal of
           Nothing -> Nothing
-          Just t  -> Just (fromMaybe zone zoneType, t)
+          Just t -> Just (fromMaybe zone zoneType, t)
       let validReadings = catMaybes readings
           pkgTemp = lookup "x86_pkg_temp" validReadings
       case pkgTemp of
-        Just t  -> return t
+        Just t -> return t
         Nothing ->
           if null validReadings
             then return 0
@@ -225,7 +243,7 @@ readCpuTempC = do
         else do
           result <- try $ readFile path :: IO (Either SomeException String)
           case result of
-            Left _  -> return Nothing
+            Left _ -> return Nothing
             Right s -> return $ Just $ strip s
     readTempFile path = do
       exists' <- doesFileExist path
@@ -234,7 +252,7 @@ readCpuTempC = do
         else do
           result <- try $ readFile path :: IO (Either SomeException String)
           case result of
-            Left _  -> return Nothing
+            Left _ -> return Nothing
             Right s -> case readMaybe (strip s) :: Maybe Integer of
               Nothing -> return Nothing
               Just milliDeg -> return $ Just (fromIntegral milliDeg / 1000.0)
@@ -250,16 +268,17 @@ getASUSInfoFromClient client = do
   profile <- readProfileFromClient client
   freq <- readCpuFreqGHz
   temp <- readCpuTempC
-  return ASUSInfo
-    { asusProfile = profile
-    , asusCpuFreqGHz = freq
-    , asusCpuTempC = temp
-    }
+  return
+    ASUSInfo
+      { asusProfile = profile,
+        asusCpuFreqGHz = freq,
+        asusCpuTempC = temp
+      }
 
 -- State management for monitoring
 
-newtype ASUSInfoChanVar =
-  ASUSInfoChanVar (TChan ASUSInfo, MVar ASUSInfo)
+newtype ASUSInfoChanVar
+  = ASUSInfoChanVar (TChan ASUSInfo, MVar ASUSInfo)
 
 -- | Get the current ASUS info state.
 getASUSInfoState :: TaffyIO ASUSInfo
@@ -294,22 +313,24 @@ monitorASUSInfo = do
       runReaderT updateInfo ctx
   return (chan, infoVar)
 
-registerForASUSPropertiesChanged
-  :: (Signal -> String -> Map String Variant -> [String] -> IO ())
-  -> ReaderT Context IO SignalHandler
+registerForASUSPropertiesChanged ::
+  (Signal -> String -> Map String Variant -> [String] -> IO ()) ->
+  ReaderT Context IO SignalHandler
 registerForASUSPropertiesChanged signalHandler = do
   client <- asks systemDBusClient
-  lift $ DBus.registerForPropertiesChanged
-    client
-    matchAny { matchInterface = Just asusInterfaceName
-             , matchPath = Just asusObjectPath
-             }
-    signalHandler
+  lift $
+    DBus.registerForPropertiesChanged
+      client
+      matchAny
+        { matchInterface = Just asusInterfaceName,
+          matchPath = Just asusObjectPath
+        }
+      signalHandler
 
-updateASUSInfo
-  :: TChan ASUSInfo
-  -> MVar ASUSInfo
-  -> TaffyIO ()
+updateASUSInfo ::
+  TChan ASUSInfo ->
+  MVar ASUSInfo ->
+  TaffyIO ()
 updateASUSInfo chan var = do
   info <- getASUSInfo
   lift $ do

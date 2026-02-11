@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      : System.Taffybar.Widget.Inhibitor
 -- Copyright   : (c) Ivan A. Malison
@@ -27,60 +31,64 @@
 -- >         , inhibitorActiveText = "AWAKE"
 -- >         , inhibitorInactiveText = "zzz"
 -- >         }
------------------------------------------------------------------------------
 module System.Taffybar.Widget.Inhibitor
   ( -- * Widget constructors
-    inhibitorNew
-  , inhibitorNewWithConfig
-  , inhibitorIconNew
-  , inhibitorIconNewWithConfig
-  , inhibitorLabelNew
-  , inhibitorLabelNewWithConfig
-    -- * Configuration
-  , InhibitorConfig(..)
-  , defaultInhibitorConfig
-    -- * Re-exports
-  , InhibitType(..)
-  ) where
+    inhibitorNew,
+    inhibitorNewWithConfig,
+    inhibitorIconNew,
+    inhibitorIconNewWithConfig,
+    inhibitorLabelNew,
+    inhibitorLabelNewWithConfig,
 
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Reader
+    -- * Configuration
+    InhibitorConfig (..),
+    defaultInhibitorConfig,
+
+    -- * Re-exports
+    InhibitType (..),
+  )
+where
+
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader
 import qualified Data.Text as T
 import qualified GI.Gdk as Gdk
-import           GI.Gtk as Gtk
-import           System.Taffybar.Context
-import           System.Taffybar.Information.Inhibitor
-import           System.Taffybar.Util
-import           System.Taffybar.Widget.Generic.ChannelWidget
-import           System.Taffybar.Widget.Util
+import GI.Gtk as Gtk
+import System.Taffybar.Context
+import System.Taffybar.Information.Inhibitor
+import System.Taffybar.Util
+import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Util
 
 -- | Configuration for the inhibitor widget
 data InhibitorConfig = InhibitorConfig
   { -- | What types of inhibitors to manage (default: [InhibitIdle])
-    inhibitWhat :: [InhibitType]
+    inhibitWhat :: [InhibitType],
     -- | Text to display when inhibitor is active
-  , inhibitorActiveText :: T.Text
+    inhibitorActiveText :: T.Text,
     -- | Text to display when inhibitor is inactive
-  , inhibitorInactiveText :: T.Text
+    inhibitorInactiveText :: T.Text,
     -- | Icon to display when inhibitor is active (default: U+F0F4, nf-fa-coffee)
-  , inhibitorActiveIcon :: T.Text
+    inhibitorActiveIcon :: T.Text,
     -- | Icon to display when inhibitor is inactive (default: U+F236, nf-fa-bed)
-  , inhibitorInactiveIcon :: T.Text
+    inhibitorInactiveIcon :: T.Text,
     -- | CSS class prefix (results in "prefix-active" and "prefix-inactive")
-  , inhibitorCssPrefix :: T.Text
-  } deriving (Eq, Show)
+    inhibitorCssPrefix :: T.Text
+  }
+  deriving (Eq, Show)
 
 -- | Default configuration: inhibits idle, shows simple icon-style text
 defaultInhibitorConfig :: InhibitorConfig
-defaultInhibitorConfig = InhibitorConfig
-  { inhibitWhat = [InhibitIdle]
-  , inhibitorActiveText = "INHIBIT"
-  , inhibitorInactiveText = "inhibit"
-  , inhibitorActiveIcon = T.pack "\xF0F4"
-  , inhibitorInactiveIcon = T.pack "\xF236"
-  , inhibitorCssPrefix = "inhibitor"
-  }
+defaultInhibitorConfig =
+  InhibitorConfig
+    { inhibitWhat = [InhibitIdle],
+      inhibitorActiveText = "INHIBIT",
+      inhibitorInactiveText = "inhibit",
+      inhibitorActiveIcon = T.pack "\xF0F4",
+      inhibitorInactiveIcon = T.pack "\xF236",
+      inhibitorCssPrefix = "inhibitor"
+    }
 
 -- | Create a combined icon+label inhibitor widget with default configuration
 inhibitorNew :: TaffyIO Widget
@@ -124,11 +132,12 @@ inhibitorIconNewWithConfig config = do
   ctx <- ask
   liftIO $ do
     label <- labelNew Nothing
-    let updateIcon state = postGUIASync $
-          labelSetText label $
-            if inhibitorActive state
-            then inhibitorActiveIcon config
-            else inhibitorInactiveIcon config
+    let updateIcon state =
+          postGUIASync $
+            labelSetText label $
+              if inhibitorActive state
+                then inhibitorActiveIcon config
+                else inhibitorInactiveIcon config
     void $ onWidgetRealize label $ do
       initialState <- runReaderT (getInhibitorState types) ctx
       updateIcon initialState
@@ -168,14 +177,16 @@ inhibitorLabelNewWithConfig config = do
     let updateWidget state = postGUIASync $ do
           let (text, activeClass, inactiveClass) =
                 if inhibitorActive state
-                then ( inhibitorActiveText config
-                     , inhibitorCssPrefix config <> "-active"
-                     , inhibitorCssPrefix config <> "-inactive"
-                     )
-                else ( inhibitorInactiveText config
-                     , inhibitorCssPrefix config <> "-inactive"
-                     , inhibitorCssPrefix config <> "-active"
-                     )
+                  then
+                    ( inhibitorActiveText config,
+                      inhibitorCssPrefix config <> "-active",
+                      inhibitorCssPrefix config <> "-inactive"
+                    )
+                  else
+                    ( inhibitorInactiveText config,
+                      inhibitorCssPrefix config <> "-inactive",
+                      inhibitorCssPrefix config <> "-active"
+                    )
           labelSetText label text
           addClassIfMissing activeClass ebox
           removeClassIfPresent inactiveClass ebox

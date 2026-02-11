@@ -1,40 +1,45 @@
 module System.Taffybar.Test.DBusSpec
-  ( spec
-  -- * Start private D-Busses for testing
-  , withTestDBus
-  , withTestDBusInDir
-  , Bus(..)
-  , withDBusDaemon_
-  , withConnectDBusDaemon
-  , withConnectDBusDaemon'
-  -- ** Using the private D-Bus
-  , setDBusEnv
-  , withBusEnv
-  -- ** @python-dbusmock@ Services
-  , withPythonDBusMock
-  , withTaffyMocks
-  -- * Utils
-  , withMatch
-  , withClient
-  ) where
+  ( spec,
+
+    -- * Start private D-Busses for testing
+    withTestDBus,
+    withTestDBusInDir,
+    Bus (..),
+    withDBusDaemon_,
+    withConnectDBusDaemon,
+    withConnectDBusDaemon',
+
+    -- ** Using the private D-Bus
+    setDBusEnv,
+    withBusEnv,
+
+    -- ** @python-dbusmock@ Services
+    withPythonDBusMock,
+    withTaffyMocks,
+
+    -- * Utils
+    withMatch,
+    withClient,
+  )
+where
 
 import Control.Monad (forM_, void, when)
 import Control.Monad.IO.Unlift (MonadUnliftIO (..))
-import Data.Function ((&))
-import Data.Map qualified as Map
-import Data.Maybe (fromMaybe)
-import Data.Int (Int64)
 import DBus
 import DBus.Client
-import Test.Hspec
-import System.FilePath ((</>), (<.>), takeFileName)
-import System.IO (hGetLine, hClose)
+import Data.Function ((&))
+import Data.Int (Int64)
+import Data.Map qualified as Map
+import Data.Maybe (fromMaybe)
+import System.FilePath (takeFileName, (<.>), (</>))
+import System.IO (hClose, hGetLine)
 import System.Process.Typed
-import System.Taffybar.Test.UtilSpec (withSetEnv, logSetup, specLog, withService, getSpecLogPriority, setServiceDefaults, laxTimeout')
-import UnliftIO.Directory (makeAbsolute, createDirectoryIfMissing, createFileLink)
-import UnliftIO.Temporary (withSystemTempDirectory)
-import UnliftIO.Exception (bracket, throwString, finally, throwIO)
+import System.Taffybar.Test.UtilSpec (getSpecLogPriority, laxTimeout', logSetup, setServiceDefaults, specLog, withService, withSetEnv)
+import Test.Hspec
+import UnliftIO.Directory (createDirectoryIfMissing, createFileLink, makeAbsolute)
+import UnliftIO.Exception (bracket, finally, throwIO, throwString)
 import UnliftIO.MVar qualified as MV
+import UnliftIO.Temporary (withSystemTempDirectory)
 
 -- | Uses 'withDBusDaemon_' to provide both a private session bus and
 -- a private system bus while the given action is running.
@@ -48,12 +53,14 @@ import UnliftIO.MVar qualified as MV
 --
 -- __Note__: Environment variables are global to the process, so be
 -- careful using this with 'parallel' unit tests.
-withTestDBusInDir
-  :: FilePath -- ^ Directory for config files and sockets.
-  -> IO a -> IO a
-withTestDBusInDir socketDir
-  = withDBusDaemon_ System socketDir
-  . withDBusDaemon_ Session socketDir
+withTestDBusInDir ::
+  -- | Directory for config files and sockets.
+  FilePath ->
+  IO a ->
+  IO a
+withTestDBusInDir socketDir =
+  withDBusDaemon_ System socketDir
+    . withDBusDaemon_ Session socketDir
 
 -- | Same as 'withTestDBusInDir', except that it creates and removes the
 -- temporary directory for you.
@@ -92,7 +99,8 @@ withDBusDaemon bus socketDir action = do
 
     makeDBusDaemon configFile logLevel =
       proc "dbus-daemon" ["--print-address", "--config-file", configFile]
-        & setServiceDefaults logLevel & setStdout createPipe
+        & setServiceDefaults logLevel
+        & setStdout createPipe
 
 -- | Start a D-Bus daemon of the given 'Bus' type, and set the
 -- corresponding environment variable while running the given action.
@@ -108,10 +116,10 @@ withDBusDaemon_ bus socketDir action = withDBusDaemon bus socketDir $ \addr -> w
 withConnectDBusDaemon' :: Bus -> FilePath -> (Address -> Client -> IO a) -> IO a
 withConnectDBusDaemon' bus socketDir action =
   withDBusDaemon bus socketDir $ \addr ->
-  withClient addr $ \c -> action addr c
+    withClient addr $ \c -> action addr c
 
 withConnectDBusDaemon :: Bus -> FilePath -> (Client -> IO a) -> IO a
-withConnectDBusDaemon bus socketDir = withConnectDBusDaemon' bus socketDir. const
+withConnectDBusDaemon bus socketDir = withConnectDBusDaemon' bus socketDir . const
 
 setupBusDir :: Bus -> FilePath -> IO FilePath
 setupBusDir bus socketDir = do
@@ -124,20 +132,21 @@ setupBusDir bus socketDir = do
   -- createFileLink "/nix/store/ygd600kkc1h3p5dgw9vjm5xnfci43v0k-upower-1.90.4/share/dbus-1/system-services/org.freedesktop.UPower.service" (serviceDir </> "org.freedesktop.UPower.service")
 
   addr <- mkAddress (socketDir </> busName bus <.> "socket")
-  writeFile configFile $ unlines
-    [ "<!DOCTYPE busconfig PUBLIC \"-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN\" \"http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd\">"
-    , "<busconfig>"
-    , "  <type>" ++ busName bus ++ "</type>"
-    , "  <keep_umask/>"
-    , "  <listen>" ++ addr ++ "</listen>"
-    , "  <servicedir>" ++ serviceDir ++ "</servicedir>"
-    , "  <policy context=\"default\">"
-    , "    <allow send_destination=\"*\" eavesdrop=\"true\"/>"
-    , "    <allow eavesdrop=\"true\"/>"
-    , "    <allow own=\"*\"/>"
-    , "  </policy>"
-    , "</busconfig>"
-    ]
+  writeFile configFile $
+    unlines
+      [ "<!DOCTYPE busconfig PUBLIC \"-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN\" \"http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd\">",
+        "<busconfig>",
+        "  <type>" ++ busName bus ++ "</type>",
+        "  <keep_umask/>",
+        "  <listen>" ++ addr ++ "</listen>",
+        "  <servicedir>" ++ serviceDir ++ "</servicedir>",
+        "  <policy context=\"default\">",
+        "    <allow send_destination=\"*\" eavesdrop=\"true\"/>",
+        "    <allow eavesdrop=\"true\"/>",
+        "    <allow own=\"*\"/>",
+        "  </policy>",
+        "</busconfig>"
+      ]
   pure configFile
 
 mkAddress :: FilePath -> IO String
@@ -159,11 +168,12 @@ withBusEnv bus addr = withSetEnv [busEnv bus addr]
 withClient :: Address -> (Client -> IO a) -> IO a
 withClient addr = bracket (connect addr) disconnect
 
-withMatch :: MonadUnliftIO m => Client -> MatchRule -> (Signal -> m ()) -> m a -> m a
-withMatch client rule cb action = withRunInIO $ \run -> bracket
-  (addMatch client rule (run . cb))
-  (removeMatch client)
-  (const $ run action)
+withMatch :: (MonadUnliftIO m) => Client -> MatchRule -> (Signal -> m ()) -> m a -> m a
+withMatch client rule cb action = withRunInIO $ \run ->
+  bracket
+    (addMatch client rule (run . cb))
+    (removeMatch client)
+    (const $ run action)
 
 makeBusNameWaiter :: Client -> (BusName -> Bool) -> IO (IO ())
 makeBusNameWaiter client p = do
@@ -176,10 +186,12 @@ makeBusNameWaiter client p = do
   MV.putMVar h =<< addMatch client rule cb
   pure (MV.takeMVar v)
   where
-    rule = matchAny { matchMember = Just "NameOwnerChanged"
-                    , matchInterface = Just "org.freedesktop.DBus"
-                    , matchSender = Just "org.freedesktop.DBus"
-                    }
+    rule =
+      matchAny
+        { matchMember = Just "NameOwnerChanged",
+          matchInterface = Just "org.freedesktop.DBus",
+          matchSender = Just "org.freedesktop.DBus"
+        }
     isMatch = maybe False p . fromVariant
     isOwned = not . null . fromMaybe ("" :: String) . fromVariant
 
@@ -189,39 +201,54 @@ makeBusNameWaiter client p = do
 
 -- | Starts up [@python-dbusmock@](https://martinpitt.github.io/python-dbusmock/).
 -- The given action will be run once the mock is ready.
-withPythonDBusMock
-  :: Bus -- ^ @python-dbusmock@ wants to know which bus.
-  -> (Address, Client) -- ^ Connection to the 'Bus'
-  -> BusName -- ^ Name of mock service.
-  -> ObjectPath -- ^ Path of mock service.
-  -> InterfaceName -- ^ Interface of mock service.
-  -> IO a -> IO a
+withPythonDBusMock ::
+  -- | @python-dbusmock@ wants to know which bus.
+  Bus ->
+  -- | Connection to the 'Bus'
+  (Address, Client) ->
+  -- | Name of mock service.
+  BusName ->
+  -- | Path of mock service.
+  ObjectPath ->
+  -- | Interface of mock service.
+  InterfaceName ->
+  IO a ->
+  IO a
 withPythonDBusMock bus (addr, client) name path interface action = do
   waiter <- makeBusNameWaiter client (== name)
   logLevel <- getSpecLogPriority
-  withService (cfg & setServiceDefaults logLevel) $ const $
-    waiter *> action
+  withService (cfg & setServiceDefaults logLevel) $
+    const $
+      waiter *> action
   where
     cfg = proc "python3" args & setDBusEnv bus addr
-    args = ["-m", "dbusmock", busArg bus
-           , formatBusName name
-           , formatObjectPath path
-           , formatInterfaceName interface]
+    args =
+      [ "-m",
+        "dbusmock",
+        busArg bus,
+        formatBusName name,
+        formatObjectPath path,
+        formatInterfaceName interface
+      ]
 
 mockAddTemplate :: Client -> BusName -> ObjectPath -> String -> [(String, Variant)] -> IO ()
 mockAddTemplate client dest path templ params = do
-  void $ call_ client (addTemplate templ params) { methodCallDestination = Just dest }
+  void $ call_ client (addTemplate templ params) {methodCallDestination = Just dest}
   where
-    addTemplate t p = (methodCall path "org.freedesktop.DBus.Mock" "AddTemplate")
-      { methodCallBody = [toVariant t, toVariant (Map.fromList p)] }
+    addTemplate t p =
+      (methodCall path "org.freedesktop.DBus.Mock" "AddTemplate")
+        { methodCallBody = [toVariant t, toVariant (Map.fromList p)]
+        }
 
 ------------------------------------------------------------------------
 
 upName :: BusName
 upName = "org.freedesktop.UPower"
+
 upPath, upDisplayDevicePath :: ObjectPath
 upPath = "/org/freedesktop/UPower"
 upDisplayDevicePath = objectPath_ (formatObjectPath upPath ++ "/devices/DisplayDevice")
+
 upIface, upDeviceIface :: InterfaceName
 upIface = "org.freedesktop.UPower"
 upDeviceIface = interfaceName_ (formatInterfaceName upIface ++ ".Device")
@@ -233,9 +260,9 @@ mockUPower :: Client -> IO ()
 mockUPower client = do
   -- oh dbus, so ugly.
   mockAddTemplate client upName upPath "upower" [("OnBattery", toVariant True)]
-  void $ call_ client (methodCall upPath "org.freedesktop.DBus.Mock" "AddAC") { methodCallBody = map toVariant ["mock_AC" :: String, "Mock AC"], methodCallDestination = Just upName }
-  void $ call_ client (methodCall upPath "org.freedesktop.DBus.Mock" "AddChargingBattery") { methodCallBody = map toVariant ["mock_BAT" :: String, "Mock Battery"] ++ [toVariant (30.0 :: Double), toVariant (1200 :: Int64)] , methodCallDestination = Just upName }
-  void $ setPropertyValue client (methodCall upDisplayDevicePath upDeviceIface "IconName") { methodCallDestination = Just upName } mockIconName
+  void $ call_ client (methodCall upPath "org.freedesktop.DBus.Mock" "AddAC") {methodCallBody = map toVariant ["mock_AC" :: String, "Mock AC"], methodCallDestination = Just upName}
+  void $ call_ client (methodCall upPath "org.freedesktop.DBus.Mock" "AddChargingBattery") {methodCallBody = map toVariant ["mock_BAT" :: String, "Mock Battery"] ++ [toVariant (30.0 :: Double), toVariant (1200 :: Int64)], methodCallDestination = Just upName}
+  void $ setPropertyValue client (methodCall upDisplayDevicePath upDeviceIface "IconName") {methodCallDestination = Just upName} mockIconName
 
 withTaffyMocks :: IO a -> IO a
 withTaffyMocks action = do
@@ -263,16 +290,18 @@ spec = logSetup $ around_ (laxTimeout' 1_000_000) $ around (withSystemTempDirect
 
   forM_ [System] $ \bus ->
     aroundWith (flip (withConnectDBusDaemon' bus) . curry) $
-    describe ("python-dbusmock " ++ show bus ++ " services") $ do
-      -- These tests are currently failing in CI due to python-dbusmock startup issues.
-      -- Mark as pending until the root cause is identified.
-      it "simple" $ \_ -> pendingWith "python-dbusmock fails to start in CI"
+      describe ("python-dbusmock " ++ show bus ++ " services") $ do
+        -- These tests are currently failing in CI due to python-dbusmock startup issues.
+        -- Mark as pending until the root cause is identified.
+        it "simple" $ \_ -> pendingWith "python-dbusmock fails to start in CI"
 
-      it "UPower" $ \_ -> pendingWith "python-dbusmock fails to start in CI"
+        it "UPower" $ \_ -> pendingWith "python-dbusmock fails to start in CI"
 
 gdbusPing :: Bus -> ProcessConfig () () ()
 gdbusPing bus = proc "gdbus" ["call", "--" ++ busName bus, "--dest", "org.freedesktop.DBus", "--object-path", "/org/freedesktop/DBus", "--method", "org.freedesktop.DBus.Peer.Ping"]
 
 ping :: MethodCall
-ping = (methodCall "/org/freedesktop/DBus" "org.freedesktop.DBus.Peer" "Ping")
-  { methodCallDestination = Just "org.freedesktop.DBus" }
+ping =
+  (methodCall "/org/freedesktop/DBus" "org.freedesktop.DBus.Peer" "Ping")
+    { methodCallDestination = Just "org.freedesktop.DBus"
+    }
