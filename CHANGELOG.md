@@ -14,6 +14,16 @@
  * Extend Hyprland VM appearance checks to exercise `--levels` rendering and
    assert multi-row output markers.
 
+## Dependency Bumps
+
+ * Bump `gtk-sni-tray` lower bound to 0.1.14.0.
+
+## Tray
+
+ * Add optional SNI tray priority pass-through via new additive constructors
+   while keeping existing tray constructors backwards compatible.
+ * Add a collapsible SNI tray widget with overflow indicator and expand/collapse
+   interaction.
 # 5.1.1
 
 ## Dependency Bumps
