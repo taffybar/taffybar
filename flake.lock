@@ -191,11 +191,11 @@
     "status-notifier-item": {
       "flake": false,
       "locked": {
-        "lastModified": 1770253964,
-        "narHash": "sha256-tBbdN+xJmxNEZZSXYUxvVEeldzEjoL8WA45h3xU9U4w=",
+        "lastModified": 1770852064,
+        "narHash": "sha256-VtgQuGf7XVGfZlPhLT4AldAi+NW0t+r9Hy6tlSdkzYw=",
         "owner": "taffybar",
         "repo": "status-notifier-item",
-        "rev": "08294f53c666aa85375364d5e08e952aa7510991",
+        "rev": "fbe6244855f73ff40a4683ed692109a94e81f199",
         "type": "github"
       },
       "original": {
