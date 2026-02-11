@@ -73,14 +73,14 @@ import System.Taffybar.Context
     exitTaffybar,
   )
 import System.Taffybar.Util (postGUIASync)
-import System.Taffybar.Widget.Workspaces
+import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
+import System.Taffybar.Widget.Workspaces.EWMH
   ( WorkspacesConfig,
     getWindowIconPixbufFromEWMH,
     sortWindowsByStackIndex,
     workspacesNew,
   )
-import qualified System.Taffybar.Widget.Workspaces as Workspaces
-import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
+import qualified System.Taffybar.Widget.Workspaces.EWMH as Workspaces
 import UnliftIO.Temporary (withSystemTempDirectory)
 
 data Args = Args

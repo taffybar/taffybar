@@ -18,24 +18,43 @@
 -- This module is intentionally not re-exported by the umbrella widget
 -- modules so that consumers opt in explicitly.
 module System.Taffybar.Widget.Workspaces.Hyprland.Compat
-  ( FlatHyprlandWorkspacesConfig (..),
+  ( HyprlandWorkspacesConfig (..),
+    defaultHyprlandWorkspacesConfig,
+    hyprlandWorkspacesNew,
+    hyprlandWorkspacesCommonConfig,
+    applyCommonHyprlandWorkspacesConfig,
+    toHyprlandWorkspacesConfig,
+    fromHyprlandWorkspacesConfig,
+    refreshWorkspaces,
+    applyUrgentState,
+    hyprlandBuildLabelController,
+    hyprlandBuildIconController,
+    hyprlandBuildContentsController,
+    hyprlandBuildLabelOverlayController,
+    hyprlandBuildCustomOverlayController,
+    hyprlandBuildButtonController,
+    defaultHyprlandWidgetBuilder,
+    buildIconWidget,
+    FlatHyprlandWorkspacesConfig,
     defaultFlatHyprlandWorkspacesConfig,
     fromFlatHyprlandWorkspacesConfig,
     toFlatHyprlandWorkspacesConfig,
   )
 where
 
+import Control.Monad.Trans.Reader (ReaderT)
 import Data.Default (Default (..))
 import Data.Int (Int32)
-import System.Taffybar.Context (TaffyIO)
+import qualified GI.Gtk as Gtk
+import System.Taffybar.Context (Context, TaffyIO)
 import System.Taffybar.Widget.Workspaces.Config
   ( WorkspaceWidgetCommonConfig (WorkspaceWidgetCommonConfig),
   )
 import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
 import qualified System.Taffybar.Widget.Workspaces.Hyprland as Hyprland
 
-data FlatHyprlandWorkspacesConfig
-  = FlatHyprlandWorkspacesConfig
+data HyprlandWorkspacesConfig
+  = HyprlandWorkspacesConfig
   { getWorkspaces :: TaffyIO [Hyprland.HyprlandWorkspace],
     switchToWorkspace :: Hyprland.HyprlandWorkspace -> TaffyIO (),
     updateIntervalSeconds :: Double,
@@ -51,9 +70,35 @@ data FlatHyprlandWorkspacesConfig
     urgentWorkspaceState :: Bool
   }
 
-fromFlatHyprlandWorkspacesConfig ::
-  FlatHyprlandWorkspacesConfig -> Hyprland.HyprlandWorkspacesConfig
-fromFlatHyprlandWorkspacesConfig flat =
+{-# DEPRECATED getWorkspaces "Legacy flat config field. Use `System.Taffybar.Widget.Workspaces.Hyprland.getWorkspaces` on the canonical nested config type instead." #-}
+
+{-# DEPRECATED switchToWorkspace "Legacy flat config field. Use `System.Taffybar.Widget.Workspaces.Hyprland.switchToWorkspace` on the canonical nested config type instead." #-}
+
+{-# DEPRECATED updateIntervalSeconds "Legacy flat config field. Use `System.Taffybar.Widget.Workspaces.Hyprland.updateIntervalSeconds` on the canonical nested config type instead." #-}
+
+{-# DEPRECATED widgetBuilder "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.Hyprland.HyprlandWorkspacesConfig` instead." #-}
+
+{-# DEPRECATED widgetGap "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.Hyprland.HyprlandWorkspacesConfig` instead." #-}
+
+{-# DEPRECATED maxIcons "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.Hyprland.HyprlandWorkspacesConfig` instead." #-}
+
+{-# DEPRECATED minIcons "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.Hyprland.HyprlandWorkspacesConfig` instead." #-}
+
+{-# DEPRECATED iconSize "Legacy flat config field. Use `System.Taffybar.Widget.Workspaces.Hyprland.iconSize` on the canonical nested config type instead." #-}
+
+{-# DEPRECATED getWindowIconPixbuf "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.Hyprland.HyprlandWorkspacesConfig` instead." #-}
+
+{-# DEPRECATED labelSetter "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.Hyprland.HyprlandWorkspacesConfig` instead." #-}
+
+{-# DEPRECATED showWorkspaceFn "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.Hyprland.HyprlandWorkspacesConfig` instead." #-}
+
+{-# DEPRECATED iconSort "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.Hyprland.HyprlandWorkspacesConfig` instead." #-}
+
+{-# DEPRECATED urgentWorkspaceState "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.Hyprland.HyprlandWorkspacesConfig` instead." #-}
+
+toHyprlandWorkspacesConfig ::
+  HyprlandWorkspacesConfig -> Hyprland.HyprlandWorkspacesConfig
+toHyprlandWorkspacesConfig flat =
   Hyprland.HyprlandWorkspacesConfig
     { Hyprland.getWorkspaces = getWorkspaces flat,
       Hyprland.switchToWorkspace = switchToWorkspace flat,
@@ -73,11 +118,11 @@ fromFlatHyprlandWorkspacesConfig flat =
           }
     }
 
-toFlatHyprlandWorkspacesConfig ::
-  Hyprland.HyprlandWorkspacesConfig -> FlatHyprlandWorkspacesConfig
-toFlatHyprlandWorkspacesConfig cfg =
+fromHyprlandWorkspacesConfig ::
+  Hyprland.HyprlandWorkspacesConfig -> HyprlandWorkspacesConfig
+fromHyprlandWorkspacesConfig cfg =
   let common = Hyprland.workspacesConfig cfg
-   in FlatHyprlandWorkspacesConfig
+   in HyprlandWorkspacesConfig
         { getWorkspaces = Hyprland.getWorkspaces cfg,
           switchToWorkspace = Hyprland.switchToWorkspace cfg,
           updateIntervalSeconds = Hyprland.updateIntervalSeconds cfg,
@@ -93,9 +138,100 @@ toFlatHyprlandWorkspacesConfig cfg =
           urgentWorkspaceState = WorkspaceConfig.urgentWorkspaceState common
         }
 
-defaultFlatHyprlandWorkspacesConfig :: FlatHyprlandWorkspacesConfig
-defaultFlatHyprlandWorkspacesConfig =
-  toFlatHyprlandWorkspacesConfig Hyprland.defaultHyprlandWorkspacesConfig
+defaultHyprlandWorkspacesConfig :: HyprlandWorkspacesConfig
+defaultHyprlandWorkspacesConfig =
+  fromHyprlandWorkspacesConfig Hyprland.defaultHyprlandWorkspacesConfig
 
-instance Default FlatHyprlandWorkspacesConfig where
-  def = defaultFlatHyprlandWorkspacesConfig
+hyprlandWorkspacesNew :: HyprlandWorkspacesConfig -> TaffyIO Gtk.Widget
+hyprlandWorkspacesNew =
+  Hyprland.hyprlandWorkspacesNew . toHyprlandWorkspacesConfig
+
+hyprlandWorkspacesCommonConfig ::
+  HyprlandWorkspacesConfig ->
+  WorkspaceWidgetCommonConfig (ReaderT Context IO) Hyprland.HyprlandWorkspace Hyprland.HyprlandWindow Hyprland.HyprlandWWC
+hyprlandWorkspacesCommonConfig =
+  Hyprland.workspacesConfig . toHyprlandWorkspacesConfig
+
+applyCommonHyprlandWorkspacesConfig ::
+  WorkspaceWidgetCommonConfig (ReaderT Context IO) Hyprland.HyprlandWorkspace Hyprland.HyprlandWindow Hyprland.HyprlandWWC ->
+  HyprlandWorkspacesConfig ->
+  HyprlandWorkspacesConfig
+applyCommonHyprlandWorkspacesConfig common cfg =
+  fromHyprlandWorkspacesConfig $
+    Hyprland.applyCommonHyprlandWorkspacesConfig common (toHyprlandWorkspacesConfig cfg)
+
+refreshWorkspaces ::
+  HyprlandWorkspacesConfig -> Gtk.Box -> ReaderT Context IO ()
+refreshWorkspaces cfg =
+  Hyprland.refreshWorkspaces (toHyprlandWorkspacesConfig cfg)
+
+applyUrgentState ::
+  HyprlandWorkspacesConfig ->
+  Hyprland.HyprlandWorkspace ->
+  Hyprland.HyprlandWorkspace
+applyUrgentState cfg =
+  Hyprland.applyUrgentState (toHyprlandWorkspacesConfig cfg)
+
+hyprlandBuildLabelController ::
+  HyprlandWorkspacesConfig -> Hyprland.HyprlandControllerConstructor
+hyprlandBuildLabelController =
+  Hyprland.hyprlandBuildLabelController . toHyprlandWorkspacesConfig
+
+hyprlandBuildIconController ::
+  HyprlandWorkspacesConfig -> Hyprland.HyprlandControllerConstructor
+hyprlandBuildIconController =
+  Hyprland.hyprlandBuildIconController . toHyprlandWorkspacesConfig
+
+hyprlandBuildContentsController ::
+  [Hyprland.HyprlandControllerConstructor] -> Hyprland.HyprlandControllerConstructor
+hyprlandBuildContentsController =
+  Hyprland.hyprlandBuildContentsController
+
+hyprlandBuildLabelOverlayController ::
+  HyprlandWorkspacesConfig ->
+  Hyprland.HyprlandControllerConstructor
+hyprlandBuildLabelOverlayController =
+  Hyprland.hyprlandBuildLabelOverlayController . toHyprlandWorkspacesConfig
+
+hyprlandBuildCustomOverlayController ::
+  (Gtk.Widget -> Gtk.Widget -> TaffyIO Gtk.Widget) ->
+  HyprlandWorkspacesConfig ->
+  Hyprland.HyprlandControllerConstructor
+hyprlandBuildCustomOverlayController overlay cfg =
+  Hyprland.hyprlandBuildCustomOverlayController
+    overlay
+    (toHyprlandWorkspacesConfig cfg)
+
+hyprlandBuildButtonController ::
+  HyprlandWorkspacesConfig ->
+  Hyprland.HyprlandParentControllerConstructor
+hyprlandBuildButtonController cfg =
+  Hyprland.hyprlandBuildButtonController (toHyprlandWorkspacesConfig cfg)
+
+defaultHyprlandWidgetBuilder ::
+  HyprlandWorkspacesConfig -> Hyprland.HyprlandControllerConstructor
+defaultHyprlandWidgetBuilder =
+  Hyprland.defaultHyprlandWidgetBuilder . toHyprlandWorkspacesConfig
+
+buildIconWidget ::
+  Bool ->
+  HyprlandWorkspacesConfig ->
+  ReaderT Context IO Hyprland.HyprlandIconWidget
+buildIconWidget transparentOnNone cfg =
+  Hyprland.buildIconWidget transparentOnNone (toHyprlandWorkspacesConfig cfg)
+
+type FlatHyprlandWorkspacesConfig = HyprlandWorkspacesConfig
+
+defaultFlatHyprlandWorkspacesConfig :: FlatHyprlandWorkspacesConfig
+defaultFlatHyprlandWorkspacesConfig = defaultHyprlandWorkspacesConfig
+
+fromFlatHyprlandWorkspacesConfig ::
+  FlatHyprlandWorkspacesConfig -> Hyprland.HyprlandWorkspacesConfig
+fromFlatHyprlandWorkspacesConfig = toHyprlandWorkspacesConfig
+
+toFlatHyprlandWorkspacesConfig ::
+  Hyprland.HyprlandWorkspacesConfig -> FlatHyprlandWorkspacesConfig
+toFlatHyprlandWorkspacesConfig = fromHyprlandWorkspacesConfig
+
+instance Default HyprlandWorkspacesConfig where
+  def = defaultHyprlandWorkspacesConfig

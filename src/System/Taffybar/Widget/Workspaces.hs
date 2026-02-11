@@ -13,8 +13,26 @@
 module System.Taffybar.Widget.Workspaces
   ( module System.Taffybar.Widget.Workspaces.EWMH,
     module System.Taffybar.Widget.Workspaces.Shared,
+    WorkspacesConfig (..),
+    defaultWorkspacesConfig,
+    workspacesNew,
+    workspacesCommonConfig,
+    applyCommonWorkspacesConfig,
   )
 where
 
-import System.Taffybar.Widget.Workspaces.EWMH
+import System.Taffybar.Widget.Workspaces.EWMH hiding
+  ( WorkspacesConfig (..),
+    applyCommonWorkspacesConfig,
+    defaultWorkspacesConfig,
+    workspacesCommonConfig,
+    workspacesNew,
+  )
+import System.Taffybar.Widget.Workspaces.EWMH.Compat
+  ( WorkspacesConfig (..),
+    applyCommonWorkspacesConfig,
+    defaultWorkspacesConfig,
+    workspacesCommonConfig,
+    workspacesNew,
+  )
 import System.Taffybar.Widget.Workspaces.Shared

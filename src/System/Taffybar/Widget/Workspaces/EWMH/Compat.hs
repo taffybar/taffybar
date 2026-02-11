@@ -18,22 +18,32 @@
 -- This module is intentionally not re-exported by the umbrella widget
 -- modules so that consumers opt in explicitly.
 module System.Taffybar.Widget.Workspaces.EWMH.Compat
-  ( FlatWorkspacesConfig (..),
+  ( WorkspacesConfig (..),
+    defaultWorkspacesConfig,
+    workspacesNew,
+    workspacesCommonConfig,
+    applyCommonWorkspacesConfig,
+    toEWMHWorkspacesConfig,
+    fromEWMHWorkspacesConfig,
+    FlatWorkspacesConfig,
     defaultFlatWorkspacesConfig,
     fromFlatWorkspacesConfig,
     toFlatWorkspacesConfig,
   )
 where
 
+import Control.Monad.Trans.Reader (ReaderT)
 import Data.Default (Default (..))
+import qualified GI.Gtk as Gtk
+import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Widget.Workspaces.Config
   ( WorkspaceWidgetCommonConfig (WorkspaceWidgetCommonConfig),
   )
 import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
 import qualified System.Taffybar.Widget.Workspaces.EWMH as EWMH
 
-data FlatWorkspacesConfig
-  = FlatWorkspacesConfig
+data WorkspacesConfig
+  = WorkspacesConfig
   { widgetBuilder :: EWMH.ControllerConstructor,
     widgetGap :: Int,
     maxIcons :: Maybe Int,
@@ -48,8 +58,32 @@ data FlatWorkspacesConfig
     urgentWorkspaceState :: Bool
   }
 
-fromFlatWorkspacesConfig :: FlatWorkspacesConfig -> EWMH.WorkspacesConfig
-fromFlatWorkspacesConfig flat =
+{-# DEPRECATED widgetBuilder "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.EWMH.WorkspacesConfig` instead." #-}
+
+{-# DEPRECATED widgetGap "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.EWMH.WorkspacesConfig` instead." #-}
+
+{-# DEPRECATED maxIcons "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.EWMH.WorkspacesConfig` instead." #-}
+
+{-# DEPRECATED minIcons "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.EWMH.WorkspacesConfig` instead." #-}
+
+{-# DEPRECATED getWindowIconPixbuf "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.EWMH.WorkspacesConfig` instead." #-}
+
+{-# DEPRECATED labelSetter "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.EWMH.WorkspacesConfig` instead." #-}
+
+{-# DEPRECATED showWorkspaceFn "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.EWMH.WorkspacesConfig` instead." #-}
+
+{-# DEPRECATED borderWidth "Legacy flat config field. Use `System.Taffybar.Widget.Workspaces.EWMH.borderWidth` on the canonical EWMH config type instead." #-}
+
+{-# DEPRECATED updateEvents "Legacy flat config field. Use `System.Taffybar.Widget.Workspaces.EWMH.updateEvents` on the canonical EWMH config type instead." #-}
+
+{-# DEPRECATED updateRateLimitMicroseconds "Legacy flat config field. Use `System.Taffybar.Widget.Workspaces.EWMH.updateRateLimitMicroseconds` on the canonical EWMH config type instead." #-}
+
+{-# DEPRECATED iconSort "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.EWMH.WorkspacesConfig` instead." #-}
+
+{-# DEPRECATED urgentWorkspaceState "Legacy flat config field. Use the nested `workspacesConfig` field in `System.Taffybar.Widget.Workspaces.EWMH.WorkspacesConfig` instead." #-}
+
+toEWMHWorkspacesConfig :: WorkspacesConfig -> EWMH.WorkspacesConfig
+toEWMHWorkspacesConfig flat =
   EWMH.WorkspacesConfig
     { EWMH.workspacesConfig =
         WorkspaceWidgetCommonConfig
@@ -68,10 +102,10 @@ fromFlatWorkspacesConfig flat =
       EWMH.updateRateLimitMicroseconds = updateRateLimitMicroseconds flat
     }
 
-toFlatWorkspacesConfig :: EWMH.WorkspacesConfig -> FlatWorkspacesConfig
-toFlatWorkspacesConfig cfg =
+fromEWMHWorkspacesConfig :: EWMH.WorkspacesConfig -> WorkspacesConfig
+fromEWMHWorkspacesConfig cfg =
   let common = EWMH.workspacesConfig cfg
-   in FlatWorkspacesConfig
+   in WorkspacesConfig
         { widgetBuilder = WorkspaceConfig.widgetBuilder common,
           widgetGap = WorkspaceConfig.widgetGap common,
           maxIcons = WorkspaceConfig.maxIcons common,
@@ -86,9 +120,37 @@ toFlatWorkspacesConfig cfg =
           urgentWorkspaceState = WorkspaceConfig.urgentWorkspaceState common
         }
 
-defaultFlatWorkspacesConfig :: FlatWorkspacesConfig
-defaultFlatWorkspacesConfig =
-  toFlatWorkspacesConfig EWMH.defaultWorkspacesConfig
+defaultWorkspacesConfig :: WorkspacesConfig
+defaultWorkspacesConfig =
+  fromEWMHWorkspacesConfig EWMH.defaultWorkspacesConfig
 
-instance Default FlatWorkspacesConfig where
-  def = defaultFlatWorkspacesConfig
+workspacesNew :: WorkspacesConfig -> TaffyIO Gtk.Widget
+workspacesNew = EWMH.workspacesNew . toEWMHWorkspacesConfig
+
+workspacesCommonConfig ::
+  WorkspacesConfig ->
+  WorkspaceWidgetCommonConfig (ReaderT EWMH.WorkspacesContext IO) EWMH.Workspace EWMH.WindowData EWMH.WWC
+workspacesCommonConfig =
+  EWMH.workspacesConfig . toEWMHWorkspacesConfig
+
+applyCommonWorkspacesConfig ::
+  WorkspaceWidgetCommonConfig (ReaderT EWMH.WorkspacesContext IO) EWMH.Workspace EWMH.WindowData EWMH.WWC ->
+  WorkspacesConfig ->
+  WorkspacesConfig
+applyCommonWorkspacesConfig common cfg =
+  fromEWMHWorkspacesConfig $
+    EWMH.applyCommonWorkspacesConfig common (toEWMHWorkspacesConfig cfg)
+
+type FlatWorkspacesConfig = WorkspacesConfig
+
+defaultFlatWorkspacesConfig :: FlatWorkspacesConfig
+defaultFlatWorkspacesConfig = defaultWorkspacesConfig
+
+fromFlatWorkspacesConfig :: FlatWorkspacesConfig -> EWMH.WorkspacesConfig
+fromFlatWorkspacesConfig = toEWMHWorkspacesConfig
+
+toFlatWorkspacesConfig :: EWMH.WorkspacesConfig -> FlatWorkspacesConfig
+toFlatWorkspacesConfig = fromEWMHWorkspacesConfig
+
+instance Default WorkspacesConfig where
+  def = defaultWorkspacesConfig

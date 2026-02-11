@@ -12,7 +12,55 @@
 -- Portability : unportable
 module System.Taffybar.Widget.HyprlandWorkspaces
   ( module System.Taffybar.Widget.Workspaces.Hyprland,
+    HyprlandWorkspacesConfig (..),
+    defaultHyprlandWorkspacesConfig,
+    hyprlandWorkspacesNew,
+    hyprlandWorkspacesCommonConfig,
+    applyCommonHyprlandWorkspacesConfig,
+    refreshWorkspaces,
+    applyUrgentState,
+    hyprlandBuildLabelController,
+    hyprlandBuildIconController,
+    hyprlandBuildContentsController,
+    hyprlandBuildLabelOverlayController,
+    hyprlandBuildCustomOverlayController,
+    hyprlandBuildButtonController,
+    defaultHyprlandWidgetBuilder,
+    buildIconWidget,
   )
 where
 
-import System.Taffybar.Widget.Workspaces.Hyprland
+import System.Taffybar.Widget.Workspaces.Hyprland hiding
+  ( HyprlandWorkspacesConfig (..),
+    applyCommonHyprlandWorkspacesConfig,
+    applyUrgentState,
+    buildIconWidget,
+    defaultHyprlandWidgetBuilder,
+    defaultHyprlandWorkspacesConfig,
+    hyprlandBuildButtonController,
+    hyprlandBuildContentsController,
+    hyprlandBuildCustomOverlayController,
+    hyprlandBuildIconController,
+    hyprlandBuildLabelController,
+    hyprlandBuildLabelOverlayController,
+    hyprlandWorkspacesCommonConfig,
+    hyprlandWorkspacesNew,
+    refreshWorkspaces,
+  )
+import System.Taffybar.Widget.Workspaces.Hyprland.Compat
+  ( HyprlandWorkspacesConfig (..),
+    applyCommonHyprlandWorkspacesConfig,
+    applyUrgentState,
+    buildIconWidget,
+    defaultHyprlandWidgetBuilder,
+    defaultHyprlandWorkspacesConfig,
+    hyprlandBuildButtonController,
+    hyprlandBuildContentsController,
+    hyprlandBuildCustomOverlayController,
+    hyprlandBuildIconController,
+    hyprlandBuildLabelController,
+    hyprlandBuildLabelOverlayController,
+    hyprlandWorkspacesCommonConfig,
+    hyprlandWorkspacesNew,
+    refreshWorkspaces,
+  )

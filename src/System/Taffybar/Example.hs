@@ -29,8 +29,8 @@ import System.Taffybar.Information.Memory
 import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
 import System.Taffybar.Widget.Generic.PollingGraph
-import qualified System.Taffybar.Widget.Workspaces as Workspaces
 import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
+import qualified System.Taffybar.Widget.Workspaces.EWMH as Workspaces
 
 transparent,
   yellow1,
@@ -82,7 +82,7 @@ cpuCallback = do
 
 exampleTaffybarConfig :: TaffybarConfig
 exampleTaffybarConfig =
-  let myWorkspacesConfig :: WorkspacesConfig
+  let myWorkspacesConfig :: Workspaces.WorkspacesConfig
       myWorkspacesConfig =
         let cfg = def
          in cfg
@@ -93,7 +93,7 @@ exampleTaffybarConfig =
                       WorkspaceConfig.showWorkspaceFn = hideEmpty
                     }
               }
-      workspaces = workspacesNew myWorkspacesConfig
+      workspaces = Workspaces.workspacesNew myWorkspacesConfig
       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
       mem = pollingGraphNew memCfg 1 memCallback
       net = networkGraphNew netCfg Nothing
