@@ -348,8 +348,8 @@ registerResumeRefresh ctx = do
 
   let scheduleRefresh :: IO ()
       scheduleRefresh = do
-        pending <- MV.swapMVar pendingVar True
-        unless pending $ void $ forkIO $ do
+        wasPending <- MV.swapMVar pendingVar True
+        unless wasPending $ void $ forkIO $ do
           -- Give the compositor a moment to re-establish outputs/surfaces.
           threadDelay 1_000_000
           _ <- MV.swapMVar pendingVar False
