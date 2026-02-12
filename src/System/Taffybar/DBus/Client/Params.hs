@@ -67,6 +67,25 @@ uPowerGenerationParams =
       genBusName = Just uPowerBusName
     }
 
+-- | The bus name for systemd-logind.
+login1BusName :: BusName
+login1BusName = "org.freedesktop.login1"
+
+-- | The object path for the systemd-logind manager.
+login1ObjectPath :: ObjectPath
+login1ObjectPath = "/org/freedesktop/login1"
+
+-- | The interface name for the systemd-logind manager.
+login1ManagerInterfaceName :: InterfaceName
+login1ManagerInterfaceName = "org.freedesktop.login1.Manager"
+
+login1GenerationParams :: GenerationParams
+login1GenerationParams =
+  defaultGenerationParams
+    { genTakeSignalErrorHandler = True,
+      genBusName = Just login1BusName
+    }
+
 -- | The bus name for PulseAudio's server lookup on the session bus.
 paServerLookupBusName :: BusName
 paServerLookupBusName = "org.PulseAudio1"

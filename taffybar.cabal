@@ -17,6 +17,7 @@ extra-source-files:
   dbus-xml/org.PulseAudio.ServerLookup1.xml
   dbus-xml/org.PulseAudio.Core1.xml
   dbus-xml/org.PulseAudio.Core1.Device.xml
+  dbus-xml/org.freedesktop.login1.Manager.xml
   dbus-xml/org.freedesktop.UPower.Device.xml
   dbus-xml/org.freedesktop.UPower.xml
   dbus-xml/org.mpris.MediaPlayer2.Player.xml
@@ -238,6 +239,7 @@ library
     exposed-modules: System.Taffybar.Support.PagerHints
 
   other-modules: Paths_taffybar
+               , System.Taffybar.DBus.Client.Login1Manager
                , System.Taffybar.DBus.Client.MPRIS2
                , System.Taffybar.DBus.Client.NetworkManager
                , System.Taffybar.DBus.Client.NetworkManagerAccessPoint

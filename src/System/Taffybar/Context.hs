@@ -73,14 +73,16 @@ module System.Taffybar.Context
 where
 
 import Control.Arrow ((&&&), (***))
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, threadDelay)
 import qualified Control.Concurrent.MVar as MV
+import Control.Exception (SomeException, try)
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Reader
+import qualified DBus as D
 import qualified DBus.Client as DBus
 import Data.Data
 import Data.Default (Default (..))
@@ -102,6 +104,7 @@ import Graphics.UI.GIGtkStrut
 import StatusNotifier.TransparentWindow
 import System.Log.Logger (Priority (..), logM)
 import System.Taffybar.Context.Backend (Backend (..), detectBackend)
+import qualified System.Taffybar.DBus.Client.Params as DBusParams
 import System.Taffybar.Information.Hyprland
   ( HyprlandClient,
     HyprlandEventChan,
@@ -310,6 +313,12 @@ buildContext
                     -- whatever it pleases.
                     (runReaderT forceRefreshTaffyWindows context)
               )
+
+    -- Some compositors/backends will keep the reserved space for a layer-shell
+    -- surface/strut window after suspend, but fail to properly re-display the
+    -- window. Listen for systemd-logind resume and force a refresh.
+    registerResumeRefresh context
+
     flip runReaderT context $ do
       logC DEBUG "Starting X11 Handler"
       startX11EventHandler
@@ -319,6 +328,51 @@ buildContext
       refreshTaffyWindows
     logIO DEBUG "Context build finished"
     return context
+
+-- | Register a logind sleep/resume listener that forces a window refresh after
+-- resume. This is a pragmatic workaround for cases where the bar stays "reserved"
+-- (exclusive zone/strut) but stops being visible after resume.
+registerResumeRefresh :: Context -> IO ()
+registerResumeRefresh ctx = do
+  let client = systemDBusClient ctx
+      rule =
+        DBus.matchAny
+          { DBus.matchInterface = Just DBusParams.login1ManagerInterfaceName,
+            DBus.matchMember = Just "PrepareForSleep",
+            DBus.matchPath = Just DBusParams.login1ObjectPath
+          }
+
+  -- Debounce: on some systems we can see multiple resume-related events close
+  -- together. Avoid spamming refreshes.
+  pendingVar <- MV.newMVar False
+
+  let scheduleRefresh :: IO ()
+      scheduleRefresh = do
+        pending <- MV.swapMVar pendingVar True
+        unless pending $ void $ forkIO $ do
+          -- Give the compositor a moment to re-establish outputs/surfaces.
+          threadDelay 1_000_000
+          _ <- MV.swapMVar pendingVar False
+          logIO NOTICE "Resumed from sleep - forcing taffybar window refresh"
+          postGUIASync $ runReaderT forceRefreshTaffyWindows ctx
+
+      callback :: D.Signal -> IO ()
+      callback sig =
+        case D.signalBody sig of
+          [v] ->
+            case D.fromVariant v :: Maybe Bool of
+              Just True -> logIO DEBUG "PrepareForSleep(True) received"
+              Just False -> scheduleRefresh
+              Nothing -> logIO WARNING "PrepareForSleep signal had unexpected body type"
+          _ -> logIO WARNING "PrepareForSleep signal had unexpected body arity"
+
+  result <- try (DBus.addMatch client rule callback) :: IO (Either SomeException DBus.SignalHandler)
+  case result of
+    Left e ->
+      logIO WARNING $
+        "Failed to register logind PrepareForSleep handler (resume refresh disabled): "
+          ++ show e
+    Right _ -> pure ()
 
 -- | Build an empty taffybar context. This function is mostly useful for
 -- invoking functions that yield 'TaffyIO' values in a testing setting (e.g. in
