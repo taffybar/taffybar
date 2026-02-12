@@ -43,8 +43,8 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import Data.IORef
 import qualified Data.Text as T
-import qualified GI.Gdk as Gdk
 import qualified GI.GLib as GLib
+import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified StatusNotifier.Host.Service as H
 import StatusNotifier.Tray

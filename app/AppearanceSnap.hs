@@ -73,12 +73,14 @@ import System.Taffybar.Context
     exitTaffybar,
   )
 import System.Taffybar.Util (postGUIASync)
-import System.Taffybar.Widget.Workspaces
-  ( WorkspacesConfig (..),
+import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
+import System.Taffybar.Widget.Workspaces.EWMH
+  ( WorkspacesConfig,
     getWindowIconPixbufFromEWMH,
     sortWindowsByStackIndex,
     workspacesNew,
   )
+import qualified System.Taffybar.Widget.Workspaces.EWMH as Workspaces
 import UnliftIO.Temporary (withSystemTempDirectory)
 
 data Args = Args
@@ -154,15 +156,19 @@ runUnderWm wmProc outPath cssPath mode = do
   void $ forkIO $ watchdogThread wmProc ctxVar resultVar doneVar 30_000_000
 
   barUnique <- newUnique
-  let wsCfg =
-        (def :: WorkspacesConfig)
-          { -- Avoid font-dependent output in the appearance golden: we only care
-            -- that icons/layout render deterministically.
-            labelSetter = const (pure ""),
-            maxIcons = Just 1,
-            minIcons = 1,
-            getWindowIconPixbuf = getWindowIconPixbufFromEWMH,
-            iconSort = sortWindowsByStackIndex
+  let wsCfgDefault = def :: WorkspacesConfig
+      wsCfg =
+        wsCfgDefault
+          { Workspaces.workspacesConfig =
+              (Workspaces.workspacesConfig wsCfgDefault)
+                { -- Avoid font-dependent output in the appearance golden: we only care
+                  -- that icons/layout render deterministically.
+                  WorkspaceConfig.labelSetter = const (pure ""),
+                  WorkspaceConfig.maxIcons = Just 1,
+                  WorkspaceConfig.minIcons = 1,
+                  WorkspaceConfig.getWindowIconPixbuf = getWindowIconPixbufFromEWMH,
+                  WorkspaceConfig.iconSort = sortWindowsByStackIndex
+                }
           }
       barCfg = buildBarConfig wsCfg barUnique mode
       cfg =
