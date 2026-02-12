@@ -7,6 +7,17 @@
  * Keep backward compatibility for existing configs: when `barLevels` is
    `Nothing`, the legacy single-row widget fields are used unchanged.
 
+## Dependency Bumps
+
+ * Bump `gtk-sni-tray` lower bound to 0.1.14.0.
+
+## Tray
+
+ * Add optional SNI tray priority pass-through via new additive constructors
+   while keeping existing tray constructors backwards compatible.
+ * Add a collapsible SNI tray widget with overflow indicator and expand/collapse
+   interaction.
+
 ## Tests
 
  * Add a new X11 appearance golden test for two-level bars

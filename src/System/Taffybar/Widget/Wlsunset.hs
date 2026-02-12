@@ -19,10 +19,10 @@
 -- The widget displays a sun icon whose CSS class reflects the current
 -- wlsunset state:
 --
---   * @wlsunset-cool@ -- normal (forced day temperature, no shift)
---   * @wlsunset-warm@ -- forced warm (night) temperature
---   * @wlsunset-off@  -- process stopped
---   * (no extra class) -- automatic\/running normally
+--   * @wlsunset-high-temp@ -- forced high (day) temperature, no shift
+--   * @wlsunset-low-temp@  -- forced low (night) temperature
+--   * @wlsunset-off@       -- process stopped
+--   * (no extra class)     -- automatic\/running normally
 --
 -- Left-clicking opens a popup menu for mode selection and start\/stop.
 -- Right-clicking quick-toggles the process on\/off.
@@ -70,7 +70,7 @@ instance Default WlsunsetWidgetConfig where
 
 -- | All CSS classes that the widget may toggle based on state.
 allStateClasses :: [T.Text]
-allStateClasses = ["wlsunset-warm", "wlsunset-cool", "wlsunset-off"]
+allStateClasses = ["wlsunset-high-temp", "wlsunset-low-temp", "wlsunset-off"]
 
 -- | Create a wlsunset widget with the default configuration.
 wlsunsetNew :: TaffyIO Gtk.Widget
@@ -99,7 +99,7 @@ wlsunsetNewWithConfig widgetCfg = do
 
     let updateWidget st = postGUIASync $ do
           updateStateClasses ebox st
-          updateTooltip ebox st
+          updateTooltip infoCfg ebox st
 
     void $ Gtk.onWidgetRealize ebox $ do
       initialState <- runReaderT (getWlsunsetState infoCfg) ctx
@@ -128,21 +128,23 @@ stateToClass st
   | not (wlsunsetRunning st) = Just "wlsunset-off"
   | otherwise = case wlsunsetMode st of
       WlsunsetAuto -> Nothing
-      WlsunsetForcedWarm -> Just "wlsunset-warm"
-      WlsunsetForcedCool -> Just "wlsunset-cool"
+      WlsunsetForcedHighTemp -> Just "wlsunset-high-temp"
+      WlsunsetForcedLowTemp -> Just "wlsunset-low-temp"
 
 -- ---------------------------------------------------------------------------
 -- Tooltip
 -- ---------------------------------------------------------------------------
 
 -- | Update the tooltip text to reflect the current state.
-updateTooltip :: (Gtk.IsWidget w) => w -> WlsunsetState -> IO ()
-updateTooltip widget st = do
-  let text = case (wlsunsetRunning st, wlsunsetMode st) of
+updateTooltip :: (Gtk.IsWidget w) => WlsunsetConfig -> w -> WlsunsetState -> IO ()
+updateTooltip _cfg widget st = do
+  let highT = T.pack $ show (wlsunsetEffectiveHighTemp st) ++ "K"
+      lowT = T.pack $ show (wlsunsetEffectiveLowTemp st) ++ "K"
+      text = case (wlsunsetRunning st, wlsunsetMode st) of
         (False, _) -> "wlsunset: stopped"
-        (True, WlsunsetAuto) -> "wlsunset: automatic"
-        (True, WlsunsetForcedCool) -> "wlsunset: normal (no shift)"
-        (True, WlsunsetForcedWarm) -> "wlsunset: forced warm"
+        (True, WlsunsetAuto) -> "wlsunset: automatic (" <> lowT <> " – " <> highT <> ")"
+        (True, WlsunsetForcedHighTemp) -> "wlsunset: high temp (" <> highT <> ")"
+        (True, WlsunsetForcedLowTemp) -> "wlsunset: low temp (" <> lowT <> ")"
   Gtk.widgetSetTooltipText widget (Just text)
 
 -- ---------------------------------------------------------------------------
@@ -172,6 +174,10 @@ setupClickHandler ctx ebox infoCfg =
 -- Popup menu
 -- ---------------------------------------------------------------------------
 
+-- | Temperature presets from 2500K to 6500K in 500K increments.
+tempPresets :: [Int]
+tempPresets = [2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500]
+
 -- | Build and show a popup menu attached to the event box.
 showPopupMenu :: Context -> Gtk.EventBox -> WlsunsetConfig -> IO ()
 showPopupMenu ctx ebox infoCfg = do
@@ -184,10 +190,14 @@ showPopupMenu ctx ebox infoCfg = do
   -- Mode items (disabled when not running)
   let running = wlsunsetRunning st
       currentMode = wlsunsetMode st
+      effectiveHigh = wlsunsetEffectiveHighTemp st
+      effectiveLow = wlsunsetEffectiveLowTemp st
+      highT = T.pack $ show effectiveHigh ++ "K"
+      lowT = T.pack $ show effectiveLow ++ "K"
       modes =
         [ ("Automatic", WlsunsetAuto),
-          ("Normal", WlsunsetForcedCool),
-          ("Force Warm", WlsunsetForcedWarm)
+          ("High Temp (" <> highT <> ")", WlsunsetForcedHighTemp),
+          ("Low Temp (" <> lowT <> ")", WlsunsetForcedLowTemp)
         ]
 
   forM_ modes $ \(labelText, targetMode) -> do
@@ -202,9 +212,54 @@ showPopupMenu ctx ebox infoCfg = do
         runReaderT (cycleToMode infoCfg currentMode targetMode) ctx
     Gtk.menuShellAppend menu item
 
-  -- Separator
-  sep <- Gtk.separatorMenuItemNew
-  Gtk.menuShellAppend menu sep
+  -- Separator before temperature presets
+  sep1 <- Gtk.separatorMenuItemNew
+  Gtk.menuShellAppend menu sep1
+
+  -- Temperature presets submenu
+  tempSubMenuItem <- Gtk.menuItemNewWithLabel ("Set Temperature" :: T.Text)
+  tempSubmenu <- Gtk.menuNew
+  Gtk.menuItemSetSubmenu tempSubMenuItem (Just tempSubmenu)
+
+  let isFixedTemp = effectiveLow == effectiveHigh
+  forM_ tempPresets $ \temp -> do
+    let label = T.pack $ show temp ++ "K"
+        prefix =
+          if running && isFixedTemp && effectiveLow == temp
+            then "\x2713 " :: T.Text
+            else "   "
+    tempItem <- Gtk.menuItemNewWithLabel (prefix <> label)
+    Gtk.widgetSetSensitive tempItem running
+    void $
+      Gtk.onMenuItemActivate tempItem $
+        runReaderT (restartWlsunsetWithTemps infoCfg temp temp) ctx
+    Gtk.menuShellAppend tempSubmenu tempItem
+
+  -- "Reset to default" item in the submenu
+  resetSep <- Gtk.separatorMenuItemNew
+  Gtk.menuShellAppend tempSubmenu resetSep
+
+  let defaultLow = wlsunsetLowTemp infoCfg
+      defaultHigh = wlsunsetHighTemp infoCfg
+      resetLabel =
+        T.pack $
+          "Reset (" ++ show defaultLow ++ "K – " ++ show defaultHigh ++ "K)"
+      resetPrefix =
+        if running && effectiveLow == defaultLow && effectiveHigh == defaultHigh
+          then "\x2713 " :: T.Text
+          else "   "
+  resetItem <- Gtk.menuItemNewWithLabel (resetPrefix <> resetLabel)
+  Gtk.widgetSetSensitive resetItem running
+  void $
+    Gtk.onMenuItemActivate resetItem $
+      runReaderT (restartWlsunsetWithTemps infoCfg defaultLow defaultHigh) ctx
+  Gtk.menuShellAppend tempSubmenu resetItem
+
+  Gtk.menuShellAppend menu tempSubMenuItem
+
+  -- Separator before toggle
+  sep2 <- Gtk.separatorMenuItemNew
+  Gtk.menuShellAppend menu sep2
 
   -- Start/Stop item
   let toggleLabel =
@@ -233,7 +288,7 @@ showPopupMenu ctx ebox infoCfg = do
 -- ---------------------------------------------------------------------------
 
 -- | Cycle from the current mode to a target mode. The mode ring is:
--- Auto -> ForcedCool -> ForcedWarm -> Auto. We calculate the number of
+-- Auto -> ForcedHighTemp -> ForcedLowTemp -> Auto. We calculate the number of
 -- SIGUSR1 signals needed and send them.
 cycleToMode :: WlsunsetConfig -> WlsunsetMode -> WlsunsetMode -> TaffyIO ()
 cycleToMode infoCfg currentMode targetMode = do
@@ -241,7 +296,7 @@ cycleToMode infoCfg currentMode targetMode = do
   replicateM_ cyclesNeeded (cycleWlsunsetMode infoCfg)
 
 -- | Calculate how many SIGUSR1 cycles are needed to go from one mode
--- to another in the ring Auto -> ForcedCool -> ForcedWarm -> Auto.
+-- to another in the ring Auto -> ForcedHighTemp -> ForcedLowTemp -> Auto.
 cyclesToReach :: WlsunsetMode -> WlsunsetMode -> Int
 cyclesToReach from to
   | from == to = 0
@@ -249,5 +304,5 @@ cyclesToReach from to
   where
     toOrd :: WlsunsetMode -> Int
     toOrd WlsunsetAuto = 0
-    toOrd WlsunsetForcedCool = 1
-    toOrd WlsunsetForcedWarm = 2
+    toOrd WlsunsetForcedHighTemp = 1
+    toOrd WlsunsetForcedLowTemp = 2
