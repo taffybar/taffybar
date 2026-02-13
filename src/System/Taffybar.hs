@@ -143,7 +143,6 @@ import Control.Monad
 import Data.Function (on)
 import qualified Data.GI.Gtk.Threading as GIThreading
 import Data.List (groupBy, isPrefixOf, sort)
-import Data.Maybe (isJust)
 import qualified Data.Text as T
 import Data.Word (Word32)
 import qualified GI.GLib as G
@@ -152,7 +151,6 @@ import qualified GI.Gtk as Gtk
 import Graphics.X11.Xlib.Misc (initThreads)
 import Paths_taffybar (getDataDir)
 import System.Directory
-import System.Environment (lookupEnv)
 import System.Environment.XDG.BaseDir (getUserConfigFile)
 import System.Exit (exitFailure)
 import System.FSNotify (Event (..), EventIsDirectory (..), startManager, stopManager, watchDir)
@@ -323,13 +321,17 @@ startTaffybar config = do
   updateGlobalLogger "" removeHandler
   setTaffyLogFormatter "System.Taffybar"
   setTaffyLogFormatter "StatusNotifier"
-  useX11 <- shouldInitX11
-  when useX11 $ void initThreads
+
+  -- Detect backend once up-front so any environment fixups happen before GTK
+  -- initialization, and so we don't have multiple ad-hoc checks spread around.
+  backendType <- detectBackend
+  when (backendType == BackendX11) $ void initThreads
+
   _ <- Gtk.init Nothing
   GIThreading.setCurrentThreadAsGUIThread
 
   cssPathsToLoad <- getCSSPaths config
-  context <- buildContext config
+  context <- buildContextWithBackend backendType config
 
   withCSSReloadable cssPathsToLoad $
     Gtk.main
@@ -339,12 +341,6 @@ startTaffybar config = do
         exitTaffybar context
 
   logTaffy DEBUG "Exited normally"
-
-shouldInitX11 :: IO Bool
-shouldInitX11 = do
-  sessionType <- lookupEnv "XDG_SESSION_TYPE"
-  waylandDisplay <- lookupEnv "WAYLAND_DISPLAY"
-  return $ not (sessionType == Just "wayland" || isJust waylandDisplay)
 
 logTaffy :: Priority -> String -> IO ()
 logTaffy = logM "System.Taffybar"

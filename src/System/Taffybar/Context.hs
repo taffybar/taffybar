@@ -42,6 +42,7 @@ module System.Taffybar.Context
     -- ** Context
     Context (..),
     buildContext,
+    buildContextWithBackend,
     buildEmptyContext,
 
     -- ** Context State
@@ -264,7 +265,18 @@ data Context = Context
 
 -- | Build the "Context" for a taffybar process.
 buildContext :: TaffybarConfig -> IO Context
-buildContext
+buildContext cfg = do
+  backendType <- detectBackend
+  buildContextWithBackend backendType cfg
+
+-- | Build the "Context" for a taffybar process using a pre-detected backend.
+--
+-- This avoids duplicated backend detection and ensures backend-related
+-- environment fixups happen before any downstream initialization that depends
+-- on them (e.g. GTK/GDK backend selection).
+buildContextWithBackend :: Backend -> TaffybarConfig -> IO Context
+buildContextWithBackend
+  backendType
   TaffybarConfig
     { dbusClientParam = maybeDBus,
       getBarConfigsParam = barConfigGetter,
@@ -278,7 +290,6 @@ buildContext
         dbusC
         "org.taffybar.Bar"
         [DBus.nameAllowReplacement, DBus.nameReplaceExisting]
-    backendType <- detectBackend
     listenersVar <- MV.newMVar []
     state <- MV.newMVar M.empty
     hyprClient <- newHyprlandClient defaultHyprlandClientConfig
