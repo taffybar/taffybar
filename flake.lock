@@ -191,16 +191,16 @@
     "status-notifier-item": {
       "flake": false,
       "locked": {
-        "lastModified": 1770863106,
-        "narHash": "sha256-mEHxGAu5TN/BAxKOfwB42cqmSP92NKdBoJmwKWU2pfw=",
+        "lastModified": 1770955859,
+        "narHash": "sha256-h95eUeTkNsdrVxAx0Nv0ViXHSkhhOfPF4L4DhtbfkNs=",
         "owner": "taffybar",
         "repo": "status-notifier-item",
-        "rev": "acc61e668750c009b79b98d7d1286aa71b5e625b",
+        "rev": "a0958505f4e5fc145f34d7ad2615688d6668e02a",
         "type": "github"
       },
       "original": {
         "owner": "taffybar",
-        "ref": "fix/dbus-session-config-tests",
+        "ref": "fix/dbus-session-config-tests-rebased",
         "repo": "status-notifier-item",
         "type": "github"
       }
