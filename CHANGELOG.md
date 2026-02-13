@@ -1,5 +1,12 @@
 # Unreleased
 
+# 5.1.3
+
+## Dependency Bumps
+
+ * Bump `dbus-menu` lower bound to 0.1.3.2 for GHC 9.12 compatibility.
+ * Bump `gtk-sni-tray` lower bound to 0.1.14.2 for GHC 9.12 compatibility.
+
 # 5.1.2
 
 ## Dependency Bumps
