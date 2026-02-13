@@ -48,7 +48,6 @@ import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.AutoSizeImage
 import System.Taffybar.Widget.Util
 import System.Taffybar.WindowIcon
-import Text.Printf
 
 mprisLog :: (MonadIO m, Show t) => Priority -> String -> t -> m ()
 mprisLog = logPrintF "System.Taffybar.Widget.MPRIS2"
@@ -91,19 +90,46 @@ defaultMPRIS2Config =
     }
 
 data MPRIS2PlayerWidget = MPRIS2PlayerWidget
-  { playerLabel :: Gtk.Label,
+  { playerNowPlayingUpdate :: NowPlaying -> IO (),
     playerWidget :: Gtk.Widget
   }
 
+-- | A now-playing widget along with an updater that is invoked every time the
+-- now-playing info changes.
+data NowPlayingWidget = NowPlayingWidget
+  { npWidget :: Gtk.Widget,
+    npUpdate :: NowPlaying -> IO ()
+  }
+
 data SimpleMPRIS2PlayerConfig = SimpleMPRIS2PlayerConfig
-  { setNowPlayingLabel :: NowPlaying -> IO T.Text,
+  { nowPlayingWidgetBuilder :: IO NowPlayingWidget,
     showPlayerWidgetFn :: NowPlaying -> IO Bool
   }
+
+-- | Create a label-based now-playing widget.
+--
+-- Use 'labelNowPlayingWidgetWith' if you need multi-line text (e.g. stacked
+-- artist/title via @\"\\n\"@) or want to set alignment/ellipsize/wrap.
+labelNowPlayingWidget :: (NowPlaying -> IO T.Text) -> IO NowPlayingWidget
+labelNowPlayingWidget = labelNowPlayingWidgetWith (const $ return ())
+
+-- | Like 'labelNowPlayingWidget', but allows configuring the label before it is
+-- used (e.g. enabling multi-line rendering).
+labelNowPlayingWidgetWith ::
+  (Gtk.Label -> IO ()) ->
+  (NowPlaying -> IO T.Text) ->
+  IO NowPlayingWidget
+labelNowPlayingWidgetWith labelSetup formatText = do
+  label <- Gtk.labelNew Nothing
+  labelSetup label
+  widget <- Gtk.toWidget label
+  let updateFn np = Gtk.labelSetMarkup label =<< formatText np
+  return $ NowPlayingWidget {npWidget = widget, npUpdate = updateFn}
 
 defaultPlayerConfig :: SimpleMPRIS2PlayerConfig
 defaultPlayerConfig =
   SimpleMPRIS2PlayerConfig
-    { setNowPlayingLabel = playingText 20 30,
+    { nowPlayingWidgetBuilder = labelNowPlayingWidget (playingText 20 30),
       showPlayerWidgetFn =
         \NowPlaying {npStatus = status} -> return $ status /= "Stopped"
     }
@@ -164,14 +190,15 @@ simplePlayerWidget
       mprisLog DEBUG "Building widget for %s" busName
       image <- autoSizeImageNew (loadIconAtSize client busName) Gtk.OrientationHorizontal
       playerBox <- Gtk.gridNew
-      label <- Gtk.labelNew Nothing
+      NowPlayingWidget {npWidget = nowPlayingW, npUpdate = updateFn} <-
+        nowPlayingWidgetBuilder c
       ebox <- Gtk.eventBoxNew
       _ <-
         Gtk.onWidgetButtonPressEvent ebox $
           const $
             MPRIS2DBus.playPause client busName >> return True
       Gtk.containerAdd playerBox image
-      Gtk.containerAdd playerBox label
+      Gtk.containerAdd playerBox nowPlayingW
       Gtk.containerAdd ebox playerBox
       vFillCenter playerBox
       addToParent ebox
@@ -181,7 +208,7 @@ simplePlayerWidget
       Gtk.widgetHide ebox
       widget <- Gtk.toWidget ebox
       let widgetData =
-            MPRIS2PlayerWidget {playerLabel = label, playerWidget = widget}
+            MPRIS2PlayerWidget {playerNowPlayingUpdate = updateFn, playerWidget = widget}
       flip runReaderT ctx $
         simplePlayerWidget c addToParent (Just widgetData) np
 simplePlayerWidget
@@ -189,13 +216,13 @@ simplePlayerWidget
   _
   ( Just
       w@MPRIS2PlayerWidget
-        { playerLabel = label,
+        { playerNowPlayingUpdate = updateFn,
           playerWidget = widget
         }
     )
   (Just nowPlaying) = lift $ do
     mprisLog DEBUG "Setting state %s" nowPlaying
-    Gtk.labelSetMarkup label =<< setNowPlayingLabel config nowPlaying
+    updateFn nowPlaying
     shouldShow <- showPlayerWidgetFn config nowPlaying
     if shouldShow
       then Gtk.widgetShowAll widget
@@ -292,16 +319,21 @@ mpris2NewWithConfig config =
 -- the first provided int, and the song title truncated to a maximum given by
 -- the second provided int.
 playingText :: (MonadIO m) => Int -> Int -> NowPlaying -> m T.Text
-playingText artistMax songMax NowPlaying {npArtists = artists, npTitle = title} =
+playingText = playingTextWithSeparator " - "
+
+-- | Generate now playing text with the artist truncated to a maximum given by
+-- the first provided int, and the song title truncated to a maximum given by
+-- the second provided int.
+--
+-- Provide a separator (e.g. @\" - \"@ or @\"\\n\"@) to control how the artist and
+-- title are combined.
+playingTextWithSeparator :: (MonadIO m) => T.Text -> Int -> Int -> NowPlaying -> m T.Text
+playingTextWithSeparator sep artistMax songMax NowPlaying {npArtists = artists, npTitle = title} =
   G.markupEscapeText formattedText (-1)
   where
-    truncatedTitle = truncateString songMax title
+    truncatedTitle = T.pack $ truncateString songMax title
+    truncatedArtists = T.pack $ truncateString artistMax $ intercalate "," artists
     formattedText =
-      T.pack $
-        if null artists
-          then truncatedTitle
-          else
-            printf
-              "%s - %s"
-              (truncateString artistMax $ intercalate "," artists)
-              truncatedTitle
+      if null artists
+        then truncatedTitle
+        else T.intercalate sep [truncatedArtists, truncatedTitle]
