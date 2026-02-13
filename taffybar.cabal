@@ -103,7 +103,7 @@ library
                , safe >= 0.3 && < 1
                , scotty >= 0.20 && < 0.31
                , split >= 0.1.4.2
-               , status-notifier-item >= 0.3.1.0
+               , status-notifier-item >= 0.3.2.6
                , stm
                , template-haskell
                , text

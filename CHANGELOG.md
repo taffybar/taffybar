@@ -10,6 +10,10 @@
 ## Dependency Bumps
 
  * Bump `gtk-sni-tray` lower bound to 0.1.14.0.
+ * Bump `status-notifier-item` lower bound to 0.3.2.6, pulling in important
+   robustness fixes for the StatusNotifier host/watcher implementations
+   (registration ownership checks, restart deduplication, cache-backed restore,
+   and better reconciliation after watcher restarts).
 
 ## Tray
 
@@ -17,6 +21,9 @@
    while keeping existing tray constructors backwards compatible.
  * Add a collapsible SNI tray widget with overflow indicator and expand/collapse
    interaction.
+ * StatusNotifier host/watcher behavior is now significantly more robust via the
+   `status-notifier-item` update (better restart handling, deduplication, and
+   state reconciliation).
 
 ## Tests
 

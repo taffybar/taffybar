@@ -2,9 +2,10 @@ packages:
 - '.'
 resolver: lts-24.15
 extra-deps:
-- gtk-sni-tray-0.1.13.1
+- gtk-sni-tray-0.1.14.0
 - dbus-menu-0.1.3.0
 - gtk-strut-0.1.4.0
+- status-notifier-item-0.3.2.7
 # - gi-gtk-hs-0.3.18   # is not released yet
 - github: haskell-gi/haskell-gi
   commit: e2ed85835499f70e119f050a2f37f22481f93886
