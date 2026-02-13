@@ -27,7 +27,7 @@
       flake = false;
     };
     status-notifier-item = {
-      url = "github:taffybar/status-notifier-item?ref=fix/dbus-session-config-tests";
+      url = "github:taffybar/status-notifier-item";
       flake = false;
     };
     weeder-nix = {
