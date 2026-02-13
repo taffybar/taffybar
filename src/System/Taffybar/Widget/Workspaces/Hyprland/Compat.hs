@@ -22,6 +22,7 @@ module System.Taffybar.Widget.Workspaces.Hyprland.Compat
     defaultHyprlandWorkspacesConfig,
     hyprlandWorkspacesNew,
     hyprlandWorkspacesCommonConfig,
+    modifyCommonHyprlandWorkspacesConfig,
     applyCommonHyprlandWorkspacesConfig,
     toHyprlandWorkspacesConfig,
     fromHyprlandWorkspacesConfig,
@@ -151,6 +152,20 @@ hyprlandWorkspacesCommonConfig ::
   WorkspaceWidgetCommonConfig (ReaderT Context IO) Hyprland.HyprlandWorkspace Hyprland.HyprlandWindow Hyprland.HyprlandWWC
 hyprlandWorkspacesCommonConfig =
   Hyprland.workspacesConfig . toHyprlandWorkspacesConfig
+
+-- | Modify the nested common config inside a legacy flat Hyprland workspaces
+-- config.
+--
+-- Prefer this over defining @common@ in terms of a recursively-defined @cfg@,
+-- which can accidentally create a black-hole and hang at runtime.
+modifyCommonHyprlandWorkspacesConfig ::
+  ( WorkspaceWidgetCommonConfig (ReaderT Context IO) Hyprland.HyprlandWorkspace Hyprland.HyprlandWindow Hyprland.HyprlandWWC ->
+    WorkspaceWidgetCommonConfig (ReaderT Context IO) Hyprland.HyprlandWorkspace Hyprland.HyprlandWindow Hyprland.HyprlandWWC
+  ) ->
+  HyprlandWorkspacesConfig ->
+  HyprlandWorkspacesConfig
+modifyCommonHyprlandWorkspacesConfig f cfg =
+  applyCommonHyprlandWorkspacesConfig (f (hyprlandWorkspacesCommonConfig cfg)) cfg
 
 applyCommonHyprlandWorkspacesConfig ::
   WorkspaceWidgetCommonConfig (ReaderT Context IO) Hyprland.HyprlandWorkspace Hyprland.HyprlandWindow Hyprland.HyprlandWWC ->

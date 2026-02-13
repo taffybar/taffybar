@@ -22,6 +22,7 @@ module System.Taffybar.Widget.Workspaces.EWMH.Compat
     defaultWorkspacesConfig,
     workspacesNew,
     workspacesCommonConfig,
+    modifyCommonWorkspacesConfig,
     applyCommonWorkspacesConfig,
     toEWMHWorkspacesConfig,
     fromEWMHWorkspacesConfig,
@@ -132,6 +133,19 @@ workspacesCommonConfig ::
   WorkspaceWidgetCommonConfig (ReaderT EWMH.WorkspacesContext IO) EWMH.Workspace EWMH.WindowData EWMH.WWC
 workspacesCommonConfig =
   EWMH.workspacesConfig . toEWMHWorkspacesConfig
+
+-- | Modify the nested common config inside a legacy flat workspaces config.
+--
+-- Prefer this over defining @common@ in terms of a recursively-defined @cfg@,
+-- which can accidentally create a black-hole and hang at runtime.
+modifyCommonWorkspacesConfig ::
+  ( WorkspaceWidgetCommonConfig (ReaderT EWMH.WorkspacesContext IO) EWMH.Workspace EWMH.WindowData EWMH.WWC ->
+    WorkspaceWidgetCommonConfig (ReaderT EWMH.WorkspacesContext IO) EWMH.Workspace EWMH.WindowData EWMH.WWC
+  ) ->
+  WorkspacesConfig ->
+  WorkspacesConfig
+modifyCommonWorkspacesConfig f cfg =
+  applyCommonWorkspacesConfig (f (workspacesCommonConfig cfg)) cfg
 
 applyCommonWorkspacesConfig ::
   WorkspaceWidgetCommonConfig (ReaderT EWMH.WorkspacesContext IO) EWMH.Workspace EWMH.WindowData EWMH.WWC ->

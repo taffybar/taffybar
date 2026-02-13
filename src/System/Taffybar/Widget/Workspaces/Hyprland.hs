@@ -165,6 +165,30 @@ hyprlandWorkspacesCommonConfig ::
   WorkspaceWidgetCommonConfig (ReaderT Context IO) HyprlandWorkspace HyprlandWindow HyprlandWWC
 hyprlandWorkspacesCommonConfig = workspacesConfig
 
+-- | Modify the nested 'WorkspaceWidgetCommonConfig' inside a
+-- 'HyprlandWorkspacesConfig'.
+--
+-- This helper exists to avoid accidental self-recursive config definitions
+-- when overriding multiple fields. Prefer:
+--
+-- > cfg = modifyCommonHyprlandWorkspacesConfig (\c -> c { WorkspaceWidgetConfig.minIcons = 1 }) defaultHyprlandWorkspacesConfig
+--
+-- over tying the knot yourself (e.g. defining @common@ in terms of @cfg@ while
+-- also defining @cfg@ in terms of @common@), which can hang at runtime.
+modifyCommonHyprlandWorkspacesConfig ::
+  ( WorkspaceWidgetCommonConfig (ReaderT Context IO) HyprlandWorkspace HyprlandWindow HyprlandWWC ->
+    WorkspaceWidgetCommonConfig (ReaderT Context IO) HyprlandWorkspace HyprlandWindow HyprlandWWC
+  ) ->
+  HyprlandWorkspacesConfig ->
+  HyprlandWorkspacesConfig
+modifyCommonHyprlandWorkspacesConfig f cfg =
+  cfg {workspacesConfig = f (workspacesConfig cfg)}
+
+-- | Replace the nested common config inside 'HyprlandWorkspacesConfig'.
+--
+-- If you're just tweaking a few fields, prefer
+-- 'modifyCommonHyprlandWorkspacesConfig' to avoid accidentally creating a
+-- self-recursive definition that can hang at runtime.
 applyCommonHyprlandWorkspacesConfig ::
   WorkspaceWidgetCommonConfig (ReaderT Context IO) HyprlandWorkspace HyprlandWindow HyprlandWWC ->
   HyprlandWorkspacesConfig ->

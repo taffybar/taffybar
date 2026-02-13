@@ -147,6 +147,24 @@ workspacesCommonConfig ::
   WorkspaceWidgetCommonConfig (ReaderT WorkspacesContext IO) Workspace WindowData WWC
 workspacesCommonConfig = workspacesConfig
 
+-- | Modify the nested 'WorkspaceWidgetCommonConfig' inside a 'WorkspacesConfig'.
+--
+-- Prefer this helper when overriding multiple fields to avoid accidentally
+-- introducing a self-recursive config definition that can hang at runtime.
+modifyCommonWorkspacesConfig ::
+  ( WorkspaceWidgetCommonConfig (ReaderT WorkspacesContext IO) Workspace WindowData WWC ->
+    WorkspaceWidgetCommonConfig (ReaderT WorkspacesContext IO) Workspace WindowData WWC
+  ) ->
+  WorkspacesConfig ->
+  WorkspacesConfig
+modifyCommonWorkspacesConfig f cfg =
+  cfg {workspacesConfig = f (workspacesConfig cfg)}
+
+-- | Replace the nested common config inside 'WorkspacesConfig'.
+--
+-- If you're just tweaking a few fields, prefer 'modifyCommonWorkspacesConfig'
+-- to avoid accidentally creating a self-recursive definition that can hang at
+-- runtime.
 applyCommonWorkspacesConfig ::
   WorkspaceWidgetCommonConfig (ReaderT WorkspacesContext IO) Workspace WindowData WWC ->
   WorkspacesConfig ->
