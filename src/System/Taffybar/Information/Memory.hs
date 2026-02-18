@@ -7,6 +7,11 @@ where
 toMB :: String -> Double
 toMB size = (read size :: Double) / 1024
 
+safeRatio :: Double -> Double -> Double
+safeRatio _
+  0 = 0
+safeRatio numerator denominator = numerator / denominator
+
 data MemoryInfo = MemoryInfo
   { memoryTotal :: Double,
     memoryFree :: Double,
@@ -48,9 +53,9 @@ parseMeminfo = do
   let m = parseLines (lines s) emptyMemoryInfo
       rest = memoryFree m + memoryBuffer m + memoryCache m
       used = memoryTotal m - rest
-      usedRatio = used / memoryTotal m
+      usedRatio = safeRatio used (memoryTotal m)
       swapUsed = memorySwapTotal m - memorySwapFree m
-      swapUsedRatio = swapUsed / memorySwapTotal m
+      swapUsedRatio = safeRatio swapUsed (memorySwapTotal m)
   return
     m
       { memoryRest = rest,

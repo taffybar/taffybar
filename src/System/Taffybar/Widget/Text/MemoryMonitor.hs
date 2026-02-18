@@ -13,7 +13,8 @@ import qualified Text.StringTemplate as ST
 textMemoryMonitorNew ::
   (MonadIO m) =>
   -- | Format. You can use variables: "used", "total", "free", "buffer",
-  -- "cache", "rest", "available", "swapUsed", "swapTotal", "swapFree".
+  -- "cache", "rest", "available", "swapUsed", "swapTotal", "swapFree",
+  -- "usedRatio", "swapUsedRatio", "usedPercent", "swapUsedPercent".
   String ->
   -- | Polling period in seconds.
   Double ->
@@ -25,7 +26,7 @@ textMemoryMonitorNew fmt period = do
 showMemoryInfo :: String -> Int -> MemoryInfo -> T.Text
 showMemoryInfo fmt prec info =
   let template = ST.newSTMP fmt
-      labels =
+      sizeLabels =
         [ "used",
           "total",
           "free",
@@ -37,7 +38,7 @@ showMemoryInfo fmt prec info =
           "swapTotal",
           "swapFree"
         ]
-      actions =
+      sizeActions =
         [ memoryUsed,
           memoryTotal,
           memoryFree,
@@ -49,9 +50,19 @@ showMemoryInfo fmt prec info =
           memorySwapTotal,
           memorySwapFree
         ]
-      actions' = map (toAuto prec .) actions
-      stats = [f info | f <- actions']
-      template' = ST.setManyAttrib (zip labels stats) template
+      sizeStats =
+        [ (label, toAuto prec (action info))
+          | (label, action) <- zip sizeLabels sizeActions
+        ]
+      ratioStats =
+        [ ("usedRatio", toRatio prec (memoryUsedRatio info)),
+          ("swapUsedRatio", toRatio prec (memorySwapUsedRatio info))
+        ]
+      percentStats =
+        [ ("usedPercent", toPercent 1 (memoryUsedRatio info)),
+          ("swapUsedPercent", toPercent 1 (memorySwapUsedRatio info))
+        ]
+      template' = ST.setManyAttrib (sizeStats ++ ratioStats ++ percentStats) template
    in ST.render template'
 
 toAuto :: Int -> Double -> String
@@ -68,3 +79,15 @@ toAuto prec value = printf "%.*f%s" p v unit
       _ -> "??B" -- unreachable
     p :: Int
     p = max 0 $ floor $ fromIntegral prec - logBase 10 v
+
+toRatio :: Int -> Double -> String
+toRatio prec value = printf "%.*f" p value'
+  where
+    p = max 0 prec
+    value' = max 0 value
+
+toPercent :: Int -> Double -> String
+toPercent prec value = printf "%.*f%%" p (value' * 100)
+  where
+    p = max 0 prec
+    value' = max 0 value
