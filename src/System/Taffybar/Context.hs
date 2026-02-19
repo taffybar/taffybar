@@ -500,13 +500,13 @@ buildBarWindow context barConfig = do
           BackendX11 ->
             FocusedMonitorHooksX11
               { resolveFocusedMonitorX11 = getFocusedMonitorX11 thisContext,
-                subscribeToFocusedMonitorX11Events = \refresh ->
-                  flip runReaderT thisContext $
-                    subscribeToPropertyEvents [ewmhActiveWindow, ewmhCurrentDesktop] $
-                      const $
-                        lift refresh,
-                unsubscribeFromFocusedMonitorX11Events = \subscription ->
-                  flip runReaderT thisContext $ unsubscribe subscription
+                subscribeToFocusedMonitorX11Events =
+                  flip runReaderT thisContext
+                    . subscribeToPropertyEvents [ewmhActiveWindow, ewmhCurrentDesktop]
+                    . const
+                    . lift,
+                unsubscribeFromFocusedMonitorX11Events =
+                  flip runReaderT thisContext . unsubscribe
               }
           BackendWayland ->
             FocusedMonitorHooksWayland
