@@ -74,14 +74,13 @@ module System.Taffybar.Context
 where
 
 import Control.Arrow ((&&&), (***))
-import Control.Concurrent (forkIO, killThread, threadDelay)
+import Control.Concurrent (forkIO, threadDelay)
 import qualified Control.Concurrent.MVar as MV
-import Control.Concurrent.STM.TChan (readTChan)
+import Control.Concurrent.STM.TChan (TChan)
 import Control.Exception (SomeException, try)
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Reader
@@ -127,6 +126,10 @@ import System.Taffybar.Information.SafeX11 hiding (setState)
 import System.Taffybar.Information.X11DesktopInfo
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
+import System.Taffybar.Window.FocusedMonitor
+  ( FocusedMonitorHooks (..),
+    setupFocusedMonitorClassUpdates,
+  )
 import Text.Printf
 import Unsafe.Coerce
 
@@ -406,13 +409,6 @@ buildEmptyContext = buildContext def
 showBarId :: BarConfig -> String
 showBarId = show . hashUnique . barId
 
-focusedMonitorClasses :: [T.Text]
-focusedMonitorClasses = ["focused-monitor", "unfocused-monitor"]
-
-focusedMonitorClass :: Bool -> T.Text
-focusedMonitorClass True = "focused-monitor"
-focusedMonitorClass False = "unfocused-monitor"
-
 getActiveWindowCenterPoint :: TaffyIO (Maybe (Int, Int))
 getActiveWindowCenterPoint = runX11 $ do
   maybeActiveWindow <- getActiveWindow
@@ -466,42 +462,6 @@ getFocusedMonitorWayland context = runMaybeT $ do
             (fromIntegral y)
     Nothing -> MaybeT $ getPointerMonitor display
 
-getFocusedMonitor :: Context -> IO (Maybe GI.Gdk.Monitor)
-getFocusedMonitor context =
-  case backend context of
-    BackendX11 -> getFocusedMonitorX11 context
-    BackendWayland -> getFocusedMonitorWayland context
-
-getBarMonitor :: Gtk.Window -> BarConfig -> IO (Maybe GI.Gdk.Monitor)
-getBarMonitor window BarConfig {strutConfig = StrutConfig {strutMonitor = maybeMonitorNumber}} = do
-  display <- Gtk.widgetGetDisplay window
-  maybe
-    (GI.Gdk.displayGetPrimaryMonitor display)
-    (GI.Gdk.displayGetMonitor display)
-    maybeMonitorNumber
-
-monitorsMatch :: GI.Gdk.Monitor -> GI.Gdk.Monitor -> IO Bool
-monitorsMatch left right = do
-  leftGeometry <- GI.Gdk.getMonitorGeometry left
-  rightGeometry <- GI.Gdk.getMonitorGeometry right
-  case (leftGeometry, rightGeometry) of
-    (Nothing, Nothing) -> return True
-    (Just leftRect, Just rightRect) -> GI.Gdk.rectangleEqual leftRect rightRect
-    _ -> return False
-
-updateFocusedMonitorClass :: Gtk.Window -> Context -> BarConfig -> IO ()
-updateFocusedMonitorClass window context barConfig = do
-  maybeFocusedMonitor <- getFocusedMonitor context
-  maybeBarMonitor <- getBarMonitor window barConfig
-  isFocused <- case (maybeFocusedMonitor, maybeBarMonitor) of
-    (Just focusedMonitor, Just barMonitor) ->
-      monitorsMatch focusedMonitor barMonitor
-    _ -> return False
-  updateWidgetClasses
-    window
-    [focusedMonitorClass isFocused]
-    focusedMonitorClasses
-
 withHyprlandEventChan :: Context -> IO HyprlandEventChan
 withHyprlandEventChan context =
   MV.modifyMVar (hyprlandEventChanVar context) $ \existing ->
@@ -511,41 +471,10 @@ withHyprlandEventChan context =
         eventChan <- buildHyprlandEventChan (hyprlandClient context)
         return (Just eventChan, eventChan)
 
-isRelevantFocusedMonitorHyprlandEvent :: T.Text -> Bool
-isRelevantFocusedMonitorHyprlandEvent eventLine =
-  let hyprEventName = T.takeWhile (/= '>') eventLine
-   in hyprEventName
-        `elem` [ "workspace",
-                 "workspacev2",
-                 "focusedmon",
-                 "activewindow",
-                 "activewindowv2",
-                 "monitoradded",
-                 "monitorremoved",
-                 "taffybar-hyprland-connected"
-               ]
-
-setupFocusedMonitorClassUpdates :: Gtk.Window -> Context -> BarConfig -> IO ()
-setupFocusedMonitorClassUpdates window thisContext barConfig = do
-  let refresh = postGUIASync $ updateFocusedMonitorClass window thisContext barConfig
-  case backend thisContext of
-    BackendX11 -> do
-      propertySubscription <-
-        flip runReaderT thisContext $
-          subscribeToPropertyEvents [ewmhActiveWindow, ewmhCurrentDesktop] $
-            const $
-              lift refresh
-      _ <- Gtk.onWidgetUnrealize window $ flip runReaderT thisContext $ unsubscribe propertySubscription
-      return ()
-    BackendWayland -> do
-      eventChan <- withHyprlandEventChan thisContext
-      events <- subscribeHyprlandEvents eventChan
-      tid <- forkIO $ forever $ do
-        eventLine <- atomically $ readTChan events
-        when (isRelevantFocusedMonitorHyprlandEvent eventLine) refresh
-      _ <- Gtk.onWidgetUnrealize window $ killThread tid
-      return ()
-  refresh
+getHyprlandFocusedMonitorEvents :: Context -> IO (TChan T.Text)
+getHyprlandFocusedMonitorEvents context = do
+  eventChan <- withHyprlandEventChan context
+  subscribeHyprlandEvents eventChan
 
 buildBarWindow :: Context -> BarConfig -> IO Gtk.Window
 buildBarWindow context barConfig = do
@@ -566,8 +495,30 @@ buildBarWindow context barConfig = do
 
   setupBarWindow context (strutConfig barConfig) window
 
+  let focusedMonitorHooks =
+        case backend thisContext of
+          BackendX11 ->
+            FocusedMonitorHooksX11
+              { resolveFocusedMonitorX11 = getFocusedMonitorX11 thisContext,
+                subscribeToFocusedMonitorX11Events = \refresh ->
+                  flip runReaderT thisContext $
+                    subscribeToPropertyEvents [ewmhActiveWindow, ewmhCurrentDesktop] $
+                      const $
+                        lift refresh,
+                unsubscribeFromFocusedMonitorX11Events = \subscription ->
+                  flip runReaderT thisContext $ unsubscribe subscription
+              }
+          BackendWayland ->
+            FocusedMonitorHooksWayland
+              { resolveFocusedMonitorWayland = getFocusedMonitorWayland thisContext,
+                getFocusedMonitorHyprlandEvents = getHyprlandFocusedMonitorEvents thisContext
+              }
+
   _ <- widgetSetClassGI window "taffy-window"
-  setupFocusedMonitorClassUpdates window thisContext barConfig
+  setupFocusedMonitorClassUpdates
+    focusedMonitorHooks
+    window
+    (strutMonitor (strutConfig barConfig))
 
   let addWidgetWith widgetAdd (count, buildWidget) =
         runReaderT buildWidget thisContext >>= widgetAdd count

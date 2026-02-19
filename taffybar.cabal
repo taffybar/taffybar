@@ -252,6 +252,7 @@ library
                , System.Taffybar.DBus.Client.UPowerDevice
                , System.Taffybar.DBus.Client.Util
                , System.Taffybar.Information.Udev
+               , System.Taffybar.Window.FocusedMonitor
 
   autogen-modules: Paths_taffybar
 
