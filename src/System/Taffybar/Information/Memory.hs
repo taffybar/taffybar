@@ -8,7 +8,8 @@ toMB :: String -> Double
 toMB size = (read size :: Double) / 1024
 
 safeRatio :: Double -> Double -> Double
-safeRatio _
+safeRatio
+  _
   0 = 0
 safeRatio numerator denominator = numerator / denominator
 

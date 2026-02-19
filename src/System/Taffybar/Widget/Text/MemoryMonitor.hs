@@ -52,7 +52,7 @@ showMemoryInfo fmt prec info =
         ]
       sizeStats =
         [ (label, toAuto prec (action info))
-          | (label, action) <- zip sizeLabels sizeActions
+        | (label, action) <- zip sizeLabels sizeActions
         ]
       ratioStats =
         [ ("usedRatio", toRatio prec (memoryUsedRatio info)),
