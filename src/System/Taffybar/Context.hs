@@ -74,12 +74,14 @@ module System.Taffybar.Context
 where
 
 import Control.Arrow ((&&&), (***))
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkIO, killThread, threadDelay)
 import qualified Control.Concurrent.MVar as MV
+import Control.Concurrent.STM.TChan (readTChan)
 import Control.Exception (SomeException, try)
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Reader
@@ -106,11 +108,20 @@ import StatusNotifier.TransparentWindow
 import System.Log.Logger (Priority (..), logM)
 import System.Taffybar.Context.Backend (Backend (..), detectBackend)
 import qualified System.Taffybar.DBus.Client.Params as DBusParams
+import System.Taffybar.Information.EWMHDesktopInfo
+  ( ewmhActiveWindow,
+    ewmhCurrentDesktop,
+    getActiveWindow,
+    getWindows,
+  )
 import System.Taffybar.Information.Hyprland
   ( HyprlandClient,
     HyprlandEventChan,
+    buildHyprlandEventChan,
     defaultHyprlandClientConfig,
+    getFocusedMonitorPosition,
     newHyprlandClient,
+    subscribeHyprlandEvents,
   )
 import System.Taffybar.Information.SafeX11 hiding (setState)
 import System.Taffybar.Information.X11DesktopInfo
@@ -395,6 +406,147 @@ buildEmptyContext = buildContext def
 showBarId :: BarConfig -> String
 showBarId = show . hashUnique . barId
 
+focusedMonitorClasses :: [T.Text]
+focusedMonitorClasses = ["focused-monitor", "unfocused-monitor"]
+
+focusedMonitorClass :: Bool -> T.Text
+focusedMonitorClass True = "focused-monitor"
+focusedMonitorClass False = "unfocused-monitor"
+
+getActiveWindowCenterPoint :: TaffyIO (Maybe (Int, Int))
+getActiveWindowCenterPoint = runX11 $ do
+  maybeActiveWindow <- getActiveWindow
+  allWindows <- getWindows
+  case maybeActiveWindow >>= \activeWindow -> activeWindow `guardElem` allWindows of
+    Nothing -> return Nothing
+    Just activeWindow -> do
+      display <- getDisplay
+      (_, x, y, width, height, _, _) <- lift $ safeGetGeometry display activeWindow
+      let centerX = fromIntegral x + fromIntegral width `div` 2
+          centerY = fromIntegral y + fromIntegral height `div` 2
+      return $ Just (centerX, centerY)
+  where
+    guardElem value values =
+      if value `elem` values
+        then Just value
+        else Nothing
+
+getPointerMonitor :: GI.Gdk.Display -> IO (Maybe GI.Gdk.Monitor)
+getPointerMonitor display = runMaybeT $ do
+  seat <- lift $ GI.Gdk.displayGetDefaultSeat display
+  pointer <- MaybeT $ GI.Gdk.seatGetPointer seat
+  (_, x, y) <- lift $ GI.Gdk.deviceGetPosition pointer
+  MaybeT $ Just <$> GI.Gdk.displayGetMonitorAtPoint display x y
+
+getFocusedMonitorX11 :: Context -> IO (Maybe GI.Gdk.Monitor)
+getFocusedMonitorX11 context = runMaybeT $ do
+  display <- MaybeT GI.Gdk.displayGetDefault
+  maybeCenterPoint <- lift $ runReaderT getActiveWindowCenterPoint context
+  case maybeCenterPoint of
+    Just (x, y) ->
+      MaybeT $
+        Just
+          <$> GI.Gdk.displayGetMonitorAtPoint
+            display
+            (fromIntegral x)
+            (fromIntegral y)
+    Nothing -> MaybeT $ getPointerMonitor display
+
+getFocusedMonitorWayland :: Context -> IO (Maybe GI.Gdk.Monitor)
+getFocusedMonitorWayland context = runMaybeT $ do
+  display <- MaybeT GI.Gdk.displayGetDefault
+  maybeFocusedMonitorPosition <- lift $ getFocusedMonitorPosition (hyprlandClient context)
+  case maybeFocusedMonitorPosition of
+    Just (x, y) ->
+      MaybeT $
+        Just
+          <$> GI.Gdk.displayGetMonitorAtPoint
+            display
+            (fromIntegral x)
+            (fromIntegral y)
+    Nothing -> MaybeT $ getPointerMonitor display
+
+getFocusedMonitor :: Context -> IO (Maybe GI.Gdk.Monitor)
+getFocusedMonitor context =
+  case backend context of
+    BackendX11 -> getFocusedMonitorX11 context
+    BackendWayland -> getFocusedMonitorWayland context
+
+getBarMonitor :: Gtk.Window -> BarConfig -> IO (Maybe GI.Gdk.Monitor)
+getBarMonitor window BarConfig {strutConfig = StrutConfig {strutMonitor = maybeMonitorNumber}} = do
+  display <- Gtk.widgetGetDisplay window
+  maybe
+    (GI.Gdk.displayGetPrimaryMonitor display)
+    (GI.Gdk.displayGetMonitor display)
+    maybeMonitorNumber
+
+monitorsMatch :: GI.Gdk.Monitor -> GI.Gdk.Monitor -> IO Bool
+monitorsMatch left right = do
+  leftGeometry <- GI.Gdk.getMonitorGeometry left
+  rightGeometry <- GI.Gdk.getMonitorGeometry right
+  case (leftGeometry, rightGeometry) of
+    (Nothing, Nothing) -> return True
+    (Just leftRect, Just rightRect) -> GI.Gdk.rectangleEqual leftRect rightRect
+    _ -> return False
+
+updateFocusedMonitorClass :: Gtk.Window -> Context -> BarConfig -> IO ()
+updateFocusedMonitorClass window context barConfig = do
+  maybeFocusedMonitor <- getFocusedMonitor context
+  maybeBarMonitor <- getBarMonitor window barConfig
+  isFocused <- case (maybeFocusedMonitor, maybeBarMonitor) of
+    (Just focusedMonitor, Just barMonitor) ->
+      monitorsMatch focusedMonitor barMonitor
+    _ -> return False
+  updateWidgetClasses
+    window
+    [focusedMonitorClass isFocused]
+    focusedMonitorClasses
+
+withHyprlandEventChan :: Context -> IO HyprlandEventChan
+withHyprlandEventChan context =
+  MV.modifyMVar (hyprlandEventChanVar context) $ \existing ->
+    case existing of
+      Just eventChan -> return (existing, eventChan)
+      Nothing -> do
+        eventChan <- buildHyprlandEventChan (hyprlandClient context)
+        return (Just eventChan, eventChan)
+
+isRelevantFocusedMonitorHyprlandEvent :: T.Text -> Bool
+isRelevantFocusedMonitorHyprlandEvent eventLine =
+  let hyprEventName = T.takeWhile (/= '>') eventLine
+   in hyprEventName
+        `elem` [ "workspace",
+                 "workspacev2",
+                 "focusedmon",
+                 "activewindow",
+                 "activewindowv2",
+                 "monitoradded",
+                 "monitorremoved",
+                 "taffybar-hyprland-connected"
+               ]
+
+setupFocusedMonitorClassUpdates :: Gtk.Window -> Context -> BarConfig -> IO ()
+setupFocusedMonitorClassUpdates window thisContext barConfig = do
+  let refresh = postGUIASync $ updateFocusedMonitorClass window thisContext barConfig
+  case backend thisContext of
+    BackendX11 -> do
+      propertySubscription <-
+        flip runReaderT thisContext $
+          subscribeToPropertyEvents [ewmhActiveWindow, ewmhCurrentDesktop] $
+            const $
+              lift refresh
+      _ <- Gtk.onWidgetUnrealize window $ flip runReaderT thisContext $ unsubscribe propertySubscription
+      return ()
+    BackendWayland -> do
+      eventChan <- withHyprlandEventChan thisContext
+      events <- subscribeHyprlandEvents eventChan
+      tid <- forkIO $ forever $ do
+        eventLine <- atomically $ readTChan events
+        when (isRelevantFocusedMonitorHyprlandEvent eventLine) refresh
+      _ <- Gtk.onWidgetUnrealize window $ killThread tid
+      return ()
+  refresh
+
 buildBarWindow :: Context -> BarConfig -> IO Gtk.Window
 buildBarWindow context barConfig = do
   let thisContext = context {contextBarConfig = Just barConfig}
@@ -415,6 +567,7 @@ buildBarWindow context barConfig = do
   setupBarWindow context (strutConfig barConfig) window
 
   _ <- widgetSetClassGI window "taffy-window"
+  setupFocusedMonitorClassUpdates window thisContext barConfig
 
   let addWidgetWith widgetAdd (count, buildWidget) =
         runReaderT buildWidget thisContext >>= widgetAdd count
