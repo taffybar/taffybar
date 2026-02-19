@@ -20,6 +20,7 @@ import Data.Time.LocalTime
 import qualified Data.Time.Locale.Compat as L
 import qualified GI.Gdk as Gdk
 import GI.Gtk
+import System.Taffybar.Util (VariableDelayConfig, defaultVariableDelayConfig)
 import System.Taffybar.Widget.Generic.PollingLabel
 import System.Taffybar.Widget.Util
 
@@ -78,7 +79,8 @@ data ClockConfig = ClockConfig
   { clockTimeZone :: Maybe TimeZone,
     clockTimeLocale :: Maybe L.TimeLocale,
     clockFormatString :: String,
-    clockUpdateStrategy :: ClockUpdateStrategy
+    clockUpdateStrategy :: ClockUpdateStrategy,
+    clockVariableDelayConfig :: VariableDelayConfig Double
   }
   deriving (Eq, Ord, Show)
 
@@ -89,7 +91,8 @@ defaultClockConfig =
     { clockTimeZone = Nothing,
       clockTimeLocale = Nothing,
       clockFormatString = "%a %b %_d %r",
-      clockUpdateStrategy = RoundedTargetInterval 5 0.0
+      clockUpdateStrategy = RoundedTargetInterval 5 0.0,
+      clockVariableDelayConfig = defaultVariableDelayConfig
     }
 
 instance Default ClockConfig where
@@ -105,7 +108,8 @@ textClockNewWith
     { clockTimeZone = userZone,
       clockTimeLocale = userLocale,
       clockFormatString = formatString,
-      clockUpdateStrategy = updateStrategy
+      clockUpdateStrategy = updateStrategy,
+      clockVariableDelayConfig = variableDelayConfig
     } = liftIO $ do
     let getTZ = maybe getCurrentTimeZone return userZone
         locale = fromMaybe L.defaultTimeLocale userLocale
@@ -142,7 +146,11 @@ textClockNewWith
                   amountToWait = realToFrac $ diffLocalTime nextTarget localTime
                in (doTimeFormat roundedZonedTime, Nothing, amountToWait - offset)
 
-    label <- pollingLabelWithVariableDelay getRoundedTimeAndNextTarget
+    let pollingConfig =
+          defaultPollingLabelConfig
+            { pollingLabelVariableDelayConfig = variableDelayConfig
+            }
+    label <- pollingLabelWithVariableDelayWithConfig pollingConfig getRoundedTimeAndNextTarget
     ebox <- eventBoxNew
     containerAdd ebox label
     eventBoxSetVisibleWindow ebox False
