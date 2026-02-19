@@ -26,13 +26,18 @@ module System.Taffybar.Hooks
 where
 
 import Control.Concurrent
+import qualified Control.Concurrent.MVar as MV
 import Control.Concurrent.STM.TChan
 import Control.Monad
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
+import Data.List (isSuffixOf, nub)
 import qualified Data.MultiMap as MM
+import System.Directory (doesDirectoryExist)
 import System.Environment.XDG.DesktopEntry
+import System.FSNotify (Event (eventIsDirectory, eventPath), EventIsDirectory (IsFile), startManager, watchDir)
+import System.FilePath ((</>))
 import System.Log.Logger
 import System.Taffybar.Context
 import System.Taffybar.DBus
@@ -41,7 +46,6 @@ import System.Taffybar.Information.Chrome
 import System.Taffybar.Information.Network
 import System.Taffybar.LogFormatter
 import System.Taffybar.LogLevels
-import System.Taffybar.Util
 
 -- | The type of the channel that provides network information in taffybar.
 newtype NetworkInfoChan
@@ -90,21 +94,68 @@ withLogLevels =
     lift $
       defaultLogLevelsPath >>= loadLogLevelsFromFile
 
+newtype DesktopEntryCacheWatch
+  = DesktopEntryCacheWatch (IO ())
+
 -- | Load the 'DesktopEntry' cache from 'Context' state.
 getDirectoryEntriesByClassName :: TaffyIO (MM.MultiMap String DesktopEntry)
 getDirectoryEntriesByClassName =
   getStateDefault readDirectoryEntriesDefault
 
--- | Update the 'DesktopEntry' cache every 60 seconds.
+-- | Keep the 'DesktopEntry' cache fresh by watching XDG application directories
+-- for desktop entry file updates.
 updateDirectoryEntriesCache :: TaffyIO ()
-updateDirectoryEntriesCache =
-  ask >>= \ctx ->
-    void $
-      lift $
-        foreverWithDelay (60 :: Double) $
-          flip runReaderT ctx $
-            void $
-              putState readDirectoryEntriesDefault
+updateDirectoryEntriesCache = do
+  _ <- getStateDefault startDesktopEntryCacheWatch
+  return ()
+
+startDesktopEntryCacheWatch :: TaffyIO DesktopEntryCacheWatch
+startDesktopEntryCacheWatch = do
+  ctx <- ask
+  appDirs <- lift getDesktopEntryApplicationDirs
+  updateSignal <- lift MV.newEmptyMVar
+  mgr <- lift startManager
+  stopActions <-
+    lift $
+      forM appDirs $
+        \dir ->
+          watchDir mgr dir isDesktopEntryEvent $
+            const $
+              void $
+                MV.tryPutMVar updateSignal ()
+  _ <-
+    lift $
+      forkIO $
+        forever $ do
+          _ <- MV.takeMVar updateSignal
+          threadDelay 200000
+          flushUpdates updateSignal
+          void $ flip runReaderT ctx refreshDirectoryEntriesCache
+  void $ refreshDirectoryEntriesCache
+  return $
+    DesktopEntryCacheWatch $
+      mapM_ id stopActions
+
+refreshDirectoryEntriesCache :: TaffyIO (MM.MultiMap String DesktopEntry)
+refreshDirectoryEntriesCache = do
+  entries <- readDirectoryEntriesDefault
+  setState entries
+
+flushUpdates :: MV.MVar () -> IO ()
+flushUpdates updateSignal = do
+  next <- MV.tryTakeMVar updateSignal
+  case next of
+    Nothing -> return ()
+    Just _ -> flushUpdates updateSignal
+
+isDesktopEntryEvent :: Event -> Bool
+isDesktopEntryEvent event =
+  eventIsDirectory event == IsFile && ".desktop" `isSuffixOf` eventPath event
+
+getDesktopEntryApplicationDirs :: IO [FilePath]
+getDesktopEntryApplicationDirs = do
+  xdgDataDirs <- getXDGDataDirs
+  filterM doesDirectoryExist $ map (</> "applications") $ nub xdgDataDirs
 
 -- | Read 'DesktopEntry' values into a 'MM.Multimap', where they are indexed by
 -- the class name specified in the 'DesktopEntry'.
