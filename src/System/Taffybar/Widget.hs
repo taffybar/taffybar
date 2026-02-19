@@ -42,6 +42,9 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.FreedesktopNotifications"
   , module System.Taffybar.Widget.FreedesktopNotifications
 
+  -- * "System.Taffybar.Widget.ImageCommandButton"
+  , module System.Taffybar.Widget.ImageCommandButton
+
   -- * "System.Taffybar.Widget.Inhibitor"
   , module System.Taffybar.Widget.Inhibitor
 
@@ -129,6 +132,7 @@ import System.Taffybar.Widget.DiskIOMonitor
 import System.Taffybar.Widget.DiskUsage
 import System.Taffybar.Widget.FSMonitor
 import System.Taffybar.Widget.FreedesktopNotifications
+import System.Taffybar.Widget.ImageCommandButton
 import System.Taffybar.Widget.Inhibitor
 import System.Taffybar.Widget.Layout
 import System.Taffybar.Widget.MPRIS2
