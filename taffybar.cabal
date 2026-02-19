@@ -182,6 +182,7 @@ library
                  , System.Taffybar.Widget.DiskUsage
                  , System.Taffybar.Widget.FSMonitor
                  , System.Taffybar.Widget.FreedesktopNotifications
+                 , System.Taffybar.Widget.ImageCommandButton
                  , System.Taffybar.Widget.Generic.AutoFillImage
                  , System.Taffybar.Widget.Generic.AutoSizeImage
                  , System.Taffybar.Widget.Generic.ChannelGraph
