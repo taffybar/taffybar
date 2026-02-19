@@ -55,8 +55,8 @@ pollingLabelWithVariableDelay ::
   (MonadIO m) =>
   IO (T.Text, Maybe T.Text, Double) ->
   m GI.Gtk.Widget
-pollingLabelWithVariableDelay action =
-  pollingLabelWithVariableDelayWithConfig defaultPollingLabelConfig action
+pollingLabelWithVariableDelay =
+  pollingLabelWithVariableDelayWithConfig defaultPollingLabelConfig
 
 data PollingLabelConfig d = PollingLabelConfig
   { pollingLabelRefreshOnClick :: Bool,

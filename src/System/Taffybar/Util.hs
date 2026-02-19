@@ -210,7 +210,7 @@ foreverWithDelay delay action =
 -- | Execute the provided IO action, and use the value it returns to decide how
 -- long to wait until executing it again. The value returned by the action is
 -- interpreted as a number of seconds.
-data VariableDelayConfig d = VariableDelayConfig
+newtype VariableDelayConfig d = VariableDelayConfig
   { -- | Maximum sleep chunk used while waiting between polls.
     --
     -- If 'Nothing', waits use a single 'threadDelay' for the entire delay.
