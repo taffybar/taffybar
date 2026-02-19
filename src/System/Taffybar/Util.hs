@@ -45,6 +45,9 @@ module System.Taffybar.Util
     maybeToEither,
 
     -- * Control
+    VariableDelayConfig (..),
+    defaultVariableDelayConfig,
+    foreverWithVariableDelayWithConfig,
     foreverWithVariableDelay,
     foreverWithDelay,
 
@@ -84,6 +87,7 @@ import Data.GI.Gtk.Threading as Gtk (postGUIASync, postGUISync)
 import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Maybe
 import qualified Data.Text as T
+import qualified Data.Time.Clock as Clock
 import Data.Tuple.Sequence
 import qualified GI.GLib.Constants as G
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
@@ -206,11 +210,53 @@ foreverWithDelay delay action =
 -- | Execute the provided IO action, and use the value it returns to decide how
 -- long to wait until executing it again. The value returned by the action is
 -- interpreted as a number of seconds.
+newtype VariableDelayConfig d = VariableDelayConfig
+  { -- | Maximum sleep chunk used while waiting between polls.
+    --
+    -- If 'Nothing', waits use a single 'threadDelay' for the entire delay.
+    -- If present, waits are chunked using wall-clock time, which helps polling
+    -- loops recover promptly after suspend/resume.
+    variableDelayMaxWaitChunk :: Maybe d
+  }
+  deriving (Eq, Ord, Show)
+
+defaultVariableDelayConfig :: VariableDelayConfig d
+defaultVariableDelayConfig =
+  VariableDelayConfig
+    { variableDelayMaxWaitChunk = Nothing
+    }
+
 foreverWithVariableDelay :: (MonadIO m, RealFrac d) => IO d -> m ThreadId
-foreverWithVariableDelay action = liftIO $ forkIO $ action >>= delayThenAction
+foreverWithVariableDelay = foreverWithVariableDelayWithConfig defaultVariableDelayConfig
+
+foreverWithVariableDelayWithConfig ::
+  (MonadIO m, RealFrac d) => VariableDelayConfig d -> IO d -> m ThreadId
+foreverWithVariableDelayWithConfig config action = liftIO $ forkIO $ action >>= delayThenAction
   where
-    delayThenAction delay =
-      threadDelay (floor $ delay * 1000000) >> action >>= delayThenAction
+    delayThenAction delay = do
+      waitDelay delay
+      action >>= delayThenAction
+
+    waitDelay delay
+      | delay <= 0 = pure ()
+      | otherwise =
+          case variableDelayMaxWaitChunk config of
+            Just waitChunk | waitChunk > 0 -> do
+              start <- Clock.getCurrentTime
+              let waitChunkMicros =
+                    max 1 $
+                      floor
+                        (realToFrac waitChunk * 1000000 :: Double)
+              waitUntil waitChunkMicros $ Clock.addUTCTime (realToFrac delay) start
+            _ -> threadDelay (floor $ delay * 1000000)
+
+    waitUntil waitChunkMicros target = do
+      now <- Clock.getCurrentTime
+      let remainingMicros =
+            floor
+              (realToFrac (Clock.diffUTCTime target now) * 1000000 :: Double)
+          sleepMicros = min waitChunkMicros remainingMicros
+      when (sleepMicros > 0) $ threadDelay sleepMicros >> waitUntil waitChunkMicros target
 
 liftActionTaker ::
   (Monad m) =>

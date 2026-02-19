@@ -55,8 +55,20 @@ pollingLabelWithVariableDelay ::
   (MonadIO m) =>
   IO (T.Text, Maybe T.Text, Double) ->
   m GI.Gtk.Widget
-pollingLabelWithVariableDelay action =
-  pollingLabelWithVariableDelayAndRefresh action False
+pollingLabelWithVariableDelay =
+  pollingLabelWithVariableDelayWithConfig defaultPollingLabelConfig
+
+data PollingLabelConfig d = PollingLabelConfig
+  { pollingLabelRefreshOnClick :: Bool,
+    pollingLabelVariableDelayConfig :: VariableDelayConfig d
+  }
+
+defaultPollingLabelConfig :: PollingLabelConfig d
+defaultPollingLabelConfig =
+  PollingLabelConfig
+    { pollingLabelRefreshOnClick = False,
+      pollingLabelVariableDelayConfig = defaultVariableDelayConfig
+    }
 
 -- TODO: Customize the delay and message on mouse click
 pollingLabelWithVariableDelayAndRefresh ::
@@ -66,12 +78,25 @@ pollingLabelWithVariableDelayAndRefresh ::
   Bool ->
   m GI.Gtk.Widget
 pollingLabelWithVariableDelayAndRefresh action refreshOnClick =
+  pollingLabelWithVariableDelayWithConfig
+    ( defaultPollingLabelConfig
+        { pollingLabelRefreshOnClick = refreshOnClick
+        }
+    )
+    action
+
+pollingLabelWithVariableDelayWithConfig ::
+  (MonadIO m) =>
+  PollingLabelConfig Double ->
+  IO (T.Text, Maybe T.Text, Double) ->
+  m GI.Gtk.Widget
+pollingLabelWithVariableDelayWithConfig config action =
   liftIO $ do
     grid <- gridNew
     label <- labelNew Nothing
     ebox <- eventBoxNew
 
-    when refreshOnClick $ void $ onWidgetButtonPressEvent ebox $ onClick [Gdk.EventTypeButtonPress] $ do
+    when (pollingLabelRefreshOnClick config) $ void $ onWidgetButtonPressEvent ebox $ onClick [Gdk.EventTypeButtonPress] $ do
       postGUIASync $ labelSetMarkup label "Refreshing..."
       forkIO $ do
         newLavelStr <-
@@ -92,7 +117,10 @@ pollingLabelWithVariableDelayAndRefresh action refreshOnClick =
           E.tryAny action >>= either (const $ return 1) updateLabel
 
     _ <- onWidgetRealize label $ do
-      sampleThread <- foreverWithVariableDelay updateLabelHandlingErrors
+      sampleThread <-
+        foreverWithVariableDelayWithConfig
+          (pollingLabelVariableDelayConfig config)
+          updateLabelHandlingErrors
       void $ onWidgetUnrealize label $ killThread sampleThread
 
     vFillCenter label
