@@ -92,7 +92,12 @@ defaultMPRIS2Config =
 
 data MPRIS2PlayerWidget = MPRIS2PlayerWidget
   { playerLabel :: Gtk.Label,
-    playerWidget :: Gtk.Widget
+    playerWidget :: Gtk.Widget,
+    playerNowPlayingVar :: MV.MVar NowPlaying,
+    playerPreviousButton :: Gtk.Button,
+    playerPlayPauseButton :: Gtk.Button,
+    playerPlayPauseButtonLabel :: Gtk.Label,
+    playerNextButton :: Gtk.Button
   }
 
 data SimpleMPRIS2PlayerConfig = SimpleMPRIS2PlayerConfig
@@ -143,6 +148,68 @@ loadIconAtSize client busName size =
                 (getImageForDesktopEntry size)
           )
 
+backIconText :: T.Text
+backIconText = "⏮"
+
+playIconText :: T.Text
+playIconText = "▶"
+
+pauseIconText :: T.Text
+pauseIconText = "⏸"
+
+nextIconText :: T.Text
+nextIconText = "⏭"
+
+toggleIconText :: T.Text
+toggleIconText = "⏯"
+
+isPlaying :: NowPlaying -> Bool
+isPlaying NowPlaying {npStatus = status} = status == "Playing"
+
+canTogglePlayback :: NowPlaying -> Bool
+canTogglePlayback nowPlaying = npCanPause nowPlaying || npCanPlay nowPlaying
+
+playPauseIconText :: NowPlaying -> T.Text
+playPauseIconText nowPlaying
+  | isPlaying nowPlaying && npCanPause nowPlaying = pauseIconText
+  | npCanPlay nowPlaying = playIconText
+  | otherwise = toggleIconText
+
+runPlayPauseAction :: Client -> NowPlaying -> IO ()
+runPlayPauseAction client nowPlaying
+  | isPlaying nowPlaying && npCanPause nowPlaying =
+      void $ MPRIS2DBus.pause client (npBusName nowPlaying)
+  | not (isPlaying nowPlaying) && npCanPlay nowPlaying =
+      void $ MPRIS2DBus.play client (npBusName nowPlaying)
+  | canTogglePlayback nowPlaying =
+      void $ MPRIS2DBus.playPause client (npBusName nowPlaying)
+  | otherwise = return ()
+
+updateControlButtons :: MPRIS2PlayerWidget -> NowPlaying -> IO ()
+updateControlButtons
+  MPRIS2PlayerWidget
+    { playerPreviousButton = previousButton,
+      playerPlayPauseButton = playPauseButton,
+      playerPlayPauseButtonLabel = playPauseButtonLabel,
+      playerNextButton = nextButton
+    }
+  nowPlaying = do
+    Gtk.widgetSetVisible previousButton (npCanGoPrevious nowPlaying)
+    Gtk.widgetSetSensitive previousButton (npCanGoPrevious nowPlaying)
+    Gtk.widgetSetVisible playPauseButton (canTogglePlayback nowPlaying)
+    Gtk.widgetSetSensitive playPauseButton (canTogglePlayback nowPlaying)
+    Gtk.labelSetText playPauseButtonLabel (playPauseIconText nowPlaying)
+    Gtk.widgetSetVisible nextButton (npCanGoNext nowPlaying)
+    Gtk.widgetSetSensitive nextButton (npCanGoNext nowPlaying)
+
+newControlButton :: T.Text -> IO (Gtk.Button, Gtk.Label)
+newControlButton iconText = do
+  button <- Gtk.buttonNew
+  label <- Gtk.labelNew $ Just iconText
+  Gtk.containerAdd button label
+  Gtk.widgetShowAll button
+  return (button, label)
+
 -- | This is the default player widget constructor that is used to build mpris
 -- widgets. It provides only an icon and NowPlaying text.
 simplePlayerWidget ::
@@ -157,31 +224,72 @@ simplePlayerWidget
   c
   addToParent
   Nothing
-  np@(Just NowPlaying {npBusName = busName}) = do
+  np@(Just nowPlaying@NowPlaying {npBusName = busName}) = do
     ctx <- ask
     client <- asks sessionDBusClient
     lift $ do
       mprisLog DEBUG "Building widget for %s" busName
       image <- autoSizeImageNew (loadIconAtSize client busName) Gtk.OrientationHorizontal
-      playerBox <- Gtk.gridNew
+      playerBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
+      clickArea <- Gtk.boxNew Gtk.OrientationHorizontal 0
+      controlsBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
       label <- Gtk.labelNew Nothing
+      nowPlayingVar <- MV.newMVar nowPlaying
+      (previousButton, _) <- newControlButton backIconText
+      (playPauseButton, playPauseButtonLabel) <- newControlButton toggleIconText
+      (nextButton, _) <- newControlButton nextIconText
+      _ <- widgetSetClassGI controlsBox "mpris-controls"
+      _ <- widgetSetClassGI previousButton "mpris-control"
+      _ <- widgetSetClassGI previousButton "mpris-control-previous"
+      _ <- widgetSetClassGI playPauseButton "mpris-control"
+      _ <- widgetSetClassGI playPauseButton "mpris-control-play-pause"
+      _ <- widgetSetClassGI nextButton "mpris-control"
+      _ <- widgetSetClassGI nextButton "mpris-control-next"
+      _ <- Gtk.onButtonClicked previousButton $ do
+        currentState <- MV.readMVar nowPlayingVar
+        when
+          (npCanGoPrevious currentState)
+          (void $ MPRIS2DBus.previous client (npBusName currentState))
+      _ <- Gtk.onButtonClicked playPauseButton $ do
+        currentState <- MV.readMVar nowPlayingVar
+        runPlayPauseAction client currentState
+      _ <- Gtk.onButtonClicked nextButton $ do
+        currentState <- MV.readMVar nowPlayingVar
+        when
+          (npCanGoNext currentState)
+          (void $ MPRIS2DBus.next client (npBusName currentState))
       ebox <- Gtk.eventBoxNew
       _ <-
         Gtk.onWidgetButtonPressEvent ebox $
-          const $
-            MPRIS2DBus.playPause client busName >> return True
-      Gtk.containerAdd playerBox image
-      Gtk.containerAdd playerBox label
-      Gtk.containerAdd ebox playerBox
+          const $ do
+            currentState <- MV.readMVar nowPlayingVar
+            runPlayPauseAction client currentState
+            return True
+      Gtk.boxPackStart clickArea image False False 0
+      Gtk.boxPackStart clickArea label True True 0
+      Gtk.containerAdd ebox clickArea
+      Gtk.boxPackStart controlsBox previousButton False False 0
+      Gtk.boxPackStart controlsBox playPauseButton False False 0
+      Gtk.boxPackStart controlsBox nextButton False False 0
+      Gtk.boxPackStart playerBox ebox True True 0
+      Gtk.boxPackStart playerBox controlsBox False False 0
       vFillCenter playerBox
-      addToParent ebox
+      addToParent playerBox
       Gtk.widgetSetVexpand playerBox True
       Gtk.widgetSetName playerBox $ T.pack $ formatBusName busName
-      Gtk.widgetShowAll ebox
-      Gtk.widgetHide ebox
-      widget <- Gtk.toWidget ebox
+      Gtk.widgetShowAll playerBox
+      Gtk.widgetHide playerBox
+      widget <- Gtk.toWidget playerBox
       let widgetData =
-            MPRIS2PlayerWidget {playerLabel = label, playerWidget = widget}
+            MPRIS2PlayerWidget
+              { playerLabel = label,
+                playerWidget = widget,
+                playerNowPlayingVar = nowPlayingVar,
+                playerPreviousButton = previousButton,
+                playerPlayPauseButton = playPauseButton,
+                playerPlayPauseButtonLabel = playPauseButtonLabel,
+                playerNextButton = nextButton
+              }
       flip runReaderT ctx $
         simplePlayerWidget c addToParent (Just widgetData) np
 simplePlayerWidget
@@ -190,15 +298,17 @@ simplePlayerWidget
   ( Just
       w@MPRIS2PlayerWidget
         { playerLabel = label,
-          playerWidget = widget
+          playerWidget = widget,
+          playerNowPlayingVar = nowPlayingVar
         }
     )
   (Just nowPlaying) = lift $ do
     mprisLog DEBUG "Setting state %s" nowPlaying
+    void $ MV.swapMVar nowPlayingVar nowPlaying
     Gtk.labelSetMarkup label =<< setNowPlayingLabel config nowPlaying
     shouldShow <- showPlayerWidgetFn config nowPlaying
     if shouldShow
-      then Gtk.widgetShowAll widget
+      then Gtk.widgetShowAll widget >> updateControlButtons w nowPlaying
       else Gtk.widgetHide widget
     return w
 simplePlayerWidget _ _ _ _ =

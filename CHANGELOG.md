@@ -6,6 +6,9 @@
    stacked multi-row bars with per-level `start`/`center`/`end` widget lists.
  * Keep backward compatibility for existing configs: when `barLevels` is
    `Nothing`, the legacy single-row widget fields are used unchanged.
+ * Extend the default MPRIS2 widget with always-visible previous/play-pause/next
+   controls, gated by player capabilities (`CanGoPrevious`, `CanPlay`,
+   `CanPause`, `CanGoNext`).
 
 ## Dependency Bumps
 
