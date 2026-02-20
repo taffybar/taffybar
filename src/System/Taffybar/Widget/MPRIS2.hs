@@ -92,13 +92,25 @@ defaultMPRIS2Config =
 
 data MPRIS2PlayerWidget = MPRIS2PlayerWidget
   { playerLabel :: Gtk.Label,
-    playerWidget :: Gtk.Widget,
-    playerNowPlayingVar :: MV.MVar NowPlaying,
-    playerPreviousButton :: Gtk.Button,
-    playerPlayPauseButton :: Gtk.Button,
-    playerPlayPauseButtonLabel :: Gtk.Label,
-    playerNextButton :: Gtk.Button
+    playerWidget :: Gtk.Widget
   }
+
+data MPRIS2PlayerControlsWidget = MPRIS2PlayerControlsWidget
+  { controlsPlayerLabel :: Gtk.Label,
+    controlsPlayerWidget :: Gtk.Widget,
+    controlsNowPlayingVar :: MV.MVar NowPlaying,
+    controlsPreviousButton :: Gtk.Button,
+    controlsPlayPauseButton :: Gtk.Button,
+    controlsPlayPauseButtonLabel :: Gtk.Label,
+    controlsNextButton :: Gtk.Button
+  }
+
+defaultMPRIS2ControlsConfig :: MPRIS2Config MPRIS2PlayerControlsWidget
+defaultMPRIS2ControlsConfig =
+  MPRIS2Config
+    { mprisWidgetWrapper = return,
+      updatePlayerWidget = simplePlayerWidgetWithControls def
+    }
 
 data SimpleMPRIS2PlayerConfig = SimpleMPRIS2PlayerConfig
   { setNowPlayingLabel :: NowPlaying -> IO T.Text,
@@ -185,13 +197,13 @@ runPlayPauseAction client nowPlaying
       void $ MPRIS2DBus.playPause client (npBusName nowPlaying)
   | otherwise = return ()
 
-updateControlButtons :: MPRIS2PlayerWidget -> NowPlaying -> IO ()
+updateControlButtons :: MPRIS2PlayerControlsWidget -> NowPlaying -> IO ()
 updateControlButtons
-  MPRIS2PlayerWidget
-    { playerPreviousButton = previousButton,
-      playerPlayPauseButton = playPauseButton,
-      playerPlayPauseButtonLabel = playPauseButtonLabel,
-      playerNextButton = nextButton
+  MPRIS2PlayerControlsWidget
+    { controlsPreviousButton = previousButton,
+      controlsPlayPauseButton = playPauseButton,
+      controlsPlayPauseButtonLabel = playPauseButtonLabel,
+      controlsNextButton = nextButton
     }
   nowPlaying = do
     Gtk.widgetSetVisible previousButton (npCanGoPrevious nowPlaying)
@@ -221,6 +233,71 @@ simplePlayerWidget
   Nothing =
     lift $ Gtk.widgetHide widget >> return p
 simplePlayerWidget
+  c
+  addToParent
+  Nothing
+  np@(Just NowPlaying {npBusName = busName}) = do
+    ctx <- ask
+    client <- asks sessionDBusClient
+    lift $ do
+      mprisLog DEBUG "Building widget for %s" busName
+      image <- autoSizeImageNew (loadIconAtSize client busName) Gtk.OrientationHorizontal
+      playerBox <- Gtk.gridNew
+      label <- Gtk.labelNew Nothing
+      ebox <- Gtk.eventBoxNew
+      _ <-
+        Gtk.onWidgetButtonPressEvent ebox $
+          const $
+            MPRIS2DBus.playPause client busName >> return True
+      Gtk.containerAdd playerBox image
+      Gtk.containerAdd playerBox label
+      Gtk.containerAdd ebox playerBox
+      vFillCenter playerBox
+      addToParent ebox
+      Gtk.widgetSetVexpand playerBox True
+      Gtk.widgetSetName playerBox $ T.pack $ formatBusName busName
+      Gtk.widgetShowAll ebox
+      Gtk.widgetHide ebox
+      widget <- Gtk.toWidget ebox
+      let widgetData =
+            MPRIS2PlayerWidget {playerLabel = label, playerWidget = widget}
+      flip runReaderT ctx $
+        simplePlayerWidget c addToParent (Just widgetData) np
+simplePlayerWidget
+  config
+  _
+  ( Just
+      w@MPRIS2PlayerWidget
+        { playerLabel = label,
+          playerWidget = widget
+        }
+    )
+  (Just nowPlaying) = lift $ do
+    mprisLog DEBUG "Setting state %s" nowPlaying
+    Gtk.labelSetMarkup label =<< setNowPlayingLabel config nowPlaying
+    shouldShow <- showPlayerWidgetFn config nowPlaying
+    if shouldShow
+      then Gtk.widgetShowAll widget
+      else Gtk.widgetHide widget
+    return w
+simplePlayerWidget _ _ _ _ =
+  mprisLog
+    WARNING
+    "widget update called with no widget or %s"
+    ("nowplaying" :: String)
+    >> return undefined
+
+-- | This player widget constructor extends the default MPRIS2 row with previous,
+-- play/pause, and next buttons.
+simplePlayerWidgetWithControls ::
+  SimpleMPRIS2PlayerConfig -> UpdateMPRIS2PlayerWidget MPRIS2PlayerControlsWidget
+simplePlayerWidgetWithControls
+  _
+  _
+  (Just p@MPRIS2PlayerControlsWidget {controlsPlayerWidget = widget})
+  Nothing =
+    lift $ Gtk.widgetHide widget >> return p
+simplePlayerWidgetWithControls
   c
   addToParent
   Nothing
@@ -281,25 +358,25 @@ simplePlayerWidget
       Gtk.widgetHide playerBox
       widget <- Gtk.toWidget playerBox
       let widgetData =
-            MPRIS2PlayerWidget
-              { playerLabel = label,
-                playerWidget = widget,
-                playerNowPlayingVar = nowPlayingVar,
-                playerPreviousButton = previousButton,
-                playerPlayPauseButton = playPauseButton,
-                playerPlayPauseButtonLabel = playPauseButtonLabel,
-                playerNextButton = nextButton
+            MPRIS2PlayerControlsWidget
+              { controlsPlayerLabel = label,
+                controlsPlayerWidget = widget,
+                controlsNowPlayingVar = nowPlayingVar,
+                controlsPreviousButton = previousButton,
+                controlsPlayPauseButton = playPauseButton,
+                controlsPlayPauseButtonLabel = playPauseButtonLabel,
+                controlsNextButton = nextButton
               }
       flip runReaderT ctx $
-        simplePlayerWidget c addToParent (Just widgetData) np
-simplePlayerWidget
+        simplePlayerWidgetWithControls c addToParent (Just widgetData) np
+simplePlayerWidgetWithControls
   config
   _
   ( Just
-      w@MPRIS2PlayerWidget
-        { playerLabel = label,
-          playerWidget = widget,
-          playerNowPlayingVar = nowPlayingVar
+      w@MPRIS2PlayerControlsWidget
+        { controlsPlayerLabel = label,
+          controlsPlayerWidget = widget,
+          controlsNowPlayingVar = nowPlayingVar
         }
     )
   (Just nowPlaying) = lift $ do
@@ -311,7 +388,7 @@ simplePlayerWidget
       then Gtk.widgetShowAll widget >> updateControlButtons w nowPlaying
       else Gtk.widgetHide widget
     return w
-simplePlayerWidget _ _ _ _ =
+simplePlayerWidgetWithControls _ _ _ _ =
   mprisLog
     WARNING
     "widget update called with no widget or %s"
@@ -321,6 +398,11 @@ simplePlayerWidget _ _ _ _ =
 -- | Construct a new MPRIS2 widget using the `simplePlayerWidget` constructor.
 mpris2New :: TaffyIO Gtk.Widget
 mpris2New = mpris2NewWithConfig defaultMPRIS2Config
+
+-- | Construct a new MPRIS2 widget with transport control buttons
+-- (previous/play-pause/next) when the player advertises support for them.
+mpris2NewWithControls :: TaffyIO Gtk.Widget
+mpris2NewWithControls = mpris2NewWithConfig defaultMPRIS2ControlsConfig
 
 -- | Construct a new MPRIS2 widget with the provided configuration.
 mpris2NewWithConfig :: MPRIS2Config a -> TaffyIO Gtk.Widget
