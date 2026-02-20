@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-deprecations #-}
+
 -----------------------------------------------------------------------------
 
 -----------------------------------------------------------------------------
@@ -11,6 +13,7 @@
 -- Stability   : unstable
 -- Portability : unportable
 module System.Taffybar.Widget.Workspaces
+  {-# DEPRECATED "Legacy workspaces widget API. Use System.Taffybar.Widget.Workspaces.Channel (or System.Taffybar.Widget.ChannelWorkspaces) instead." #-}
   ( module System.Taffybar.Widget.Workspaces.EWMH,
     module System.Taffybar.Widget.Workspaces.Shared,
     WorkspacesConfig (..),

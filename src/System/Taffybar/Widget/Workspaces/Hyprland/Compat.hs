@@ -1,4 +1,5 @@
 {-# LANGUAGE StrictData #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -----------------------------------------------------------------------------
 
@@ -18,6 +19,7 @@
 -- This module is intentionally not re-exported by the umbrella widget
 -- modules so that consumers opt in explicitly.
 module System.Taffybar.Widget.Workspaces.Hyprland.Compat
+  {-# DEPRECATED "Legacy Hyprland workspaces compatibility layer. Use System.Taffybar.Widget.Workspaces.Channel instead." #-}
   ( HyprlandWorkspacesConfig (..),
     defaultHyprlandWorkspacesConfig,
     hyprlandWorkspacesNew,

@@ -18,6 +18,7 @@
 -- Stability   : unstable
 -- Portability : unportable
 module System.Taffybar.Widget.Workspaces.EWMH
+  {-# DEPRECATED "Legacy EWMH workspaces implementation. Use System.Taffybar.Widget.Workspaces.Channel instead." #-}
   ( module System.Taffybar.Widget.Workspaces.EWMH,
     module System.Taffybar.Widget.Workspaces.Shared,
     module System.Taffybar.Widget.Workspaces.Config,

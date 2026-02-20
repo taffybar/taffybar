@@ -160,6 +160,9 @@ library
                  , System.Taffybar.Information.SafeX11
                  , System.Taffybar.Information.Systemd
                  , System.Taffybar.Information.StreamInfo
+                 , System.Taffybar.Information.Workspaces.EWMH
+                 , System.Taffybar.Information.Workspaces.Hyprland
+                 , System.Taffybar.Information.Workspaces.Model
                  , System.Taffybar.Information.Wlsunset
                  , System.Taffybar.Information.X11DesktopInfo
                  , System.Taffybar.Information.XDG.Protocol
@@ -178,6 +181,7 @@ library
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
                  , System.Taffybar.Widget.Crypto
+                 , System.Taffybar.Widget.ChannelWorkspaces
                  , System.Taffybar.Widget.DiskIOMonitor
                  , System.Taffybar.Widget.DiskUsage
                  , System.Taffybar.Widget.FSMonitor
@@ -227,6 +231,7 @@ library
                  , System.Taffybar.Widget.Workspaces.EWMH.Compat
                  , System.Taffybar.Widget.Workspaces.X11
                  , System.Taffybar.Widget.Workspaces.Hyprland.Compat
+                 , System.Taffybar.Widget.Workspaces.Channel
                  , System.Taffybar.Widget.Workspaces.Shared
                  , System.Taffybar.Widget.WirePlumber
                  , System.Taffybar.Widget.Wlsunset
@@ -252,6 +257,8 @@ library
                , System.Taffybar.DBus.Client.UPower
                , System.Taffybar.DBus.Client.UPowerDevice
                , System.Taffybar.DBus.Client.Util
+               , System.Taffybar.Information.Hyprland.API
+               , System.Taffybar.Information.Hyprland.Types
                , System.Taffybar.Information.Udev
                , System.Taffybar.Window.FocusedMonitor
 
@@ -368,6 +375,7 @@ test-suite unit
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.SimpleConfigSpec
                , System.Taffybar.Widget.HyprlandWorkspacesSpec
+               , System.Taffybar.Widget.Workspaces.ChannelSpec
   build-depends: data-default
                , bytestring
                , directory

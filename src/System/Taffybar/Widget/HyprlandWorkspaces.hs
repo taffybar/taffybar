@@ -11,6 +11,7 @@
 -- Stability   : unstable
 -- Portability : unportable
 module System.Taffybar.Widget.HyprlandWorkspaces
+  {-# DEPRECATED "Legacy Hyprland workspaces widget API. Use System.Taffybar.Widget.Workspaces.Channel (or System.Taffybar.Widget.ChannelWorkspaces) instead." #-}
   ( module System.Taffybar.Widget.Workspaces.Hyprland,
     HyprlandWorkspacesConfig (..),
     defaultHyprlandWorkspacesConfig,

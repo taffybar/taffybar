@@ -15,7 +15,7 @@
 -- Portability : unportable
 --
 -- Hyprland workspaces widget backed by hyprctl.
-module System.Taffybar.Widget.Workspaces.Hyprland where
+module System.Taffybar.Widget.Workspaces.Hyprland {-# DEPRECATED "Legacy Hyprland workspaces implementation. Use System.Taffybar.Widget.Workspaces.Channel instead." #-} where
 
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, killThread)

@@ -74,6 +74,7 @@ import System.Taffybar.Context
   )
 import System.Taffybar.Util (postGUIASync)
 import qualified System.Taffybar.Widget.Windows as Windows
+import qualified System.Taffybar.Widget.Workspaces.Channel as ChannelWorkspaces
 import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
 import System.Taffybar.Widget.Workspaces.EWMH
   ( WorkspacesConfig,
@@ -87,15 +88,27 @@ import UnliftIO.Temporary (withSystemTempDirectory)
 data Args = Args
   { outFile :: FilePath,
     cssFile :: FilePath,
-    layoutMode :: LayoutMode
+    layoutMode :: LayoutMode,
+    workspaceWidgetMode :: WorkspaceWidgetMode
   }
 
 data LayoutMode = LayoutLegacy | LayoutLevels | LayoutWindowsTitleStress
   deriving (Eq, Show)
 
+data WorkspaceWidgetMode
+  = UseLegacyWorkspaces
+  | UseChannelWorkspaces
+  deriving (Eq, Show)
+
 main :: IO ()
 main = do
-  Args {outFile = outPath, cssFile = cssPath, layoutMode = mode} <- parseArgs =<< getArgs
+  Args
+    { outFile = outPath,
+      cssFile = cssPath,
+      layoutMode = mode,
+      workspaceWidgetMode = wsMode
+    } <-
+    parseArgs =<< getArgs
 
   -- Force X11 backend selection even if the surrounding session is Wayland.
   unsetEnv "WAYLAND_DISPLAY"
@@ -135,14 +148,20 @@ main = do
     --
     -- If this fails, the parent Xvfb teardown will still kill the X server,
     -- which causes the WM to exit.
-    res <- runUnderWm wmProc outPath cssPath mode
+    res <- runUnderWm wmProc outPath cssPath mode wsMode
     killProcessNoWait wmProc
     pure res
 
   exitWith ec
 
-runUnderWm :: Process () () () -> FilePath -> FilePath -> LayoutMode -> IO ExitCode
-runUnderWm wmProc outPath cssPath mode = do
+runUnderWm ::
+  Process () () () ->
+  FilePath ->
+  FilePath ->
+  LayoutMode ->
+  WorkspaceWidgetMode ->
+  IO ExitCode
+runUnderWm wmProc outPath cssPath mode wsMode = do
   ctxVar <- (newEmptyMVar :: IO (MVar Context))
   resultVar <- (newEmptyMVar :: IO (MVar (Either String BL.ByteString)))
   doneVar <- (newEmptyMVar :: IO (MVar ExitCode))
@@ -158,7 +177,7 @@ runUnderWm wmProc outPath cssPath mode = do
 
   barUnique <- newUnique
   let wsCfgDefault = def :: WorkspacesConfig
-      wsCfg =
+      legacyWsCfg =
         wsCfgDefault
           { Workspaces.workspacesConfig =
               (Workspaces.workspacesConfig wsCfgDefault)
@@ -171,13 +190,24 @@ runUnderWm wmProc outPath cssPath mode = do
                   WorkspaceConfig.iconSort = sortWindowsByStackIndex
                 }
           }
-      barCfg = buildBarConfig wsCfg barUnique mode
+      channelWsCfg =
+        ChannelWorkspaces.defaultEWMHWorkspacesConfig
+          { ChannelWorkspaces.labelSetter = const (pure ""),
+            ChannelWorkspaces.maxIcons = Just 1,
+            ChannelWorkspaces.minIcons = 1,
+            ChannelWorkspaces.showWorkspaceFn = const True
+          }
+      workspaceWidget =
+        case wsMode of
+          UseLegacyWorkspaces -> workspacesNew legacyWsCfg
+          UseChannelWorkspaces -> ChannelWorkspaces.workspacesNew channelWsCfg
+      barCfg = buildBarConfig workspaceWidget barUnique mode
       cfg =
         def
           { dbusClientParam = Nothing,
             cssPaths = [cssPath],
             getBarConfigsParam = pure [barCfg],
-            startupHook = scheduleSnapshot ctxVar resultVar,
+            startupHook = scheduleSnapshot ctxVar resultVar wsMode,
             errorMsg = Nothing
           }
 
@@ -188,14 +218,14 @@ runUnderWm wmProc outPath cssPath mode = do
     -- Should have been set by finalizeThread or watchdogThread.
     takeMVar doneVar
 
-buildBarConfig :: WorkspacesConfig -> Unique -> LayoutMode -> BarConfig
-buildBarConfig wsCfg barUnique mode =
+buildBarConfig :: TaffyIO Gtk.Widget -> Unique -> LayoutMode -> BarConfig
+buildBarConfig workspaceWidget barUnique mode =
   case mode of
     LayoutLegacy ->
       BarConfig
         { strutConfig = baseStrutConfig 40,
           widgetSpacing = 8,
-          startWidgets = [workspacesNew wsCfg],
+          startWidgets = [workspaceWidget],
           centerWidgets = [testBoxWidget "test-center-box" 200 20],
           endWidgets =
             [ testBoxWidget "test-pill" 52 20,
@@ -215,7 +245,7 @@ buildBarConfig wsCfg barUnique mode =
           barLevels =
             Just
               [ BarLevelConfig
-                  { levelStartWidgets = [workspacesNew wsCfg],
+                  { levelStartWidgets = [workspaceWidget],
                     levelCenterWidgets = [testBoxWidget "test-center-box" 200 20],
                     levelEndWidgets =
                       [ testBoxWidget "test-pill" 52 20,
@@ -318,8 +348,12 @@ ewmhIconDataSolid w h px =
       pixels = replicate (w * h) (fromIntegral px)
    in header ++ pixels
 
-scheduleSnapshot :: MVar Context -> MVar (Either String BL.ByteString) -> TaffyIO ()
-scheduleSnapshot ctxVar resultVar = do
+scheduleSnapshot ::
+  MVar Context ->
+  MVar (Either String BL.ByteString) ->
+  WorkspaceWidgetMode ->
+  TaffyIO ()
+scheduleSnapshot ctxVar resultVar wsMode = do
   ctx <- ask
   liftIO $ void (tryPutMVar ctxVar ctx)
   liftIO $ void $ forkIO (pollLoop ctx)
@@ -329,7 +363,7 @@ scheduleSnapshot ctxVar resultVar = do
       case done of
         Just _ -> pure ()
         Nothing -> do
-          postGUIASync (trySnapshotOnGuiThread ctx' resultVar)
+          postGUIASync (trySnapshotOnGuiThread ctx' resultVar wsMode)
           threadDelay 50_000
           pollLoop ctx'
 
@@ -420,8 +454,12 @@ waitForEwmh maxUsec = do
             then pure False
             else threadDelay 50_000 >> go d root atom (n + 1) maxSteps'
 
-trySnapshotOnGuiThread :: Context -> MVar (Either String BL.ByteString) -> IO ()
-trySnapshotOnGuiThread ctx resultVar = do
+trySnapshotOnGuiThread ::
+  Context ->
+  MVar (Either String BL.ByteString) ->
+  WorkspaceWidgetMode ->
+  IO ()
+trySnapshotOnGuiThread ctx resultVar wsMode = do
   -- Read the windows list and snapshot the first bar window.
   ws <- readMVar (existingWindows ctx)
   case listToMaybe ws of
@@ -431,12 +469,17 @@ trySnapshotOnGuiThread ctx resultVar = do
       case mImg of
         Left _ -> pure ()
         Right img ->
-          -- Don't accept a snapshot until the workspace icons and basic bar
-          -- styling are actually rendered, otherwise we can end up with a
-          -- largely transparent screenshot that doesn't exercise much beyond
-          -- the icon path.
-          when (imageHasTestIcons img) $
+          -- Don't accept a snapshot until the bar has actually rendered.
+          -- Legacy mode checks icon colors, while channel mode has a weaker
+          -- readiness check because it does not use the legacy EWMH icon path.
+          when (isSnapshotReady wsMode img) $
             void (tryPutMVar resultVar (Right (JP.encodePng img)))
+
+isSnapshotReady :: WorkspaceWidgetMode -> JP.Image JP.PixelRGBA8 -> Bool
+isSnapshotReady wsMode img =
+  case wsMode of
+    UseLegacyWorkspaces -> imageHasTestIcons img
+    UseChannelWorkspaces -> imageHasOpaqueContent img
 
 imageHasTestIcons :: JP.Image JP.PixelRGBA8 -> Bool
 imageHasTestIcons img =
@@ -470,6 +513,27 @@ imageHasTestIcons img =
                        in (sr1 && sg1 && oc1 > opaqueThreshold) || goX (x + 1) sr1 sg1 oc1
              in goX 0 seenR seenG opaqueCount
    in go 0 False False (0 :: Int)
+
+imageHasOpaqueContent :: JP.Image JP.PixelRGBA8 -> Bool
+imageHasOpaqueContent img =
+  let w = JP.imageWidth img
+      h = JP.imageHeight img
+      opaqueThreshold = 5000 :: Int
+      go y count
+        | y >= h = count > opaqueThreshold
+        | otherwise =
+            let goX x c
+                  | x >= w = go (y + 1) c
+                  | otherwise =
+                      let px = JP.pixelAt img x y
+                          c' =
+                            c
+                              + ( case px of
+                                    JP.PixelRGBA8 _ _ _ a -> if a > 200 then 1 else 0
+                                )
+                       in c' > opaqueThreshold || goX (x + 1) c'
+             in goX 0 count
+   in go 0 0
 
 snapshotGtkWindowImageRGBA8 :: Gtk.Window -> IO (JP.Image JP.PixelRGBA8)
 snapshotGtkWindowImageRGBA8 win = do
@@ -517,30 +581,40 @@ drainGtkEvents n = do
 
 parseArgs :: [String] -> IO Args
 parseArgs args =
-  case args of
-    ["--out", outPath, "--css", cssPath] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLegacy}
-    ["--css", cssPath, "--out", outPath] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLegacy}
-    ["--out", outPath, "--css", cssPath, "--levels"] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
-    ["--css", cssPath, "--out", outPath, "--levels"] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
-    ["--levels", "--out", outPath, "--css", cssPath] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
-    ["--levels", "--css", cssPath, "--out", outPath] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
-    ["--out", outPath, "--css", cssPath, "--windows-title-stress"] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutWindowsTitleStress}
-    ["--css", cssPath, "--out", outPath, "--windows-title-stress"] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutWindowsTitleStress}
-    ["--windows-title-stress", "--out", outPath, "--css", cssPath] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutWindowsTitleStress}
-    ["--windows-title-stress", "--css", cssPath, "--out", outPath] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutWindowsTitleStress}
-    _ ->
-      die
-        "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css [--levels|--windows-title-stress]"
+  let layoutMode =
+        if "--windows-title-stress" `elem` args
+          then LayoutWindowsTitleStress
+          else
+            if "--levels" `elem` args
+              then LayoutLevels
+              else LayoutLegacy
+      workspaceWidgetMode =
+        if "--channel-workspaces" `elem` args
+          then UseChannelWorkspaces
+          else UseLegacyWorkspaces
+      argsSansFlags =
+        filter
+          (`notElem` ["--levels", "--windows-title-stress", "--channel-workspaces"])
+          args
+   in case argsSansFlags of
+        ["--out", outPath, "--css", cssPath] ->
+          pure
+            Args
+              { outFile = outPath,
+                cssFile = cssPath,
+                layoutMode = layoutMode,
+                workspaceWidgetMode = workspaceWidgetMode
+              }
+        ["--css", cssPath, "--out", outPath] ->
+          pure
+            Args
+              { outFile = outPath,
+                cssFile = cssPath,
+                layoutMode = layoutMode,
+                workspaceWidgetMode = workspaceWidgetMode
+              }
+        _ ->
+          die "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css [--levels|--windows-title-stress] [--channel-workspaces]"
 
 die :: String -> IO a
 die msg = do

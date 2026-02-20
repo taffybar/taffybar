@@ -97,6 +97,12 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.Windows"
   , module System.Taffybar.Widget.Windows
 
+  -- * "System.Taffybar.Widget.ChannelWorkspaces"
+  , ChannelWorkspacesConfig
+  , defaultChannelWorkspacesConfig
+  , defaultChannelEWMHWorkspacesConfig
+  , channelWorkspacesNew
+
   -- * "System.Taffybar.Widget.HyprlandWorkspaces"
   , HyprlandWorkspacesConfig(..)
   , defaultHyprlandWorkspacesConfig
@@ -160,6 +166,12 @@ import System.Taffybar.Widget.PulseAudio
 import System.Taffybar.Widget.Backlight
 import System.Taffybar.Widget.Weather
 import System.Taffybar.Widget.Windows
+import System.Taffybar.Widget.ChannelWorkspaces
+  ( ChannelWorkspacesConfig
+  , defaultChannelWorkspacesConfig
+  , defaultChannelEWMHWorkspacesConfig
+  , channelWorkspacesNew
+  )
 import System.Taffybar.Widget.HyprlandWorkspaces
   ( HyprlandWorkspacesConfig(..)
   , defaultHyprlandWorkspacesConfig
