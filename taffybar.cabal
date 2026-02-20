@@ -260,6 +260,7 @@ library
                , System.Taffybar.DBus.Client.Util
                , System.Taffybar.Information.Hyprland.API
                , System.Taffybar.Information.Hyprland.Types
+               , System.Taffybar.Information.Wakeup.Manager
                , System.Taffybar.Information.Udev
                , System.Taffybar.Window.FocusedMonitor
 

@@ -123,6 +123,10 @@ import System.Taffybar.Information.Hyprland
     subscribeHyprlandEvents,
   )
 import System.Taffybar.Information.SafeX11 hiding (setState)
+import System.Taffybar.Information.Wakeup.Manager
+  ( WakeupManager,
+    newWakeupManager,
+  )
 import System.Taffybar.Information.X11DesktopInfo
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
@@ -269,6 +273,11 @@ data Context = Context
     --
     -- Stored outside of 'contextState' for the same reason as 'hyprlandClient'.
     hyprlandEventChanVar :: MV.MVar (Maybe HyprlandEventChan),
+    -- | Shared wakeup manager for coordinated polling intervals.
+    --
+    -- Stored outside 'contextState' so wakeup registration cannot deadlock when
+    -- called from state initializers that already hold the context-state lock.
+    wakeupManager :: WakeupManager,
     -- | The backend taffybar is running on.
     backend :: Backend,
     -- | Populated with the BarConfig that resulted in the creation of a given
@@ -307,6 +316,7 @@ buildContextWithBackend
         [DBus.nameAllowReplacement, DBus.nameReplaceExisting]
     listenersVar <- MV.newMVar []
     state <- MV.newMVar M.empty
+    wakeupMgr <- newWakeupManager
     hyprClient <- newHyprlandClient defaultHyprlandClientConfig
     hyprEventChanVar <- MV.newMVar Nothing
     x11Context <- case backendType of
@@ -323,6 +333,7 @@ buildContextWithBackend
               getBarConfigs = barConfigGetter,
               hyprlandClient = hyprClient,
               hyprlandEventChanVar = hyprEventChanVar,
+              wakeupManager = wakeupMgr,
               existingWindows = windowsVar,
               backend = backendType,
               contextBarConfig = Nothing
