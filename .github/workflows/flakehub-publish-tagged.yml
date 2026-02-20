@@ -25,3 +25,7 @@ jobs:
           visibility: "public"
           name: "taffybar/taffybar"
           tag: "${{ inputs.tag || github.ref_name }}"
+          # Our flake exposes multiple systems and uses IFD-backed Haskell
+          # packaging, which makes flake inventory evaluation fail in this
+          # publish job. Skip inventory collection but still publish releases.
+          my-flake-is-too-big: true
