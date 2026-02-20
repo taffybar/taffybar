@@ -716,15 +716,15 @@ handleIconGetterException = handlePixbufGetterException wLog
 
 getWindowIconPixbufFromEWMH :: WindowIconPixbufGetter
 getWindowIconPixbufFromEWMH = handleIconGetterException $ \size windowData ->
-  runX11Def Nothing (getIconPixBufFromEWMH size $ windowId windowData)
+  getCachedIconPixBufFromEWMH size (windowId windowData)
 
 getWindowIconPixbufFromClass :: WindowIconPixbufGetter
 getWindowIconPixbufFromClass = handleIconGetterException $ \size windowData ->
-  lift $ getWindowIconFromClasses size (windowClass windowData)
+  getCachedWindowIconFromClasses size (windowClass windowData)
 
 getWindowIconPixbufFromDesktopEntry :: WindowIconPixbufGetter
 getWindowIconPixbufFromDesktopEntry = handleIconGetterException $ \size windowData ->
-  getWindowIconFromDesktopEntryByClasses size (windowClass windowData)
+  getCachedWindowIconFromDesktopEntryByClasses size (windowClass windowData)
 
 getWindowIconPixbufFromChrome :: WindowIconPixbufGetter
 getWindowIconPixbufFromChrome _ windowData =

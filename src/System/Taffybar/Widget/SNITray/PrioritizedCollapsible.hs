@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 
 -- |
 -- Module      : System.Taffybar.Widget.SNITray.PrioritizedCollapsible
@@ -34,7 +35,7 @@ import Data.IORef
 import Data.Int (Int32)
 import Data.List (isSuffixOf, nub, sortOn, stripPrefix)
 import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybeToList)
+import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybeToList)
 import Data.Ord (Down (..))
 import qualified Data.Text as T
 import Data.Word (Word32)
@@ -402,13 +403,13 @@ processDisambiguationKeyForItem client info = do
 processDisambiguationKeysForItems :: DBus.Client -> [H.ItemInfo] -> IO (M.Map String String)
 processDisambiguationKeysForItems client infos = do
   pairs <- mapM withKey infos
-  return $ M.fromList (mapMaybe id pairs)
+  return $ M.fromList (catMaybes pairs)
   where
     withKey info
       | not (isLikelySharedItemIdForInfo info) = return Nothing
       | otherwise = do
           processKey <- processDisambiguationKeyForItem client info
-          return $ fmap (\key -> (itemStableIdentity info, key)) processKey
+          return $ fmap (itemStableIdentity info,) processKey
 
 priorityLookupKeyCandidates :: Maybe String -> H.ItemInfo -> [String]
 priorityLookupKeyCandidates maybeProcessKey info =
@@ -496,15 +497,14 @@ sortedInfosByPriority ::
   [H.ItemInfo] ->
   [H.ItemInfo]
 sortedInfosByPriority highPriorityFirstInMatcherOrder priorityMin priorityMax defaultPriority priorities processKeyForInfo infos =
-  let itemPriority =
-        \info ->
-          itemPriorityFromMap
-            priorityMin
-            priorityMax
-            defaultPriority
-            priorities
-            (processKeyForInfo info)
-            info
+  let itemPriority info =
+        itemPriorityFromMap
+          priorityMin
+          priorityMax
+          defaultPriority
+          priorities
+          (processKeyForInfo info)
+          info
       prioritySortKey info =
         if highPriorityFirstInMatcherOrder
           then negate (itemPriority info)
