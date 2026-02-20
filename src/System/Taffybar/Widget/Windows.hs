@@ -20,7 +20,7 @@ module System.Taffybar.Widget.Windows where
 
 import qualified Control.Concurrent.MVar as MV
 import Control.Concurrent.STM.TChan (TChan)
-import Control.Monad (forM_, void)
+import Control.Monad (forM, forM_, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
@@ -49,7 +49,6 @@ import System.Taffybar.Information.Workspaces.Hyprland
 import System.Taffybar.Information.Workspaces.Model
 import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.ChannelWidget (channelWidgetNew)
-import System.Taffybar.Widget.Generic.DynamicMenu
 import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import System.Taffybar.Widget.Util (widgetSetClassGI)
 import System.Taffybar.Widget.Workspaces
@@ -131,6 +130,7 @@ instance Default WindowsConfig where
 windowsNew :: WindowsConfig -> TaffyIO Gtk.Widget
 windowsNew config = do
   hbox <- lift $ Gtk.boxNew Gtk.OrientationHorizontal 0
+  menu <- lift Gtk.menuNew
   (stateChan, stateVar) <- autoWindowStateSource
   initialSnapshot <- liftIO $ MV.readMVar stateVar
   activeWindowRef <- liftIO $ newIORef $ getActiveWindow initialSnapshot
@@ -151,6 +151,8 @@ windowsNew config = do
         labelText <- getActiveLabel config activeWindow
         lift $ setLabelTitle labelText
         lift refreshIcon
+        lift $ clearMenu menu
+        fillMenu config snapshot menu
 
   void $ refreshFromSnapshot initialSnapshot
 
@@ -168,15 +170,13 @@ windowsNew config = do
         (\snapshot -> postGUIASync $ runReaderT (refreshFromSnapshot snapshot) ctx)
 
   boxWidget <- Gtk.toWidget hbox
-  runTaffy <- asks (flip runReaderT)
-  menu <-
-    dynamicMenuNew
-      DynamicMenuConfig
-        { dmClickWidget = boxWidget,
-          dmPopulateMenu = runTaffy . fillMenu config stateVar
-        }
+  button <- lift Gtk.menuButtonNew
+  lift $ Gtk.containerAdd button boxWidget
+  lift $ Gtk.menuButtonSetPopup button $ Just menu
+  lift $ Gtk.widgetShowAll button
+  menuButtonWidget <- Gtk.toWidget button
 
-  widgetSetClassGI menu "windows"
+  widgetSetClassGI menuButtonWidget "windows"
 
 -- | Build the active-window label and return an update action for it.
 buildWindowsLabel :: TaffyIO (T.Text -> IO (), Gtk.Widget)
@@ -205,23 +205,44 @@ buildWindowsIcon activeWindowRef windowIconPixbufGetter = do
 fillMenu ::
   (Gtk.IsMenuShell a) =>
   WindowsConfig ->
-  MV.MVar WorkspaceSnapshot ->
+  WorkspaceSnapshot ->
   a ->
   ReaderT Context IO ()
-fillMenu config stateVar menu =
+fillMenu config snapshot menu =
   ask >>= \context -> do
-    snapshot <- liftIO $ MV.readMVar stateVar
     windows <- menuWindowSort config (getWindows snapshot)
     forM_ windows $ \windowInfo ->
       lift $ do
         labelText <- runReaderT (getMenuLabel config windowInfo) context
+        iconPixbuf <-
+          case getActiveWindowIconPixbuf config of
+            Nothing -> pure Nothing
+            Just getIcon -> runReaderT (getIcon windowsMenuIconSize windowInfo) context
         let focusCallback =
               runReaderT (onMenuWindowClick config windowInfo) context
                 >> return True
-        item <- Gtk.menuItemNewWithLabel labelText
+        item <- Gtk.menuItemNew
+        content <- Gtk.boxNew Gtk.OrientationHorizontal 6
+        _ <-
+          forM iconPixbuf $ \pixbuf -> do
+            icon <- Gtk.imageNewFromPixbuf (Just pixbuf)
+            Gtk.boxPackStart content icon False False 0
+            pure icon
+        label <- Gtk.labelNew (Just labelText)
+        Gtk.labelSetXalign label 0
+        Gtk.boxPackStart content label True True 0
+        Gtk.containerAdd item content
         _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
         Gtk.menuShellAppend menu item
-        Gtk.widgetShow item
+        Gtk.widgetShowAll item
+
+clearMenu :: (Gtk.IsContainer a) => a -> IO ()
+clearMenu menu =
+  Gtk.containerForeach menu $ \item ->
+    Gtk.containerRemove menu item >> Gtk.widgetDestroy item
+
+windowsMenuIconSize :: Int32
+windowsMenuIconSize = fromIntegral $ fromEnum Gtk.IconSizeMenu
 
 getWindows :: WorkspaceSnapshot -> [WindowInfo]
 getWindows snapshot = reverse ordered
