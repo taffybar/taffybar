@@ -364,6 +364,7 @@ test-suite unit
                , System.Taffybar.AuthSpec
                , System.Taffybar.AppearanceSpec
                , System.Taffybar.ContextSpec
+               , System.Taffybar.Information.CryptoSpec
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.SimpleConfigSpec
                , System.Taffybar.Widget.HyprlandWorkspacesSpec

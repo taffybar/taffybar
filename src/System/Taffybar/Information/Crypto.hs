@@ -87,6 +87,13 @@ instance FromJSON CoinGeckoInfo where
 logCrypto :: (MonadIO m) => Priority -> String -> m ()
 logCrypto p = liftIO . logM "System.Taffybar.Information.Crypto" p
 
+maxCryptoBackoffForDelay :: Double -> Double
+maxCryptoBackoffForDelay delay = delay * 16
+
+nextCryptoBackoff :: Double -> Double -> (Double, Double)
+nextCryptoBackoff maxBackoff current =
+  (min (current * 2) maxBackoff, current)
+
 resolveSymbolPair :: (KnownSymbol a) => Proxy a -> SymbolToCoinGeckoId -> Either String (Text, Text)
 resolveSymbolPair sym symbolToId = do
   (symbolName, inCurrency) <- parseSymbolPair (symbolVal sym)
@@ -108,6 +115,7 @@ buildCryptoPriceChannel ::
   forall a. (KnownSymbol a) => Double -> SymbolToCoinGeckoId -> TaffyIO (CryptoPriceChannel a)
 buildCryptoPriceChannel delay symbolToId = do
   let initialBackoff = delay
+      maxBackoff = maxCryptoBackoffForDelay delay
   chan <- liftIO newBroadcastTChanIO
   var <- liftIO $ newMVar $ CryptoPriceInfo 0.0
   backoffVar <- liftIO $ newMVar initialBackoff
@@ -132,7 +140,7 @@ buildCryptoPriceChannel delay symbolToId = do
         $ \e -> do
           logCrypto WARNING $ printf "Error when fetching crypto price: %s" (show e)
           modifyMVar backoffVar $ \current ->
-            return (min (current * 2) delay, current)
+            return $ nextCryptoBackoff maxBackoff current
 
   return $ CryptoPriceChannel (chan, var)
 
