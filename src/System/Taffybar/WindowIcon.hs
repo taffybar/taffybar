@@ -51,7 +51,7 @@ data WindowIconCacheKey
   deriving (Eq, Ord, Show)
 
 newtype WindowIconCache = WindowIconCache
-  { windowIconCacheEntries :: MV.MVar (M.Map WindowIconCacheKey (Maybe Gdk.Pixbuf))
+  { windowIconCacheEntries :: MV.MVar (M.Map WindowIconCacheKey Gdk.Pixbuf)
   }
   deriving (Typeable)
 
@@ -85,10 +85,13 @@ getCachedWindowIcon cacheKey buildIcon = do
   WindowIconCache {windowIconCacheEntries = entriesVar} <- getWindowIconCache
   cached <- liftIO $ M.lookup cacheKey <$> MV.readMVar entriesVar
   case cached of
-    Just icon -> return icon
+    Just icon -> return $ Just icon
     Nothing -> do
       icon <- buildIcon
-      liftIO $ MV.modifyMVar_ entriesVar (return . M.insert cacheKey icon)
+      liftIO $
+        forM_ icon $
+          \resolvedIcon ->
+            MV.modifyMVar_ entriesVar (return . M.insert cacheKey resolvedIcon)
       return icon
 
 isThemeIconCacheKey :: WindowIconCacheKey -> Bool
@@ -97,14 +100,14 @@ isThemeIconCacheKey (ClassIconCacheKey _ _) = True
 isThemeIconCacheKey (EWMHIconCacheKey _ _) = False
 
 invalidateThemeWindowIconCacheEntries ::
-  MV.MVar (M.Map WindowIconCacheKey (Maybe Gdk.Pixbuf)) ->
+  MV.MVar (M.Map WindowIconCacheKey Gdk.Pixbuf) ->
   IO ()
 invalidateThemeWindowIconCacheEntries entriesVar =
   MV.modifyMVar_ entriesVar $
     return . M.filterWithKey (\k _ -> not (isThemeIconCacheKey k))
 
 invalidateEWMHWindowIconCacheEntriesForWindow ::
-  MV.MVar (M.Map WindowIconCacheKey (Maybe Gdk.Pixbuf)) ->
+  MV.MVar (M.Map WindowIconCacheKey Gdk.Pixbuf) ->
   X11Window ->
   IO ()
 invalidateEWMHWindowIconCacheEntriesForWindow entriesVar changedWindow =
