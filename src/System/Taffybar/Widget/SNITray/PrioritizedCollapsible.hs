@@ -18,7 +18,7 @@ module System.Taffybar.Widget.SNITray.PrioritizedCollapsible
 where
 
 import Control.Applicative ((<|>))
-import Control.Monad (forM_, join, void)
+import Control.Monad (forM_, guard, join, void)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import qualified Data.Aeson as A
@@ -27,9 +27,10 @@ import qualified Data.Aeson.KeyMap as AKeyMap
 import Data.Aeson.Types (Parser, parseMaybe)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
+import Data.Char (isDigit, toLower)
 import Data.IORef
 import Data.Int (Int32)
-import Data.List (sortOn)
+import Data.List (nub, sortOn, stripPrefix)
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe, isNothing, listToMaybe, mapMaybe, maybeToList)
 import Data.Ord (Down (..))
@@ -263,16 +264,47 @@ nonEmptyString value
   | null value = Nothing
   | otherwise = Just value
 
-priorityKeyCandidates :: H.ItemInfo -> [String]
-priorityKeyCandidates info =
-  concat
-    [ map ("item-id:" ++) (maybeToList (H.itemId info >>= nonEmptyString)),
-      map ("icon-name:" ++) (maybeToList (nonEmptyString (H.iconName info))),
-      map ("icon-title:" ++) (maybeToList (nonEmptyString (H.iconTitle info)))
-    ]
+hasNumericSuffix :: String -> String -> Bool
+hasNumericSuffix prefix value =
+  case stripPrefix prefix value of
+    Just suffix -> not (null suffix) && all isDigit suffix
+    Nothing -> False
+
+isLikelyEphemeralItemId :: String -> Bool
+isLikelyEphemeralItemId itemId =
+  let lowerItemId = map toLower itemId
+   in hasNumericSuffix "chrome_status_icon_" lowerItemId
+        || hasNumericSuffix "systray_" lowerItemId
+        || hasNumericSuffix "statusnotifieritem-" lowerItemId
+        || hasNumericSuffix "statusnotifieritem_" lowerItemId
+
+stableItemIdKey :: H.ItemInfo -> Maybe String
+stableItemIdKey info = do
+  itemId <- H.itemId info >>= nonEmptyString
+  guard (not (isLikelyEphemeralItemId itemId))
+  return ("item-id:" ++ itemId)
+
+unstableItemIdKey :: H.ItemInfo -> Maybe String
+unstableItemIdKey info = do
+  itemId <- H.itemId info >>= nonEmptyString
+  guard (isLikelyEphemeralItemId itemId)
+  return ("item-id:" ++ itemId)
+
+priorityLookupKeyCandidates :: H.ItemInfo -> [String]
+priorityLookupKeyCandidates info =
+  nub $
+    concat
+      [ map ("icon-name:" ++) (maybeToList (nonEmptyString (H.iconName info))),
+        maybeToList (stableItemIdKey info),
+        map ("icon-title:" ++) (maybeToList (nonEmptyString (H.iconTitle info))),
+        maybeToList (unstableItemIdKey info)
+      ]
+
+priorityEditableKeyCandidates :: H.ItemInfo -> [String]
+priorityEditableKeyCandidates = priorityLookupKeyCandidates
 
 priorityKeyFromItem :: H.ItemInfo -> Maybe String
-priorityKeyFromItem = listToMaybe . priorityKeyCandidates
+priorityKeyFromItem = listToMaybe . priorityEditableKeyCandidates
 
 itemPriorityFromMap ::
   Int ->
@@ -285,7 +317,7 @@ itemPriorityFromMap priorityMin priorityMax defaultPriority priorities info =
   let clampPriority = clampPriorityInRange priorityMin priorityMax
       matchedPriority =
         listToMaybe $
-          mapMaybe (`M.lookup` priorities) (priorityKeyCandidates info)
+          mapMaybe (`M.lookup` priorities) (priorityLookupKeyCandidates info)
    in clampPriority (fromMaybe defaultPriority matchedPriority)
 
 itemStableIdentity :: H.ItemInfo -> String
@@ -345,7 +377,7 @@ lookupExplicitPriority ::
   H.ItemInfo ->
   Maybe Int
 lookupExplicitPriority priorities info =
-  listToMaybe $ mapMaybe (`M.lookup` priorities) (priorityKeyCandidates info)
+  listToMaybe $ mapMaybe (`M.lookup` priorities) (priorityLookupKeyCandidates info)
 
 setExplicitPriorityForItem ::
   IORef SNIPriorityMap ->
@@ -357,12 +389,11 @@ setExplicitPriorityForItem prioritiesRef afterUpdate info newPriority =
   case priorityKeyFromItem info of
     Nothing -> return ()
     Just primaryKey -> do
-      let candidateKeys = priorityKeyCandidates info
+      let editableKeys = priorityEditableKeyCandidates info
       modifyIORef' prioritiesRef $ \priorities ->
-        let cleared = foldr M.delete priorities candidateKeys
-         in case newPriority of
-              Nothing -> cleared
-              Just priority -> M.insert primaryKey priority cleared
+        case newPriority of
+          Nothing -> foldr M.delete priorities editableKeys
+          Just priority -> M.insert primaryKey priority priorities
       readIORef prioritiesRef >>= afterUpdate
 
 menuIconSize :: Int32
