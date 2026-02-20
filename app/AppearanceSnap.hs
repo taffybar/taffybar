@@ -19,6 +19,7 @@ import Data.Bits (shiftL, (.|.))
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import Data.Default (def)
+import Data.List (nub)
 import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Text as T
 import Data.Unique (Unique, newUnique)
@@ -51,6 +52,7 @@ import Graphics.X11.Xlib.Extras
     changeProperty32,
     getWindowProperty32,
     propModeReplace,
+    queryTree,
     setClassHint,
   )
 import System.Directory (createDirectoryIfMissing, doesFileExist, findExecutable, makeAbsolute)
@@ -499,9 +501,15 @@ getDockTopStrut = do
       clientListAtom <- internAtom d "_NET_CLIENT_LIST" False
       strutPartialAtom <- internAtom d "_NET_WM_STRUT_PARTIAL" False
       mClientIds <- getWindowProperty32 d clientListAtom root
-      tops <- mapM (windowTopStrut d strutPartialAtom . fromIntegral) (fromMaybe [] mClientIds)
+      let clientWindows = maybe [] (map fromIntegral) mClientIds
+      treeResult <- try (queryTree d root) :: IO (Either SomeException (Window, Window, [Window]))
+      let treeWindows = either (const []) (\(_, _, ws) -> ws) treeResult
+          candidateWindows = nub (clientWindows ++ treeWindows)
+      tops <- mapM (windowTopStrut d strutPartialAtom) candidateWindows
       closeDisplay d
-      pure $ listToMaybe [top | Just top <- tops, top > 0]
+      pure $ case [top | Just top <- tops, top > 0] of
+        [] -> Nothing
+        xs -> Just (maximum xs)
   where
     windowTopStrut :: Display -> Atom -> Window -> IO (Maybe Int)
     windowTopStrut d strutPartialAtom win = do
