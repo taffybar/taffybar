@@ -86,7 +86,7 @@ library
                , gi-gtk3 >= 3.0.44 && < 4
                , gi-gtk-hs >= 0.3.17 && < 0.4
                , gi-pango
-               , gtk-sni-tray >= 0.1.14.0
+               , gtk-sni-tray >= 0.2.0.0
                , gtk-strut >= 0.1.2.1
                , haskell-gi-base >= 0.24
                , hslogger
