@@ -8,13 +8,16 @@ module System.Taffybar.Widget.Generic.Icon
   )
 where
 
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (killThread)
 import Control.Exception as E
-import Control.Monad (forever, void)
-import Control.Monad.IO.Class
+import Control.Monad (void)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Trans.Reader (ask, runReaderT)
+import Data.GI.Gtk.Threading (postGUIASync)
 import qualified Data.Text as T
 import GI.Gtk
-import System.Taffybar.Util
+import System.Taffybar.Context (TaffyIO)
+import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 
 -- | Create a new widget that displays a static image
 --
@@ -48,14 +51,13 @@ iconImageWidgetNewFromName name =
 -- If the IO action throws an exception, it will be swallowed and the
 -- label will not update until the update interval expires.
 pollingIconImageWidgetNew ::
-  (MonadIO m) =>
   -- | Initial file path of the icon
   FilePath ->
   -- | Update interval (in seconds)
   Double ->
   -- | Command to run to get the input filepath
   IO FilePath ->
-  m Widget
+  TaffyIO Widget
 pollingIconImageWidgetNew path interval cmd =
   pollingIcon
     interval
@@ -75,14 +77,13 @@ pollingIconImageWidgetNew path interval cmd =
 -- If the IO action throws an exception, it will be swallowed and the
 -- label will not update until the update interval expires.
 pollingIconImageWidgetNewFromName ::
-  (MonadIO m) =>
   -- | Icon Name
   T.Text ->
   -- | Update interval (in seconds)
   Double ->
   -- | Command to run update the icon name
   IO T.Text ->
-  m Widget
+  TaffyIO Widget
 pollingIconImageWidgetNewFromName name interval cmd =
   pollingIcon
     interval
@@ -92,7 +93,6 @@ pollingIconImageWidgetNewFromName name interval cmd =
 
 -- | Creates a polling icon.
 pollingIcon ::
-  (MonadIO m) =>
   -- | Update Interval (in seconds)
   Double ->
   -- | IO action that updates image's icon-name/filepath
@@ -102,18 +102,27 @@ pollingIcon ::
   -- | MonadIO action that updates the image.
   (Image -> name -> IO b) ->
   -- | Polling Icon
-  m Widget
-pollingIcon interval doUpdateName doInitImage doSetImage = liftIO $ do
-  image <- doInitImage
-  _ <- onWidgetRealize image $ do
-    _ <- forkIO $ forever $ do
-      let tryUpdate = liftIO $ do
-            name' <- doUpdateName
-            postGUIASync $ void $ doSetImage image name'
-      E.catch tryUpdate ignoreIOException
-      threadDelay $ floor (interval * 1000000)
+  TaffyIO Widget
+pollingIcon interval doUpdateName doInitImage doSetImage = do
+  context <- ask
+  image <- liftIO doInitImage
+  liftIO $ do
+    _ <- onWidgetRealize image $ do
+      sampleThread <-
+        runReaderT
+          ( taffyForeverWithDelay interval $
+              liftIO $
+                E.catch
+                  ( do
+                      name' <- doUpdateName
+                      postGUIASync $ void $ doSetImage image name'
+                  )
+                  ignoreIOException
+          )
+          context
+      void $ onWidgetUnrealize image $ killThread sampleThread
     return ()
-  putInBox image
+  liftIO $ putInBox image
 
 putInBox :: (IsWidget child) => child -> IO Widget
 putInBox icon = do

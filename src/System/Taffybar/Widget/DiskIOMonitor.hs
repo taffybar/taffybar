@@ -15,8 +15,8 @@
 -- read/write operations in one selected disk or partition.
 module System.Taffybar.Widget.DiskIOMonitor (dioMonitorNew) where
 
-import Control.Monad.IO.Class
 import qualified GI.Gtk
+import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.DiskIO (getDiskTransfer)
 import System.Taffybar.Widget.Generic.PollingGraph (GraphConfig, pollingGraphNew)
 
@@ -25,14 +25,13 @@ import System.Taffybar.Widget.Generic.PollingGraph (GraphConfig, pollingGraphNew
 -- are normalized to the maximum value of the obtained probe (either read or
 -- write transfer).
 dioMonitorNew ::
-  (MonadIO m) =>
   -- | Configuration data for the Graph.
   GraphConfig ->
   -- | Polling period (in seconds).
   Double ->
   -- | Name of the disk or partition to watch (e.g. \"sda\", \"sdb1\").
   String ->
-  m GI.Gtk.Widget
+  TaffyIO GI.Gtk.Widget
 dioMonitorNew cfg pollSeconds =
   pollingGraphNew cfg pollSeconds . probeDisk
 

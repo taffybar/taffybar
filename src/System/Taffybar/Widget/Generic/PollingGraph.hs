@@ -17,34 +17,42 @@ where
 import Control.Concurrent
 import qualified Control.Exception.Enclosed as E
 import Control.Monad
-import Control.Monad.IO.Class
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Reader (ask, runReaderT)
 import qualified Data.Text as T
 import GI.Gtk
-import System.Taffybar.Util
+import System.Taffybar.Context (TaffyIO)
+import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 import System.Taffybar.Widget.Generic.Graph
 
 -- | Construct a polling graph whose callback also supplies tooltip text.
 pollingGraphNewWithTooltip ::
-  (MonadIO m) =>
-  GraphConfig -> Double -> IO ([Double], Maybe T.Text) -> m GI.Gtk.Widget
-pollingGraphNewWithTooltip cfg pollSeconds action = liftIO $ do
+  GraphConfig -> Double -> IO ([Double], Maybe T.Text) -> TaffyIO GI.Gtk.Widget
+pollingGraphNewWithTooltip cfg pollSeconds action = do
+  context <- ask
   (graphWidget, graphHandle) <- graphNew cfg
 
-  _ <- onWidgetRealize graphWidget $ do
-    sampleThread <- foreverWithDelay pollSeconds $ do
-      esample <- E.tryAny action
-      case esample of
-        Left _ -> return ()
-        Right (sample, tooltipStr) -> do
-          graphAddSample graphHandle sample
-          widgetSetTooltipMarkup graphWidget tooltipStr
-    void $ onWidgetUnrealize graphWidget $ killThread sampleThread
+  liftIO $ do
+    _ <- onWidgetRealize graphWidget $ do
+      sampleThread <-
+        runReaderT
+          ( taffyForeverWithDelay pollSeconds $
+              liftIO $ do
+                esample <- E.tryAny action
+                case esample of
+                  Left _ -> return ()
+                  Right (sample, tooltipStr) -> do
+                    graphAddSample graphHandle sample
+                    widgetSetTooltipMarkup graphWidget tooltipStr
+          )
+          context
+      void $ onWidgetUnrealize graphWidget $ killThread sampleThread
+    return ()
 
   return graphWidget
 
 -- | Construct a polling graph from a fixed-interval sample callback.
 pollingGraphNew ::
-  (MonadIO m) =>
-  GraphConfig -> Double -> IO [Double] -> m GI.Gtk.Widget
+  GraphConfig -> Double -> IO [Double] -> TaffyIO GI.Gtk.Widget
 pollingGraphNew cfg pollSeconds action =
   pollingGraphNewWithTooltip cfg pollSeconds $ fmap (,Nothing) action

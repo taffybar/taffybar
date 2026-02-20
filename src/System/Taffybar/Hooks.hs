@@ -29,6 +29,7 @@ import Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
 import Control.Concurrent.STM.TChan
 import Control.Monad
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
@@ -52,15 +53,15 @@ newtype NetworkInfoChan
   = NetworkInfoChan (TChan [(String, (Rational, Rational))])
 
 -- | Build a 'NetworkInfoChan' that refreshes at the provided interval.
-buildNetworkInfoChan :: Double -> IO NetworkInfoChan
+buildNetworkInfoChan :: Double -> TaffyIO NetworkInfoChan
 buildNetworkInfoChan interval = do
-  chan <- newBroadcastTChanIO
-  _ <- forkIO $ monitorNetworkInterfaces interval (void . atomically . writeTChan chan)
+  chan <- liftIO newBroadcastTChanIO
+  monitorNetworkInterfaces interval (void . atomically . writeTChan chan)
   return $ NetworkInfoChan chan
 
 -- | Get the 'NetworkInfoChan' from 'Context', creating it if it does not exist.
 getNetworkChan :: TaffyIO NetworkInfoChan
-getNetworkChan = getStateDefault $ lift $ buildNetworkInfoChan 2.0
+getNetworkChan = getStateDefault $ buildNetworkInfoChan 2.0
 
 -- | Set the log formatter used in the taffybar process
 setTaffyLogFormatter :: String -> IO ()

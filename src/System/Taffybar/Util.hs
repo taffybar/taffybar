@@ -222,6 +222,7 @@ foreverWithDelay delay action =
     safeAction =
       catchAny action $ \e ->
         logPrintF "System.Taffybar.Util" WARNING "Error in foreverWithDelay %s" e
+{-# DEPRECATED foreverWithDelay "Use System.Taffybar.Information.Wakeup.taffyForeverWithDelay for context-aware synchronized wakeups" #-}
 
 -- | Execute the provided IO action, and use the value it returns to decide how
 -- long to wait until executing it again. The value returned by the action is

@@ -28,11 +28,11 @@ module System.Taffybar.Information.Backlight
   )
 where
 
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, bracket, catch, try)
-import Control.Monad (forever)
+import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Data.List (sort, sortBy)
@@ -51,6 +51,7 @@ import System.Taffybar.Information.Udev
     drainBacklightMonitor,
     openBacklightMonitor,
   )
+import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 import System.Taffybar.Util (logPrintF)
 import System.Timeout (timeout)
 import Text.Read (readMaybe)
@@ -154,19 +155,22 @@ getBacklightInfoChanVarFor ::
   TaffyIO (BacklightInfoChanVar a)
 getBacklightInfoChanVarFor deviceOverride intervalSeconds =
   getStateDefault $ do
+    wakeupChan <- getWakeupChannelForDelay (max 0.000001 intervalSeconds)
+    ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
     liftIO $ do
       chan <- newBroadcastTChanIO
       var <- newMVar Nothing
-      _ <- forkIO $ monitorBacklightInfo deviceOverride intervalSeconds chan var
+      _ <- forkIO $ monitorBacklightInfo deviceOverride intervalSeconds ourWakeupChan chan var
       pure $ BacklightInfoChanVar (chan, var)
 
 monitorBacklightInfo ::
   Maybe FilePath ->
   Double ->
+  TChan a ->
   TChan (Maybe BacklightInfo) ->
   MVar (Maybe BacklightInfo) ->
   IO ()
-monitorBacklightInfo deviceOverride intervalSeconds chan var = do
+monitorBacklightInfo deviceOverride intervalSeconds wakeupChan chan var = do
   let intervalMicros :: Int
       intervalMicros = max 1 (floor (intervalSeconds * 1000000))
 
@@ -181,7 +185,7 @@ monitorBacklightInfo deviceOverride intervalSeconds chan var = do
         backlightLogF WARNING "Backlight udev monitor unavailable, falling back to polling: %s" e
         refresh
         forever $ do
-          threadDelay intervalMicros
+          void $ atomically $ readTChan wakeupChan
           refresh
 
   monitorResult <- try openBacklightMonitor

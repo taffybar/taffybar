@@ -36,11 +36,10 @@ module System.Taffybar.Information.WirePlumber
   )
 where
 
-import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, try)
-import Control.Monad (forever)
+import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.STM (atomically)
 import Data.List (isInfixOf)
@@ -50,6 +49,7 @@ import qualified Data.Text as T
 import GHC.TypeLits (KnownSymbol, SomeSymbol (..), Symbol, someSymbolVal, symbolVal)
 import System.Log.Logger (Priority (..))
 import System.Taffybar.Context (TaffyIO, getStateDefault)
+import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 import System.Taffybar.Util (logPrintF, runCommand)
 import Text.Read (readMaybe)
 
@@ -117,29 +117,33 @@ getWirePlumberInfoChanVarFor :: forall a. (KnownSymbol a) => TaffyIO (WirePlumbe
 getWirePlumberInfoChanVarFor =
   getStateDefault $ do
     let nodeSpec = symbolVal (Proxy @a)
-    liftIO $ do
-      chan <- newBroadcastTChanIO
-      var <- newMVar Nothing
-      _ <- forkIO $ monitorWirePlumberInfo nodeSpec chan var
-      pure $ WirePlumberInfoChanVar (chan, var)
+    chan <- liftIO newBroadcastTChanIO
+    var <- liftIO $ newMVar Nothing
+    liftIO $ refreshWirePlumberInfo nodeSpec chan var
+    let pollIntervalSeconds :: Double
+        pollIntervalSeconds = fromIntegral pollIntervalMicros / 1000000
+    void $
+      taffyForeverWithDelay pollIntervalSeconds $
+        liftIO $
+          refreshWirePlumberInfo nodeSpec chan var
+    pure $ WirePlumberInfoChanVar (chan, var)
 
 -- | Polling interval in microseconds (1 second).
 pollIntervalMicros :: Int
 pollIntervalMicros = 1_000_000
 
-monitorWirePlumberInfo ::
+refreshWirePlumberInfo ::
   String ->
   TChan (Maybe WirePlumberInfo) ->
   MVar (Maybe WirePlumberInfo) ->
   IO ()
-monitorWirePlumberInfo nodeSpec chan var = forever $ do
+refreshWirePlumberInfo nodeSpec chan var = do
   result <- try $ getWirePlumberInfo nodeSpec
   let info = case result of
         Left (_ :: SomeException) -> Nothing
         Right i -> i
   _ <- swapMVar var info
   atomically $ writeTChan chan info
-  threadDelay pollIntervalMicros
 
 -- | Query volume and mute state for the provided node spec.
 --

@@ -15,8 +15,13 @@ where
 
 import Control.Concurrent
 import Control.Exception.Enclosed (tryAny)
-import Control.Monad.IO.Class
+import Control.Monad (void)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Trans.Reader (ask, runReaderT)
+import Data.Foldable (traverse_)
 import qualified GI.Gtk
+import System.Taffybar.Context (TaffyIO)
+import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 import System.Taffybar.Widget.Generic.VerticalBar
 import System.Taffybar.Widget.Util (backgroundLoop)
 
@@ -33,11 +38,22 @@ verticalBarFromCallback cfg action = liftIO $ do
 
 -- | Construct a polling bar with a fixed polling interval (seconds).
 pollingBarNew ::
-  (MonadIO m) =>
-  BarConfig -> Double -> IO Double -> m GI.Gtk.Widget
-pollingBarNew cfg pollSeconds action =
-  liftIO $
-    verticalBarFromCallback cfg $
-      action <* delay
-  where
-    delay = threadDelay $ floor (pollSeconds * 1000000)
+  BarConfig -> Double -> IO Double -> TaffyIO GI.Gtk.Widget
+pollingBarNew cfg pollSeconds action = do
+  context <- ask
+  (drawArea, h) <- verticalBarNew cfg
+
+  liftIO $ do
+    _ <- GI.Gtk.onWidgetRealize drawArea $ do
+      sampleThread <-
+        runReaderT
+          ( taffyForeverWithDelay pollSeconds $
+              liftIO $ do
+                esample <- tryAny action
+                traverse_ (verticalBarSetPercent h) esample
+          )
+          context
+      void $ GI.Gtk.onWidgetUnrealize drawArea $ killThread sampleThread
+    return ()
+
+  return drawArea

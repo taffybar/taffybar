@@ -25,15 +25,19 @@
 module System.Taffybar.Information.Wakeup
   ( WakeupEvent (..),
     WakeupChannel (..),
+    taffyForeverWithDelay,
+    getWakeupChannelNanoseconds,
     getWakeupChannelSeconds,
+    getWakeupChannelForDelay,
     getWakeupChannel,
+    intervalSecondsToNanoseconds,
     nextWallAlignedWakeupNs,
     nextAlignedWakeupNs,
     intervalDueAtStepNs,
   )
 where
 
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (ThreadId, forkIO, threadDelay)
 import Control.Concurrent.STM
   ( STM,
     TVar,
@@ -47,6 +51,7 @@ import Control.Concurrent.STM
   )
 import Control.Concurrent.STM.TChan
   ( TChan,
+    dupTChan,
     newBroadcastTChan,
     newTChanIO,
     readTChan,
@@ -54,20 +59,22 @@ import Control.Concurrent.STM.TChan
     writeTChan,
   )
 import Control.Exception.Enclosed (catchAny)
+import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Reader (ask, runReaderT)
 import qualified Data.Map.Strict as M
 import Data.Proxy (Proxy (..))
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Data.Word (Word64)
 import GHC.Clock (getMonotonicTimeNSec)
 import GHC.TypeNats (KnownNat, Nat, natVal)
-import System.Log.Logger (Priority (..))
-import System.Taffybar.Context (TaffyIO, getStateDefault)
-import System.Taffybar.Util (logPrintF)
+import System.Log.Logger (Priority (..), logM)
+import System.Taffybar.Context (Context, TaffyIO, getStateDefault)
+import Text.Printf (printf)
 
 -- | A wakeup event emitted for a registered interval.
 data WakeupEvent = WakeupEvent
-  { wakeupIntervalSeconds :: !Int,
+  { wakeupIntervalNanoseconds :: !Word64,
     -- | Monotonic counter for this interval. If the scheduler was delayed,
     -- this counter can advance by more than one between events.
     wakeupTickCount :: !Word64
@@ -80,8 +87,7 @@ newtype WakeupChannel (seconds :: Nat)
 
 -- Internal scheduler state for one interval.
 data IntervalRegistration = IntervalRegistration
-  { intervalSeconds :: !Int,
-    intervalNanoseconds :: !Word64,
+  { intervalNanoseconds :: !Word64,
     intervalChannel :: TChan WakeupEvent,
     intervalNextDueNs :: !Word64,
     intervalTickCount :: !Word64
@@ -91,16 +97,50 @@ data IntervalRegistration = IntervalRegistration
 data WakeupManager = WakeupManager
   { -- Approximate wall clock as @monotonic + wakeupRealtimeOffsetNs@.
     wakeupRealtimeOffsetNs :: !Integer,
-    wakeupIntervals :: TVar (M.Map Int IntervalRegistration),
+    wakeupIntervals :: TVar (M.Map Word64 IntervalRegistration),
     wakeupRescheduleChan :: TChan ()
   }
 
--- | Return the shared wakeup channel for @seconds@. The first call registers the
--- interval with the manager; subsequent calls reuse the same channel.
-getWakeupChannelSeconds :: Int -> TaffyIO (TChan WakeupEvent)
-getWakeupChannelSeconds seconds = do
+-- | Execute a 'TaffyIO' action on a shared synchronized wakeup schedule.
+--
+-- This is the preferred context-aware replacement for
+-- 'System.Taffybar.Util.foreverWithDelay'.
+taffyForeverWithDelay :: (RealFrac d) => d -> TaffyIO () -> TaffyIO ThreadId
+taffyForeverWithDelay delay action = do
+  wakeupChan <- getWakeupChannelForDelay delay
+  ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
+  context <- ask
+  liftIO $
+    forkIO $
+      forever $ do
+        safeAction context
+        void $ atomically $ readTChan ourWakeupChan
+  where
+    safeAction :: Context -> IO ()
+    safeAction context =
+      catchAny
+        (runReaderT action context)
+        (logM logPath WARNING . printf "Error in taffyForeverWithDelay %s" . show)
+
+-- | Return the shared wakeup channel for an interval in nanoseconds.
+getWakeupChannelNanoseconds :: Word64 -> TaffyIO (TChan WakeupEvent)
+getWakeupChannelNanoseconds intervalNs = do
   manager <- getWakeupManager
-  liftIO $ registerInterval manager seconds
+  liftIO $ registerInterval manager intervalNs
+
+-- | Return the shared wakeup channel for @seconds@.
+getWakeupChannelSeconds :: Int -> TaffyIO (TChan WakeupEvent)
+getWakeupChannelSeconds seconds =
+  case secondsToNanoseconds seconds of
+    Left err -> fail err
+    Right intervalNs -> getWakeupChannelNanoseconds intervalNs
+
+-- | Return the shared wakeup channel for an interval expressed in seconds.
+getWakeupChannelForDelay :: (RealFrac d) => d -> TaffyIO (TChan WakeupEvent)
+getWakeupChannelForDelay seconds =
+  case intervalSecondsToNanoseconds seconds of
+    Left err -> fail err
+    Right intervalNs -> getWakeupChannelNanoseconds intervalNs
 
 -- | Type-driven variant of 'getWakeupChannelSeconds'.
 --
@@ -110,13 +150,13 @@ getWakeupChannelSeconds seconds = do
 -- wake5 <- getWakeupChannel @5
 -- wake10 <- getWakeupChannel @10
 -- @
-getWakeupChannel :: forall seconds. (KnownNat seconds) => TaffyIO (TChan WakeupEvent)
+getWakeupChannel ::
+  forall seconds.
+  (KnownNat seconds) =>
+  TaffyIO (TChan WakeupEvent)
 getWakeupChannel = do
-  (WakeupChannel chan :: WakeupChannel seconds) <-
-    getStateDefault $ do
-      seconds <- intervalSecondsFromType @seconds
-      WakeupChannel <$> getWakeupChannelSeconds seconds
-  return chan
+  seconds <- intervalSecondsFromType @seconds
+  getWakeupChannelSeconds seconds
 
 getWakeupManager :: TaffyIO WakeupManager
 getWakeupManager = getStateDefault $ liftIO $ do
@@ -132,33 +172,32 @@ getWakeupManager = getStateDefault $ liftIO $ do
   _ <- forkIO (runWakeupScheduler manager)
   return manager
 
-registerInterval :: WakeupManager -> Int -> IO (TChan WakeupEvent)
-registerInterval manager seconds =
-  case secondsToNanoseconds seconds of
+registerInterval :: WakeupManager -> Word64 -> IO (TChan WakeupEvent)
+registerInterval manager intervalNs =
+  case validateIntervalNanoseconds intervalNs of
     Left err -> ioError (userError err)
-    Right intervalNs -> do
+    Right validIntervalNs -> do
       now <- getMonotonicTimeNSec
       atomically $ do
         registrations <- readTVar (wakeupIntervals manager)
-        case M.lookup seconds registrations of
+        case M.lookup validIntervalNs registrations of
           Just registration -> return (intervalChannel registration)
           Nothing -> do
             channel <- newBroadcastTChan
             let registration =
                   IntervalRegistration
-                    { intervalSeconds = seconds,
-                      intervalNanoseconds = intervalNs,
+                    { intervalNanoseconds = validIntervalNs,
                       intervalChannel = channel,
                       intervalNextDueNs =
                         nextWallAlignedWakeupNs
                           (wakeupRealtimeOffsetNs manager)
-                          intervalNs
+                          validIntervalNs
                           now,
                       intervalTickCount = 0
                     }
             writeTVar
               (wakeupIntervals manager)
-              (M.insert seconds registration registrations)
+              (M.insert validIntervalNs registration registrations)
             -- Ensure the scheduler recomputes immediately, so newly added short
             -- intervals are not blocked behind an older long sleep.
             writeTChan (wakeupRescheduleChan manager) ()
@@ -180,7 +219,7 @@ runWakeupScheduler manager =
       schedulerLoop
 
     onSchedulerException e = do
-      logPrintF logPath WARNING "Wakeup scheduler crashed and will be restarted: %s" e
+      logM logPath WARNING $ printf "Wakeup scheduler crashed and will be restarted: %s" (show e)
       threadDelay 1000000
       runWakeupScheduler manager
 
@@ -212,7 +251,7 @@ advanceIntervalIfDue nowNs registration
       writeTChan
         (intervalChannel registration)
         WakeupEvent
-          { wakeupIntervalSeconds = intervalSeconds registration,
+          { wakeupIntervalNanoseconds = intervalNanoseconds registration,
             wakeupTickCount = tickCount
           }
       return
@@ -221,7 +260,7 @@ advanceIntervalIfDue nowNs registration
             intervalTickCount = tickCount
           }
 
-nextDueNs :: M.Map Int IntervalRegistration -> Maybe Word64
+nextDueNs :: M.Map Word64 IntervalRegistration -> Maybe Word64
 nextDueNs registrations
   | M.null registrations = Nothing
   | otherwise = Just $ minimum $ intervalNextDueNs <$> M.elems registrations
@@ -248,6 +287,23 @@ secondsToNanoseconds seconds
   where
     secondsInteger = toInteger seconds * 1000000000
     maxWord64Integer = toInteger (maxBound :: Word64)
+
+-- | Convert an interval in seconds to nanoseconds.
+intervalSecondsToNanoseconds :: (RealFrac d) => d -> Either String Word64
+intervalSecondsToNanoseconds seconds
+  | secondsRational <= 0 = Left "Wakeup interval must be greater than 0 seconds"
+  | intervalNanosecondsInteger <= 0 = Left "Wakeup interval rounded to zero nanoseconds"
+  | intervalNanosecondsInteger > maxWord64Integer = Left "Wakeup interval is too large"
+  | otherwise = Right (fromInteger intervalNanosecondsInteger)
+  where
+    secondsRational = toRational seconds
+    intervalNanosecondsInteger = round (secondsRational * 1000000000)
+    maxWord64Integer = toInteger (maxBound :: Word64)
+
+validateIntervalNanoseconds :: Word64 -> Either String Word64
+validateIntervalNanoseconds intervalNs
+  | intervalNs == 0 = Left "Wakeup interval must be greater than 0 nanoseconds"
+  | otherwise = Right intervalNs
 
 -- | Convert a delay in nanoseconds into a value suitable for
 -- 'Control.Concurrent.STM.registerDelay'.
