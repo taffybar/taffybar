@@ -202,7 +202,7 @@ setupEWMHWorkspaceSubscription cfg stateChan eventChan stateVar = do
   _ <-
     subscribeToPropertyEvents
       (workspaceUpdateEvents cfg)
-      (\event -> liftIO $ void $ rateLimitedRefresh event)
+      (liftIO . void . rateLimitedRefresh)
   return ()
 
 refreshEWMHWorkspaceState ::
@@ -315,4 +315,4 @@ getWindowPosition window = do
   display <- getDisplay
   liftIO $
     ((\(_, x, y, _, _, _, _) -> Just (fromIntegral x, fromIntegral y)) <$> safeGetGeometry display window)
-      `catchAny` (const $ return Nothing)
+      `catchAny` const (return Nothing)

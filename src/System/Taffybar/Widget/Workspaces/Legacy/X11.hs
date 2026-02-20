@@ -1,21 +1,18 @@
-{-# OPTIONS_GHC -Wno-deprecations #-}
-
 -----------------------------------------------------------------------------
 
 -----------------------------------------------------------------------------
 
 -- |
--- Module      : System.Taffybar.Widget.Workspaces.Channel
+-- Module      : System.Taffybar.Widget.Workspaces.Legacy.X11
 -- Copyright   : (c) Ivan A. Malison
 -- License     : BSD3-style (see LICENSE)
 --
 -- Maintainer  : Ivan A. Malison
 -- Stability   : unstable
 -- Portability : unportable
-module System.Taffybar.Widget.Workspaces.Channel
-  {-# DEPRECATED "Use System.Taffybar.Widget.Workspaces instead." #-}
-  ( module System.Taffybar.Widget.Workspaces,
+module System.Taffybar.Widget.Workspaces.Legacy.X11
+  ( module System.Taffybar.Widget.Workspaces.Legacy.EWMH,
   )
 where
 
-import System.Taffybar.Widget.Workspaces
+import System.Taffybar.Widget.Workspaces.Legacy.EWMH

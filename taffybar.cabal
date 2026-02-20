@@ -225,6 +225,12 @@ library
                  , System.Taffybar.Widget.Workspaces.Hyprland
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
+                 , System.Taffybar.Widget.Workspaces.Legacy
+                 , System.Taffybar.Widget.Workspaces.Legacy.EWMH
+                 , System.Taffybar.Widget.Workspaces.Legacy.EWMH.Compat
+                 , System.Taffybar.Widget.Workspaces.Legacy.X11
+                 , System.Taffybar.Widget.Workspaces.Legacy.Hyprland
+                 , System.Taffybar.Widget.Workspaces.Legacy.Hyprland.Compat
                  , System.Taffybar.Widget.Workspaces.Config
                  , System.Taffybar.Widget.Workspaces.Common
                  , System.Taffybar.Widget.Workspaces.EWMH

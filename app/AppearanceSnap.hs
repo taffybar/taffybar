@@ -74,15 +74,15 @@ import System.Taffybar.Context
   )
 import System.Taffybar.Util (postGUIASync)
 import qualified System.Taffybar.Widget.Windows as Windows
-import qualified System.Taffybar.Widget.Workspaces.Channel as ChannelWorkspaces
+import qualified System.Taffybar.Widget.Workspaces as ChannelWorkspaces
 import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
-import System.Taffybar.Widget.Workspaces.EWMH
+import System.Taffybar.Widget.Workspaces.Legacy.EWMH
   ( WorkspacesConfig,
     getWindowIconPixbufFromEWMH,
     sortWindowsByStackIndex,
     workspacesNew,
   )
-import qualified System.Taffybar.Widget.Workspaces.EWMH as Workspaces
+import qualified System.Taffybar.Widget.Workspaces.Legacy.EWMH as Workspaces
 import UnliftIO.Temporary (withSystemTempDirectory)
 
 data Args = Args
@@ -264,7 +264,7 @@ buildBarConfig workspaceWidget barUnique mode =
       BarConfig
         { strutConfig = baseStrutConfig 55,
           widgetSpacing = 8,
-          startWidgets = [workspacesNew wsCfg, Windows.windowsNew windowsCfg],
+          startWidgets = [workspaceWidget, Windows.windowsNew windowsCfg],
           centerWidgets = [],
           endWidgets = [testBoxWidget "test-pill" 52 20],
           barLevels = Nothing,
@@ -581,14 +581,11 @@ drainGtkEvents n = do
 
 parseArgs :: [String] -> IO Args
 parseArgs args =
-  let layoutMode =
-        if "--windows-title-stress" `elem` args
-          then LayoutWindowsTitleStress
-          else
-            if "--levels" `elem` args
-              then LayoutLevels
-              else LayoutLegacy
-      workspaceWidgetMode =
+  let selectedLayoutMode
+        | "--windows-title-stress" `elem` args = LayoutWindowsTitleStress
+        | "--levels" `elem` args = LayoutLevels
+        | otherwise = LayoutLegacy
+      selectedWorkspaceWidgetMode =
         if "--channel-workspaces" `elem` args
           then UseChannelWorkspaces
           else UseLegacyWorkspaces
@@ -602,16 +599,16 @@ parseArgs args =
             Args
               { outFile = outPath,
                 cssFile = cssPath,
-                layoutMode = layoutMode,
-                workspaceWidgetMode = workspaceWidgetMode
+                layoutMode = selectedLayoutMode,
+                workspaceWidgetMode = selectedWorkspaceWidgetMode
               }
         ["--css", cssPath, "--out", outPath] ->
           pure
             Args
               { outFile = outPath,
                 cssFile = cssPath,
-                layoutMode = layoutMode,
-                workspaceWidgetMode = workspaceWidgetMode
+                layoutMode = selectedLayoutMode,
+                workspaceWidgetMode = selectedWorkspaceWidgetMode
               }
         _ ->
           die "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css [--levels|--windows-title-stress] [--channel-workspaces]"

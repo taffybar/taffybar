@@ -13,11 +13,12 @@
 --
 -- Transitional, prefixed exports for the channel-driven Workspaces widget.
 --
--- The canonical API lives in "System.Taffybar.Widget.Workspaces.Channel"
+-- The canonical API lives in "System.Taffybar.Widget.Workspaces"
 -- (with names like 'workspacesNew'). This module provides prefixed aliases so
 -- "System.Taffybar.Widget" can expose the new widget without colliding with
 -- legacy workspace exports.
 module System.Taffybar.Widget.ChannelWorkspaces
+  {-# DEPRECATED "Use System.Taffybar.Widget.Workspaces instead." #-}
   ( ChannelWorkspacesConfig,
     defaultChannelWorkspacesConfig,
     defaultChannelEWMHWorkspacesConfig,
@@ -27,7 +28,7 @@ where
 
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO)
-import qualified System.Taffybar.Widget.Workspaces.Channel as Channel
+import qualified System.Taffybar.Widget.Workspaces as Channel
 
 type ChannelWorkspacesConfig = Channel.WorkspacesConfig
 

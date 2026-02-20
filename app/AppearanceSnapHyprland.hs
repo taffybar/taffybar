@@ -51,7 +51,7 @@ import System.Taffybar.Context
     TaffybarConfig (..),
     exitTaffybar,
   )
-import qualified System.Taffybar.Widget.Workspaces.Channel as ChannelWorkspaces
+import qualified System.Taffybar.Widget.Workspaces as ChannelWorkspaces
 import UnliftIO.Temporary (withSystemTempDirectory)
 
 data Args = Args
@@ -386,11 +386,11 @@ requireEnv name = do
 
 parseArgs :: [String] -> IO Args
 parseArgs args =
-  let layoutMode =
+  let selectedLayoutMode =
         if "--levels" `elem` args
           then LayoutLevels
           else LayoutLegacy
-      workspaceWidgetMode =
+      selectedWorkspaceWidgetMode =
         if "--channel-workspaces" `elem` args
           then UseChannelWorkspaces
           else UseLegacyWorkspaces
@@ -404,16 +404,16 @@ parseArgs args =
             Args
               { outFile = outPath,
                 cssFile = cssPath,
-                layoutMode = layoutMode,
-                workspaceWidgetMode = workspaceWidgetMode
+                layoutMode = selectedLayoutMode,
+                workspaceWidgetMode = selectedWorkspaceWidgetMode
               }
         ["--css", cssPath, "--out", outPath] ->
           pure
             Args
               { outFile = outPath,
                 cssFile = cssPath,
-                layoutMode = layoutMode,
-                workspaceWidgetMode = workspaceWidgetMode
+                layoutMode = selectedLayoutMode,
+                workspaceWidgetMode = selectedWorkspaceWidgetMode
               }
         _ ->
           fail

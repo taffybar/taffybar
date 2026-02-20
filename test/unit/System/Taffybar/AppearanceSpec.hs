@@ -42,6 +42,11 @@ spec = do
       actualPng <- renderBarScreenshot env LegacyLayout ChannelWidget
       assertPngLooksRendered "ewmh-channel-workspaces" actualPng
 
+    it "keeps configured bar height when the windows title has oversized glyph metrics" $ \env -> do
+      actualPng <- renderBarScreenshot env WindowsTitleStressLayout LegacyWidget
+      let actualImg = decodePngRGBA8 "stress" actualPng
+      JP.imageHeight actualImg `shouldBe` 55
+
   it "renders the channel workspaces widget under Hyprland when available" $ do
     available <- hyprlandTestAvailable
     unless available $
@@ -49,11 +54,6 @@ spec = do
         "Hyprland integration environment unavailable (needs WAYLAND_DISPLAY, HYPRLAND_INSTANCE_SIGNATURE and grim)"
     actualPng <- renderHyprlandScreenshot LegacyLayout ChannelWidget
     assertPngLooksRendered "hyprland-channel-workspaces" actualPng
-
-  it "keeps configured bar height when the windows title has oversized glyph metrics" $ \env -> do
-    actualPng <- renderBarScreenshot env WindowsTitleStressLayout
-    let actualImg = decodePngRGBA8 "stress" actualPng
-    JP.imageHeight actualImg `shouldBe` 55
 
 assertGolden :: String -> FilePath -> BL.ByteString -> IO ()
 assertGolden label goldenFile actualPng = do
@@ -170,6 +170,7 @@ renderHyprlandScreenshot layout widgetKind =
           case layout of
             LegacyLayout -> []
             LevelsLayout -> ["--levels"]
+            WindowsTitleStressLayout -> []
         widgetArgs =
           case widgetKind of
             LegacyWidget -> []

@@ -3,7 +3,7 @@ module System.Taffybar.Widget.Workspaces.ChannelSpec (spec) where
 import Data.Text qualified as T
 import Data.Word (Word64)
 import System.Taffybar.Information.Workspaces.Model
-import System.Taffybar.Widget.Workspaces.Channel (sortWindowsByPosition)
+import System.Taffybar.Widget.Workspaces (sortWindowsByPosition)
 import Test.Hspec
 
 mkX11Window :: Word64 -> Bool -> Maybe (Int, Int) -> WindowInfo

@@ -35,7 +35,8 @@ import qualified System.Taffybar.Information.Hyprland as Hypr
 import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.DynamicMenu
 import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
-import System.Taffybar.Widget.HyprlandWorkspaces
+import System.Taffybar.Widget.Util
+import System.Taffybar.Widget.Workspaces.Legacy.Hyprland
   ( HyprlandClient,
     HyprlandWindow (..),
     HyprlandWindowIconPixbufGetter,
@@ -44,7 +45,6 @@ import System.Taffybar.Widget.HyprlandWorkspaces
     runHyprctlJson,
     windowFromClient,
   )
-import System.Taffybar.Widget.Util
 
 -- | Window menu widget configuration for Hyprland.
 data HyprlandWindowsConfig = HyprlandWindowsConfig
