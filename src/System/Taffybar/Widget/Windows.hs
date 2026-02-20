@@ -15,110 +15,142 @@
 --
 -- Menu widget that shows the title of the currently focused window and that,
 -- when clicked, displays a menu from which the user may select a window to
--- which to switch the focus.
+-- switch focus to.
 module System.Taffybar.Widget.Windows where
 
-import Control.Monad
+import qualified Control.Concurrent.MVar as MV
+import Control.Concurrent.STM.TChan (TChan)
+import Control.Monad (forM_, void)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Reader
 import Data.Default (Default (..))
-import Data.Maybe
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.Int (Int32)
+import Data.List (find)
+import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.Pango as Pango
 import System.Taffybar.Context
-import System.Taffybar.Information.EWMHDesktopInfo
+import System.Taffybar.Information.Workspaces.EWMH
+  ( getEWMHWorkspaceStateChanAndVar,
+  )
+import System.Taffybar.Information.Workspaces.Hyprland
+  ( getHyprlandWorkspaceStateChanAndVar,
+  )
+import System.Taffybar.Information.Workspaces.Model
 import System.Taffybar.Util
+import System.Taffybar.Widget.Generic.ChannelWidget (channelWidgetNew)
 import System.Taffybar.Widget.Generic.DynamicMenu
 import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
-import System.Taffybar.Widget.Util
-import System.Taffybar.Widget.Workspaces.EWMH (WindowIconPixbufGetter, defaultGetWindowIconPixbuf, getWindowData)
-import System.Taffybar.WindowIcon (pixBufFromColor)
+import System.Taffybar.Widget.Util (widgetSetClassGI)
+import System.Taffybar.Widget.Workspaces
+  ( defaultOnWindowClick,
+    getWindowIconPixbufByClassHints,
+    sortWindowsByPosition,
+  )
 
 -- | Behavior configuration for the windows menu widget.
 data WindowsConfig = WindowsConfig
-  { -- | A monadic function that will be used to make a label for the window in
-    -- the window menu.
-    getMenuLabel :: X11Window -> TaffyIO T.Text,
+  { windowStateSource :: TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnapshot),
+    -- | A monadic function used to build labels for windows in the menu.
+    getMenuLabel :: WindowInfo -> TaffyIO T.Text,
     -- | Action to build the label text for the active window.
-    getActiveLabel :: TaffyIO T.Text,
+    getActiveLabel :: Maybe WindowInfo -> TaffyIO T.Text,
     -- | Optional function to retrieve a pixbuf to show next to the
-    -- window label.
-    getActiveWindowIconPixbuf :: Maybe WindowIconPixbufGetter
+    -- active-window label.
+    getActiveWindowIconPixbuf :: Maybe (Int32 -> WindowInfo -> TaffyIO (Maybe Gdk.Pixbuf)),
+    -- | Sort menu windows before rendering.
+    menuWindowSort :: [WindowInfo] -> TaffyIO [WindowInfo],
+    -- | Action when a menu item is selected.
+    onMenuWindowClick :: WindowInfo -> TaffyIO ()
   }
 
--- | Default menu-label renderer using the X11 window title.
-defaultGetMenuLabel :: X11Window -> TaffyIO T.Text
-defaultGetMenuLabel window = do
-  windowString <- runX11Def "(nameless window)" (getWindowTitle window)
-  return $ T.pack windowString
+-- | Build a menu label from the window title.
+defaultGetMenuLabel :: WindowInfo -> TaffyIO T.Text
+defaultGetMenuLabel = truncatedGetMenuLabel 35
 
 -- | Default active-window label renderer.
-defaultGetActiveLabel :: TaffyIO T.Text
-defaultGetActiveLabel = do
-  fromMaybe ""
-    <$> ( runX11Def Nothing getActiveWindow
-            >>= traverse defaultGetMenuLabel
-        )
+defaultGetActiveLabel :: Maybe WindowInfo -> TaffyIO T.Text
+defaultGetActiveLabel = maybe (return "") defaultGetMenuLabel
 
 -- | Truncate the active-window label to a maximum length.
-truncatedGetActiveLabel :: Int -> TaffyIO T.Text
-truncatedGetActiveLabel maxLength =
-  truncateText maxLength <$> defaultGetActiveLabel
+truncatedGetActiveLabel :: Int -> Maybe WindowInfo -> TaffyIO T.Text
+truncatedGetActiveLabel maxLength windowInfo =
+  truncateText maxLength <$> defaultGetActiveLabel windowInfo
 
 -- | Truncate window labels in the popup menu to a maximum length.
-truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO T.Text
-truncatedGetMenuLabel maxLength =
-  fmap (truncateText maxLength) . defaultGetMenuLabel
+truncatedGetMenuLabel :: Int -> WindowInfo -> TaffyIO T.Text
+truncatedGetMenuLabel maxLength windowInfo =
+  return $ truncateText maxLength (windowTitle windowInfo)
 
 -- | Default configuration used by 'windowsNew'.
 defaultWindowsConfig :: WindowsConfig
 defaultWindowsConfig =
   WindowsConfig
-    { getMenuLabel = truncatedGetMenuLabel 35,
-      getActiveLabel = truncatedGetActiveLabel 35,
-      getActiveWindowIconPixbuf = Just defaultGetWindowIconPixbuf
+    { windowStateSource = getHyprlandWorkspaceStateChanAndVar,
+      getMenuLabel = defaultGetMenuLabel,
+      getActiveLabel = defaultGetActiveLabel,
+      getActiveWindowIconPixbuf = Just getWindowIconPixbufByClassHints,
+      menuWindowSort = pure . sortWindowsByPosition,
+      onMenuWindowClick = defaultOnWindowClick
+    }
+
+-- | EWMH/X11 preset configuration.
+defaultEWMHWindowsConfig :: WindowsConfig
+defaultEWMHWindowsConfig =
+  defaultWindowsConfig
+    { windowStateSource = getEWMHWorkspaceStateChanAndVar
     }
 
 instance Default WindowsConfig where
   def = defaultWindowsConfig
 
--- | Create a new Windows widget that will use the given Pager as
--- its source of events.
+-- | Create a new channel-driven backend-agnostic windows widget.
 windowsNew :: WindowsConfig -> TaffyIO Gtk.Widget
 windowsNew config = do
   hbox <- lift $ Gtk.boxNew Gtk.OrientationHorizontal 0
+  (stateChan, stateVar) <- windowStateSource config
+  initialSnapshot <- liftIO $ MV.readMVar stateVar
+  activeWindowRef <- liftIO $ newIORef $ getActiveWindow initialSnapshot
 
   refreshIcon <- case getActiveWindowIconPixbuf config of
     Just getIcon -> do
-      (rf, icon) <- buildWindowsIcon getIcon
+      (rf, icon) <- buildWindowsIcon activeWindowRef getIcon
       Gtk.boxPackStart hbox icon True True 0
       pure rf
     Nothing -> pure (pure ())
 
   (setLabelTitle, label) <- buildWindowsLabel
   Gtk.boxPackStart hbox label True True 0
-  let refreshLabel = getActiveLabel config >>= lift . setLabelTitle
-      refresh = refreshLabel >> lift refreshIcon
 
-  subscription <-
-    subscribeToPropertyEvents
-      [ewmhActiveWindow, ewmhWMName, ewmhWMClass]
-      (const refresh)
+  let refreshFromSnapshot snapshot = do
+        let activeWindow = getActiveWindow snapshot
+        liftIO $ writeIORef activeWindowRef activeWindow
+        labelText <- getActiveLabel config activeWindow
+        lift $ setLabelTitle labelText
+        lift refreshIcon
 
-  void $ mapReaderT (Gtk.onWidgetUnrealize hbox) (unsubscribe subscription)
-  void refresh
+  void $ refreshFromSnapshot initialSnapshot
 
-  Gtk.widgetShowAll hbox
+  ctx <- ask
+  _ <-
+    liftIO $
+      channelWidgetNew
+        hbox
+        stateChan
+        (\snapshot -> postGUIASync $ runReaderT (refreshFromSnapshot snapshot) ctx)
+
   boxWidget <- Gtk.toWidget hbox
-
   runTaffy <- asks (flip runReaderT)
   menu <-
     dynamicMenuNew
       DynamicMenuConfig
         { dmClickWidget = boxWidget,
-          dmPopulateMenu = runTaffy . fillMenu config
+          dmPopulateMenu = runTaffy . fillMenu config stateVar
         }
 
   widgetSetClassGI menu "windows"
@@ -133,34 +165,61 @@ buildWindowsLabel = do
   (setLabelTitle,) <$> Gtk.toWidget label
 
 -- | Build the active-window icon and return an update action for it.
-buildWindowsIcon :: WindowIconPixbufGetter -> TaffyIO (IO (), Gtk.Widget)
-buildWindowsIcon windowIconPixbufGetter = do
+buildWindowsIcon ::
+  IORef (Maybe WindowInfo) ->
+  (Int32 -> WindowInfo -> TaffyIO (Maybe Gdk.Pixbuf)) ->
+  TaffyIO (IO (), Gtk.Widget)
+buildWindowsIcon activeWindowRef windowIconPixbufGetter = do
   runTaffy <- asks (flip runReaderT)
-  let getActiveWindowPixbuf size = do
-        maybePixbuf <- runTaffy . runMaybeT $ do
-          wd <-
-            MaybeT $
-              runX11Def Nothing $
-                traverse (getWindowData Nothing []) =<< getActiveWindow
-          MaybeT $ windowIconPixbufGetter size wd
-        maybe (Just <$> pixBufFromColor size 0) (return . Just) maybePixbuf
+  let getActiveWindowPixbuf size = runTaffy . runMaybeT $ do
+        windowInfo <- MaybeT $ liftIO $ readIORef activeWindowRef
+        MaybeT $ windowIconPixbufGetter size windowInfo
 
   (imageWidget, updateImage) <- scalingImage getActiveWindowPixbuf Gtk.OrientationHorizontal
   return (postGUIASync updateImage, imageWidget)
 
--- | Populate the given menu widget with the list of all currently open windows.
-fillMenu :: (Gtk.IsMenuShell a) => WindowsConfig -> a -> ReaderT Context IO ()
-fillMenu config menu =
-  ask >>= \context ->
-    runX11Def () $ do
-      windowIds <- getWindows
-      forM_ windowIds $ \windowId ->
-        lift $ do
-          labelText <- runReaderT (getMenuLabel config windowId) context
-          let focusCallback =
-                runReaderT (runX11 $ focusWindow windowId) context
-                  >> return True
-          item <- Gtk.menuItemNewWithLabel labelText
-          _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
-          Gtk.menuShellAppend menu item
-          Gtk.widgetShow item
+-- | Populate the given menu widget with the list of currently open windows.
+fillMenu ::
+  (Gtk.IsMenuShell a) =>
+  WindowsConfig ->
+  MV.MVar WorkspaceSnapshot ->
+  a ->
+  ReaderT Context IO ()
+fillMenu config stateVar menu =
+  ask >>= \context -> do
+    snapshot <- liftIO $ MV.readMVar stateVar
+    windows <- menuWindowSort config (getWindows snapshot)
+    forM_ windows $ \windowInfo ->
+      lift $ do
+        labelText <- runReaderT (getMenuLabel config windowInfo) context
+        let focusCallback =
+              runReaderT (onMenuWindowClick config windowInfo) context
+                >> return True
+        item <- Gtk.menuItemNewWithLabel labelText
+        _ <- Gtk.onWidgetButtonPressEvent item $ const focusCallback
+        Gtk.menuShellAppend menu item
+        Gtk.widgetShow item
+
+getWindows :: WorkspaceSnapshot -> [WindowInfo]
+getWindows snapshot = reverse ordered
+  where
+    allWindows =
+      [ win
+      | wsInfo <- snapshotWorkspaces snapshot,
+        win <- workspaceWindows wsInfo
+      ]
+    (_, ordered) = foldl keepFirst (Set.empty, []) allWindows
+    keepFirst (seen, acc) windowInfo
+      | windowIdentity windowInfo `Set.member` seen = (seen, acc)
+      | otherwise =
+          (Set.insert (windowIdentity windowInfo) seen, windowInfo : acc)
+
+getActiveWindow :: WorkspaceSnapshot -> Maybe WindowInfo
+getActiveWindow snapshot =
+  find windowActive allWindows
+  where
+    allWindows =
+      [ win
+      | wsInfo <- snapshotWorkspaces snapshot,
+        win <- workspaceWindows wsInfo
+      ]
