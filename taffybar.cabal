@@ -163,6 +163,7 @@ library
                  , System.Taffybar.Information.Workspaces.EWMH
                  , System.Taffybar.Information.Workspaces.Hyprland
                  , System.Taffybar.Information.Workspaces.Model
+                 , System.Taffybar.Information.Wakeup
                  , System.Taffybar.Information.Wlsunset
                  , System.Taffybar.Information.X11DesktopInfo
                  , System.Taffybar.Information.XDG.Protocol
@@ -379,6 +380,7 @@ test-suite unit
                , System.Taffybar.ContextSpec
                , System.Taffybar.Information.CryptoSpec
                , System.Taffybar.Information.X11DesktopInfoSpec
+               , System.Taffybar.Information.WakeupSpec
                , System.Taffybar.SimpleConfigSpec
                , System.Taffybar.Widget.HyprlandWorkspacesSpec
                , System.Taffybar.Widget.Workspaces.ChannelSpec
