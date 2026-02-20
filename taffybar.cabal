@@ -263,12 +263,16 @@ library
 executable taffybar
   import: haskell, exe
   build-depends: data-default
+               , dhall
                , directory
+               , gi-gtk3
                , hslogger
                , optparse-applicative
                , taffybar
+               , text
 
-  other-modules: Paths_taffybar
+  other-modules: DhallConfig
+               , Paths_taffybar
   autogen-modules: Paths_taffybar
 
   hs-source-dirs: app
