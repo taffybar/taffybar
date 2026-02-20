@@ -47,6 +47,16 @@ spec = do
       let actualImg = decodePngRGBA8 "stress" actualPng
       JP.imageHeight actualImg `shouldBe` 55
 
+    it "sets an appropriately scaled top strut under EWMH when GDK_SCALE=2" $ \env ->
+      withSetEnv [("GDK_SCALE", "2"), ("GDK_DPI_SCALE", "1")] $ do
+        actualPng <-
+          renderBarScreenshotWithArgs
+            env
+            LegacyLayout
+            LegacyWidget
+            ["--expect-top-strut", "80"]
+        assertPngLooksRendered "ewmh-hidpi-strut" actualPng
+
   it "renders the channel workspaces widget under Hyprland when available" $ do
     available <- hyprlandTestAvailable
     unless available $
@@ -120,7 +130,11 @@ data LayoutKind = LegacyLayout | LevelsLayout | WindowsTitleStressLayout
 data WidgetKind = LegacyWidget | ChannelWidget
 
 renderBarScreenshot :: Env -> LayoutKind -> WidgetKind -> IO BL.ByteString
-renderBarScreenshot Env {envTmpDir = tmp} layout widgetKind = do
+renderBarScreenshot env layout widgetKind =
+  renderBarScreenshotWithArgs env layout widgetKind []
+
+renderBarScreenshotWithArgs :: Env -> LayoutKind -> WidgetKind -> [String] -> IO BL.ByteString
+renderBarScreenshotWithArgs Env {envTmpDir = tmp} layout widgetKind extraArgs = do
   exePath <-
     findComponentExecutable
       "taffybar-appearance-snap"
@@ -142,7 +156,7 @@ renderBarScreenshot Env {envTmpDir = tmp} layout widgetKind = do
       pc =
         setStdout inherit $
           setStderr inherit $
-            proc exePath (["--out", outPath, "--css", cssPath] ++ levelArgs ++ widgetArgs)
+            proc exePath (["--out", outPath, "--css", cssPath] ++ levelArgs ++ widgetArgs ++ extraArgs)
 
   withProcessTerm pc $ \p -> do
     mEc <- timeout 60_000_000 (waitExitCode p)
