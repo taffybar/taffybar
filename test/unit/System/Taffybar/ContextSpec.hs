@@ -6,26 +6,26 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module System.Taffybar.ContextSpec
-  ( spec
+  ( spec,
 
     -- * Utils
-  , runTaffyDefault
+    runTaffyDefault,
 
     -- * Abstract Config
-  , GenSimpleConfig (..)
-  , toSimpleConfig
-  , GenWidget (..)
-  , toTaffyWidget
-  , GenSpace (..)
-  , GenCssPath (..)
-  , toCssPaths
-  , GenMonitorsAction (..)
-  , toMonitorsAction
-  ) where
+    GenSimpleConfig (..),
+    toSimpleConfig,
+    GenWidget (..),
+    toTaffyWidget,
+    GenSpace (..),
+    GenCssPath (..),
+    toCssPaths,
+    GenMonitorsAction (..),
+    toMonitorsAction,
+  )
+where
 
 import Control.Exception (SomeException, catch)
 import Control.Monad (when)
-import Control.Monad.Managed
 import Data.Default (def)
 import Data.List ((\\))
 import Data.Ratio ((%))
@@ -55,9 +55,9 @@ spec = logSetup $ sequential $ aroundAll_ withTestDBus $ aroundAll_ (withXdummy 
       removePathForcibly runtime `catch` (\(_ :: SomeException) -> pure ())
       createDirectoryIfMissing True runtime
       withSetEnv
-        [ ("XDG_RUNTIME_DIR", runtime)
-        , ("WAYLAND_DISPLAY", wl)
-        , ("XDG_SESSION_TYPE", "wayland")
+        [ ("XDG_RUNTIME_DIR", runtime),
+          ("WAYLAND_DISPLAY", wl),
+          ("XDG_SESSION_TYPE", "wayland")
         ]
         $ do
           detectBackend `shouldReturn` BackendX11
@@ -72,9 +72,9 @@ spec = logSetup $ sequential $ aroundAll_ withTestDBus $ aroundAll_ (withXdummy 
       createDirectoryIfMissing True runtime
       writeFile wlPath "" -- exists but is not a socket
       withSetEnv
-        [ ("XDG_RUNTIME_DIR", runtime)
-        , ("WAYLAND_DISPLAY", wl)
-        , ("XDG_SESSION_TYPE", "wayland")
+        [ ("XDG_RUNTIME_DIR", runtime),
+          ("WAYLAND_DISPLAY", wl),
+          ("XDG_SESSION_TYPE", "wayland")
         ]
         $ do
           detectBackend `shouldReturn` BackendX11
@@ -82,11 +82,11 @@ spec = logSetup $ sequential $ aroundAll_ withTestDBus $ aroundAll_ (withXdummy 
 
   describe "Resource cleanup" $ do
     it "cleanup happens within a short time" $ example $ do
-      laxTimeout' 1_000_000 $ with (buildContext def) $ const $ pure ()
+      laxTimeout' 1_000_000 $ buildContext def >> pure ()
 
     it "should not leak file descriptors, e.g. X11 connections" $ example $ do
       fdsBefore <- listFds
-      fdsDuring <- laxTimeout' 1_000_000 $ with (buildContext def) $ const listFds
+      fdsDuring <- laxTimeout' 1_000_000 $ buildContext def >> listFds
       length fdsDuring `shouldSatisfy` (> length fdsBefore)
       fdsAfter <- listFds
 
@@ -95,7 +95,7 @@ spec = logSetup $ sequential $ aroundAll_ withTestDBus $ aroundAll_ (withXdummy 
     it "should not leak threads" $ example $ do
       threadsBefore <- listLiveThreads
       when (null threadsBefore) $ pendingWith "GHC version doesn't have listThreads"
-      threadsDuring <- laxTimeout' 1_000_000 $ with (buildContext def) $ const listLiveThreads
+      threadsDuring <- laxTimeout' 1_000_000 $ buildContext def >> listLiveThreads
       length threadsDuring `shouldSatisfy` (> length threadsBefore)
 
       threadsAfter <- listLiveThreads
@@ -110,22 +110,22 @@ spec = logSetup $ sequential $ aroundAll_ withTestDBus $ aroundAll_ (withXdummy 
 ------------------------------------------------------------------------
 
 runTaffyDefault :: TaffyIO a -> IO a
-runTaffyDefault f = with (buildContext def) $ \ctx -> runTaffy ctx f
+runTaffyDefault f = buildContext def >>= \ctx -> runTaffy ctx f
 
 ------------------------------------------------------------------------
 
 -- | Represents 'SimpleTaffyConfig' in a more abstract way, so that
 -- it's easier to 'show', 'shrink', 'assert', etc.
 data GenSimpleConfig = GenSimpleConfig
-  { monitors :: GenMonitorsAction
-  , size :: StrutSize
-  , padding :: GenSpace
-  , position :: Position
-  , spacing :: GenSpace
-  , start :: [GenWidget]
-  , center :: [GenWidget]
-  , end :: [GenWidget]
-  , css :: [GenCssPath]
+  { monitors :: GenMonitorsAction,
+    size :: StrutSize,
+    padding :: GenSpace,
+    position :: Position,
+    spacing :: GenSpace,
+    start :: [GenWidget],
+    center :: [GenWidget],
+    end :: [GenWidget],
+    css :: [GenCssPath]
   }
   deriving (Show, Eq, Generic)
 
@@ -133,17 +133,17 @@ data GenSimpleConfig = GenSimpleConfig
 toSimpleConfig :: GenSimpleConfig -> SimpleTaffyConfig
 toSimpleConfig GenSimpleConfig {..} =
   SimpleTaffyConfig
-    { monitorsAction = toMonitorsAction monitors
-    , barHeight = size
-    , barPadding = unGenSpace padding
-    , barPosition = position
-    , widgetSpacing = unGenSpace spacing
-    , startWidgets = map toTaffyWidget start
-    , centerWidgets = map toTaffyWidget center
-    , endWidgets = map toTaffyWidget end
-    , barLevels = Nothing
-    , cssPaths = toCssPaths css
-    , startupHook = pure () -- TODO: add something
+    { monitorsAction = toMonitorsAction monitors,
+      barHeight = size,
+      barPadding = unGenSpace padding,
+      barPosition = position,
+      widgetSpacing = unGenSpace spacing,
+      startWidgets = map toTaffyWidget start,
+      centerWidgets = map toTaffyWidget center,
+      endWidgets = map toTaffyWidget end,
+      barLevels = Nothing,
+      cssPaths = toCssPaths css,
+      startupHook = pure () -- TODO: add something
     }
 
 toTaffyWidget :: GenWidget -> TaffyIO Widget
@@ -167,8 +167,8 @@ instance Arbitrary GenSimpleConfig where
 instance Arbitrary StrutSize where
   arbitrary =
     oneof
-      [ ExactSize . getSmall . getPositive <$> arbitrary
-      , ScreenRatio <$> elements [1 % 27, 1 % 50, 1 % 2] -- TODO: more arbitrary
+      [ ExactSize . getSmall . getPositive <$> arbitrary,
+        ScreenRatio <$> elements [1 % 27, 1 % 50, 1 % 2] -- TODO: more arbitrary
       ]
   shrink (ExactSize s) = ExactSize . getPositive <$> shrink (Positive (fromIntegral s))
   shrink (ScreenRatio r) = ScreenRatio <$> shrink r
@@ -208,9 +208,9 @@ data GenMonitorsAction
 instance Arbitrary GenMonitorsAction where
   arbitrary =
     oneof
-      [ pure UsePrimaryMonitor
-      , pure UseAllMonitors
-      , wild
+      [ pure UsePrimaryMonitor,
+        pure UseAllMonitors,
+        wild
       ]
     where
       -- This could be a lot meaner.
@@ -228,21 +228,24 @@ prop_genSimpleConfig cfg =
       cfg === cfg
 
 prop_context_too_trivial :: Property
-prop_context_too_trivial = withMaxSuccess 50 $ monadicIO $
-  run $ runTaffyDefault (pure ())
+prop_context_too_trivial =
+  withMaxSuccess 50 $
+    monadicIO $
+      run $
+        runTaffyDefault (pure ())
 
 prop_taffybarConfig :: GenSimpleConfig -> Property
 prop_taffybarConfig cfg = within 1_000_000 $ monadicIO $ do
   let cfg' = toTaffybarConfig (toSimpleConfig cfg)
-  a <- run $ with (buildContext cfg') $ \_context -> do
-    pure True
+  a <- run $ buildContext cfg' >> pure True
   assert a
-  -- Some possible assertions:
-  --   startupHook executed exactly once
-  --   css rules are applied
-  --   css files later in list have precedence
-  --   missing css => exception
-  --   error in css => warning and continue
-  --   widgets are visible
-  --   spacing/height/position/padding are observed
-  --   appears on the correct monitor
+
+-- Some possible assertions:
+--   startupHook executed exactly once
+--   css rules are applied
+--   css files later in list have precedence
+--   missing css => exception
+--   error in css => warning and continue
+--   widgets are visible
+--   spacing/height/position/padding are observed
+--   appears on the correct monitor

@@ -31,6 +31,7 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader (ask)
 import Data.Default (Default (..))
 import Data.GI.Base.Overloading (IsDescendantOf)
 import Data.IORef (newIORef, readIORef, writeIORef)

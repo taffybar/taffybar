@@ -27,6 +27,7 @@ module System.Taffybar.Widget.Layout
 where
 
 import Control.Monad.Trans.Class
+import Control.Monad.Trans.Reader (ask, mapReaderT)
 import Data.Default (Default (..))
 import qualified Data.Text as T
 import GI.Gdk
@@ -83,7 +84,7 @@ layoutNew config = do
   -- This callback is run in a separate thread and needs to use
   -- postGUIASync
   let callback _ = mapReaderT postGUIASync $ do
-        layout <- runProperty $ readAsString xLayoutProp Nothing
+        layout <- runX11Def "" $ readAsString Nothing xLayoutProp
         markup <- formatLayout config (T.pack layout)
         lift $ Gtk.labelSetMarkup label markup
 
@@ -104,7 +105,7 @@ dispatchButtonEvent context btn = do
   ev <- isLR <$> getEventButtonType btn <*> getEventButtonButton btn
   case ev of
     Just inc -> do
-      runPropContext context (switch inc)
+      runTaffy context (runX11Def () (switch inc))
       return True
     Nothing -> return False
   where

@@ -23,6 +23,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Reader (ask, asks)
 import DBus
 import DBus.Client
 import Data.Int

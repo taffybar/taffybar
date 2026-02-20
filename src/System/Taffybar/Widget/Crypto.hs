@@ -26,6 +26,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Reader (ask)
 import Data.Aeson
 import qualified Data.Aeson.Key as Key
 import Data.Aeson.Types
@@ -65,7 +66,8 @@ cryptoPriceLabelWithIcon = do
   ctx <- ask
   let refresh size =
         Just
-          <$> runTaffy ctx
+          <$> runTaffy
+            ctx
             (fromMaybe <$> pixBufFromColor size 0 <*> getCryptoPixbuf symbol)
   (image, _) <- scalingImage refresh Gtk.OrientationHorizontal
   _ <- widgetSetClassGI image "crypto-price-icon"

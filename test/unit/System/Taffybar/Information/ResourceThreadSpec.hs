@@ -1,31 +1,32 @@
-{-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE DerivingVia            #-}
-{-# LANGUAGE DeriveFoldable            #-}
-{-# LANGUAGE DeriveFunctor             #-}
-{-# LANGUAGE DeriveGeneric             #-}
-{-# LANGUAGE DeriveTraversable         #-}
-{-# LANGUAGE DerivingStrategies        #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE RankNTypes                #-}
-{-# LANGUAGE RecordWildCards           #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
-{-# LANGUAGE TypeApplications          #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TypeOperators             #-}
-{-# LANGUAGE UndecidableInstances      #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans -Wno-unused-binds -Wno-unrecognised-pragmas #-}
+
 {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 
 module System.Taffybar.Information.ResourceThreadSpec
-  ( spec
-  ) where
+  ( spec,
+  )
+where
 
-import Control.Exception (ErrorCall(..), AsyncException(..))
+import Control.Exception (AsyncException (..), ErrorCall (..))
 import Control.Monad
 import Control.Monad.STM (throwSTM)
 import Data.Bifunctor (first)
@@ -36,30 +37,31 @@ import Data.IORef
 import Data.Kind (Type)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Data.Unique (Unique, newUnique, hashUnique)
+import Data.Unique (Unique, hashUnique, newUnique)
 import GHC.Generics (Generic)
 import GHC.Stack (emptyCallStack)
 import System.IO.Unsafe (unsafePerformIO)
+import System.Taffybar.Information.ResourceThread
+import Test.Hspec
+import Test.Hspec.QuickCheck
+import Test.QuickCheck
+import Test.StateMachine
+import Test.StateMachine.Lockstep.Simple
+import Test.StateMachine.TreeDiff (ToExpr (..), defaultExprViaShow)
 import Type.Reflection
 import UnliftIO.Async
 import UnliftIO.Concurrent (threadDelay)
-import UnliftIO.Exception (tryAny, bracket, Exception (..), throwIO, throwString, SomeException(..), StringException (..), try)
-import UnliftIO.STM (atomically, newEmptyTMVarIO, readTMVar, putTMVar)
+import UnliftIO.Exception (Exception (..), SomeException (..), StringException (..), bracket, throwIO, throwString, try, tryAny)
+import UnliftIO.STM (atomically, newEmptyTMVarIO, putTMVar, readTMVar)
 
-import Test.QuickCheck
-import Test.Hspec
-import Test.Hspec.QuickCheck
-import Test.StateMachine
-import Test.StateMachine.Lockstep.Simple
-import Test.StateMachine.TreeDiff (defaultExprViaShow)
-
-import System.Taffybar.Information.ResourceThread
-
-class ( Show (Effects x)
-      , Show (Handle x)
-      , Arbitrary (Effects x)
-      , Typeable x
-      ) => ModelResource x where
+class
+  ( Show (Effects x),
+    Show (Handle x),
+    Arbitrary (Effects x),
+    Typeable x
+  ) =>
+  ModelResource x
+  where
   data Handle x :: Type
   data Effects x :: Type
 
@@ -71,7 +73,7 @@ class ( Show (Effects x)
   doEffects :: Effects x -> Handle x -> IO ()
 
 -- | Impure helper for test resource
-allocModelResource :: ModelResource x => x -> (Handle x -> IO a) -> IO a
+allocModelResource :: (ModelResource x) => x -> (Handle x -> IO a) -> IO a
 allocModelResource x0 f = bracket (openX x0) closeX (f . fst)
   where
     openX x = (,) <$> mkHandle x <*> newIORef False
@@ -79,7 +81,7 @@ allocModelResource x0 f = bracket (openX x0) closeX (f . fst)
       c <- atomicModifyIORef' ref (True,)
       when c $ throwString "double-close of Handle"
 
-mkTestReqAction :: ModelResource x => Effects x -> Either AnException a -> Handle x -> IO a
+mkTestReqAction :: (ModelResource x) => Effects x -> Either AnException a -> Handle x -> IO a
 mkTestReqAction es req x = do
   doEffects es x
   case req of
@@ -89,7 +91,7 @@ mkTestReqAction es req x = do
 ------------------------------------------------------------------------
 
 -- Model state with a list of ints.
-newtype XS = XState { xstate :: [Int] }
+newtype XS = XState {xstate :: [Int]}
   deriving stock (Show, Read, Eq, Generic)
   deriving newtype (Semigroup, Monoid)
 
@@ -97,10 +99,11 @@ instance ModelResource XS where
   -- Model effects of an action with a list of ints.
   data Effects XS = XEffects [Int]
     deriving stock (Show, Generic)
+
   -- Model resource handle with IORef to state
   newtype Handle XS = XHandle (IORef XS)
     deriving stock (Generic)
-    deriving Show via (ShowIORef XS)
+    deriving (Show) via (ShowIORef XS)
 
   -- apply effects using list concatenation to state
   applyEffects (XEffects es) (XState s) = XState (s <> es)
@@ -117,11 +120,12 @@ instance Arbitrary XS where
 -- Test req
 
 data TestReq es = TestReq
-  { testReqEffects :: es
-    -- ^ Pre-determined effects.
-  , testReqResult :: SomeTestResult
-    -- ^ Pre-determined result.
-  } deriving (Show, Generic)
+  { -- | Pre-determined effects.
+    testReqEffects :: es,
+    -- | Pre-determined result.
+    testReqResult :: SomeTestResult
+  }
+  deriving (Show, Generic)
 
 -- TODO: test nested SafeReq
 
@@ -129,16 +133,16 @@ data TestReq es = TestReq
 -- Test result
 
 -- | Extract pre-determined result from 'TestReq'.
-runTestReq :: ModelResource x => TestReq (Effects x) -> SomeTestResult
+runTestReq :: (ModelResource x) => TestReq (Effects x) -> SomeTestResult
 runTestReq = testReqResult
 
 -- | Apply pre-determined effects from 'TestReq'.
-applyTestReqEffects :: ModelResource x => TestReq (Effects x) -> x -> x
+applyTestReqEffects :: (ModelResource x) => TestReq (Effects x) -> x -> x
 applyTestReqEffects = applyEffects . testReqEffects
 
 -- | Existential wrapper for result of 'TestReq'.
 data SomeTestResult = forall a. (Show a, Eq a, Typeable a, Arbitrary a) => SomeTestResult
-  { getSomeResult :: Either AnException a }
+  {getSomeResult :: Either AnException a}
 
 deriving instance Show SomeTestResult
 
@@ -149,13 +153,12 @@ instance Eq SomeTestResult where
     Nothing -> False
   _ == _ = False
 
-
 ------------------------------------------------------------------------
 -- Test result exception
 
 -- | An existential wrapper for 'Arbitrary' exceptions. Like
 -- 'SomeException' except this type isn't itself an exception.
-data AnException = forall e. Exception e => AnException { unGenException :: e }
+data AnException = forall e. (Exception e) => AnException {unGenException :: e}
 
 -- | 'AnException' is unwrapped and thrown in 'runReal'.  It will be
 -- caught as 'SomeException', which needs to be coerced back into
@@ -184,16 +187,18 @@ aStringException :: StringException
 aStringException = StringException "AnException occurred" emptyCallStack
 
 instance Arbitrary AnException where
-  arbitrary = oneof
-    [ pure (AnException aStringException)
-    -- , AnException . stringException . getNonEmpty <$> arbitrary
-    , pure (AnException (ErrorCall "this is an error"))
-    -- , pure (AnException StackOverflow)
-    ]
+  arbitrary =
+    oneof
+      [ pure (AnException aStringException),
+        -- , AnException . stringException . getNonEmpty <$> arbitrary
+        pure (AnException (ErrorCall "this is an error"))
+        -- , pure (AnException StackOverflow)
+      ]
   shrink exc =
     [ AnException aStringException
-    | Just se <- [fromAnException exc]
-    , se /= aStringException ]
+    | Just se <- [fromAnException exc],
+      se /= aStringException
+    ]
 
 ------------------------------------------------------------------------
 -- Generator for test reqs
@@ -202,22 +207,24 @@ instance Arbitrary (Effects XS) where
   arbitrary = XEffects <$> scale (`div` 2) arbitrary
   shrink = genericShrink
 
-instance Arbitrary es => Arbitrary (TestReq es) where
+instance (Arbitrary es) => Arbitrary (TestReq es) where
   arbitrary = TestReq <$> arbitrary <*> arbitrary
   shrink = genericShrink
 
 instance Arbitrary SomeTestResult where
-  arbitrary = oneof
-        [ SomeTestResult <$> (genResult :: Gen (Either AnException ()))
-        , SomeTestResult <$> (genResult :: Gen (Either AnException Int))
-        , SomeTestResult <$> (genResult :: Gen (Either AnException Char))
-        ]
+  arbitrary =
+    oneof
+      [ SomeTestResult <$> (genResult :: Gen (Either AnException ())),
+        SomeTestResult <$> (genResult :: Gen (Either AnException Int)),
+        SomeTestResult <$> (genResult :: Gen (Either AnException Char))
+      ]
     where
-      genResult :: Arbitrary a => Gen (Either AnException a)
-      genResult = frequency
-        [ (3, Right <$> arbitrary)
-        , (1, Left <$> arbitrary)
-        ]
+      genResult :: (Arbitrary a) => Gen (Either AnException a)
+      genResult =
+        frequency
+          [ (3, Right <$> arbitrary),
+            (1, Left <$> arbitrary)
+          ]
   shrink (SomeTestResult r) = shrinkType ++ shrinkReq
     where
       shrinkReq = SomeTestResult <$> shrink r
@@ -252,7 +259,7 @@ newtype instance MockHandle (T a) = MV Int
   deriving stock (Show, Eq, Ord, Generic)
 
 newtype instance RealHandle (T a) = RealVar
-  { getRealVar :: Opaque (UnBracket (ResourceThread (Handle a))) }
+  {getRealVar :: Opaque (UnBracket (ResourceThread (Handle a)))}
   deriving stock (Generic, Show, Eq)
 
 instance ToExpr XS
@@ -266,6 +273,7 @@ instance ToExpr SomeTestResult where
 type instance MockState (T a) = Map (MockHandle (T a)) a
 
 instance ToExpr (MockHandle (T a))
+
 instance ToExpr (RealHandle (T a))
 
 type instance Tag (T _) = TagCmd
@@ -274,30 +282,32 @@ type instance Tag (T _) = TagCmd
   Interpreters
 -------------------------------------------------------------------------------}
 
-runMock
-  :: ModelResource a
-  => a
-  -> Cmd (T a) (MockHandle (T a))
-  -> MockState (T a)
-  -> (Resp (T a) (MockHandle (T a)), MockState (T a))
+runMock ::
+  (ModelResource a) =>
+  a ->
+  Cmd (T a) (MockHandle (T a)) ->
+  MockState (T a) ->
+  (Resp (T a) (MockHandle (T a)), MockState (T a))
 runMock e cmd m = case cmd of
-  New     -> let v = MV (Map.size m) in (Var v, Map.insert v e m)
-  Close h -> ( Unit (), Map.delete h m )
-
+  New -> let v = MV (Map.size m) in (Var v, Map.insert v e m)
+  Close h -> (Unit (), Map.delete h m)
   RunSafeReq req h -> case Map.lookup h m of
-    Just _  -> ( RunResult (runTestReq req)
-               , Map.adjust (applyTestReqEffects req) h m )
-    Nothing -> ( ErrClosed, m )
+    Just _ ->
+      ( RunResult (runTestReq req),
+        Map.adjust (applyTestReqEffects req) h m
+      )
+    Nothing -> (ErrClosed, m)
 
-runReal
-  :: ModelResource a
-  => a
-  -> Cmd (T a) (RealHandle (T a))
-  -> IO (Resp (T a) (RealHandle (T a)))
+runReal ::
+  (ModelResource a) =>
+  a ->
+  Cmd (T a) (RealHandle (T a)) ->
+  IO (Resp (T a) (RealHandle (T a)))
 runReal e cmd = case cmd of
-  New     -> Var  <$> openRealHandle e
+  New -> Var <$> openRealHandle e
   Close h -> Unit <$> closeRealHandle (coerce h)
-  RunSafeReq req h -> -- either errClosed RunResult
+  RunSafeReq req h ->
+    -- either errClosed RunResult
     errClosed2 <$> try (runRealSafeReq h req)
 
 errClosed :: ResourceUnavailableException -> Resp (T a) (RealHandle (T a))
@@ -314,28 +324,28 @@ errClosed2 = \case
         Nothing -> RunResult r
   Right r -> RunResult r
 
-fromAnException :: forall e. Exception e => AnException -> Maybe e
+fromAnException :: forall e. (Exception e) => AnException -> Maybe e
 fromAnException (AnException exc) = case eqTypeRep (typeOf exc) (typeRep @e) of
-                                      Just HRefl -> Just exc
-                                      Nothing -> Nothing
+  Just HRefl -> Just exc
+  Nothing -> Nothing
 
 cleanup :: forall a. a -> Model (T a) Concrete -> IO ()
 cleanup _ (Model _ hs) = mapM_ (dealloc . getResource) hs
   where
     getResource = unOpaque . getRealVar . concrete . fst
 
-runRealSafeReq
-  :: ModelResource a
-  => RealHandle (T a)
-  -> TestReq (Effects a)
-  -> IO SomeTestResult
+runRealSafeReq ::
+  (ModelResource a) =>
+  RealHandle (T a) ->
+  TestReq (Effects a) ->
+  IO SomeTestResult
 runRealSafeReq (RealVar (Opaque ub)) (TestReq es (SomeTestResult req)) =
   use ub >>= handleResult . resourceRunSync safeReq
   where
     handleResult = fmap (SomeTestResult . first rewrap) . tryAny
     safeReq = mkSafe (mkTestReqAction es req)
 
-openRealHandle :: ModelResource a => a -> IO (RealHandle (T a))
+openRealHandle :: (ModelResource a) => a -> IO (RealHandle (T a))
 openRealHandle e = coerce <$> newResourceThread (allocModelResource e)
 
 closeRealHandle :: RealHandle (T a) -> IO ()
@@ -361,10 +371,11 @@ unBracket withResource = do
   UnBracket (cancel a) (atomically (use a)) <$> newUnique
 
 data UnBracket r = UnBracket
-  { dealloc :: IO ()
-  , use :: IO r
-  , ubid :: Unique
-  } deriving (Generic)
+  { dealloc :: IO (),
+    use :: IO r,
+    ubid :: Unique
+  }
+  deriving (Generic)
 
 instance Show (UnBracket r) where
   show u = "UnBracket{ubid=" ++ show (hashUnique (ubid u)) ++ "}"
@@ -372,15 +383,15 @@ instance Show (UnBracket r) where
 instance Eq (UnBracket r) where
   a == b = ubid a == ubid b
 
-
 {-------------------------------------------------------------------------------
   Generator
 -------------------------------------------------------------------------------}
 
-generator
-  :: forall a. ModelResource a
-  => Model (T a) Symbolic
-  -> Maybe (Gen (Cmd (T a) :@ Symbolic))
+generator ::
+  forall a.
+  (ModelResource a) =>
+  Model (T a) Symbolic ->
+  Maybe (Gen (Cmd (T a) :@ Symbolic))
 generator (Model _ hs) = Just gens
   where
     gens = if null hs then withoutHandle else withHandle
@@ -389,15 +400,16 @@ generator (Model _ hs) = Just gens
     withoutHandle = return $ At New
 
     withHandle :: Gen (Cmd (T a) :@ Symbolic)
-    withHandle = frequency
-      [ (15, fmap At $ RunSafeReq <$> arbitrary <*> genHandle)
-      , (1 , fmap At $ Close      <$> genHandle)
-      ]
+    withHandle =
+      frequency
+        [ (15, fmap At $ RunSafeReq <$> arbitrary <*> genHandle),
+          (1, fmap At $ Close <$> genHandle)
+        ]
 
     genHandle :: Gen (Reference (RealHandle (T a)) Symbolic)
     genHandle = elements (map fst hs)
 
-shrinker :: ModelResource a => Model (T a) Symbolic -> Cmd (T a) :@ Symbolic -> [Cmd (T a) :@ Symbolic]
+shrinker :: (ModelResource a) => Model (T a) Symbolic -> Cmd (T a) :@ Symbolic -> [Cmd (T a) :@ Symbolic]
 shrinker _ (At cmd) = case cmd of
   New -> []
   Close _ -> []
@@ -414,9 +426,9 @@ tagCmds :: [Event (T a) Symbolic] -> [TagCmd]
 tagCmds = map (aux . unAt . cmd)
   where
     aux :: Cmd (T a) h -> TagCmd
-    aux New              = TagNew
+    aux New = TagNew
     aux (RunSafeReq r _) = TagRun (tagRun r)
-    aux (Close        _) = TagClose
+    aux (Close _) = TagClose
 
 data TagRunSafeReq = TagRunSafeReq
   deriving stock (Show)
@@ -429,15 +441,16 @@ tagRun _req = TagRunSafeReq
 -------------------------------------------------------------------------------}
 
 ioRefTest :: StateMachineTest (T XS)
-ioRefTest = StateMachineTest {
-      initMock   = mempty
-    , generator  = System.Taffybar.Information.ResourceThreadSpec.generator
-    , shrinker   = System.Taffybar.Information.ResourceThreadSpec.shrinker
-    , newHandles = toList
-    , runMock    = System.Taffybar.Information.ResourceThreadSpec.runMock mempty
-    , runReal    = System.Taffybar.Information.ResourceThreadSpec.runReal mempty
-    , cleanup    = System.Taffybar.Information.ResourceThreadSpec.cleanup mempty
-    , tag        = tagCmds
+ioRefTest =
+  StateMachineTest
+    { initMock = mempty,
+      generator = System.Taffybar.Information.ResourceThreadSpec.generator,
+      shrinker = System.Taffybar.Information.ResourceThreadSpec.shrinker,
+      newHandles = toList,
+      runMock = System.Taffybar.Information.ResourceThreadSpec.runMock mempty,
+      runReal = System.Taffybar.Information.ResourceThreadSpec.runReal mempty,
+      cleanup = System.Taffybar.Information.ResourceThreadSpec.cleanup mempty,
+      tag = tagCmds
     }
 
 {-------------------------------------------------------------------------------
@@ -454,7 +467,8 @@ spec :: Spec
 spec = describe "ResourceThread state machine" $ do
   prop "sequential" prop_resourceThread_sequential
   prop "parallel" prop_resourceThread_parallel
-  -- prop "ResourceThread property" prop_resourceThread
+
+-- prop "ResourceThread property" prop_resourceThread
 
 ------------------------------------------------------------------------
 -- misc
@@ -462,10 +476,11 @@ spec = describe "ResourceThread state machine" $ do
 -- | Type wrapper to make a naughty showable IORef.
 newtype ShowIORef a = ShowIORef (IORef a)
 
-instance Show a => Show (ShowIORef a) where
+instance (Show a) => Show (ShowIORef a) where
   show (ShowIORef ref) = "IORef<<" ++ show (unsafePerformIO $ readIORef ref) ++ ">>"
 
 -- | Wrapper with ability to show the type of an IO action.
 newtype ShowIOFunc x r = ShowIOFunc (x -> IO r)
+
 instance forall x r. (Typeable x, Typeable r) => Show (ShowIOFunc x r) where
   show _f = "_ :: " ++ show (TypeRep @x) ++ " -> IO " ++ show (TypeRep @r)
