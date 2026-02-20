@@ -19,7 +19,7 @@ import Data.Bits (shiftL, (.|.))
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import Data.Default (def)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Text as T
 import Data.Unique (Unique, newUnique)
 import Data.Word (Word32)
@@ -54,7 +54,7 @@ import Graphics.X11.Xlib.Extras
     setClassHint,
   )
 import System.Directory (createDirectoryIfMissing, doesFileExist, findExecutable, makeAbsolute)
-import System.Environment (getArgs, setEnv, unsetEnv)
+import System.Environment (getArgs, lookupEnv, setEnv, unsetEnv)
 import System.Exit (ExitCode (..), exitWith)
 import System.FilePath (takeDirectory, (</>))
 import System.IO (hPutStrLn, stderr)
@@ -83,13 +83,15 @@ import System.Taffybar.Widget.Workspaces.Legacy.EWMH
     workspacesNew,
   )
 import qualified System.Taffybar.Widget.Workspaces.Legacy.EWMH as Workspaces
+import Text.Read (readMaybe)
 import UnliftIO.Temporary (withSystemTempDirectory)
 
 data Args = Args
   { outFile :: FilePath,
     cssFile :: FilePath,
     layoutMode :: LayoutMode,
-    workspaceWidgetMode :: WorkspaceWidgetMode
+    workspaceWidgetMode :: WorkspaceWidgetMode,
+    expectedTopStrut :: Maybe Int
   }
 
 data LayoutMode = LayoutLegacy | LayoutLevels | LayoutWindowsTitleStress
@@ -106,7 +108,8 @@ main = do
     { outFile = outPath,
       cssFile = cssPath,
       layoutMode = mode,
-      workspaceWidgetMode = wsMode
+      workspaceWidgetMode = wsMode,
+      expectedTopStrut = mExpectedTopStrut
     } <-
     parseArgs =<< getArgs
 
@@ -115,8 +118,8 @@ main = do
   unsetEnv "HYPRLAND_INSTANCE_SIGNATURE"
   setEnv "XDG_SESSION_TYPE" "x11"
   setEnv "GDK_BACKEND" "x11"
-  setEnv "GDK_SCALE" "1"
-  setEnv "GDK_DPI_SCALE" "1"
+  setEnvDefault "GDK_SCALE" "1"
+  setEnvDefault "GDK_DPI_SCALE" "1"
   setEnv "GTK_CSD" "0"
   setEnv "GTK_THEME" "Adwaita"
   setEnv "NO_AT_BRIDGE" "1"
@@ -148,7 +151,7 @@ main = do
     --
     -- If this fails, the parent Xvfb teardown will still kill the X server,
     -- which causes the WM to exit.
-    res <- runUnderWm wmProc outPath cssPath mode wsMode
+    res <- runUnderWm wmProc outPath cssPath mode wsMode mExpectedTopStrut
     killProcessNoWait wmProc
     pure res
 
@@ -160,8 +163,9 @@ runUnderWm ::
   FilePath ->
   LayoutMode ->
   WorkspaceWidgetMode ->
+  Maybe Int ->
   IO ExitCode
-runUnderWm wmProc outPath cssPath mode wsMode = do
+runUnderWm wmProc outPath cssPath mode wsMode mExpectedTopStrut = do
   ctxVar <- (newEmptyMVar :: IO (MVar Context))
   resultVar <- (newEmptyMVar :: IO (MVar (Either String BL.ByteString)))
   doneVar <- (newEmptyMVar :: IO (MVar ExitCode))
@@ -207,7 +211,7 @@ runUnderWm wmProc outPath cssPath mode wsMode = do
           { dbusClientParam = Nothing,
             cssPaths = [cssPath],
             getBarConfigsParam = pure [barCfg],
-            startupHook = scheduleSnapshot ctxVar resultVar wsMode,
+            startupHook = scheduleSnapshot ctxVar resultVar wsMode mExpectedTopStrut,
             errorMsg = Nothing
           }
 
@@ -352,8 +356,9 @@ scheduleSnapshot ::
   MVar Context ->
   MVar (Either String BL.ByteString) ->
   WorkspaceWidgetMode ->
+  Maybe Int ->
   TaffyIO ()
-scheduleSnapshot ctxVar resultVar wsMode = do
+scheduleSnapshot ctxVar resultVar wsMode mExpectedTopStrut = do
   ctx <- ask
   liftIO $ void (tryPutMVar ctxVar ctx)
   liftIO $ void $ forkIO (pollLoop ctx)
@@ -363,7 +368,7 @@ scheduleSnapshot ctxVar resultVar wsMode = do
       case done of
         Just _ -> pure ()
         Nothing -> do
-          postGUIASync (trySnapshotOnGuiThread ctx' resultVar wsMode)
+          postGUIASync (trySnapshotOnGuiThread ctx' resultVar wsMode mExpectedTopStrut)
           threadDelay 50_000
           pollLoop ctx'
 
@@ -458,8 +463,9 @@ trySnapshotOnGuiThread ::
   Context ->
   MVar (Either String BL.ByteString) ->
   WorkspaceWidgetMode ->
+  Maybe Int ->
   IO ()
-trySnapshotOnGuiThread ctx resultVar wsMode = do
+trySnapshotOnGuiThread ctx resultVar wsMode mExpectedTopStrut = do
   -- Read the windows list and snapshot the first bar window.
   ws <- readMVar (existingWindows ctx)
   case listToMaybe ws of
@@ -468,12 +474,38 @@ trySnapshotOnGuiThread ctx resultVar wsMode = do
       mImg <- try (snapshotGtkWindowImageRGBA8 win) :: IO (Either SomeException (JP.Image JP.PixelRGBA8))
       case mImg of
         Left _ -> pure ()
-        Right img ->
+        Right img -> do
+          strutReady <- case mExpectedTopStrut of
+            Nothing -> pure True
+            Just expectedTop -> do
+              mActualTop <- getDockTopStrut
+              pure (mActualTop == Just expectedTop)
           -- Don't accept a snapshot until the bar has actually rendered.
           -- Legacy mode checks icon colors, while channel mode has a weaker
           -- readiness check because it does not use the legacy EWMH icon path.
-          when (isSnapshotReady wsMode img) $
+          when (strutReady && isSnapshotReady wsMode img) $
             void (tryPutMVar resultVar (Right (JP.encodePng img)))
+
+getDockTopStrut :: IO (Maybe Int)
+getDockTopStrut = do
+  ed <- try (openDisplay "") :: IO (Either SomeException Display)
+  case ed of
+    Left _ -> pure Nothing
+    Right d -> do
+      let root = defaultRootWindow d
+      clientListAtom <- internAtom d "_NET_CLIENT_LIST" False
+      strutPartialAtom <- internAtom d "_NET_WM_STRUT_PARTIAL" False
+      mClientIds <- getWindowProperty32 d clientListAtom root
+      tops <- mapM (windowTopStrut d strutPartialAtom . fromIntegral) (fromMaybe [] mClientIds)
+      closeDisplay d
+      pure $ listToMaybe [top | Just top <- tops, top > 0]
+  where
+    windowTopStrut :: Display -> Atom -> Window -> IO (Maybe Int)
+    windowTopStrut d strutPartialAtom win = do
+      mStrut <- getWindowProperty32 d strutPartialAtom win
+      pure $ do
+        (_left : _right : top : _rest) <- mStrut
+        pure (fromIntegral top)
 
 isSnapshotReady :: WorkspaceWidgetMode -> JP.Image JP.PixelRGBA8 -> Bool
 isSnapshotReady wsMode img =
@@ -589,10 +621,11 @@ parseArgs args =
         if "--channel-workspaces" `elem` args
           then UseChannelWorkspaces
           else UseLegacyWorkspaces
+      (mExpectedTopStrut, argsSansTopStrutFlag) = parseTopStrutFlag args
       argsSansFlags =
         filter
           (`notElem` ["--levels", "--windows-title-stress", "--channel-workspaces"])
-          args
+          argsSansTopStrutFlag
    in case argsSansFlags of
         ["--out", outPath, "--css", cssPath] ->
           pure
@@ -600,7 +633,8 @@ parseArgs args =
               { outFile = outPath,
                 cssFile = cssPath,
                 layoutMode = selectedLayoutMode,
-                workspaceWidgetMode = selectedWorkspaceWidgetMode
+                workspaceWidgetMode = selectedWorkspaceWidgetMode,
+                expectedTopStrut = mExpectedTopStrut
               }
         ["--css", cssPath, "--out", outPath] ->
           pure
@@ -608,10 +642,30 @@ parseArgs args =
               { outFile = outPath,
                 cssFile = cssPath,
                 layoutMode = selectedLayoutMode,
-                workspaceWidgetMode = selectedWorkspaceWidgetMode
+                workspaceWidgetMode = selectedWorkspaceWidgetMode,
+                expectedTopStrut = mExpectedTopStrut
               }
         _ ->
-          die "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css [--levels|--windows-title-stress] [--channel-workspaces]"
+          die "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css [--levels|--windows-title-stress] [--channel-workspaces] [--expect-top-strut N]"
+  where
+    parseTopStrutFlag :: [String] -> (Maybe Int, [String])
+    parseTopStrutFlag [] = (Nothing, [])
+    parseTopStrutFlag ("--expect-top-strut" : raw : rest) =
+      case readMaybe raw of
+        Nothing -> (Nothing, "--expect-top-strut" : raw : rest)
+        Just n ->
+          let (mFromRest, restArgs) = parseTopStrutFlag rest
+           in (Just (fromMaybe n mFromRest), restArgs)
+    parseTopStrutFlag (x : rest) =
+      let (mValue, restArgs) = parseTopStrutFlag rest
+       in (mValue, x : restArgs)
+
+setEnvDefault :: String -> String -> IO ()
+setEnvDefault name value = do
+  existing <- lookupEnv name
+  case existing of
+    Just _ -> pure ()
+    Nothing -> setEnv name value
 
 die :: String -> IO a
 die msg = do
