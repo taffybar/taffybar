@@ -238,7 +238,7 @@ simplePlayerWidget
   Nothing
   np@(Just NowPlaying {npBusName = busName}) = do
     ctx <- ask
-    client <- asks sessionDBusClient
+    client <- getSessionDBusClient
     lift $ do
       mprisLog DEBUG "Building widget for %s" busName
       image <- autoSizeImageNew (loadIconAtSize client busName) Gtk.OrientationHorizontal
@@ -408,7 +408,7 @@ mpris2NewWithControls = mpris2NewWithConfig defaultMPRIS2ControlsConfig
 mpris2NewWithConfig :: MPRIS2Config a -> TaffyIO Gtk.Widget
 mpris2NewWithConfig config =
   ask >>= \ctx ->
-    asks sessionDBusClient >>= \client -> lift $ do
+    getSessionDBusClient >>= \client -> lift $ do
       grid <- Gtk.gridNew
       outerWidget <- Gtk.toWidget grid >>= mprisWidgetWrapper config
       vFillCenter grid

@@ -44,6 +44,14 @@ module System.Taffybar.Context
     buildContext,
     buildContextWithBackend,
     buildEmptyContext,
+    getSessionDBusClient,
+    getSystemDBusClient,
+    readSessionDBusClient,
+    readSystemDBusClient,
+    installSessionDBusClientHook,
+    installSystemDBusClientHook,
+    installSessionDBusClientHookIO,
+    installSystemDBusClientHookIO,
 
     -- ** Context State
     getState,
@@ -93,6 +101,7 @@ import Data.IORef
 import Data.Int
 import Data.List
 import qualified Data.Map as M
+import Data.Maybe (isNothing)
 import qualified Data.Text as T
 import Data.Tuple.Select
 import Data.Tuple.Sequence
@@ -130,6 +139,7 @@ import System.Taffybar.Window.FocusedMonitor
   ( FocusedMonitorHooks (..),
     setupFocusedMonitorClassUpdates,
   )
+import System.Timeout (timeout)
 import Text.Printf
 import Unsafe.Coerce
 
@@ -256,6 +266,14 @@ data Context = Context
     sessionDBusClient :: DBus.Client,
     -- | The shared system session 'DBus.Client'.
     systemDBusClient :: DBus.Client,
+    -- | The reconnectable current user session 'DBus.Client'.
+    sessionDBusClientVar :: MV.MVar DBus.Client,
+    -- | The reconnectable current system 'DBus.Client'.
+    systemDBusClientVar :: MV.MVar DBus.Client,
+    -- | Hooks run immediately and whenever the session DBus client reconnects.
+    sessionDBusClientHooks :: MV.MVar [DBus.Client -> IO ()],
+    -- | Hooks run immediately and whenever the system DBus client reconnects.
+    systemDBusClientHooks :: MV.MVar [DBus.Client -> IO ()],
     -- | The action that will be evaluated to get the bar configs associated with
     -- each active monitor taffybar should run on.
     getBarConfigs :: BarConfigGetter,
@@ -276,6 +294,40 @@ data Context = Context
     -- different for widgets belonging to bar windows on different monitors.
     contextBarConfig :: Maybe BarConfig
   }
+
+readSessionDBusClient :: Context -> IO DBus.Client
+readSessionDBusClient = MV.readMVar . sessionDBusClientVar
+
+readSystemDBusClient :: Context -> IO DBus.Client
+readSystemDBusClient = MV.readMVar . systemDBusClientVar
+
+getSessionDBusClient :: TaffyIO DBus.Client
+getSessionDBusClient = ask >>= liftIO . readSessionDBusClient
+
+getSystemDBusClient :: TaffyIO DBus.Client
+getSystemDBusClient = ask >>= liftIO . readSystemDBusClient
+
+installSessionDBusClientHook :: (DBus.Client -> IO ()) -> TaffyIO ()
+installSessionDBusClientHook hook = ask >>= \ctx -> liftIO $ installSessionDBusClientHookIO ctx hook
+
+installSystemDBusClientHook :: (DBus.Client -> IO ()) -> TaffyIO ()
+installSystemDBusClientHook hook = ask >>= \ctx -> liftIO $ installSystemDBusClientHookIO ctx hook
+
+installSessionDBusClientHookIO :: Context -> (DBus.Client -> IO ()) -> IO ()
+installSessionDBusClientHookIO ctx = installDBusClientHook (sessionDBusClientHooks ctx) (sessionDBusClientVar ctx)
+
+installSystemDBusClientHookIO :: Context -> (DBus.Client -> IO ()) -> IO ()
+installSystemDBusClientHookIO ctx = installDBusClientHook (systemDBusClientHooks ctx) (systemDBusClientVar ctx)
+
+installDBusClientHook ::
+  MV.MVar [DBus.Client -> IO ()] ->
+  MV.MVar DBus.Client ->
+  (DBus.Client -> IO ()) ->
+  IO ()
+installDBusClientHook hooksVar clientVar hook = do
+  MV.modifyMVar_ hooksVar $ \hooks -> pure (hook : hooks)
+  client <- MV.readMVar clientVar
+  hook client
 
 -- | Build the "Context" for a taffybar process.
 buildContext :: TaffybarConfig -> IO Context
@@ -299,11 +351,10 @@ buildContextWithBackend
     logIO DEBUG "Building context"
     dbusC <- maybe DBus.connectSession return maybeDBus
     sDBusC <- DBus.connectSystem
-    _ <-
-      DBus.requestName
-        dbusC
-        "org.taffybar.Bar"
-        [DBus.nameAllowReplacement, DBus.nameReplaceExisting]
+    sessionClientVar <- MV.newMVar dbusC
+    systemClientVar <- MV.newMVar sDBusC
+    sessionHooksVar <- MV.newMVar []
+    systemHooksVar <- MV.newMVar []
     listenersVar <- MV.newMVar []
     state <- MV.newMVar M.empty
     hyprClient <- newHyprlandClient defaultHyprlandClientConfig
@@ -319,6 +370,10 @@ buildContextWithBackend
               contextState = state,
               sessionDBusClient = dbusC,
               systemDBusClient = sDBusC,
+              sessionDBusClientVar = sessionClientVar,
+              systemDBusClientVar = systemClientVar,
+              sessionDBusClientHooks = sessionHooksVar,
+              systemDBusClientHooks = systemHooksVar,
               getBarConfigs = barConfigGetter,
               hyprlandClient = hyprClient,
               hyprlandEventChanVar = hyprEventChanVar,
@@ -326,6 +381,18 @@ buildContextWithBackend
               backend = backendType,
               contextBarConfig = Nothing
             }
+
+    installSessionDBusClientHookIO context $ \client ->
+      void $
+        DBus.requestName
+          client
+          "org.taffybar.Bar"
+          [DBus.nameAllowReplacement, DBus.nameReplaceExisting]
+
+    startDBusReconnectMonitor "system" DBus.connectSystem (systemDBusClientVar context) (systemDBusClientHooks context)
+    when (isNothing maybeDBus) $
+      startDBusReconnectMonitor "session" DBus.connectSession (sessionDBusClientVar context) (sessionDBusClientHooks context)
+
     _ <-
       runMaybeT $
         MaybeT GI.Gdk.displayGetDefault
@@ -354,13 +421,72 @@ buildContextWithBackend
     logIO DEBUG "Context build finished"
     return context
 
+startDBusReconnectMonitor ::
+  String ->
+  IO DBus.Client ->
+  MV.MVar DBus.Client ->
+  MV.MVar [DBus.Client -> IO ()] ->
+  IO ()
+startDBusReconnectMonitor busLabel reconnect clientVar hooksVar = do
+  void $
+    forkIO $
+      forever $ do
+        threadDelay 5_000_000
+        client <- MV.readMVar clientVar
+        healthy <- isDBusClientHealthy client
+        unless healthy $
+          reconnectUntilSuccess 0
+  where
+    reconnectUntilSuccess :: Int -> IO ()
+    reconnectUntilSuccess retryCount = do
+      let delayMicros = min 30_000_000 (1_000_000 * (2 ^ min retryCount 5))
+      logIO WARNING $
+        printf
+          "Detected %s DBus disconnect; reconnecting (attempt %d)"
+          busLabel
+          (retryCount + 1 :: Int)
+      reconnectResult <- try reconnect :: IO (Either SomeException DBus.Client)
+      case reconnectResult of
+        Left e -> do
+          logIO WARNING $
+            printf "Failed to reconnect %s DBus: %s" busLabel (show e)
+          threadDelay delayMicros
+          reconnectUntilSuccess (retryCount + 1)
+        Right newClient -> do
+          oldClient <- MV.swapMVar clientVar newClient
+          _ <- try (DBus.disconnect oldClient) :: IO (Either SomeException ())
+          hooks <- MV.readMVar hooksVar
+          forM_ (reverse hooks) $ \hook ->
+            catchAny
+              (hook newClient)
+              ( \e ->
+                  logIO WARNING $
+                    printf "DBus reconnect hook failed on %s bus: %s" busLabel (show e)
+              )
+          logIO NOTICE $
+            printf "Successfully reconnected %s DBus" busLabel
+
+isDBusClientHealthy :: DBus.Client -> IO Bool
+isDBusClientHealthy client = do
+  result <- timeout 1_000_000 (try (DBus.call client ping) :: IO (Either SomeException (Either D.MethodError D.MethodReturn)))
+  pure $ case result of
+    Nothing -> False
+    Just (Left _) -> False
+    Just (Right (Left _)) -> False
+    Just (Right (Right _)) -> True
+  where
+    ping :: D.MethodCall
+    ping =
+      (D.methodCall "/org/freedesktop/DBus" "org.freedesktop.DBus.Peer" "Ping")
+        { D.methodCallDestination = Just "org.freedesktop.DBus"
+        }
+
 -- | Register a logind sleep/resume listener that forces a window refresh after
 -- resume. This is a pragmatic workaround for cases where the bar stays "reserved"
 -- (exclusive zone/strut) but stops being visible after resume.
 registerResumeRefresh :: Context -> IO ()
 registerResumeRefresh ctx = do
-  let client = systemDBusClient ctx
-      rule =
+  let rule =
         DBus.matchAny
           { DBus.matchInterface = Just DBusParams.login1ManagerInterfaceName,
             DBus.matchMember = Just "PrepareForSleep",
@@ -391,13 +517,14 @@ registerResumeRefresh ctx = do
               Nothing -> logIO WARNING "PrepareForSleep signal had unexpected body type"
           _ -> logIO WARNING "PrepareForSleep signal had unexpected body arity"
 
-  result <- try (DBus.addMatch client rule callback) :: IO (Either SomeException DBus.SignalHandler)
-  case result of
-    Left e ->
-      logIO WARNING $
-        "Failed to register logind PrepareForSleep handler (resume refresh disabled): "
-          ++ show e
-    Right _ -> pure ()
+  installSystemDBusClientHookIO ctx $ \client -> do
+    result <- try (DBus.addMatch client rule callback) :: IO (Either SomeException DBus.SignalHandler)
+    case result of
+      Left e ->
+        logIO WARNING $
+          "Failed to register logind PrepareForSleep handler (resume refresh disabled): "
+            ++ show e
+      Right _ -> pure ()
 
 -- | Build an empty taffybar context. This function is mostly useful for
 -- invoking functions that yield 'TaffyIO' values in a testing setting (e.g. in

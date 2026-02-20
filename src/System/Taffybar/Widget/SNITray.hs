@@ -130,7 +130,7 @@ sniTrayNewFromHostParams params =
 -- 'H.Host'.
 sniTrayNewFromHostConfig :: SNITrayConfig -> H.Host -> TaffyIO Gtk.Widget
 sniTrayNewFromHostConfig SNITrayConfig {..} host = do
-  client <- asks sessionDBusClient
+  client <- getSessionDBusClient
   lift $ do
     tray <-
       buildTrayWithPriority
@@ -157,7 +157,7 @@ sniTrayCollapsibleNewFromParams params =
 sniTrayCollapsibleNewFromHostParams ::
   CollapsibleSNITrayParams -> H.Host -> TaffyIO Gtk.Widget
 sniTrayCollapsibleNewFromHostParams CollapsibleSNITrayParams {..} host = do
-  client <- asks sessionDBusClient
+  client <- getSessionDBusClient
   lift $ do
     let SNITrayConfig {..} = collapsibleSNITrayConfig
     tray <-
@@ -278,7 +278,7 @@ sniTrayCollapsibleThatStartsWatcherEvenThoughThisIsABadWayToDoIt =
 getTrayHost :: Bool -> TaffyIO H.Host
 getTrayHost startWatcher = getStateDefault $ do
   pid <- lift getProcessID
-  client <- asks sessionDBusClient
+  client <- getSessionDBusClient
   Just host <-
     lift $
       H.build

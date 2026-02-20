@@ -24,7 +24,7 @@ import Control.Applicative ((<|>))
 import Control.Concurrent.MVar (readMVar)
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ask, asks, runReaderT)
+import Control.Monad.Trans.Reader (ask, runReaderT)
 import DBus
 import DBus.Client
 import qualified DBusMenu
@@ -123,7 +123,7 @@ destroyPreviewWindow winRef = do
 previewSniMenuWindow :: IORef (Maybe Gtk.Window) -> String -> Bool -> TaffyIO Bool
 previewSniMenuWindow winRef match previewSubmenu = do
   ctx <- ask
-  let client = sessionDBusClient ctx
+  client <- liftIO $ readSessionDBusClient ctx
   entries <- liftIO $ getRegisteredSNIEntries client
   let chosen =
         case match of
@@ -194,7 +194,7 @@ previewSniMenuWindow winRef match previewSubmenu = do
 popupSniMenu :: String -> Bool -> TaffyIO Bool
 popupSniMenu match popupSubmenu = do
   ctx <- ask
-  let client = sessionDBusClient ctx
+  client <- liftIO $ readSessionDBusClient ctx
   entries <- liftIO $ getRegisteredSNIEntries client
   let chosen =
         case match of
@@ -239,9 +239,10 @@ popupSniMenu match popupSubmenu = do
 exportDebugInterface :: TaffyIO ()
 exportDebugInterface = do
   ctx <- ask
-  client <- asks sessionDBusClient
   previewWinRef <- liftIO $ newIORef Nothing
-  let listEntriesIO = fmap (\(_, _, d) -> d) <$> getRegisteredSNIEntries client
+  let listEntriesIO = do
+        client <- readSessionDBusClient ctx
+        fmap (\(_, _, d) -> d) <$> getRegisteredSNIEntries client
       popupIO s b = runReaderT (popupSniMenu s b) ctx
       previewIO s b = runReaderT (previewSniMenuWindow previewWinRef s b) ctx
       iface =
@@ -253,7 +254,7 @@ exportDebugInterface = do
                 autoMethod "PreviewSniMenu" previewIO
               ]
           }
-  liftIO $ do
+  installSessionDBusClientHook $ \client -> do
     _ <- requestName client "taffybar.debug" [nameAllowReplacement, nameReplaceExisting]
     export client debugPath iface
 

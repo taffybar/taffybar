@@ -7,15 +7,12 @@ module System.Taffybar.DBus
   )
 where
 
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Reader
 import System.Log.DBus.Server
 import System.Taffybar.Context
 import System.Taffybar.DBus.Toggle
 
 startTaffyLogServer :: TaffyIO ()
-startTaffyLogServer =
-  asks sessionDBusClient >>= lift . startLogServer
+startTaffyLogServer = installSessionDBusClientHook startLogServer
 
 withLogServer :: TaffybarConfig -> TaffybarConfig
 withLogServer = appendHook startTaffyLogServer

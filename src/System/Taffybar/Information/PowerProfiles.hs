@@ -127,7 +127,7 @@ getProperties client = runExceptT $ do
 
 -- | Get current power profile info using the system DBus client from Context.
 getPowerProfileInfo :: TaffyIO PowerProfileInfo
-getPowerProfileInfo = asks systemDBusClient >>= liftIO . getPowerProfileInfoFromClient
+getPowerProfileInfo = getSystemDBusClient >>= liftIO . getPowerProfileInfoFromClient
 
 -- | Get current power profile info from a DBus client.
 getPowerProfileInfoFromClient :: Client -> IO PowerProfileInfo
@@ -222,7 +222,7 @@ registerForPowerProfilesPropertiesChanged ::
   (Signal -> String -> Map String Variant -> [String] -> IO ()) ->
   ReaderT Context IO SignalHandler
 registerForPowerProfilesPropertiesChanged signalHandler = do
-  client <- asks systemDBusClient
+  client <- getSystemDBusClient
   lift $
     DBus.registerForPropertiesChanged
       client
