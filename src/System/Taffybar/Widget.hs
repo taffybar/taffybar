@@ -168,7 +168,7 @@ import System.Taffybar.Widget.PulseAudio
 import System.Taffybar.Widget.Backlight
 import System.Taffybar.Widget.Weather
 import System.Taffybar.Widget.Windows
-import System.Taffybar.Widget.Workspaces.Legacy.Hyprland hiding
+import System.Taffybar.Widget.Workspaces.Hyprland hiding
   ( HyprlandWorkspacesConfig(..)
   , defaultHyprlandWorkspacesConfig
   , hyprlandBuildButtonController
@@ -180,7 +180,7 @@ import System.Taffybar.Widget.Workspaces.Legacy.Hyprland hiding
   , hyprlandWorkspacesNew
   , defaultHyprlandWidgetBuilder
   )
-import System.Taffybar.Widget.Workspaces.Legacy.Hyprland.Compat
+import System.Taffybar.Widget.Workspaces.Hyprland.Compat
   ( HyprlandWorkspacesConfig(..)
   , defaultHyprlandWorkspacesConfig
   , hyprlandWorkspacesNew

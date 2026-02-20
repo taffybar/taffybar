@@ -1,7 +1,7 @@
 module System.Taffybar.Widget.HyprlandWorkspacesSpec where
 
 import Data.Text qualified as T
-import System.Taffybar.Widget.Workspaces.Legacy.Hyprland
+import System.Taffybar.Widget.Workspaces.Hyprland
   ( HyprlandWindow (..),
     sortHyprlandWindowsByPosition,
   )

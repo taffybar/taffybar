@@ -12,7 +12,7 @@
 -- Portability : unportable
 module System.Taffybar.Widget.HyprlandWorkspaces
   {-# DEPRECATED "Legacy Hyprland workspaces widget API. Use System.Taffybar.Widget.Workspaces (or System.Taffybar.Widget.ChannelWorkspaces) instead." #-}
-  ( module System.Taffybar.Widget.Workspaces.Legacy.Hyprland,
+  ( module System.Taffybar.Widget.Workspaces.Hyprland,
     HyprlandWorkspacesConfig (..),
     defaultHyprlandWorkspacesConfig,
     hyprlandWorkspacesNew,
@@ -31,7 +31,7 @@ module System.Taffybar.Widget.HyprlandWorkspaces
   )
 where
 
-import System.Taffybar.Widget.Workspaces.Legacy.Hyprland hiding
+import System.Taffybar.Widget.Workspaces.Hyprland hiding
   ( HyprlandWorkspacesConfig (..),
     applyCommonHyprlandWorkspacesConfig,
     applyUrgentState,
@@ -48,7 +48,7 @@ import System.Taffybar.Widget.Workspaces.Legacy.Hyprland hiding
     hyprlandWorkspacesNew,
     refreshWorkspaces,
   )
-import System.Taffybar.Widget.Workspaces.Legacy.Hyprland.Compat
+import System.Taffybar.Widget.Workspaces.Hyprland.Compat
   ( HyprlandWorkspacesConfig (..),
     applyCommonHyprlandWorkspacesConfig,
     applyUrgentState,

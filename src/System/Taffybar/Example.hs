@@ -32,7 +32,7 @@ import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
 import System.Taffybar.Widget.Generic.PollingGraph
 import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
-import qualified System.Taffybar.Widget.Workspaces.Legacy.EWMH as Workspaces
+import qualified System.Taffybar.Widget.Workspaces.EWMH as Workspaces
 
 -- | Fully transparent RGBA color.
 transparent :: (Double, Double, Double, Double)

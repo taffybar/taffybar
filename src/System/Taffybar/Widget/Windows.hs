@@ -33,7 +33,7 @@ import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.DynamicMenu
 import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import System.Taffybar.Widget.Util
-import System.Taffybar.Widget.Workspaces.Legacy.EWMH (WindowIconPixbufGetter, defaultGetWindowIconPixbuf, getWindowData)
+import System.Taffybar.Widget.Workspaces.EWMH (WindowIconPixbufGetter, defaultGetWindowIconPixbuf, getWindowData)
 
 -- | Behavior configuration for the windows menu widget.
 data WindowsConfig = WindowsConfig
