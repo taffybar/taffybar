@@ -1,5 +1,7 @@
 # Unreleased
 
+# 5.2.0
+
 ## New Features
 
 * Add optional `barLevels` support to `BarConfig`/`SimpleTaffyConfig` for
