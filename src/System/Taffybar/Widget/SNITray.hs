@@ -30,10 +30,7 @@
 -- registration of tray icons if taffybar crashes/restarts, or if tray icon
 -- providing applications are ever started before taffybar.
 module System.Taffybar.Widget.SNITray
-  ( TrayParams,
-    TrayPriorityConfig,
-    TrayItemMatcher,
-    defaultTrayPriorityConfig,
+  ( TrayPriorityConfig,
     module System.Taffybar.Widget.SNITray,
   )
 where
