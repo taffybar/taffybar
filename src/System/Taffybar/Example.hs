@@ -26,7 +26,6 @@ module System.Taffybar.Example where
 import Data.Default (def)
 import System.Taffybar.Context (TaffybarConfig (..))
 import System.Taffybar.Hooks
-import System.Taffybar.Information.CPU2 (CPULoad (..), sampleCPULoad)
 import System.Taffybar.Information.Memory
 import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
@@ -97,12 +96,6 @@ memCallback :: IO [Double]
 memCallback = do
   mi <- parseMeminfo
   return [memoryUsedRatio mi]
-
--- | Callback used by the example CPU graph.
-cpuCallback :: IO [Double]
-cpuCallback = do
-  CPULoad {cpuSystemLoad = systemLoad, cpuTotalLoad = totalLoad} <- sampleCPULoad 0.05 "cpu"
-  return [totalLoad, systemLoad]
 
 -- | Example X11-oriented taffybar configuration.
 exampleTaffybarConfig :: TaffybarConfig
