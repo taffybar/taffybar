@@ -35,6 +35,16 @@
    while keeping existing tray constructors backwards compatible.
  * Add a collapsible SNI tray widget with overflow indicator and expand/collapse
    interaction.
+ * Add a prioritized collapsible SNI tray variant with:
+   persisted icon priorities, a button-driven priority edit mode, explicit
+   expand/collapse toggle, and priority threshold filtering.
+ * Put prioritized-collapsible tray implementation in its own module:
+   `System.Taffybar.Widget.SNITray.PrioritizedCollapsible`.
+ * Make equal-priority icon ordering stable in the prioritized collapsible tray
+   using deterministic per-item identity tie-breaking.
+ * Improve prioritized collapsible tray UX:
+   separate icon buttons for expand/edit/settings, menu-based priority editing,
+   and menu controls for max-visible and threshold settings.
  * StatusNotifier host/watcher behavior is now significantly more robust via the
    `status-notifier-item` update (better restart handling, deduplication, and
    state reconciliation).

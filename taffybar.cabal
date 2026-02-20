@@ -212,6 +212,7 @@ library
                  , System.Taffybar.Widget.ScreenLock
                  , System.Taffybar.Widget.SNIMenu
                  , System.Taffybar.Widget.SNITray
+                 , System.Taffybar.Widget.SNITray.PrioritizedCollapsible
                  , System.Taffybar.Widget.SimpleClock
                  , System.Taffybar.Widget.SimpleCommandButton
                  , System.Taffybar.Widget.Systemd
