@@ -104,10 +104,10 @@ import System.Taffybar.Widget.Workspaces.Shared
     setWorkspaceWidgetStatusClass,
   )
 import System.Taffybar.WindowIcon
-  ( getIconPixBufFromEWMH,
+  ( getCachedIconPixBufFromEWMH,
+    getCachedWindowIconFromClasses,
+    getCachedWindowIconFromDesktopEntryByClasses,
     getPixBufFromChromeData,
-    getWindowIconFromClasses,
-    getWindowIconFromDesktopEntryByClasses,
     pixBufFromColor,
   )
 
@@ -275,7 +275,7 @@ getWindowIconPixbufFromDesktopEntry = handleIconGetterException $ \size winInfo 
   where
     tryHints _ [] = return Nothing
     tryHints requestedSize (klass : rest) = do
-      fromDesktopEntry <- getWindowIconFromDesktopEntryByClasses requestedSize klass
+      fromDesktopEntry <- getCachedWindowIconFromDesktopEntryByClasses requestedSize klass
       case fromDesktopEntry of
         Just _ -> return fromDesktopEntry
         Nothing -> tryHints requestedSize rest
@@ -286,7 +286,7 @@ getWindowIconPixbufFromClass = handleIconGetterException $ \size winInfo ->
   where
     tryHints _ [] = return Nothing
     tryHints requestedSize (klass : rest) = do
-      fromClass <- liftIO $ getWindowIconFromClasses requestedSize klass
+      fromClass <- getCachedWindowIconFromClasses requestedSize klass
       case fromClass of
         Just _ -> return fromClass
         Nothing -> tryHints requestedSize rest
@@ -303,8 +303,7 @@ getWindowIconPixbufFromChrome _ windowData =
 getWindowIconPixbufFromEWMH :: WindowIconPixbufGetter
 getWindowIconPixbufFromEWMH = handleIconGetterException $ \size windowData ->
   case windowIdentity windowData of
-    X11WindowIdentity wid ->
-      runX11Def Nothing (getIconPixBufFromEWMH size (fromIntegral wid))
+    X11WindowIdentity wid -> getCachedIconPixBufFromEWMH size (fromIntegral wid)
     HyprlandWindowIdentity _ -> return Nothing
 
 defaultGetWindowIconPixbuf :: WindowIconPixbufGetter

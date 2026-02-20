@@ -1,13 +1,18 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 -- | Helpers for resolving and constructing window icons from EWMH metadata,
 -- desktop entries, icon themes, and browser tab image hooks.
 module System.Taffybar.WindowIcon where
 
 import Control.Concurrent
+import qualified Control.Concurrent.MVar as MV
 import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader (ask, runReaderT)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Data.Bits
+import Data.Data (Typeable)
 import Data.Int
 import Data.List
 import qualified Data.Map as M
@@ -22,12 +27,14 @@ import Foreign.Ptr
 import Foreign.Storable
 import qualified GI.GdkPixbuf.Enums as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
+import qualified GI.Gtk as Gtk
 import System.Environment.XDG.DesktopEntry
 import System.Log.Logger
 import System.Taffybar.Context
 import System.Taffybar.Hooks
 import System.Taffybar.Information.Chrome
 import System.Taffybar.Information.EWMHDesktopInfo
+import System.Taffybar.Information.SafeX11 (Event (PropertyEvent))
 import System.Taffybar.Information.X11DesktopInfo
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
@@ -35,6 +42,81 @@ import Text.Printf
 
 -- | Packed 32-bit RGBA color value used by 'pixBufFromColor'.
 type ColorRGBA = Word32
+
+data WindowIconCacheKey
+  = DesktopEntryIconCacheKey Int32 String
+  | ClassIconCacheKey Int32 String
+  | EWMHIconCacheKey Int32 X11Window
+  deriving (Eq, Ord, Show)
+
+newtype WindowIconCache = WindowIconCache
+  { windowIconCacheEntries :: MV.MVar (M.Map WindowIconCacheKey (Maybe Gdk.Pixbuf))
+  }
+  deriving (Typeable)
+
+getWindowIconCache :: TaffyIO WindowIconCache
+getWindowIconCache = getStateDefault buildWindowIconCache
+
+buildWindowIconCache :: TaffyIO WindowIconCache
+buildWindowIconCache = do
+  cacheEntries <- liftIO $ MV.newMVar M.empty
+  let cache = WindowIconCache {windowIconCacheEntries = cacheEntries}
+  context <- ask
+  iconTheme <- liftIO Gtk.iconThemeGetDefault
+  _ <- liftIO $ Gtk.onIconThemeChanged iconTheme $ do
+    invalidateThemeWindowIconCacheEntries cacheEntries
+    void $ runReaderT refreshTaffyWindows context
+  _ <-
+    subscribeToPropertyEvents [ewmhWMIcon] $ \event ->
+      case event of
+        PropertyEvent _ _ _ _ windowId' _ _ _ ->
+          liftIO $ invalidateEWMHWindowIconCacheEntriesForWindow cacheEntries windowId'
+        _ -> return ()
+  return cache
+
+getCachedWindowIcon ::
+  WindowIconCacheKey ->
+  TaffyIO (Maybe Gdk.Pixbuf) ->
+  TaffyIO (Maybe Gdk.Pixbuf)
+getCachedWindowIcon cacheKey buildIcon = do
+  WindowIconCache {windowIconCacheEntries = entriesVar} <- getWindowIconCache
+  cached <- liftIO $ M.lookup cacheKey <$> MV.readMVar entriesVar
+  case cached of
+    Just icon -> return icon
+    Nothing -> do
+      icon <- buildIcon
+      liftIO $ MV.modifyMVar_ entriesVar (return . M.insert cacheKey icon)
+      return icon
+
+isThemeIconCacheKey :: WindowIconCacheKey -> Bool
+isThemeIconCacheKey (DesktopEntryIconCacheKey _ _) = True
+isThemeIconCacheKey (ClassIconCacheKey _ _) = True
+isThemeIconCacheKey (EWMHIconCacheKey _ _) = False
+
+invalidateThemeWindowIconCacheEntries ::
+  MV.MVar (M.Map WindowIconCacheKey (Maybe Gdk.Pixbuf)) ->
+  IO ()
+invalidateThemeWindowIconCacheEntries entriesVar =
+  MV.modifyMVar_ entriesVar $
+    return . M.filterWithKey (\k _ -> not (isThemeIconCacheKey k))
+
+invalidateEWMHWindowIconCacheEntriesForWindow ::
+  MV.MVar (M.Map WindowIconCacheKey (Maybe Gdk.Pixbuf)) ->
+  X11Window ->
+  IO ()
+invalidateEWMHWindowIconCacheEntriesForWindow entriesVar changedWindow =
+  MV.modifyMVar_ entriesVar $
+    return . M.filterWithKey keepEntry
+  where
+    keepEntry (EWMHIconCacheKey _ cachedWindow) _ = cachedWindow /= changedWindow
+    keepEntry _ _ = True
+
+invalidateWindowIconCacheForWindow ::
+  X11Window ->
+  TaffyIO ()
+invalidateWindowIconCacheForWindow windowId' = do
+  WindowIconCache {windowIconCacheEntries = entriesVar} <- getWindowIconCache
+  liftIO $ invalidateEWMHWindowIconCacheEntriesForWindow entriesVar windowId'
 
 -- | Convert a C array of integer pixels in the ARGB format to the ABGR format.
 -- Returns an unmanged Ptr that points to a block of memory that must be freed
@@ -100,6 +182,13 @@ getIconPixBufFromEWMH size x11WindowId = runMaybeT $ do
   ewmhData <- MaybeT $ getWindowIconsData x11WindowId
   MaybeT $ lift $ withEWMHIcons ewmhData (getPixbufFromEWMHIcons size)
 
+-- | Resolve and cache the EWMH icon for an X11 window.
+getCachedIconPixBufFromEWMH :: Int32 -> X11Window -> TaffyIO (Maybe Gdk.Pixbuf)
+getCachedIconPixBufFromEWMH size x11WindowId =
+  getCachedWindowIcon
+    (EWMHIconCacheKey size x11WindowId)
+    (runX11Def Nothing $ getIconPixBufFromEWMH size x11WindowId)
+
 -- | Create a pixbuf with the indicated RGBA color.
 pixBufFromColor ::
   (MonadIO m) =>
@@ -151,12 +240,28 @@ getWindowIconFromDesktopEntryByClasses =
             (deFilename entry, klass)
         MaybeT $ lift $ getImageForDesktopEntry size entry
 
+-- | Resolve and cache a window icon through desktop-entry icon metadata.
+getCachedWindowIconFromDesktopEntryByClasses ::
+  Int32 -> String -> TaffyIO (Maybe Gdk.Pixbuf)
+getCachedWindowIconFromDesktopEntryByClasses size klass =
+  getCachedWindowIcon
+    (DesktopEntryIconCacheKey size klass)
+    (getWindowIconFromDesktopEntryByClasses size klass)
+
 -- | Resolve a window icon directly by class names in the icon theme.
 getWindowIconFromClasses :: Int32 -> String -> IO (Maybe Gdk.Pixbuf)
 getWindowIconFromClasses =
   getWindowIconForAllClasses getWindowIconFromClass
   where
     getWindowIconFromClass size klass = loadPixbufByName size (T.pack klass)
+
+-- | Resolve and cache a window icon directly by class names in the icon theme.
+getCachedWindowIconFromClasses ::
+  Int32 -> String -> TaffyIO (Maybe Gdk.Pixbuf)
+getCachedWindowIconFromClasses size klass =
+  getCachedWindowIcon
+    (ClassIconCacheKey size klass)
+    (liftIO $ getWindowIconFromClasses size klass)
 
 -- | Resolve a window icon from cached Chrome tab image data.
 getPixBufFromChromeData :: X11Window -> TaffyIO (Maybe Gdk.Pixbuf)

@@ -75,7 +75,7 @@ import System.Taffybar.Widget.Workspaces.Shared
     mkWorkspaceIconWidget,
     setWorkspaceWidgetStatusClass,
   )
-import System.Taffybar.WindowIcon (getWindowIconFromClasses, pixBufFromColor)
+import System.Taffybar.WindowIcon (getCachedWindowIconFromClasses, pixBufFromColor)
 import Text.Printf (printf)
 
 stripSuffix :: (Eq a) => [a] -> [a] -> Maybe [a]
@@ -687,8 +687,8 @@ defaultHyprlandGetWindowIconPixbuf =
 getWindowIconPixbufFromClass :: HyprlandWindowIconPixbufGetter
 getWindowIconPixbufFromClass size windowData =
   maybeTCombine
-    (maybe (return Nothing) (liftIO . getWindowIconFromClasses size) (windowClass windowData))
-    (maybe (return Nothing) (liftIO . getWindowIconFromClasses size) (windowInitialClass windowData))
+    (maybe (return Nothing) (getCachedWindowIconFromClasses size) (windowClass windowData))
+    (maybe (return Nothing) (getCachedWindowIconFromClasses size) (windowInitialClass windowData))
 
 getWindowIconPixbufFromDesktopEntry :: HyprlandWindowIconPixbufGetter
 getWindowIconPixbufFromDesktopEntry =
