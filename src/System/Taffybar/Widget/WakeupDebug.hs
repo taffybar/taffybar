@@ -142,7 +142,8 @@ triggerFlash tokenRef flashDurationMs eventBox = do
     threadDelay (flashDurationMs * 1000)
     latestToken <- readIORef tokenRef
     when (latestToken == token) $
-      postGUIASync $ setFlashClass eventBox False
+      postGUIASync $
+        setFlashClass eventBox False
   pure ()
 
 setFlashClass :: Gtk.EventBox -> Bool -> IO ()

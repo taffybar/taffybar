@@ -54,8 +54,8 @@ import System.Log.Logger (Priority (..), logM)
 import System.Taffybar.Context (Context, TaffyIO, wakeupManager)
 import System.Taffybar.Information.Wakeup.Manager
   ( WakeupEvent (..),
-    WakeupSchedulerEvent (..),
     WakeupManager,
+    WakeupSchedulerEvent (..),
     intervalDueAtStepNs,
     intervalSecondsToNanoseconds,
     nextAlignedWakeupNs,
