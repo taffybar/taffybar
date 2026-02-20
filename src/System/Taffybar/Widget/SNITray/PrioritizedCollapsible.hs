@@ -21,20 +21,23 @@ import Control.Applicative ((<|>))
 import Control.Monad (forM_, guard, join, void)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
+import qualified DBus as D
+import qualified DBus.Client as DBus
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as AKey
 import qualified Data.Aeson.KeyMap as AKeyMap
 import Data.Aeson.Types (Parser, parseMaybe)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
-import Data.Char (isDigit, toLower)
+import Data.Char (isAlphaNum, isDigit, toLower)
 import Data.IORef
 import Data.Int (Int32)
-import Data.List (nub, sortOn, stripPrefix)
+import Data.List (isSuffixOf, nub, sortOn, stripPrefix)
 import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe, isNothing, listToMaybe, mapMaybe, maybeToList)
+import Data.Maybe (fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybeToList)
 import Data.Ord (Down (..))
 import qualified Data.Text as T
+import Data.Word (Word32)
 import qualified Data.Yaml as Y
 import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
@@ -45,7 +48,7 @@ import StatusNotifier.Tray
 import qualified StatusNotifier.Tray as Tray
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.Environment.XDG.BaseDir (getUserConfigFile)
-import System.FilePath (isRelative, replaceExtension, takeDirectory, takeExtension)
+import System.FilePath (isRelative, replaceExtension, takeBaseName, takeDirectory, takeExtension)
 import System.Taffybar.Context
 import System.Taffybar.Widget.SNITray
   ( CollapsibleSNITrayParams (..),
@@ -264,65 +267,195 @@ nonEmptyString value
   | null value = Nothing
   | otherwise = Just value
 
+itemStableIdentity :: H.ItemInfo -> String
+itemStableIdentity info =
+  show (H.itemServiceName info) <> "|" <> show (H.itemServicePath info)
+
+itemStableIdentityKey :: H.ItemInfo -> String
+itemStableIdentityKey info = "item-identity:" ++ itemStableIdentity info
+
 hasNumericSuffix :: String -> String -> Bool
 hasNumericSuffix prefix value =
   case stripPrefix prefix value of
     Just suffix -> not (null suffix) && all isDigit suffix
     Nothing -> False
 
-isLikelyEphemeralItemId :: String -> Bool
-isLikelyEphemeralItemId itemId =
+unstableItemIdPrefixes :: [String]
+unstableItemIdPrefixes =
+  ["chrome_status_icon_", "systray_", "statusnotifieritem-", "statusnotifieritem_"]
+
+sharedItemIdPrefixes :: [String]
+sharedItemIdPrefixes = ["chrome_status_icon_", "systray_"]
+
+matchingItemIdPrefix :: [String] -> String -> Maybe String
+matchingItemIdPrefix prefixes itemId =
   let lowerItemId = map toLower itemId
-   in hasNumericSuffix "chrome_status_icon_" lowerItemId
-        || hasNumericSuffix "systray_" lowerItemId
-        || hasNumericSuffix "statusnotifieritem-" lowerItemId
-        || hasNumericSuffix "statusnotifieritem_" lowerItemId
+      matchingPrefixes =
+        filter (`hasNumericSuffix` lowerItemId) prefixes
+   in case matchingPrefixes of
+        prefix : _ -> Just (take (length prefix) itemId)
+        [] -> Nothing
+
+unstableItemIdPrefix :: String -> Maybe String
+unstableItemIdPrefix = matchingItemIdPrefix unstableItemIdPrefixes
+
+sharedItemIdPrefix :: String -> Maybe String
+sharedItemIdPrefix = matchingItemIdPrefix sharedItemIdPrefixes
+
+isLikelyUnstableItemId :: String -> Bool
+isLikelyUnstableItemId = isJust . unstableItemIdPrefix
 
 stableItemIdKey :: H.ItemInfo -> Maybe String
 stableItemIdKey info = do
   itemId <- H.itemId info >>= nonEmptyString
-  guard (not (isLikelyEphemeralItemId itemId))
+  guard (not (isLikelyUnstableItemId itemId))
   return ("item-id:" ++ itemId)
 
 unstableItemIdKey :: H.ItemInfo -> Maybe String
 unstableItemIdKey info = do
   itemId <- H.itemId info >>= nonEmptyString
-  guard (isLikelyEphemeralItemId itemId)
+  guard (isLikelyUnstableItemId itemId)
   return ("item-id:" ++ itemId)
 
-priorityLookupKeyCandidates :: H.ItemInfo -> [String]
-priorityLookupKeyCandidates info =
+sharedItemIdPrefixIconNameKey :: H.ItemInfo -> Maybe String
+sharedItemIdPrefixIconNameKey info = do
+  itemId <- H.itemId info >>= nonEmptyString
+  prefix <- sharedItemIdPrefix itemId
+  iconName <- nonEmptyString (H.iconName info)
+  return ("item-id-prefix+icon-name:" ++ prefix ++ "|" ++ iconName)
+
+sharedItemIdPrefixIconTitleKey :: H.ItemInfo -> Maybe String
+sharedItemIdPrefixIconTitleKey info = do
+  itemId <- H.itemId info >>= nonEmptyString
+  prefix <- sharedItemIdPrefix itemId
+  iconTitle <- nonEmptyString (H.iconTitle info)
+  return ("item-id-prefix+icon-title:" ++ prefix ++ "|" ++ iconTitle)
+
+isLikelySharedItemIdForInfo :: H.ItemInfo -> Bool
+isLikelySharedItemIdForInfo info =
+  case H.itemId info >>= nonEmptyString of
+    Nothing -> False
+    Just itemId -> isJust (sharedItemIdPrefix itemId)
+
+normalizeProcessToken :: String -> String
+normalizeProcessToken =
+  dropWhile (== '-') . reverse . dropWhile (== '-') . reverse . map normalizeChar
+  where
+    normalizeChar c
+      | isAlphaNum c = toLower c
+      | otherwise = '-'
+
+processIdentityTokenFromArg :: String -> Maybe String
+processIdentityTokenFromArg arg
+  | ".asar" `isSuffixOf` arg =
+      nonEmptyString (takeBaseName (takeDirectory arg))
+  | otherwise = Nothing
+
+processIdentityTokenFromCmdline :: [String] -> Maybe String
+processIdentityTokenFromCmdline [] = Nothing
+processIdentityTokenFromCmdline (exeArg : args) =
+  let argToken = listToMaybe (mapMaybe processIdentityTokenFromArg args)
+      exeToken = nonEmptyString (takeBaseName exeArg)
+      normalized = normalizeProcessToken <$> (argToken <|> exeToken)
+   in normalized >>= nonEmptyString
+
+readProcessCommandLine :: Word32 -> IO [String]
+readProcessCommandLine pid = do
+  let cmdlinePath = "/proc/" ++ show pid ++ "/cmdline"
+  exists <- doesFileExist cmdlinePath
+  if not exists
+    then return []
+    else do
+      bytes <- BS.readFile cmdlinePath
+      return $ filter (not . null) (map BS8.unpack (BS8.split '\0' bytes))
+
+dbusDaemonName :: D.BusName
+dbusDaemonName = D.busName_ "org.freedesktop.DBus"
+
+dbusDaemonPath :: D.ObjectPath
+dbusDaemonPath = D.objectPath_ "/org/freedesktop/DBus"
+
+getConnectionUnixProcessID :: DBus.Client -> D.BusName -> IO (Maybe Word32)
+getConnectionUnixProcessID client busName = do
+  let method =
+        (D.methodCall dbusDaemonPath "org.freedesktop.DBus" "GetConnectionUnixProcessID")
+          { D.methodCallDestination = Just dbusDaemonName,
+            D.methodCallBody = [D.toVariant (D.formatBusName busName)]
+          }
+  result <- DBus.call client method
+  case result of
+    Left _ -> return Nothing
+    Right reply ->
+      case D.methodReturnBody reply of
+        [pidVariant] -> return (D.fromVariant pidVariant)
+        _ -> return Nothing
+
+processDisambiguationKeyForItem :: DBus.Client -> H.ItemInfo -> IO (Maybe String)
+processDisambiguationKeyForItem client info = do
+  maybePid <- getConnectionUnixProcessID client (H.itemServiceName info)
+  case maybePid of
+    Nothing -> return Nothing
+    Just pid -> do
+      cmdline <- readProcessCommandLine pid
+      return $ ("process:" ++) <$> processIdentityTokenFromCmdline cmdline
+
+processDisambiguationKeysForItems :: DBus.Client -> [H.ItemInfo] -> IO (M.Map String String)
+processDisambiguationKeysForItems client infos = do
+  pairs <- mapM withKey infos
+  return $ M.fromList (mapMaybe id pairs)
+  where
+    withKey info
+      | not (isLikelySharedItemIdForInfo info) = return Nothing
+      | otherwise = do
+          processKey <- processDisambiguationKeyForItem client info
+          return $ fmap (\key -> (itemStableIdentity info, key)) processKey
+
+priorityLookupKeyCandidates :: Maybe String -> H.ItemInfo -> [String]
+priorityLookupKeyCandidates maybeProcessKey info =
   nub $
     concat
-      [ map ("icon-name:" ++) (maybeToList (nonEmptyString (H.iconName info))),
+      [ maybeToList maybeProcessKey,
+        map ("icon-name:" ++) (maybeToList (nonEmptyString (H.iconName info))),
         maybeToList (stableItemIdKey info),
         map ("icon-title:" ++) (maybeToList (nonEmptyString (H.iconTitle info))),
+        maybeToList (sharedItemIdPrefixIconNameKey info),
+        maybeToList (sharedItemIdPrefixIconTitleKey info),
+        [itemStableIdentityKey info],
         maybeToList (unstableItemIdKey info)
       ]
 
-priorityEditableKeyCandidates :: H.ItemInfo -> [String]
-priorityEditableKeyCandidates = priorityLookupKeyCandidates
+priorityEditableKeyCandidates :: Maybe String -> H.ItemInfo -> [String]
+priorityEditableKeyCandidates maybeProcessKey info =
+  nub $
+    concat
+      [ maybeToList maybeProcessKey,
+        map ("icon-name:" ++) (maybeToList (nonEmptyString (H.iconName info))),
+        maybeToList (stableItemIdKey info),
+        map ("icon-title:" ++) (maybeToList (nonEmptyString (H.iconTitle info))),
+        maybeToList (sharedItemIdPrefixIconNameKey info),
+        maybeToList (sharedItemIdPrefixIconTitleKey info),
+        [itemStableIdentityKey info],
+        maybeToList (unstableItemIdKey info)
+      ]
 
-priorityKeyFromItem :: H.ItemInfo -> Maybe String
-priorityKeyFromItem = listToMaybe . priorityEditableKeyCandidates
+priorityKeyFromItem :: Maybe String -> H.ItemInfo -> Maybe String
+priorityKeyFromItem maybeProcessKey =
+  listToMaybe . priorityEditableKeyCandidates maybeProcessKey
 
 itemPriorityFromMap ::
   Int ->
   Int ->
   Int ->
   SNIPriorityMap ->
+  Maybe String ->
   H.ItemInfo ->
   Int
-itemPriorityFromMap priorityMin priorityMax defaultPriority priorities info =
+itemPriorityFromMap priorityMin priorityMax defaultPriority priorities maybeProcessKey info =
   let clampPriority = clampPriorityInRange priorityMin priorityMax
       matchedPriority =
         listToMaybe $
-          mapMaybe (`M.lookup` priorities) (priorityLookupKeyCandidates info)
+          mapMaybe (`M.lookup` priorities) (priorityLookupKeyCandidates maybeProcessKey info)
    in clampPriority (fromMaybe defaultPriority matchedPriority)
-
-itemStableIdentity :: H.ItemInfo -> String
-itemStableIdentity info =
-  show (H.itemServiceName info) <> "|" <> show (H.itemServicePath info)
 
 itemIdentityMatcher :: H.ItemInfo -> Tray.TrayItemMatcher
 itemIdentityMatcher info =
@@ -337,9 +470,10 @@ priorityMatchersFromMapAndItems ::
   Int ->
   Int ->
   SNIPriorityMap ->
+  (H.ItemInfo -> Maybe String) ->
   [H.ItemInfo] ->
   [Tray.TrayItemMatcher]
-priorityMatchersFromMapAndItems highPriorityFirstInMatcherOrder priorityMin priorityMax defaultPriority priorities infos =
+priorityMatchersFromMapAndItems highPriorityFirstInMatcherOrder priorityMin priorityMax defaultPriority priorities processKeyForInfo infos =
   let sortedInfos =
         sortedInfosByPriority
           highPriorityFirstInMatcherOrder
@@ -347,6 +481,7 @@ priorityMatchersFromMapAndItems highPriorityFirstInMatcherOrder priorityMin prio
           priorityMax
           defaultPriority
           priorities
+          processKeyForInfo
           infos
       fallbackMatcher = mkTrayItemMatcher "priority:identity:fallback" (const True)
    in map itemIdentityMatcher sortedInfos ++ [fallbackMatcher]
@@ -357,11 +492,19 @@ sortedInfosByPriority ::
   Int ->
   Int ->
   SNIPriorityMap ->
+  (H.ItemInfo -> Maybe String) ->
   [H.ItemInfo] ->
   [H.ItemInfo]
-sortedInfosByPriority highPriorityFirstInMatcherOrder priorityMin priorityMax defaultPriority priorities infos =
+sortedInfosByPriority highPriorityFirstInMatcherOrder priorityMin priorityMax defaultPriority priorities processKeyForInfo infos =
   let itemPriority =
-        itemPriorityFromMap priorityMin priorityMax defaultPriority priorities
+        \info ->
+          itemPriorityFromMap
+            priorityMin
+            priorityMax
+            defaultPriority
+            priorities
+            (processKeyForInfo info)
+            info
       prioritySortKey info =
         if highPriorityFirstInMatcherOrder
           then negate (itemPriority info)
@@ -374,22 +517,24 @@ sortedInfosByPriority highPriorityFirstInMatcherOrder priorityMin priorityMax de
 
 lookupExplicitPriority ::
   SNIPriorityMap ->
+  Maybe String ->
   H.ItemInfo ->
   Maybe Int
-lookupExplicitPriority priorities info =
-  listToMaybe $ mapMaybe (`M.lookup` priorities) (priorityLookupKeyCandidates info)
+lookupExplicitPriority priorities maybeProcessKey info =
+  listToMaybe $ mapMaybe (`M.lookup` priorities) (priorityLookupKeyCandidates maybeProcessKey info)
 
 setExplicitPriorityForItem ::
   IORef SNIPriorityMap ->
   (SNIPriorityMap -> IO ()) ->
+  Maybe String ->
   H.ItemInfo ->
   Maybe Int ->
   IO ()
-setExplicitPriorityForItem prioritiesRef afterUpdate info newPriority =
-  case priorityKeyFromItem info of
+setExplicitPriorityForItem prioritiesRef afterUpdate maybeProcessKey info newPriority =
+  case priorityKeyFromItem maybeProcessKey info of
     Nothing -> return ()
     Just primaryKey -> do
-      let editableKeys = priorityEditableKeyCandidates info
+      let editableKeys = priorityEditableKeyCandidates maybeProcessKey info
       modifyIORef' prioritiesRef $ \priorities ->
         case newPriority of
           Nothing -> foldr M.delete priorities editableKeys
@@ -570,6 +715,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     visibilityThresholdRef <- newIORef initialVisibilityThreshold
     knownItemIdentitiesRef <- newIORef ([] :: [String])
     orderedInfosRef <- newIORef ([] :: [H.ItemInfo])
+    processDisambiguationKeysRef <- newIORef (M.empty :: M.Map String String)
     trayRef <- newIORef Nothing
     rebuildTrayRef <- newIORef (return ())
 
@@ -624,14 +770,21 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                 sniPriorityFileVisibilityThreshold = Just visibilityThresholdOverride
               }
 
+        processKeyForInfoFromMap processKeyMap info =
+          M.lookup (itemStableIdentity info) processKeyMap
+
         editPriorityForClick clickContext = do
           let clickedInfo = trayClickItemInfo clickContext
           priorities <- readIORef prioritiesRef
-          let currentExplicit = lookupExplicitPriority priorities clickedInfo
+          processKeyMap <- readIORef processDisambiguationKeysRef
+          let maybeProcessKey = processKeyForInfoFromMap processKeyMap clickedInfo
+              currentExplicit =
+                lookupExplicitPriority priorities maybeProcessKey clickedInfo
               updatePriority newPriority = do
                 setExplicitPriorityForItem
                   prioritiesRef
                   (\_ -> persistCurrentState >> queueRebuild)
+                  maybeProcessKey
                   clickedInfo
                   (fmap clampPriority newPriority)
           showPriorityEditMenu
@@ -672,8 +825,16 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
               maxVisibleIcons <- readIORef maxVisibleIconsRef
               thresholdValue <- readIORef visibilityThresholdRef
               orderedInfos <- readIORef orderedInfosRef
+              processKeyMap <- readIORef processDisambiguationKeysRef
 
-              let itemPriority = itemPriorityFromMap priorityMin priorityMax defaultPriority priorities
+              let itemPriority info =
+                    itemPriorityFromMap
+                      priorityMin
+                      priorityMax
+                      defaultPriority
+                      priorities
+                      (processKeyForInfoFromMap processKeyMap info)
+                      info
                   totalCount = length children
                   collapsedThresholdVisibleCount =
                     case thresholdValue of
@@ -734,7 +895,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
 
               return hiddenCount
 
-        buildTrayWithPriorities priorities infos = do
+        buildTrayWithPriorities priorities processKeyMap infos = do
           let priorityConfig =
                 sniTrayPriorityConfig
                   { trayPriorityMatchers =
@@ -744,6 +905,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                         priorityMax
                         defaultPriority
                         priorities
+                        (processKeyForInfoFromMap processKeyMap)
                         infos
                   }
               baseHooks = trayEventHooks sniTrayTrayParams
@@ -769,6 +931,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
         rebuildTray = do
           priorities <- readIORef prioritiesRef
           infoMap <- H.itemInfoMap host
+          processKeyMap <- processDisambiguationKeysForItems client (M.elems infoMap)
           let infos = M.elems infoMap
               orderedInfos =
                 sortedInfosByPriority
@@ -777,10 +940,11 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                   priorityMax
                   defaultPriority
                   priorities
+                  (processKeyForInfoFromMap processKeyMap)
                   infos
               currentItemIdentities =
                 sortOn id (map itemStableIdentity infos)
-          tray <- buildTrayWithPriorities priorities orderedInfos
+          tray <- buildTrayWithPriorities priorities processKeyMap orderedInfos
           Gtk.widgetHide tray
           oldTray <- readIORef trayRef
           forM_ oldTray $ \existingTray -> do
@@ -789,6 +953,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
           Gtk.boxPackStart trayContainer tray False False 0
           writeIORef trayRef (Just tray)
           writeIORef orderedInfosRef orderedInfos
+          writeIORef processDisambiguationKeysRef processKeyMap
           writeIORef knownItemIdentitiesRef currentItemIdentities
           void refresh
           Gtk.widgetShow tray
