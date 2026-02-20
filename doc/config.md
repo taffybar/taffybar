@@ -10,6 +10,15 @@ There are broadly three ways of building your configuration:
 3. Compile your Taffybar executable some other way. Typically this
    would be done with the "Project Approach" (see below).
 
+The `taffybar` binary also supports explicit startup subcommands:
+
+- `taffybar auto` (default behavior when no subcommand is provided)
+- `taffybar dyre`
+- `taffybar example`
+- `taffybar dhall`
+
+See [`doc/dhall-config.md`](./dhall-config.md) for the experimental Dhall schema.
+
 ## Before installing
 
 Taffybar's [installation procedure](./install.md) varies depending
