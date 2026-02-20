@@ -99,6 +99,9 @@ pollingLabelWithVariableDelayWithConfig config action =
     grid <- gridNew
     label <- labelNew Nothing
     ebox <- eventBoxNew
+    _ <- widgetSetClassGI grid "polling-label-container"
+    _ <- widgetSetClassGI label "polling-label-text"
+    _ <- widgetSetClassGI ebox "polling-label"
 
     when (pollingLabelRefreshOnClick config) $ void $ onWidgetButtonPressEvent ebox $ onClick [Gdk.EventTypeButtonPress] $ do
       postGUIASync $ labelSetMarkup label "Refreshing..."

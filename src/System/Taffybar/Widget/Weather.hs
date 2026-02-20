@@ -85,6 +85,7 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types.Status
 import System.Log.Logger
 import System.Taffybar.Widget.Generic.PollingLabel
+import System.Taffybar.Widget.Util (widgetSetClassGI)
 import Text.Parsec
 import Text.Printf
 import Text.StringTemplate
@@ -361,6 +362,6 @@ weatherCustomNew getter labelTpl tooltipTpl formatter delayMinutes = liftIO $ do
     pollingLabelNewWithTooltip
       (delayMinutes * 60)
       (getCurrentWeather getter labelTpl' tooltipTpl' formatter)
-
+  _ <- widgetSetClassGI l "weather"
   GI.Gtk.widgetShowAll l
   return l

@@ -158,7 +158,9 @@ textClockNewWith
             { pollingLabelVariableDelayConfig = variableDelayConfig
             }
     label <- pollingLabelWithVariableDelayWithConfig pollingConfig getRoundedTimeAndNextTarget
+    _ <- widgetSetClassGI label "text-clock-label"
     ebox <- eventBoxNew
+    _ <- widgetSetClassGI ebox "text-clock"
     containerAdd ebox label
     eventBoxSetVisibleWindow ebox False
     cal <- makeCalendar getTZ

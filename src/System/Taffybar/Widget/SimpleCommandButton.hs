@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
@@ -24,6 +26,7 @@ import Control.Monad.IO.Class
 import qualified Data.Text as T
 import GI.Gtk
 import System.Process
+import System.Taffybar.Widget.Util (widgetSetClassGI)
 
 -- $usage
 --
@@ -46,5 +49,6 @@ simpleCommandButtonNew ::
   m Widget
 simpleCommandButtonNew txt cmd = do
   button <- buttonNewWithLabel txt
+  _ <- widgetSetClassGI button "simple-command-button"
   void $ onButtonClicked button $ void $ spawnCommand $ T.unpack cmd
   toWidget button

@@ -10,6 +10,7 @@ import System.Taffybar.Hooks
 import System.Taffybar.Information.Network
 import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.ChannelWidget
+import System.Taffybar.Widget.Util (widgetSetClassGI)
 import Text.Printf
 import Text.StringTemplate
 
@@ -73,6 +74,7 @@ networkMonitorNew template interfaces = do
   NetworkInfoChan chan <- getNetworkChan
   let filterFn = maybe (const True) (flip elem) interfaces
   label <- lift $ labelNew Nothing
+  _ <- lift $ widgetSetClassGI label (T.pack "text-network-monitor")
   void $ channelWidgetNew label chan $ \speedInfo ->
     let (up, down) = sumSpeeds $ map snd $ filter (filterFn . fst) speedInfo
         labelString = showInfo template 3 (fromRational down, fromRational up)

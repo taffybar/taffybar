@@ -43,7 +43,7 @@ import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.PulseAudio
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Generic.ChannelWidget
-import System.Taffybar.Widget.Util (buildIconLabelBox)
+import System.Taffybar.Widget.Util (buildIconLabelBox, widgetSetClassGI)
 import Text.StringTemplate
 
 -- | Configuration for PulseAudio widgets.
@@ -85,6 +85,7 @@ pulseAudioIconNewWith config = do
   (chan, var) <- getPulseAudioInfoChanAndVar sinkSpec
   liftIO $ do
     label <- Gtk.labelNew Nothing
+    _ <- widgetSetClassGI label "pulse-audio-icon"
     let updateIcon info = do
           let iconText = case info of
                 Nothing -> T.pack "\xF026"
@@ -92,7 +93,8 @@ pulseAudioIconNewWith config = do
           postGUIASync $ Gtk.labelSetText label iconText
     void $ Gtk.onWidgetRealize label $ readMVar var >>= updateIcon
     Gtk.widgetShowAll label
-    Gtk.toWidget =<< channelWidgetNew label chan updateIcon
+    (Gtk.toWidget =<< channelWidgetNew label chan updateIcon)
+      >>= (`widgetSetClassGI` "pulse-audio-icon")
 
 -- | Create a label-only PulseAudio widget with default config.
 pulseAudioLabelNew :: TaffyIO Gtk.Widget
@@ -106,6 +108,7 @@ pulseAudioLabelNewWith config = do
 
   liftIO $ do
     label <- Gtk.labelNew Nothing
+    _ <- widgetSetClassGI label "pulse-audio-label"
 
     let updateLabel info = do
           (labelText, tooltipText) <- formatPulseAudioWidget config info
@@ -148,7 +151,8 @@ pulseAudioLabelNewWith config = do
     whenScrollAdjust label
 
     Gtk.widgetShowAll label
-    Gtk.toWidget =<< channelWidgetNew label chan updateLabel
+    (Gtk.toWidget =<< channelWidgetNew label chan updateLabel)
+      >>= (`widgetSetClassGI` "pulse-audio-label")
 
 -- | Create a combined icon+label PulseAudio widget with default config.
 pulseAudioNew :: TaffyIO Gtk.Widget
@@ -159,7 +163,9 @@ pulseAudioNewWith :: PulseAudioWidgetConfig -> TaffyIO Gtk.Widget
 pulseAudioNewWith config = do
   iconWidget <- pulseAudioIconNewWith config
   labelWidget <- pulseAudioLabelNewWith config
-  liftIO $ buildIconLabelBox iconWidget labelWidget
+  liftIO $
+    buildIconLabelBox iconWidget labelWidget
+      >>= (`widgetSetClassGI` "pulse-audio")
 
 formatPulseAudioWidget ::
   PulseAudioWidgetConfig ->

@@ -43,7 +43,7 @@ import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Information.Temperature
 import System.Taffybar.Widget.Generic.PollingLabel (pollingLabelNewWithTooltip)
-import System.Taffybar.Widget.Util (buildIconLabelBox)
+import System.Taffybar.Widget.Util (buildIconLabelBox, widgetSetClassGI)
 import qualified Text.StringTemplate as ST
 
 -- | Configuration for the temperature widget
@@ -97,6 +97,7 @@ temperatureNewWith config = liftIO $ do
   iconWidget <- temperatureIconNewWith config
   labelWidget <- temperatureLabelNewWith config
   buildIconLabelBox iconWidget labelWidget
+    >>= (`widgetSetClassGI` "temperature")
 
 -- | Create a temperature icon widget with default configuration.
 temperatureIconNew :: (MonadIO m) => m Gtk.Widget
@@ -106,6 +107,7 @@ temperatureIconNew = temperatureIconNewWith defaultTemperatureConfig
 temperatureIconNewWith :: (MonadIO m) => TemperatureConfig -> m Gtk.Widget
 temperatureIconNewWith config = liftIO $ do
   label <- Gtk.labelNew (Just (temperatureIcon config))
+  _ <- widgetSetClassGI label "temperature-icon"
   Gtk.widgetShowAll label
   Gtk.toWidget label
 
@@ -131,12 +133,7 @@ temperatureLabelNewWith config = liftIO $ do
             labelText = formatTemperature config tempDisplay tempC tempF tempK
             tooltipText = formatTooltip temps
         return (labelText, Just tooltipText)
-
-  -- We need to update CSS classes dynamically, but pollingLabel doesn't
-  -- support that directly. Instead, we set up the widget and update classes
-  -- in the polling callback through a custom approach.
-  -- For now, we'll use a simpler approach with the base widget.
-  Gtk.toWidget widget
+  widgetSetClassGI widget "temperature-label"
   where
     readTemperaturesFiltered :: [ThermalSensor] -> IO [TemperatureInfo]
     readTemperaturesFiltered sensors =

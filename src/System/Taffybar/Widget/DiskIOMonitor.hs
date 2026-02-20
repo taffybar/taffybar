@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
@@ -19,6 +21,7 @@ import qualified GI.Gtk
 import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.DiskIO (getDiskTransfer)
 import System.Taffybar.Widget.Generic.PollingGraph (GraphConfig, pollingGraphNew)
+import System.Taffybar.Widget.Util (widgetSetClassGI)
 
 -- | Creates a new disk IO monitor widget. This is a 'PollingGraph' fed by
 -- regular calls to 'getDiskTransfer'. The results of calling this function
@@ -32,8 +35,9 @@ dioMonitorNew ::
   -- | Name of the disk or partition to watch (e.g. \"sda\", \"sdb1\").
   String ->
   TaffyIO GI.Gtk.Widget
-dioMonitorNew cfg pollSeconds =
-  pollingGraphNew cfg pollSeconds . probeDisk
+dioMonitorNew cfg pollSeconds disk = do
+  widget <- pollingGraphNew cfg pollSeconds (probeDisk disk)
+  widgetSetClassGI widget "disk-io-monitor"
 
 probeDisk :: String -> IO [Double]
 probeDisk disk = do

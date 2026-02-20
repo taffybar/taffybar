@@ -47,6 +47,7 @@ import GI.GLib (markupEscapeText)
 import GI.Gtk
 import qualified GI.Pango as Pango
 import System.Taffybar.Util
+import System.Taffybar.Widget.Util (widgetSetClassGI)
 
 -- | A simple structure representing a Freedesktop notification
 data Notification = Notification
@@ -273,13 +274,19 @@ instance Default NotificationConfig where
 notifyAreaNew :: (MonadIO m) => NotificationConfig -> m Widget
 notifyAreaNew cfg = liftIO $ do
   frame <- frameNew Nothing
+  _ <- widgetSetClassGI frame "notifications-frame"
   box <- boxNew OrientationHorizontal 3
+  _ <- widgetSetClassGI box "notifications-box"
   textArea <- labelNew (Nothing :: Maybe Text)
+  _ <- widgetSetClassGI textArea "notification-text"
   button <- eventBoxNew
+  _ <- widgetSetClassGI button "notification-close"
   sep <- separatorNew OrientationHorizontal
+  _ <- widgetSetClassGI sep "notification-separator"
 
   bLabel <- labelNew (Nothing :: Maybe Text)
   widgetSetName bLabel "NotificationCloseButton"
+  _ <- widgetSetClassGI bLabel "notification-close-label"
   labelSetMarkup bLabel "×"
 
   labelSetMaxWidthChars textArea (fromIntegral $ notificationMaxLength cfg)
@@ -299,6 +306,7 @@ notifyAreaNew cfg = liftIO $ do
   _ <- onWidgetButtonReleaseEvent button (userCancel s)
 
   realizableWrapper <- boxNew OrientationHorizontal 0
+  _ <- widgetSetClassGI realizableWrapper "notifications"
   boxPackStart realizableWrapper frame False False 0
   widgetShow realizableWrapper
 

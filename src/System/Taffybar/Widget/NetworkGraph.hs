@@ -16,6 +16,7 @@ module System.Taffybar.Widget.NetworkGraph where
 
 import Data.Default (Default (..))
 import Data.Foldable (for_)
+import qualified Data.Text as T
 import qualified GI.Gtk
 import GI.Gtk.Objects.Widget (widgetSetTooltipMarkup)
 import System.Taffybar.Context
@@ -26,6 +27,7 @@ import System.Taffybar.Widget.Generic.ChannelGraph
 import System.Taffybar.Widget.Generic.ChannelWidget
 import System.Taffybar.Widget.Generic.Graph
 import System.Taffybar.Widget.Text.NetworkMonitor
+import System.Taffybar.Widget.Util (widgetSetClassGI)
 
 -- | 'NetworkGraphConfig' configures the network graph widget.
 data NetworkGraphConfig = NetworkGraphConfig
@@ -74,6 +76,7 @@ networkGraphNewWith config = do
       toSample (up, down) = map (networkGraphScale config . fromRational) [up, down]
       sampleBuilder = return . toSample . getUpDown
   widget <- channelGraphNew (networkGraphGraphConfig config) chan sampleBuilder
+  _ <- widgetSetClassGI widget (T.pack "network-graph")
   for_ (networkGraphTooltipFormat config) $ \(format, precision) ->
     channelWidgetNew widget chan $ \speedInfo ->
       let (up, down) = sumSpeeds $ map snd speedInfo

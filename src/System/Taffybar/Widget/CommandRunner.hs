@@ -23,6 +23,7 @@ import qualified GI.Gtk
 import System.Log.Logger
 import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.PollingLabel
+import System.Taffybar.Widget.Util (widgetSetClassGI)
 import Text.Printf
 
 -- | Creates a new command runner widget. This is a 'PollingLabel' fed by
@@ -40,7 +41,8 @@ commandRunnerNew ::
   T.Text ->
   m GI.Gtk.Widget
 commandRunnerNew interval cmd args defaultOutput =
-  pollingLabelNew interval $ runCommandWithDefault cmd args defaultOutput
+  pollingLabelNew interval (runCommandWithDefault cmd args defaultOutput)
+    >>= (`widgetSetClassGI` "command-runner")
 
 runCommandWithDefault :: FilePath -> [String] -> T.Text -> IO T.Text
 runCommandWithDefault cmd args def =
