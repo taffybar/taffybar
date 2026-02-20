@@ -182,7 +182,6 @@ library
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
                  , System.Taffybar.Widget.Crypto
-                 , System.Taffybar.Widget.ChannelWorkspaces
                  , System.Taffybar.Widget.DiskIOMonitor
                  , System.Taffybar.Widget.DiskUsage
                  , System.Taffybar.Widget.FSMonitor
@@ -223,17 +222,8 @@ library
                  , System.Taffybar.Widget.Text.NetworkMonitor
                  , System.Taffybar.Widget.Util
                  , System.Taffybar.Widget.Weather
-                 , System.Taffybar.Widget.HyprlandWorkspaces
-                 , System.Taffybar.Widget.Workspaces.Hyprland
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
-                 , System.Taffybar.Widget.Workspaces.Config
-                 , System.Taffybar.Widget.Workspaces.Common
-                 , System.Taffybar.Widget.Workspaces.EWMH
-                 , System.Taffybar.Widget.Workspaces.EWMH.Compat
-                 , System.Taffybar.Widget.Workspaces.X11
-                 , System.Taffybar.Widget.Workspaces.Hyprland.Compat
-                 , System.Taffybar.Widget.Workspaces.Channel
                  , System.Taffybar.Widget.Workspaces.Shared
                  , System.Taffybar.Widget.WirePlumber
                  , System.Taffybar.Widget.Wlsunset
@@ -382,7 +372,6 @@ test-suite unit
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.Information.WakeupSpec
                , System.Taffybar.SimpleConfigSpec
-               , System.Taffybar.Widget.HyprlandWorkspacesSpec
                , System.Taffybar.Widget.Workspaces.ChannelSpec
                , System.Taffybar.Widget.WindowsSpec
   build-depends: data-default
