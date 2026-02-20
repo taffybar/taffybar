@@ -9,9 +9,9 @@ import Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Reader (ask, runReaderT)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Reader (ask, asks, runReaderT)
 import Data.Bits
 import Data.Data (Typeable)
 import Data.Int
@@ -67,11 +67,14 @@ buildWindowIconCache = do
   _ <- liftIO $ Gtk.onIconThemeChanged iconTheme $ do
     invalidateThemeWindowIconCacheEntries cacheEntries
     void $ runReaderT refreshTaffyWindows context
-  _ <-
-    subscribeToPropertyEvents [ewmhWMIcon] $ \case
-      PropertyEvent _ _ _ _ windowId' _ _ _ ->
-        liftIO $ invalidateEWMHWindowIconCacheEntriesForWindow cacheEntries windowId'
-      _ -> return ()
+  maybeX11Context <- asks x11ContextVar
+  forM_ maybeX11Context $
+    const $
+      void $
+        subscribeToPropertyEvents [ewmhWMIcon] $ \case
+          PropertyEvent _ _ _ _ windowId' _ _ _ ->
+            liftIO $ invalidateEWMHWindowIconCacheEntriesForWindow cacheEntries windowId'
+          _ -> return ()
   return cache
 
 getCachedWindowIcon ::
