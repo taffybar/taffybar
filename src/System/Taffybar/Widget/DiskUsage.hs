@@ -18,6 +18,8 @@
 --
 -- Template variables: @$total$@, @$used$@, @$free$@, @$available$@,
 -- @$usedPercent$@, @$freePercent$@, @$path$@.
+-- @$free$@ and @$available$@ both report space available to unprivileged users
+-- (the @Avail@ value from @df@).
 --
 -- Size values are auto-formatted with appropriate units (GiB, TiB, etc.).
 module System.Taffybar.Widget.DiskUsage
@@ -138,7 +140,8 @@ diskUsageAttrs :: FilePath -> DiskUsageInfo -> [(String, String)]
 diskUsageAttrs path info =
   [ ("total", formatBytes (diskInfoTotal info)),
     ("used", formatBytes (diskInfoUsed info)),
-    ("free", formatBytes (diskInfoFree info)),
+    -- Prefer user-available blocks for the primary "free" template variable.
+    ("free", formatBytes (diskInfoAvailable info)),
     ("available", formatBytes (diskInfoAvailable info)),
     ("usedPercent", printf "%.0f" (diskInfoUsedPercent info)),
     ("freePercent", printf "%.0f" (diskInfoFreePercent info)),
