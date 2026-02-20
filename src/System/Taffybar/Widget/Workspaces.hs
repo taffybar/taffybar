@@ -448,8 +448,15 @@ updateCache cfg cont cacheVar snapshot oldCache = do
       forceIconRefresh =
         snapshotBackend snapshot == WorkspaceBackendEWMH
           && snapshotRevision snapshot /= cacheLastRevision oldCache
+      applyVisibility wsInfo entry =
+        if showWorkspaceFn cfg wsInfo
+          then liftIO $ Gtk.widgetShow (entryButton entry)
+          else liftIO $ Gtk.widgetHide (entryButton entry)
   if workspaces == cacheLastWorkspaces oldCache && not forceIconRefresh
-    then return oldCache
+    then do
+      forM_ (M.elems $ cacheEntries oldCache) $ \entry ->
+        applyVisibility (entryLastWorkspace entry) entry
+      return oldCache
     else do
       let oldEntries = cacheEntries oldCache
           buildOrUpdate (cacheAcc, entriesAcc) wsInfo = do
@@ -482,10 +489,7 @@ updateCache cfg cont cacheVar snapshot oldCache = do
       when needsReorder $
         forM_ (zip [0 :: Int ..] orderedEntries) $ \(position, (_wsInfo, entry)) ->
           liftIO $ Gtk.boxReorderChild cont (entryWrapper entry) (fromIntegral position)
-      forM_ orderedEntries $ \(wsInfo, entry) ->
-        if showWorkspaceFn cfg wsInfo
-          then liftIO $ Gtk.widgetShow (entryButton entry)
-          else liftIO $ Gtk.widgetHide (entryButton entry)
+      forM_ orderedEntries $ uncurry applyVisibility
       return
         WorkspaceCache
           { cacheEntries = newEntries,
