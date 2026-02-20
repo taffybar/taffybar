@@ -73,6 +73,7 @@ import System.Taffybar.Context
     exitTaffybar,
   )
 import System.Taffybar.Util (postGUIASync)
+import qualified System.Taffybar.Widget.Windows as Windows
 import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
 import System.Taffybar.Widget.Workspaces.EWMH
   ( WorkspacesConfig,
@@ -89,7 +90,7 @@ data Args = Args
     layoutMode :: LayoutMode
   }
 
-data LayoutMode = LayoutLegacy | LayoutLevels
+data LayoutMode = LayoutLegacy | LayoutLevels | LayoutWindowsTitleStress
   deriving (Eq, Show)
 
 main :: IO ()
@@ -229,7 +230,22 @@ buildBarConfig wsCfg barUnique mode =
               ],
           barId = barUnique
         }
+    LayoutWindowsTitleStress ->
+      BarConfig
+        { strutConfig = baseStrutConfig 55,
+          widgetSpacing = 8,
+          startWidgets = [workspacesNew wsCfg, Windows.windowsNew windowsCfg],
+          centerWidgets = [],
+          endWidgets = [testBoxWidget "test-pill" 52 20],
+          barLevels = Nothing,
+          barId = barUnique
+        }
   where
+    windowsCfg =
+      def
+        { Windows.getActiveLabel = pure "line 1\nline 2\nline 3\nline 4",
+          Windows.getActiveWindowIconPixbuf = Nothing
+        }
     baseStrutConfig h =
       defaultStrutConfig
         { strutHeight = ExactSize h,
@@ -514,7 +530,17 @@ parseArgs args =
       pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
     ["--levels", "--css", cssPath, "--out", outPath] ->
       pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
-    _ -> die "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css [--levels]"
+    ["--out", outPath, "--css", cssPath, "--windows-title-stress"] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutWindowsTitleStress}
+    ["--css", cssPath, "--out", outPath, "--windows-title-stress"] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutWindowsTitleStress}
+    ["--windows-title-stress", "--out", outPath, "--css", cssPath] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutWindowsTitleStress}
+    ["--windows-title-stress", "--css", cssPath, "--out", outPath] ->
+      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutWindowsTitleStress}
+    _ ->
+      die
+        "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css [--levels|--windows-title-stress]"
 
 die :: String -> IO a
 die msg = do

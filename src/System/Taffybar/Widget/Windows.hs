@@ -25,8 +25,8 @@ import Control.Monad.Trans.Reader
 import Data.Default (Default (..))
 import Data.Maybe
 import qualified Data.Text as T
-import GI.GLib (markupEscapeText)
 import qualified GI.Gtk as Gtk
+import qualified GI.Pango as Pango
 import System.Taffybar.Context
 import System.Taffybar.Information.EWMHDesktopInfo
 import System.Taffybar.Util
@@ -53,12 +53,10 @@ defaultGetMenuLabel window = do
 
 defaultGetActiveLabel :: TaffyIO T.Text
 defaultGetActiveLabel = do
-  label <-
-    fromMaybe ""
-      <$> ( runX11Def Nothing getActiveWindow
-              >>= traverse defaultGetMenuLabel
-          )
-  markupEscapeText label (-1)
+  fromMaybe ""
+    <$> ( runX11Def Nothing getActiveWindow
+            >>= traverse defaultGetMenuLabel
+        )
 
 truncatedGetActiveLabel :: Int -> TaffyIO T.Text
 truncatedGetActiveLabel maxLength =
@@ -95,13 +93,15 @@ windowsNew config = do
   (setLabelTitle, label) <- buildWindowsLabel
   Gtk.boxPackStart hbox label True True 0
   let refreshLabel = getActiveLabel config >>= lift . setLabelTitle
+      refresh = refreshLabel >> lift refreshIcon
 
   subscription <-
     subscribeToPropertyEvents
       [ewmhActiveWindow, ewmhWMName, ewmhWMClass]
-      (const $ refreshLabel >> lift refreshIcon)
+      (const refresh)
 
   void $ mapReaderT (Gtk.onWidgetUnrealize hbox) (unsubscribe subscription)
+  void refresh
 
   Gtk.widgetShowAll hbox
   boxWidget <- Gtk.toWidget hbox
@@ -119,7 +119,9 @@ windowsNew config = do
 buildWindowsLabel :: TaffyIO (T.Text -> IO (), Gtk.Widget)
 buildWindowsLabel = do
   label <- lift $ Gtk.labelNew Nothing
-  let setLabelTitle title = postGUIASync $ Gtk.labelSetMarkup label title
+  lift $ Gtk.labelSetSingleLineMode label True
+  lift $ Gtk.labelSetEllipsize label Pango.EllipsizeModeEnd
+  let setLabelTitle title = postGUIASync $ Gtk.labelSetText label title
   (setLabelTitle,) <$> Gtk.toWidget label
 
 buildWindowsIcon :: WindowIconPixbufGetter -> TaffyIO (IO (), Gtk.Widget)

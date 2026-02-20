@@ -809,7 +809,9 @@ startX11EventHandler = do
 setupBarWindow :: Context -> StrutConfig -> Gtk.Window -> IO ()
 setupBarWindow context config window =
   case backend context of
-    BackendX11 -> setupStrutWindow config window
+    BackendX11 -> do
+      setupStrutWindow config window
+      setX11WindowSizeFromStrut config window
     BackendWayland -> setupLayerShellWindow config window
 
 -- | Remove the listener associated with the provided "Unique" from the
@@ -968,3 +970,52 @@ setupLayerShellWindow
                     printf "Updating exclusive zone from %d to %d" prev newExclusive
                   writeIORef lastExclusiveRef newExclusive
                   GtkLayerShell.setExclusiveZone window newExclusive
+
+setX11WindowSizeFromStrut :: StrutConfig -> Gtk.Window -> IO ()
+setX11WindowSizeFromStrut
+  StrutConfig
+    { strutWidth = widthSize,
+      strutHeight = heightSize,
+      strutXPadding = xpadding,
+      strutYPadding = ypadding,
+      strutMonitor = monitorNumber,
+      strutPosition = position,
+      strutDisplayName = maybeDisplayName
+    }
+  window = do
+    maybeDisplay <- maybe GI.Gdk.displayGetDefault GI.Gdk.displayOpen maybeDisplayName
+    case maybeDisplay of
+      Nothing -> pure ()
+      Just display -> do
+        maybeMonitor <-
+          maybe
+            (GI.Gdk.displayGetPrimaryMonitor display)
+            (GI.Gdk.displayGetMonitor display)
+            monitorNumber
+        case maybeMonitor of
+          Nothing -> pure ()
+          Just monitor -> do
+            monitorGeometry <- GI.Gdk.monitorGetGeometry monitor
+            monitorWidth <- GI.Gdk.getRectangleWidth monitorGeometry
+            monitorHeight <- GI.Gdk.getRectangleHeight monitorGeometry
+            let width =
+                  case widthSize of
+                    ExactSize w -> w
+                    ScreenRatio p ->
+                      floor $ p * fromIntegral (monitorWidth - (2 * xpadding))
+                height =
+                  case heightSize of
+                    ExactSize h -> h
+                    ScreenRatio p ->
+                      floor $ p * fromIntegral (monitorHeight - (2 * ypadding))
+                (reqWidth, reqHeight) =
+                  case position of
+                    TopPos -> (-1, height)
+                    BottomPos -> (-1, height)
+                    LeftPos -> (width, -1)
+                    RightPos -> (width, -1)
+            Gtk.windowSetDefaultSize window (fromIntegral width) (fromIntegral height)
+            Gtk.widgetSetSizeRequest
+              window
+              (fromIntegral reqWidth)
+              (fromIntegral reqHeight)
