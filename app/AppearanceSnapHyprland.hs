@@ -51,20 +51,33 @@ import System.Taffybar.Context
     TaffybarConfig (..),
     exitTaffybar,
   )
+import qualified System.Taffybar.Widget.Workspaces as ChannelWorkspaces
 import UnliftIO.Temporary (withSystemTempDirectory)
 
 data Args = Args
   { outFile :: FilePath,
     cssFile :: FilePath,
-    layoutMode :: LayoutMode
+    layoutMode :: LayoutMode,
+    workspaceWidgetMode :: WorkspaceWidgetMode
   }
 
 data LayoutMode = LayoutLegacy | LayoutLevels
   deriving (Eq, Show)
 
+data WorkspaceWidgetMode
+  = UseLegacyWorkspaces
+  | UseChannelWorkspaces
+  deriving (Eq, Show)
+
 main :: IO ()
 main = do
-  Args {outFile = outPath, cssFile = cssPath, layoutMode = mode} <- parseArgs =<< getArgs
+  Args
+    { outFile = outPath,
+      cssFile = cssPath,
+      layoutMode = mode,
+      workspaceWidgetMode = wsMode
+    } <-
+    parseArgs =<< getArgs
 
   -- Reduce variability (but do not clobber WAYLAND_DISPLAY / XDG_RUNTIME_DIR /
   -- HYPRLAND_INSTANCE_SIGNATURE; those are provided by the compositor session).
@@ -101,12 +114,17 @@ main = do
 
     createDirectoryIfMissing True (takeDirectory outPath)
 
-    runUnderHyprland outPath cssPath mode
+    runUnderHyprland outPath cssPath mode wsMode
 
   exitWith ec
 
-runUnderHyprland :: FilePath -> FilePath -> LayoutMode -> IO ExitCode
-runUnderHyprland outPath cssPath mode = do
+runUnderHyprland ::
+  FilePath ->
+  FilePath ->
+  LayoutMode ->
+  WorkspaceWidgetMode ->
+  IO ExitCode
+runUnderHyprland outPath cssPath mode wsMode = do
   ctxVar :: MVar Context <- newEmptyMVar
   resultVar :: MVar (Either String BL.ByteString) <- newEmptyMVar
   doneVar :: MVar ExitCode <- newEmptyMVar
@@ -120,7 +138,7 @@ runUnderHyprland outPath cssPath mode = do
 
   barUnique <- newUnique
 
-  let barCfg = buildBarConfig barUnique mode
+  let barCfg = buildBarConfig barUnique mode wsMode
 
       cfg =
         def
@@ -157,14 +175,14 @@ testPillBoxWidget klass w h = liftIO $ do
   Gtk.widgetShowAll widget
   pure widget
 
-buildBarConfig :: Unique -> LayoutMode -> BarConfig
-buildBarConfig barUnique mode =
+buildBarConfig :: Unique -> LayoutMode -> WorkspaceWidgetMode -> BarConfig
+buildBarConfig barUnique mode wsMode =
   case mode of
     LayoutLegacy ->
       BarConfig
         { strutConfig = baseStrutConfig 40,
           widgetSpacing = 8,
-          startWidgets = [testPillBoxWidget "test-pill" 56 20],
+          startWidgets = [startWidget],
           centerWidgets = [testBoxWidget "test-center-box" 200 20],
           endWidgets =
             [ testPillBoxWidget "test-pill" 52 20,
@@ -184,7 +202,7 @@ buildBarConfig barUnique mode =
           barLevels =
             Just
               [ BarLevelConfig
-                  { levelStartWidgets = [testPillBoxWidget "test-pill" 56 20],
+                  { levelStartWidgets = [startWidget],
                     levelCenterWidgets = [testBoxWidget "test-center-box" 200 20],
                     levelEndWidgets =
                       [ testPillBoxWidget "test-pill" 52 20,
@@ -206,6 +224,17 @@ buildBarConfig barUnique mode =
           strutMonitor = Just 0,
           strutPosition = TopPos
         }
+    startWidget =
+      case wsMode of
+        UseLegacyWorkspaces -> testPillBoxWidget "test-pill" 56 20
+        UseChannelWorkspaces ->
+          ChannelWorkspaces.workspacesNew $
+            ChannelWorkspaces.defaultWorkspacesConfig
+              { ChannelWorkspaces.labelSetter = const (pure ""),
+                ChannelWorkspaces.maxIcons = Just 1,
+                ChannelWorkspaces.minIcons = 1,
+                ChannelWorkspaces.showWorkspaceFn = const True
+              }
 
 scheduleSnapshot :: MVar Context -> MVar (Either String BL.ByteString) -> IORef (Maybe BL.ByteString) -> LayoutMode -> TaffyIO ()
 scheduleSnapshot ctxVar resultVar lastShotRef mode = do
@@ -357,20 +386,38 @@ requireEnv name = do
 
 parseArgs :: [String] -> IO Args
 parseArgs args =
-  case args of
-    ["--out", outPath, "--css", cssPath] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLegacy}
-    ["--css", cssPath, "--out", outPath] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLegacy}
-    ["--out", outPath, "--css", cssPath, "--levels"] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
-    ["--css", cssPath, "--out", outPath, "--levels"] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
-    ["--levels", "--out", outPath, "--css", cssPath] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
-    ["--levels", "--css", cssPath, "--out", outPath] ->
-      pure Args {outFile = outPath, cssFile = cssPath, layoutMode = LayoutLevels}
-    _ -> fail "usage: taffybar-appearance-snap-hyprland --out OUT.png --css appearance-test.css [--levels]"
+  let selectedLayoutMode =
+        if "--levels" `elem` args
+          then LayoutLevels
+          else LayoutLegacy
+      selectedWorkspaceWidgetMode =
+        if "--channel-workspaces" `elem` args
+          then UseChannelWorkspaces
+          else UseLegacyWorkspaces
+      argsSansFlags =
+        filter
+          (`notElem` ["--levels", "--channel-workspaces"])
+          args
+   in case argsSansFlags of
+        ["--out", outPath, "--css", cssPath] ->
+          pure
+            Args
+              { outFile = outPath,
+                cssFile = cssPath,
+                layoutMode = selectedLayoutMode,
+                workspaceWidgetMode = selectedWorkspaceWidgetMode
+              }
+        ["--css", cssPath, "--out", outPath] ->
+          pure
+            Args
+              { outFile = outPath,
+                cssFile = cssPath,
+                layoutMode = selectedLayoutMode,
+                workspaceWidgetMode = selectedWorkspaceWidgetMode
+              }
+        _ ->
+          fail
+            "usage: taffybar-appearance-snap-hyprland --out OUT.png --css appearance-test.css [--levels] [--channel-workspaces]"
 
 die :: String -> IO a
 die msg = do

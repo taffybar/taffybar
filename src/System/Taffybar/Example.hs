@@ -32,7 +32,7 @@ import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
 import System.Taffybar.Widget.Generic.PollingGraph
 import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
-import qualified System.Taffybar.Widget.Workspaces.EWMH as Workspaces
+import qualified System.Taffybar.Widget.Workspaces.Legacy.EWMH as Workspaces
 
 -- | Fully transparent RGBA color.
 transparent :: (Double, Double, Double, Double)
@@ -115,7 +115,7 @@ exampleTaffybarConfig =
                   (Workspaces.workspacesConfig cfg)
                     { WorkspaceConfig.minIcons = 1,
                       WorkspaceConfig.widgetGap = 0,
-                      WorkspaceConfig.showWorkspaceFn = hideEmpty
+                      WorkspaceConfig.showWorkspaceFn = Workspaces.hideEmpty
                     }
               }
       workspaces = Workspaces.workspacesNew myWorkspacesConfig
