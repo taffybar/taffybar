@@ -2,13 +2,24 @@
 
 ## New Features
 
- * Add optional `barLevels` support to `BarConfig`/`SimpleTaffyConfig` for
-   stacked multi-row bars with per-level `start`/`center`/`end` widget lists.
- * Keep backward compatibility for existing configs: when `barLevels` is
-   `Nothing`, the legacy single-row widget fields are used unchanged.
- * Add `mpris2NewWithControls`, an opt-in MPRIS2 constructor that shows
-   previous/play-pause/next controls gated by player capabilities
-   (`CanGoPrevious`, `CanPlay`, `CanPause`, `CanGoNext`).
+* Add optional `barLevels` support to `BarConfig`/`SimpleTaffyConfig` for
+  stacked multi-row bars with per-level `start`/`center`/`end` widget lists.
+* Keep backward compatibility for existing configs: when `barLevels` is
+  `Nothing`, the legacy single-row widget fields are used unchanged.
+* Add `mpris2NewWithControls`, an opt-in MPRIS2 constructor that shows
+  previous/play-pause/next controls gated by player capabilities
+  (`CanGoPrevious`, `CanPlay`, `CanPause`, `CanGoNext`).
+* Add channel-based CPU sampling via
+  `System.Taffybar.Information.CPU2.getCPULoadChan`, and switch CPU widgets to
+  use the channel-backed implementation.
+
+## Deprecations
+
+* Deprecate `System.Taffybar.Information.CPU` and
+  `System.Taffybar.Information.CPU.cpuLoad`.
+* Deprecate non-channel CPU2 polling/parsing entry points:
+  `System.Taffybar.Information.CPU2.getCPUInfo` and
+  `System.Taffybar.Information.CPU2.getCPULoad`.
 
 ## Dependency Bumps
 

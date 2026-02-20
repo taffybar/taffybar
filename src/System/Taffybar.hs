@@ -44,15 +44,8 @@ module System.Taffybar
     -- > {-# LANGUAGE OverloadedStrings #-}
     -- > import Data.Default (def)
     -- > import System.Taffybar
-    -- > import System.Taffybar.Information.CPU
     -- > import System.Taffybar.SimpleConfig
     -- > import System.Taffybar.Widget
-    -- > import System.Taffybar.Widget.Generic.Graph
-    -- > import System.Taffybar.Widget.Generic.PollingGraph
-    -- >
-    -- > cpuCallback = do
-    -- >   (_, systemLoad, totalLoad) <- cpuLoad
-    -- >   return [ totalLoad, systemLoad ]
     -- >
     -- > main = do
     -- >   let cpuCfg = def
@@ -60,7 +53,7 @@ module System.Taffybar
     -- >                  , graphLabel = Just "cpu"
     -- >                  }
     -- >       clock = textClockNewWith def
-    -- >       cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
+    -- >       cpu = cpuMonitorNew cpuCfg 0.5 "cpu"
     -- >       workspaces = workspacesNew def
     -- >       simpleConfig = def
     -- >                        { startWidgets = [ workspaces ]
