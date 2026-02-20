@@ -382,6 +382,7 @@ test-suite unit
                , System.Taffybar.SimpleConfigSpec
                , System.Taffybar.Widget.HyprlandWorkspacesSpec
                , System.Taffybar.Widget.Workspaces.ChannelSpec
+               , System.Taffybar.Widget.WindowsSpec
   build-depends: data-default
                , bytestring
                , directory
