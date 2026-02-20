@@ -714,7 +714,7 @@ getWindowIconPixbufFromEWMH = handleIconGetterException $ \size windowData ->
 
 getWindowIconPixbufFromClass :: WindowIconPixbufGetter
 getWindowIconPixbufFromClass = handleIconGetterException $ \size windowData ->
-  lift $ getWindowIconFromClasses size (windowClass windowData)
+  getWindowIconFromClasses size (windowClass windowData)
 
 getWindowIconPixbufFromDesktopEntry :: WindowIconPixbufGetter
 getWindowIconPixbufFromDesktopEntry = handleIconGetterException $ \size windowData ->

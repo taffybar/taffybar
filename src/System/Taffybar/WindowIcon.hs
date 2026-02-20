@@ -7,7 +7,9 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Reader (ask, runReaderT)
 import Data.Bits
+import Data.Char (toLower)
 import Data.Int
 import Data.List
 import qualified Data.Map as M
@@ -22,6 +24,7 @@ import Foreign.Ptr
 import Foreign.Storable
 import qualified GI.GdkPixbuf.Enums as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
+import qualified GI.Gtk as Gtk
 import System.Environment.XDG.DesktopEntry
 import System.Log.Logger
 import System.Taffybar.Context
@@ -31,10 +34,39 @@ import System.Taffybar.Information.EWMHDesktopInfo
 import System.Taffybar.Information.X11DesktopInfo
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
+import System.Taffybar.WindowIcon.Cache
 import Text.Printf
 
 -- | Packed 32-bit RGBA color value used by 'pixBufFromColor'.
 type ColorRGBA = Word32
+
+newtype IconThemeChangeHookInstalled
+  = IconThemeChangeHookInstalled ()
+
+ensureIconThemeChangeHookInstalled :: TaffyIO ()
+ensureIconThemeChangeHookInstalled = do
+  _ <- getStateDefault installThemeHook
+  return ()
+  where
+    installThemeHook = do
+      context <- ask
+      liftIO $ do
+        iconTheme <- Gtk.iconThemeGetDefault
+        _ <-
+          Gtk.onIconThemeChanged
+            iconTheme
+            ( runReaderT
+                ( do
+                    invalidateIconsBySource IconSourceClass
+                    invalidateIconsBySource IconSourceDesktopEntry
+                )
+                context
+            )
+        return $ IconThemeChangeHookInstalled ()
+
+lookupOrInsertIcon :: WindowIconCacheKey -> TaffyIO (Maybe Gdk.Pixbuf) -> TaffyIO (Maybe Gdk.Pixbuf)
+lookupOrInsertIcon key loadAction =
+  ensureIconThemeChangeHookInstalled >> lookupOrInsertWindowIcon key loadAction
 
 -- | Convert a C array of integer pixels in the ARGB format to the ABGR format.
 -- Returns an unmanged Ptr that points to a block of memory that must be freed
@@ -141,22 +173,80 @@ getWindowIconFromDesktopEntryByClasses =
   getWindowIconForAllClasses getWindowIconFromDesktopEntryByClass
   where
     getWindowIconFromDesktopEntryByClass size klass =
-      runMaybeT $ do
-        entry <- MaybeT $ getDirectoryEntryByClass klass
-        lift $
-          logPrintF
-            "System.Taffybar.WindowIcon"
-            DEBUG
-            "Using desktop entry for icon %s"
-            (deFilename entry, klass)
-        MaybeT $ lift $ getImageForDesktopEntry size entry
+      lookupOrInsertIcon
+        WindowIconCacheKey
+          { keySource = IconSourceDesktopEntry,
+            keySize = size,
+            keyIdentity = IconForClass (T.pack klass)
+          }
+        ( do
+            runMaybeT $ do
+              entry <- MaybeT $ getDirectoryEntryByClass klass
+              lift $
+                logPrintF
+                  "System.Taffybar.WindowIcon"
+                  DEBUG
+                  "Using desktop entry for icon %s"
+                  (deFilename entry, klass)
+              MaybeT $ lift $ getImageForDesktopEntry size entry
+        )
 
 -- | Resolve a window icon directly by class names in the icon theme.
-getWindowIconFromClasses :: Int32 -> String -> IO (Maybe Gdk.Pixbuf)
+getWindowIconFromClasses :: Int32 -> String -> TaffyIO (Maybe Gdk.Pixbuf)
 getWindowIconFromClasses =
   getWindowIconForAllClasses getWindowIconFromClass
   where
-    getWindowIconFromClass size klass = loadPixbufByName size (T.pack klass)
+    getWindowIconFromClass size klass =
+      lookupOrInsertIcon
+        WindowIconCacheKey
+          { keySource = IconSourceClass,
+            keySize = size,
+            keyIdentity = IconForClass (T.pack klass)
+          }
+        (lift $ loadPixbufByName size (T.pack klass))
+
+getDirectoryEntriesByAppId :: TaffyIO (MM.MultiMap String DesktopEntry)
+getDirectoryEntriesByAppId = getStateDefault readDirectoryEntriesByAppId
+
+readDirectoryEntriesByAppId :: TaffyIO (MM.MultiMap String DesktopEntry)
+readDirectoryEntriesByAppId =
+  liftIO $ indexDesktopEntriesByAppId <$> getDirectoryEntriesDefault
+
+indexDesktopEntriesByAppId :: [DesktopEntry] -> MM.MultiMap String DesktopEntry
+indexDesktopEntriesByAppId =
+  foldl' (\m de -> MM.insert (normalizeAppId $ deFilename de) de m) MM.empty
+
+normalizeAppId :: String -> String
+normalizeAppId name =
+  let stripped = fromMaybe name (stripSuffix ".desktop" name)
+   in map toLower stripped
+  where
+    stripSuffix :: (Eq a) => [a] -> [a] -> Maybe [a]
+    stripSuffix suffix value =
+      reverse <$> stripPrefix (reverse suffix) (reverse value)
+
+getWindowIconFromDesktopEntryByAppId ::
+  Int32 -> String -> TaffyIO (Maybe Gdk.Pixbuf)
+getWindowIconFromDesktopEntryByAppId size appId =
+  lookupOrInsertIcon
+    WindowIconCacheKey
+      { keySource = IconSourceDesktopEntry,
+        keySize = size,
+        keyIdentity = IconForAppId (T.pack $ normalizeAppId appId)
+      }
+    ( do
+        entries <- MM.lookup (normalizeAppId appId) <$> getDirectoryEntriesByAppId
+        case entries of
+          [] -> return Nothing
+          (entry : _) -> do
+            liftIO $
+              logM "System.Taffybar.WindowIcon" DEBUG $
+                printf
+                  "Using desktop entry for icon %s (appId=%s)"
+                  (deFilename entry)
+                  appId
+            lift $ getImageForDesktopEntry size entry
+    )
 
 -- | Resolve a window icon from cached Chrome tab image data.
 getPixBufFromChromeData :: X11Window -> TaffyIO (Maybe Gdk.Pixbuf)

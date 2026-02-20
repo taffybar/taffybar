@@ -116,6 +116,8 @@ mkWorkspaceIconWidget strategy mSize transparentOnNone getPixbufFor mkTransparen
                   else return Nothing
   (imageWidget, refreshImage) <-
     scalingImageNew strategy getPixbuf Gtk.OrientationHorizontal
+  iconTheme <- Gtk.iconThemeGetDefault
+  _ <- Gtk.onIconThemeChanged iconTheme refreshImage
   _ <- widgetSetClassGI imageWidget "window-icon"
   forM_ mSize $ \s ->
     Gtk.widgetSetSizeRequest imageWidget (fromIntegral s) (fromIntegral s)

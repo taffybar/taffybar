@@ -143,6 +143,8 @@ buildWindowsIcon windowIconPixbufGetter = do
         MaybeT $ windowIconPixbufGetter size wd
 
   (imageWidget, updateImage) <- scalingImage getActiveWindowPixbuf Gtk.OrientationHorizontal
+  iconTheme <- lift Gtk.iconThemeGetDefault
+  _ <- lift $ Gtk.onIconThemeChanged iconTheme (postGUIASync updateImage)
   return (postGUIASync updateImage, imageWidget)
 
 -- | Populate the given menu widget with the list of all currently open windows.

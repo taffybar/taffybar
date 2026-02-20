@@ -26,24 +26,17 @@ import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import Data.Aeson (FromJSON (..), withObject, (.!=), (.:), (.:?))
 import qualified Data.ByteString as BS
-import Data.Char (toLower)
 import Data.Default (Default (..))
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int32)
-import Data.List (intercalate, sortOn, stripPrefix)
+import Data.List (intercalate, sortOn)
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
-import qualified Data.MultiMap as MM
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import System.Environment.XDG.DesktopEntry
-  ( DesktopEntry,
-    deFilename,
-    getDirectoryEntriesDefault,
-  )
 import System.Log.Logger (Priority (..), logM)
 import System.Taffybar.Context
 import System.Taffybar.Hyprland
@@ -57,7 +50,6 @@ import System.Taffybar.Widget.Generic.ScalingImage (getScalingImageStrategy)
 import System.Taffybar.Widget.Util
   ( WindowIconWidget (..),
     computeIconStripLayout,
-    getImageForDesktopEntry,
     handlePixbufGetterException,
     scaledPixbufGetter,
     syncWidgetPool,
@@ -75,12 +67,12 @@ import System.Taffybar.Widget.Workspaces.Shared
     mkWorkspaceIconWidget,
     setWorkspaceWidgetStatusClass,
   )
-import System.Taffybar.WindowIcon (getWindowIconFromClasses, pixBufFromColor)
+import System.Taffybar.WindowIcon
+  ( getWindowIconFromClasses,
+    getWindowIconFromDesktopEntryByAppId,
+    pixBufFromColor,
+  )
 import Text.Printf (printf)
-
-stripSuffix :: (Eq a) => [a] -> [a] -> Maybe [a]
-stripSuffix suffix value =
-  reverse <$> stripPrefix (reverse suffix) (reverse value)
 
 isSpecialHyprWorkspace :: HyprlandWorkspace -> Bool
 isSpecialHyprWorkspace ws =
@@ -687,8 +679,8 @@ defaultHyprlandGetWindowIconPixbuf =
 getWindowIconPixbufFromClass :: HyprlandWindowIconPixbufGetter
 getWindowIconPixbufFromClass size windowData =
   maybeTCombine
-    (maybe (return Nothing) (liftIO . getWindowIconFromClasses size) (windowClass windowData))
-    (maybe (return Nothing) (liftIO . getWindowIconFromClasses size) (windowInitialClass windowData))
+    (maybe (return Nothing) (getWindowIconFromClasses size) (windowClass windowData))
+    (maybe (return Nothing) (getWindowIconFromClasses size) (windowInitialClass windowData))
 
 getWindowIconPixbufFromDesktopEntry :: HyprlandWindowIconPixbufGetter
 getWindowIconPixbufFromDesktopEntry =
@@ -696,37 +688,6 @@ getWindowIconPixbufFromDesktopEntry =
     maybeTCombine
       (maybe (return Nothing) (getWindowIconFromDesktopEntryByAppId size) (windowClass windowData))
       (maybe (return Nothing) (getWindowIconFromDesktopEntryByAppId size) (windowInitialClass windowData))
-
-getDirectoryEntriesByAppId :: TaffyIO (MM.MultiMap String DesktopEntry)
-getDirectoryEntriesByAppId = getStateDefault readDirectoryEntriesByAppId
-
-readDirectoryEntriesByAppId :: TaffyIO (MM.MultiMap String DesktopEntry)
-readDirectoryEntriesByAppId =
-  liftIO $ indexDesktopEntriesByAppId <$> getDirectoryEntriesDefault
-
-indexDesktopEntriesByAppId :: [DesktopEntry] -> MM.MultiMap String DesktopEntry
-indexDesktopEntriesByAppId =
-  F.foldl' (\m de -> MM.insert (normalizeAppId $ deFilename de) de m) MM.empty
-
-normalizeAppId :: String -> String
-normalizeAppId name =
-  let stripped = fromMaybe name (stripSuffix ".desktop" name)
-   in map toLower stripped
-
-getWindowIconFromDesktopEntryByAppId ::
-  Int32 -> String -> TaffyIO (Maybe Gdk.Pixbuf)
-getWindowIconFromDesktopEntryByAppId size appId = do
-  entries <- MM.lookup (normalizeAppId appId) <$> getDirectoryEntriesByAppId
-  case entries of
-    [] -> return Nothing
-    (entry : _) -> do
-      liftIO $
-        logM "System.Taffybar.Widget.HyprlandWorkspaces" DEBUG $
-          printf
-            "Using desktop entry for icon %s (appId=%s)"
-            (deFilename entry)
-            appId
-      liftIO $ getImageForDesktopEntry size entry
 
 -- Hyprland backend
 

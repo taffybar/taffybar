@@ -157,7 +157,7 @@ getWindowIconPixbufByClassHints size winInfo = tryHints classHints
       case fromDesktopEntry of
         Just _ -> return fromDesktopEntry
         Nothing -> do
-          fromClass <- liftIO $ getWindowIconFromClasses size klass
+          fromClass <- getWindowIconFromClasses size klass
           case fromClass of
             Just _ -> return fromClass
             Nothing -> tryHints rest
