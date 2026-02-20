@@ -7,6 +7,7 @@ import qualified Data.Text as T
 import qualified GI.Gtk
 import System.Taffybar.Information.Memory
 import System.Taffybar.Widget.Generic.PollingLabel (pollingLabelNew)
+import System.Taffybar.Widget.Util (widgetSetClassGI)
 import Text.Printf (printf)
 import qualified Text.StringTemplate as ST
 
@@ -23,7 +24,7 @@ textMemoryMonitorNew ::
   m GI.Gtk.Widget
 textMemoryMonitorNew fmt period = do
   label <- pollingLabelNew period (showMemoryInfo fmt 3 <$> parseMeminfo)
-  GI.Gtk.toWidget label
+  widgetSetClassGI label (T.pack "text-memory-monitor")
 
 -- | Render a 'MemoryInfo' snapshot into a template string.
 --

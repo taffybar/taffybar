@@ -43,7 +43,7 @@ import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.DiskUsage
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Generic.ChannelWidget
-import System.Taffybar.Widget.Util (buildIconLabelBox)
+import System.Taffybar.Widget.Util (buildIconLabelBox, widgetSetClassGI)
 import Text.Printf (printf)
 import Text.StringTemplate
 
@@ -90,6 +90,7 @@ diskUsageLabelNewWith config = do
 
   liftIO $ do
     label <- Gtk.labelNew Nothing
+    _ <- widgetSetClassGI label "disk-usage-label"
 
     let updateLabel info = postGUIASync $ do
           let (labelText, tooltipText) = formatDiskUsage config info
@@ -98,7 +99,8 @@ diskUsageLabelNewWith config = do
 
     void $ Gtk.onWidgetRealize label $ updateLabel initialInfo
     Gtk.widgetShowAll label
-    Gtk.toWidget =<< channelWidgetNew label chan updateLabel
+    (Gtk.toWidget =<< channelWidgetNew label chan updateLabel)
+      >>= (`widgetSetClassGI` "disk-usage-label")
 
 -- | Create a disk usage icon widget with default configuration.
 diskUsageIconNew :: TaffyIO Gtk.Widget
@@ -108,6 +110,7 @@ diskUsageIconNew = diskUsageIconNewWith defaultDiskUsageWidgetConfig
 diskUsageIconNewWith :: DiskUsageWidgetConfig -> TaffyIO Gtk.Widget
 diskUsageIconNewWith config = liftIO $ do
   label <- Gtk.labelNew (Just (diskUsageIcon config))
+  _ <- widgetSetClassGI label "disk-usage-icon"
   Gtk.widgetShowAll label
   Gtk.toWidget label
 
@@ -120,7 +123,9 @@ diskUsageNewWith :: DiskUsageWidgetConfig -> TaffyIO Gtk.Widget
 diskUsageNewWith config = do
   iconWidget <- diskUsageIconNewWith config
   labelWidget <- diskUsageLabelNewWith config
-  liftIO $ buildIconLabelBox iconWidget labelWidget
+  liftIO $
+    buildIconLabelBox iconWidget labelWidget
+      >>= (`widgetSetClassGI` "disk-usage")
 
 -- --------------------------------------------------------------------------
 -- Formatting

@@ -50,7 +50,7 @@ import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.WirePlumber
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Generic.ChannelWidget
-import System.Taffybar.Widget.Util (buildIconLabelBox)
+import System.Taffybar.Widget.Util (buildIconLabelBox, widgetSetClassGI)
 import Text.StringTemplate
 
 -- | Configuration for the WirePlumber widget.
@@ -113,6 +113,7 @@ wirePlumberIconNewWith config = do
   initialInfo <- getWirePlumberInfoState nodeSpec
   liftIO $ do
     label <- Gtk.labelNew Nothing
+    _ <- widgetSetClassGI label "wire-plumber-icon"
     let updateIcon info = do
           let iconText = case info of
                 Nothing -> T.pack "\xF026"
@@ -123,7 +124,8 @@ wirePlumberIconNewWith config = do
           postGUIASync $ Gtk.labelSetText label iconText
     void $ Gtk.onWidgetRealize label $ updateIcon initialInfo
     Gtk.widgetShowAll label
-    Gtk.toWidget =<< channelWidgetNew label chan updateIcon
+    (Gtk.toWidget =<< channelWidgetNew label chan updateIcon)
+      >>= (`widgetSetClassGI` "wire-plumber-icon")
 
 -- | Create a WirePlumber label-only widget for the default audio sink.
 -- Includes scroll-to-adjust and click-to-mute interaction.
@@ -139,6 +141,7 @@ wirePlumberLabelNewWith config = do
 
   liftIO $ do
     label <- Gtk.labelNew Nothing
+    _ <- widgetSetClassGI label "wire-plumber-label"
 
     let updateLabel info = do
           (labelText, tooltipText) <- formatWirePlumberWidget config info
@@ -181,7 +184,8 @@ wirePlumberLabelNewWith config = do
     whenScrollAdjust label
 
     Gtk.widgetShowAll label
-    Gtk.toWidget =<< channelWidgetNew label chan updateLabel
+    (Gtk.toWidget =<< channelWidgetNew label chan updateLabel)
+      >>= (`widgetSetClassGI` "wire-plumber-label")
 
 -- | Create a combined icon + label WirePlumber widget for the default audio sink.
 wirePlumberNew :: TaffyIO Gtk.Widget
@@ -192,15 +196,19 @@ wirePlumberNewWith :: WirePlumberWidgetConfig -> TaffyIO Gtk.Widget
 wirePlumberNewWith config = do
   iconWidget <- wirePlumberIconNewWith config
   labelWidget <- wirePlumberLabelNewWith config
-  liftIO $ buildIconLabelBox iconWidget labelWidget
+  liftIO $
+    buildIconLabelBox iconWidget labelWidget
+      >>= (`widgetSetClassGI` "wire-plumber")
 
 -- | Create a new WirePlumber widget for the default audio source (microphone).
 wirePlumberSourceNew :: TaffyIO Gtk.Widget
-wirePlumberSourceNew = wirePlumberNewWith defaultWirePlumberSourceWidgetConfig
+wirePlumberSourceNew = wirePlumberSourceNewWith defaultWirePlumberSourceWidgetConfig
 
 -- | Create a new WirePlumber widget for audio source with custom configuration.
 wirePlumberSourceNewWith :: WirePlumberWidgetConfig -> TaffyIO Gtk.Widget
-wirePlumberSourceNewWith = wirePlumberNewWith
+wirePlumberSourceNewWith config = do
+  widget <- wirePlumberNewWith config
+  liftIO $ widgetSetClassGI widget "wire-plumber-source"
 
 formatWirePlumberWidget ::
   WirePlumberWidgetConfig ->

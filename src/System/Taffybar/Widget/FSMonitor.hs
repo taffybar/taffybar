@@ -23,6 +23,7 @@ import qualified Data.Text as T
 import qualified GI.Gtk
 import System.Process (readProcess)
 import System.Taffybar.Widget.Generic.PollingLabel (pollingLabelNew)
+import System.Taffybar.Widget.Util (widgetSetClassGI)
 
 -- | Creates a new filesystem monitor widget. It contains one 'PollingLabel'
 -- that displays the data returned by the df command. The usage level of all
@@ -35,7 +36,8 @@ fsMonitorNew ::
   [String] ->
   m GI.Gtk.Widget
 fsMonitorNew interval fsList = liftIO $ do
-  label <- pollingLabelNew interval $ showFSInfo fsList
+  label <- pollingLabelNew interval (showFSInfo fsList)
+  _ <- widgetSetClassGI label "fs-monitor"
   GI.Gtk.widgetShowAll label
   GI.Gtk.toWidget label
 

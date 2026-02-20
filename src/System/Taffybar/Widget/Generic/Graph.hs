@@ -286,6 +286,7 @@ drawGraph mv drawArea = do
 graphNew :: (MonadIO m) => GraphConfig -> m (Gtk.Widget, GraphHandle)
 graphNew cfg = liftIO $ do
   drawArea <- Gtk.drawingAreaNew
+  _ <- widgetSetClassGI drawArea (T.pack "graph-canvas")
   Gtk.widgetGetStyleContext drawArea >>= \styleContext ->
     Gtk.styleContextAddClass styleContext (T.pack "graph")
   mv <-
@@ -304,6 +305,7 @@ graphNew cfg = liftIO $ do
       ctx
       >> return True
   box <- Gtk.boxNew Gtk.OrientationHorizontal 1
+  _ <- widgetSetClassGI box (T.pack "graph")
 
   Gtk.widgetSetVexpand drawArea True
   Gtk.widgetSetVexpand box True

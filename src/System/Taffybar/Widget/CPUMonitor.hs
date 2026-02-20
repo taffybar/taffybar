@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
@@ -21,6 +23,7 @@ import qualified GI.Gtk
 import System.Taffybar.Information.CPU2 (CPULoad (..), getCPULoadChan)
 import System.Taffybar.Widget.Generic.ChannelGraph
 import System.Taffybar.Widget.Generic.Graph
+import System.Taffybar.Widget.Util (widgetSetClassGI)
 
 -- | Creates a new CPU monitor. This is a channel-driven graph fed by CPU load
 -- samples for one core (or all cores when "cpu" is selected).
@@ -36,6 +39,7 @@ cpuMonitorNew ::
 cpuMonitorNew cfg interval cpu = liftIO $ do
   chan <- getCPULoadChan cpu interval
   channelGraphNew cfg chan toSample
+    >>= (`widgetSetClassGI` "cpu-monitor")
 
 toSample :: CPULoad -> IO [Double]
 toSample CPULoad {cpuTotalLoad = totalLoad, cpuSystemLoad = systemLoad} =

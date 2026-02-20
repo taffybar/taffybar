@@ -44,6 +44,7 @@ import System.Taffybar.Information.Crypto hiding (symbol)
 import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.ChannelWidget
 import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
+import System.Taffybar.Widget.Util (buildIconLabelBox, widgetSetClassGI)
 import System.Taffybar.WindowIcon
 import Text.Printf
 
@@ -61,7 +62,6 @@ cryptoPriceLabelWithIcon = do
   label <- cryptoPriceLabel @a
   let symbolPair = symbolVal (Proxy :: Proxy a)
       symbol = takeWhile (/= '-') symbolPair
-  hbox <- Gtk.boxNew Gtk.OrientationHorizontal 0
 
   ctx <- ask
   let refresh size =
@@ -70,13 +70,10 @@ cryptoPriceLabelWithIcon = do
             (fromMaybe <$> pixBufFromColor size 0 <*> getCryptoPixbuf symbol)
             ctx
   (image, _) <- scalingImage refresh Gtk.OrientationHorizontal
-
-  Gtk.containerAdd hbox image
-  Gtk.containerAdd hbox label
-
-  Gtk.widgetShowAll hbox
-
-  Gtk.toWidget hbox
+  _ <- widgetSetClassGI image "crypto-price-icon"
+  _ <- widgetSetClassGI label "crypto-price-label"
+  buildIconLabelBox image label
+    >>= (`widgetSetClassGI` "crypto-price")
 
 -- | Stored CoinMarketCap API key used for on-demand icon fetches.
 newtype CMCAPIKey = CMCAPIKey String
@@ -105,6 +102,7 @@ cryptoPriceLabel = getCryptoPriceChannel @a >>= cryptoPriceLabel'
 cryptoPriceLabel' :: CryptoPriceChannel a -> TaffyIO Gtk.Widget
 cryptoPriceLabel' (CryptoPriceChannel (chan, var)) = do
   label <- Gtk.labelNew Nothing
+  _ <- widgetSetClassGI label "crypto-price-label"
   let updateWidget CryptoPriceInfo {lastPrice = cryptoPrice} =
         postGUIASync $
           Gtk.labelSetMarkup label $
@@ -113,7 +111,8 @@ cryptoPriceLabel' (CryptoPriceChannel (chan, var)) = do
   void $
     Gtk.onWidgetRealize label $
       readMVar var >>= updateWidget
-  Gtk.toWidget =<< channelWidgetNew label chan updateWidget
+  (Gtk.toWidget =<< channelWidgetNew label chan updateWidget)
+    >>= (`widgetSetClassGI` "crypto-price-label")
 
 -- | Directory used to cache downloaded crypto icons.
 cryptoIconsDir :: IO FilePath

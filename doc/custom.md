@@ -73,3 +73,21 @@ This can be used for example to apply different styling to widgets of
 the same type.
 
 [widgetSetClassGI]: https://hackage.haskell.org/package/taffybar/docs/System-Taffybar-Widget-Util.html#v:widgetSetClassGI
+
+### Built-in widget classes
+
+Most built-in widgets now expose a stable root CSS class by default, so
+you can style them without wrapping constructors in your config.
+
+Examples:
+- `.backlight`, `.backlight-icon`, `.backlight-label`
+- `.pulse-audio`, `.pulse-audio-icon`, `.pulse-audio-label`
+- `.wire-plumber`, `.wire-plumber-icon`, `.wire-plumber-label`
+- `.disk-usage`, `.disk-usage-icon`, `.disk-usage-label`
+- `.network-manager-wifi*` and `.network-manager-network*`
+- `.text-clock`, `.weather`, `.cpu-monitor`, `.network-graph`
+
+Taffybar also applies shared classes for common internals:
+- `.icon-label`, `.icon`, `.label`
+- `.polling-label`, `.polling-label-container`, `.polling-label-text`
+- `.graph`, `.graph-canvas`

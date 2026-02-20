@@ -45,7 +45,7 @@ import qualified System.Taffybar.Information.Backlight as BL
 import System.Taffybar.Util (postGUIASync, runCommand)
 import System.Taffybar.Widget.Generic.ChannelWidget
 import System.Taffybar.Widget.Generic.PollingLabel
-import System.Taffybar.Widget.Util (buildIconLabelBox)
+import System.Taffybar.Widget.Util (buildIconLabelBox, widgetSetClassGI)
 import Text.StringTemplate
 
 -- | Configuration for the backlight widget.
@@ -87,6 +87,7 @@ backlightIconNew = backlightIconNewWith defaultBacklightWidgetConfig
 backlightIconNewWith :: (MonadIO m) => BacklightWidgetConfig -> m Gtk.Widget
 backlightIconNewWith config = liftIO $ do
   label <- Gtk.labelNew (Just (backlightIcon config))
+  _ <- widgetSetClassGI label "backlight-icon"
   Gtk.widgetShowAll label
   Gtk.toWidget label
 
@@ -99,7 +100,7 @@ backlightNewWith :: (MonadIO m) => BacklightWidgetConfig -> m Gtk.Widget
 backlightNewWith config = liftIO $ do
   iconWidget <- backlightIconNewWith config
   labelWidget <- backlightLabelNewWith config
-  buildIconLabelBox iconWidget labelWidget
+  buildIconLabelBox iconWidget labelWidget >>= (`widgetSetClassGI` "backlight")
 
 -- | Create a combined icon+label backlight widget (channel-driven).
 backlightNewChan :: TaffyIO Gtk.Widget
@@ -110,7 +111,9 @@ backlightNewChanWith :: BacklightWidgetConfig -> TaffyIO Gtk.Widget
 backlightNewChanWith config = do
   iconWidget <- liftIO $ backlightIconNewWith config
   labelWidget <- backlightLabelNewChanWith config
-  liftIO $ buildIconLabelBox iconWidget labelWidget
+  liftIO $
+    buildIconLabelBox iconWidget labelWidget
+      >>= (`widgetSetClassGI` "backlight")
 
 -- | Create a backlight widget with default configuration.
 backlightLabelNew :: (MonadIO m) => m Gtk.Widget
@@ -123,6 +126,7 @@ backlightLabelNewWith config = liftIO $ do
     pollingLabelNewWithTooltip
       (backlightPollingInterval config)
       (formatBacklightWidget config)
+  _ <- widgetSetClassGI widget "backlight-label"
 
   case backlightScrollStepPercent config of
     Nothing -> return ()
@@ -159,6 +163,7 @@ backlightLabelNewChanWith config = do
 
   liftIO $ do
     label <- Gtk.labelNew Nothing
+    _ <- widgetSetClassGI label "backlight-label"
 
     let updateLabel info = do
           (labelText, tooltipText) <- formatBacklightWidgetFromInfo config info
@@ -189,7 +194,8 @@ backlightLabelNewChanWith config = do
         return ()
 
     Gtk.widgetShowAll label
-    Gtk.toWidget =<< channelWidgetNew label chan updateLabel
+    (Gtk.toWidget =<< channelWidgetNew label chan updateLabel)
+      >>= (`widgetSetClassGI` "backlight-label")
 
 formatBacklightWidget ::
   BacklightWidgetConfig ->

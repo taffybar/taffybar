@@ -67,7 +67,7 @@ import System.Taffybar.Information.NetworkManager
 import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.ChannelWidget
 import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
-import System.Taffybar.Widget.Util (buildIconLabelBox)
+import System.Taffybar.Widget.Util (buildIconLabelBox, widgetSetClassGI)
 import Text.StringTemplate
 
 -- | Formatting configuration for WiFi label widgets.
@@ -113,7 +113,8 @@ networkManagerWifiLabelNewWith config = do
     void $
       onWidgetRealize label $
         runReaderT getWifiInfoState ctx >>= updateWidget
-    toWidget =<< channelWidgetNew label chan updateWidget
+    (toWidget =<< channelWidgetNew label chan updateWidget)
+      >>= (`widgetSetClassGI` "network-manager-wifi-label")
 
 -- | Icon configuration for WiFi icon widgets.
 data NetworkManagerWifiIconConfig = NetworkManagerWifiIconConfig
@@ -179,7 +180,8 @@ networkManagerWifiIconNewWith config = do
             widgetSetTooltipMarkup imageWidget tooltipText
             updateImage
     void $ onWidgetRealize imageWidget $ updateWidget initialInfo
-    toWidget =<< channelWidgetNew imageWidget chan updateWidget
+    (toWidget =<< channelWidgetNew imageWidget chan updateWidget)
+      >>= (`widgetSetClassGI` "network-manager-wifi-icon")
 
 iconTooltipAsLabelConfig :: NetworkManagerWifiIconConfig -> WifiWidgetConfig
 iconTooltipAsLabelConfig cfg =
@@ -239,12 +241,9 @@ networkManagerWifiNewWith ::
 networkManagerWifiNewWith labelCfg iconCfg = do
   iconWidget <- networkManagerWifiIconNewWith iconCfg
   labelWidget <- networkManagerWifiLabelNewWith labelCfg
-  liftIO $ do
-    box <- boxNew OrientationHorizontal 0
-    containerAdd box iconWidget
-    containerAdd box labelWidget
-    widgetShowAll box
-    toWidget box
+  liftIO $
+    buildIconLabelBox iconWidget labelWidget
+      >>= (`widgetSetClassGI` "network-manager-wifi")
 
 formatWifiWidget ::
   WifiWidgetConfig ->
@@ -354,7 +353,8 @@ networkManagerNetworkLabelNewWith config = do
     void $
       onWidgetRealize label $
         runReaderT getNetworkInfoState ctx >>= updateWidget
-    toWidget =<< channelWidgetNew label chan updateWidget
+    (toWidget =<< channelWidgetNew label chan updateWidget)
+      >>= (`widgetSetClassGI` "network-manager-network-label")
 
 -- | Icon configuration for generic network icon widgets.
 data NetworkManagerNetworkIconConfig = NetworkManagerNetworkIconConfig
@@ -424,7 +424,8 @@ networkManagerNetworkIconNewWith config = do
             widgetSetTooltipMarkup imageWidget tooltipText
             updateImage
     void $ onWidgetRealize imageWidget $ updateWidget initialInfo
-    toWidget =<< channelWidgetNew imageWidget chan updateWidget
+    (toWidget =<< channelWidgetNew imageWidget chan updateWidget)
+      >>= (`widgetSetClassGI` "network-manager-network-icon")
 
 iconTooltipAsNetworkLabelConfig :: NetworkManagerNetworkIconConfig -> NetworkWidgetConfig
 iconTooltipAsNetworkLabelConfig cfg =
@@ -498,12 +499,9 @@ networkManagerNetworkNewWith ::
 networkManagerNetworkNewWith labelCfg iconCfg = do
   iconWidget <- networkManagerNetworkIconNewWith iconCfg
   labelWidget <- networkManagerNetworkLabelNewWith labelCfg
-  liftIO $ do
-    box <- boxNew OrientationHorizontal 0
-    containerAdd box iconWidget
-    containerAdd box labelWidget
-    widgetShowAll box
-    toWidget box
+  liftIO $
+    buildIconLabelBox iconWidget labelWidget
+      >>= (`widgetSetClassGI` "network-manager-network")
 
 formatNetworkWidget ::
   NetworkWidgetConfig ->
@@ -600,7 +598,8 @@ networkManagerWifiTextIconNewWith _config = do
     void $
       onWidgetRealize label $
         runReaderT getWifiInfoState ctx >>= updateIcon
-    toWidget =<< channelWidgetNew label chan updateIcon
+    (toWidget =<< channelWidgetNew label chan updateIcon)
+      >>= (`widgetSetClassGI` "network-manager-wifi-text-icon")
 
 -- Wifi icon-label
 
@@ -614,7 +613,9 @@ networkManagerWifiIconLabelNewWith :: WifiWidgetConfig -> TaffyIO Widget
 networkManagerWifiIconLabelNewWith config = do
   iconWidget <- networkManagerWifiTextIconNewWith config
   labelWidget <- networkManagerWifiLabelNewWith config
-  liftIO $ buildIconLabelBox iconWidget labelWidget
+  liftIO $
+    buildIconLabelBox iconWidget labelWidget
+      >>= (`widgetSetClassGI` "network-manager-wifi-icon-label")
 
 -- Network text icon
 
@@ -636,7 +637,8 @@ networkManagerNetworkTextIconNewWith _config = do
     void $
       onWidgetRealize label $
         runReaderT getNetworkInfoState ctx >>= updateIcon
-    toWidget =<< channelWidgetNew label chan updateIcon
+    (toWidget =<< channelWidgetNew label chan updateIcon)
+      >>= (`widgetSetClassGI` "network-manager-network-text-icon")
 
 -- Network icon-label
 
@@ -650,4 +652,6 @@ networkManagerNetworkIconLabelNewWith :: NetworkWidgetConfig -> TaffyIO Widget
 networkManagerNetworkIconLabelNewWith config = do
   iconWidget <- networkManagerNetworkTextIconNewWith config
   labelWidget <- networkManagerNetworkLabelNewWith config
-  liftIO $ buildIconLabelBox iconWidget labelWidget
+  liftIO $
+    buildIconLabelBox iconWidget labelWidget
+      >>= (`widgetSetClassGI` "network-manager-network-icon-label")
