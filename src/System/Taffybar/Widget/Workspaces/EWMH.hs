@@ -32,11 +32,12 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import Control.RateLimit
+import Data.Char (toLower)
 import Data.Default (Default (..))
 import qualified Data.Foldable as F
 import Data.GI.Base.ManagedPtr (unsafeCastTo)
 import Data.Int
-import Data.List (elemIndex, intersect, sortBy, (\\))
+import Data.List (elemIndex, intersect, isPrefixOf, sortBy, (\\))
 import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.MultiMap as MM
@@ -184,7 +185,7 @@ defaultWorkspacesConfig =
             WorkspaceWidgetConfig.minIcons = 0,
             WorkspaceWidgetConfig.getWindowIconPixbuf = defaultGetWindowIconPixbuf,
             WorkspaceWidgetConfig.labelSetter = return . workspaceName,
-            WorkspaceWidgetConfig.showWorkspaceFn = const True,
+            WorkspaceWidgetConfig.showWorkspaceFn = \ws -> hideEmpty ws && hideSpecial ws,
             WorkspaceWidgetConfig.iconSort = sortWindowsByPosition,
             WorkspaceWidgetConfig.urgentWorkspaceState = False
           },
@@ -199,6 +200,11 @@ instance Default WorkspacesConfig where
 hideEmpty :: Workspace -> Bool
 hideEmpty Workspace {workspaceState = Empty} = False
 hideEmpty _ = True
+
+hideSpecial :: Workspace -> Bool
+hideSpecial Workspace {workspaceName = name} =
+  let lowered = map toLower name
+   in lowered /= "nsp" && not ("special:" `isPrefixOf` lowered)
 
 wLog :: (MonadIO m) => Priority -> String -> m ()
 wLog l s = liftIO $ logM "System.Taffybar.Widget.Workspaces" l s
