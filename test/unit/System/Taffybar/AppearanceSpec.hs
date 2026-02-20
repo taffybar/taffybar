@@ -33,20 +33,20 @@ spec = do
   aroundAll withIntegrationEnv $ do
     it "renders a bar under an EWMH window manager" $ \env -> do
       goldenFile <- makeAbsolute "test/data/appearance-ewmh-bar.png"
-      actualPng <- renderBarScreenshot env LegacyLayout LegacyWidget
+      actualPng <- renderBarScreenshot env LegacyLayout
       assertGolden "appearance" goldenFile actualPng
 
     it "renders a two-level bar under an EWMH window manager" $ \env -> do
       goldenFile <- makeAbsolute "test/data/appearance-ewmh-bar-levels.png"
-      actualPng <- renderBarScreenshot env LevelsLayout LegacyWidget
+      actualPng <- renderBarScreenshot env LevelsLayout
       assertGolden "appearance-levels" goldenFile actualPng
 
-    it "renders the channel workspaces widget under an EWMH window manager" $ \env -> do
-      actualPng <- renderBarScreenshot env LegacyLayout ChannelWidget
-      assertPngLooksRendered "ewmh-channel-workspaces" actualPng
+    it "renders the workspaces widget under an EWMH window manager" $ \env -> do
+      actualPng <- renderBarScreenshot env LegacyLayout
+      assertPngLooksRendered "ewmh-workspaces" actualPng
 
     it "keeps configured bar height when the windows title has oversized glyph metrics" $ \env -> do
-      actualPng <- renderBarScreenshot env WindowsTitleStressLayout LegacyWidget
+      actualPng <- renderBarScreenshot env WindowsTitleStressLayout
       let actualImg = decodePngRGBA8 "stress" actualPng
       JP.imageHeight actualImg `shouldBe` 55
 
@@ -56,17 +56,16 @@ spec = do
           renderBarScreenshotWithArgs
             env
             LegacyLayout
-            LegacyWidget
             ["--expect-top-strut", "80"]
         assertPngLooksRendered "ewmh-hidpi-strut" actualPng
 
-  it "renders the channel workspaces widget under Hyprland when available" $ do
+  it "renders the workspaces widget under Hyprland when available" $ do
     available <- hyprlandTestAvailable
     unless available $
       pendingWith
         "Hyprland integration environment unavailable (needs WAYLAND_DISPLAY, HYPRLAND_INSTANCE_SIGNATURE and grim)"
-    actualPng <- renderHyprlandScreenshot LegacyLayout ChannelWidget
-    assertPngLooksRendered "hyprland-channel-workspaces" actualPng
+    actualPng <- renderHyprlandScreenshot LegacyLayout
+    assertPngLooksRendered "hyprland-workspaces" actualPng
 
 assertGolden :: String -> FilePath -> BL.ByteString -> IO ()
 assertGolden label goldenFile actualPng = do
@@ -130,14 +129,12 @@ withIntegrationEnv action =
 
 data LayoutKind = LegacyLayout | LevelsLayout | WindowsTitleStressLayout
 
-data WidgetKind = LegacyWidget | ChannelWidget
+renderBarScreenshot :: Env -> LayoutKind -> IO BL.ByteString
+renderBarScreenshot env layout =
+  renderBarScreenshotWithArgs env layout []
 
-renderBarScreenshot :: Env -> LayoutKind -> WidgetKind -> IO BL.ByteString
-renderBarScreenshot env layout widgetKind =
-  renderBarScreenshotWithArgs env layout widgetKind []
-
-renderBarScreenshotWithArgs :: Env -> LayoutKind -> WidgetKind -> [String] -> IO BL.ByteString
-renderBarScreenshotWithArgs Env {envTmpDir = tmp} layout widgetKind extraArgs = do
+renderBarScreenshotWithArgs :: Env -> LayoutKind -> [String] -> IO BL.ByteString
+renderBarScreenshotWithArgs Env {envTmpDir = tmp} layout extraArgs = do
   exePath <-
     findComponentExecutable
       "taffybar-appearance-snap"
@@ -152,14 +149,10 @@ renderBarScreenshotWithArgs Env {envTmpDir = tmp} layout widgetKind extraArgs = 
           LegacyLayout -> []
           LevelsLayout -> ["--levels"]
           WindowsTitleStressLayout -> ["--windows-title-stress"]
-      widgetArgs =
-        case widgetKind of
-          LegacyWidget -> []
-          ChannelWidget -> ["--channel-workspaces"]
       pc =
         setStdout inherit $
           setStderr inherit $
-            proc exePath (["--out", outPath, "--css", cssPath] ++ levelArgs ++ widgetArgs ++ extraArgs)
+            proc exePath (["--out", outPath, "--css", cssPath] ++ levelArgs ++ extraArgs)
 
   withProcessTerm pc $ \p -> do
     mEc <- timeout appearanceSnapProcessTimeoutUsec (waitExitCode p)
@@ -173,8 +166,8 @@ renderBarScreenshotWithArgs Env {envTmpDir = tmp} layout widgetKind extraArgs = 
 
   BL.readFile outPath
 
-renderHyprlandScreenshot :: LayoutKind -> WidgetKind -> IO BL.ByteString
-renderHyprlandScreenshot layout widgetKind =
+renderHyprlandScreenshot :: LayoutKind -> IO BL.ByteString
+renderHyprlandScreenshot layout =
   withSystemTempDirectory "taffybar-appearance-hyprland" $ \tmp -> do
     exePath <-
       findComponentExecutable
@@ -188,14 +181,10 @@ renderHyprlandScreenshot layout widgetKind =
             LegacyLayout -> []
             LevelsLayout -> ["--levels"]
             WindowsTitleStressLayout -> []
-        widgetArgs =
-          case widgetKind of
-            LegacyWidget -> []
-            ChannelWidget -> ["--channel-workspaces"]
         pc =
           setStdout inherit $
             setStderr inherit $
-              proc exePath (["--out", outPath, "--css", cssPath] ++ levelArgs ++ widgetArgs)
+              proc exePath (["--out", outPath, "--css", cssPath] ++ levelArgs)
     withProcessTerm pc $ \p -> do
       mEc <- timeout appearanceSnapProcessTimeoutUsec (waitExitCode p)
       case mEc of

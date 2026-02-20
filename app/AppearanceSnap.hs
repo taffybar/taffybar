@@ -76,15 +76,7 @@ import System.Taffybar.Context
   )
 import System.Taffybar.Util (postGUIASync)
 import qualified System.Taffybar.Widget.Windows as Windows
-import qualified System.Taffybar.Widget.Workspaces as ChannelWorkspaces
-import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
-import System.Taffybar.Widget.Workspaces.EWMH
-  ( WorkspacesConfig,
-    getWindowIconPixbufFromEWMH,
-    sortWindowsByStackIndex,
-    workspacesNew,
-  )
-import qualified System.Taffybar.Widget.Workspaces.EWMH as Workspaces
+import qualified System.Taffybar.Widget.Workspaces as Workspaces
 import Text.Read (readMaybe)
 import UnliftIO.Temporary (withSystemTempDirectory)
 
@@ -92,16 +84,10 @@ data Args = Args
   { outFile :: FilePath,
     cssFile :: FilePath,
     layoutMode :: LayoutMode,
-    workspaceWidgetMode :: WorkspaceWidgetMode,
     expectedTopStrut :: Maybe Int
   }
 
 data LayoutMode = LayoutLegacy | LayoutLevels | LayoutWindowsTitleStress
-  deriving (Eq, Show)
-
-data WorkspaceWidgetMode
-  = UseLegacyWorkspaces
-  | UseChannelWorkspaces
   deriving (Eq, Show)
 
 snapshotWatchdogTimeoutUsec :: Int
@@ -113,7 +99,6 @@ main = do
     { outFile = outPath,
       cssFile = cssPath,
       layoutMode = mode,
-      workspaceWidgetMode = wsMode,
       expectedTopStrut = mExpectedTopStrut
     } <-
     parseArgs =<< getArgs
@@ -156,7 +141,7 @@ main = do
     --
     -- If this fails, the parent Xvfb teardown will still kill the X server,
     -- which causes the WM to exit.
-    res <- runUnderWm wmProc outPath cssPath mode wsMode mExpectedTopStrut
+    res <- runUnderWm wmProc outPath cssPath mode mExpectedTopStrut
     killProcessNoWait wmProc
     pure res
 
@@ -167,10 +152,9 @@ runUnderWm ::
   FilePath ->
   FilePath ->
   LayoutMode ->
-  WorkspaceWidgetMode ->
   Maybe Int ->
   IO ExitCode
-runUnderWm wmProc outPath cssPath mode wsMode mExpectedTopStrut = do
+runUnderWm wmProc outPath cssPath mode mExpectedTopStrut = do
   ctxVar <- (newEmptyMVar :: IO (MVar Context))
   resultVar <- (newEmptyMVar :: IO (MVar (Either String BL.ByteString)))
   doneVar <- (newEmptyMVar :: IO (MVar ExitCode))
@@ -185,38 +169,25 @@ runUnderWm wmProc outPath cssPath mode wsMode mExpectedTopStrut = do
   void $ forkIO $ watchdogThread wmProc ctxVar resultVar doneVar snapshotWatchdogTimeoutUsec
 
   barUnique <- newUnique
-  let wsCfgDefault = def :: WorkspacesConfig
-      legacyWsCfg =
-        wsCfgDefault
-          { Workspaces.workspacesConfig =
-              (Workspaces.workspacesConfig wsCfgDefault)
-                { -- Avoid font-dependent output in the appearance golden: we only care
-                  -- that icons/layout render deterministically.
-                  WorkspaceConfig.labelSetter = const (pure ""),
-                  WorkspaceConfig.maxIcons = Just 1,
-                  WorkspaceConfig.minIcons = 1,
-                  WorkspaceConfig.getWindowIconPixbuf = getWindowIconPixbufFromEWMH,
-                  WorkspaceConfig.iconSort = sortWindowsByStackIndex
-                }
+  let wsCfg =
+        Workspaces.defaultEWMHWorkspacesConfig
+          { -- Avoid font-dependent output in the appearance golden: we only care
+            -- that icons/layout render deterministically.
+            Workspaces.labelSetter = const (pure ""),
+            Workspaces.maxIcons = Just 1,
+            Workspaces.minIcons = 1,
+            Workspaces.getWindowIconPixbuf = Workspaces.getWindowIconPixbufFromEWMH,
+            Workspaces.iconSort = Workspaces.sortWindowsByStackIndex,
+            Workspaces.showWorkspaceFn = const True
           }
-      channelWsCfg =
-        ChannelWorkspaces.defaultEWMHWorkspacesConfig
-          { ChannelWorkspaces.labelSetter = const (pure ""),
-            ChannelWorkspaces.maxIcons = Just 1,
-            ChannelWorkspaces.minIcons = 1,
-            ChannelWorkspaces.showWorkspaceFn = const True
-          }
-      workspaceWidget =
-        case wsMode of
-          UseLegacyWorkspaces -> workspacesNew legacyWsCfg
-          UseChannelWorkspaces -> ChannelWorkspaces.workspacesNew channelWsCfg
+      workspaceWidget = Workspaces.workspacesNew wsCfg
       barCfg = buildBarConfig workspaceWidget barUnique mode
       cfg =
         def
           { dbusClientParam = Nothing,
             cssPaths = [cssPath],
             getBarConfigsParam = pure [barCfg],
-            startupHook = scheduleSnapshot ctxVar resultVar wsMode mExpectedTopStrut,
+            startupHook = scheduleSnapshot ctxVar resultVar mExpectedTopStrut,
             errorMsg = Nothing
           }
 
@@ -360,10 +331,9 @@ ewmhIconDataSolid w h px =
 scheduleSnapshot ::
   MVar Context ->
   MVar (Either String BL.ByteString) ->
-  WorkspaceWidgetMode ->
   Maybe Int ->
   TaffyIO ()
-scheduleSnapshot ctxVar resultVar wsMode mExpectedTopStrut = do
+scheduleSnapshot ctxVar resultVar mExpectedTopStrut = do
   ctx <- ask
   liftIO $ void (tryPutMVar ctxVar ctx)
   liftIO $ void $ forkIO (pollLoop ctx)
@@ -373,7 +343,7 @@ scheduleSnapshot ctxVar resultVar wsMode mExpectedTopStrut = do
       case done of
         Just _ -> pure ()
         Nothing -> do
-          postGUIASync (trySnapshotOnGuiThread ctx' resultVar wsMode mExpectedTopStrut)
+          postGUIASync (trySnapshotOnGuiThread ctx' resultVar mExpectedTopStrut)
           threadDelay 50_000
           pollLoop ctx'
 
@@ -467,10 +437,9 @@ waitForEwmh maxUsec = do
 trySnapshotOnGuiThread ::
   Context ->
   MVar (Either String BL.ByteString) ->
-  WorkspaceWidgetMode ->
   Maybe Int ->
   IO ()
-trySnapshotOnGuiThread ctx resultVar wsMode mExpectedTopStrut = do
+trySnapshotOnGuiThread ctx resultVar mExpectedTopStrut = do
   -- Read the windows list and snapshot the first bar window.
   ws <- readMVar (existingWindows ctx)
   case listToMaybe ws of
@@ -486,9 +455,7 @@ trySnapshotOnGuiThread ctx resultVar wsMode mExpectedTopStrut = do
               mActualTop <- getDockTopStrut
               pure (mActualTop == Just expectedTop)
           -- Don't accept a snapshot until the bar has actually rendered.
-          -- Legacy mode checks icon colors, while channel mode has a weaker
-          -- readiness check because it does not use the legacy EWMH icon path.
-          when (strutReady && isSnapshotReady wsMode img) $
+          when (strutReady && isSnapshotReady img) $
             void (tryPutMVar resultVar (Right (JP.encodePng img)))
 
 getDockTopStrut :: IO (Maybe Int)
@@ -518,44 +485,8 @@ getDockTopStrut = do
         (_left : _right : top : _rest) <- mStrut
         pure (fromIntegral top)
 
-isSnapshotReady :: WorkspaceWidgetMode -> JP.Image JP.PixelRGBA8 -> Bool
-isSnapshotReady wsMode img =
-  case wsMode of
-    UseLegacyWorkspaces -> imageHasTestIcons img
-    UseChannelWorkspaces -> imageHasOpaqueContent img
-
-imageHasTestIcons :: JP.Image JP.PixelRGBA8 -> Bool
-imageHasTestIcons img =
-  let tol :: Int
-      tol = 40
-      opaqueThreshold :: Int
-      opaqueThreshold = 5000
-      near (JP.PixelRGBA8 r g b a) (tr, tg, tb) =
-        a > 200
-          && abs (fromIntegral r - tr) <= tol
-          && abs (fromIntegral g - tg) <= tol
-          && abs (fromIntegral b - tb) <= tol
-      redTarget :: (Int, Int, Int)
-      redTarget = (224, 58, 58)
-      greenTarget :: (Int, Int, Int)
-      greenTarget = (58, 224, 106)
-      w = JP.imageWidth img
-      h = JP.imageHeight img
-      go y seenR seenG opaqueCount
-        | y >= h = seenR && seenG && opaqueCount > opaqueThreshold
-        | otherwise =
-            let goX x sr sg oc
-                  | x >= w = go (y + 1) sr sg oc
-                  | otherwise =
-                      let px = JP.pixelAt img x y
-                          sr1 = sr || near px redTarget
-                          sg1 = sg || near px greenTarget
-                          oc1 =
-                            oc
-                              + (case px of JP.PixelRGBA8 _ _ _ a -> if a > 200 then 1 else 0)
-                       in (sr1 && sg1 && oc1 > opaqueThreshold) || goX (x + 1) sr1 sg1 oc1
-             in goX 0 seenR seenG opaqueCount
-   in go 0 False False (0 :: Int)
+isSnapshotReady :: JP.Image JP.PixelRGBA8 -> Bool
+isSnapshotReady = imageHasOpaqueContent
 
 imageHasOpaqueContent :: JP.Image JP.PixelRGBA8 -> Bool
 imageHasOpaqueContent img =
@@ -628,14 +559,10 @@ parseArgs args =
         | "--windows-title-stress" `elem` args = LayoutWindowsTitleStress
         | "--levels" `elem` args = LayoutLevels
         | otherwise = LayoutLegacy
-      selectedWorkspaceWidgetMode =
-        if "--channel-workspaces" `elem` args
-          then UseChannelWorkspaces
-          else UseLegacyWorkspaces
       (mExpectedTopStrut, argsSansTopStrutFlag) = parseTopStrutFlag args
       argsSansFlags =
         filter
-          (`notElem` ["--levels", "--windows-title-stress", "--channel-workspaces"])
+          (`notElem` ["--levels", "--windows-title-stress"])
           argsSansTopStrutFlag
    in case argsSansFlags of
         ["--out", outPath, "--css", cssPath] ->
@@ -644,7 +571,6 @@ parseArgs args =
               { outFile = outPath,
                 cssFile = cssPath,
                 layoutMode = selectedLayoutMode,
-                workspaceWidgetMode = selectedWorkspaceWidgetMode,
                 expectedTopStrut = mExpectedTopStrut
               }
         ["--css", cssPath, "--out", outPath] ->
@@ -653,11 +579,10 @@ parseArgs args =
               { outFile = outPath,
                 cssFile = cssPath,
                 layoutMode = selectedLayoutMode,
-                workspaceWidgetMode = selectedWorkspaceWidgetMode,
                 expectedTopStrut = mExpectedTopStrut
               }
         _ ->
-          die "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css [--levels|--windows-title-stress] [--channel-workspaces] [--expect-top-strut N]"
+          die "usage: taffybar-appearance-snap --out OUT.png --css appearance-test.css [--levels|--windows-title-stress] [--expect-top-strut N]"
   where
     parseTopStrutFlag :: [String] -> (Maybe Int, [String])
     parseTopStrutFlag [] = (Nothing, [])
