@@ -16,6 +16,9 @@
 -- Channel-driven workspace widget that renders backend-agnostic workspace state.
 module System.Taffybar.Widget.Workspaces
   ( WorkspacesConfig (..),
+    WorkspaceWidgetController (..),
+    ControllerConstructor,
+    defaultWidgetBuilder,
     WindowIconPixbufGetter,
     defaultWorkspacesConfig,
     defaultEWMHWorkspacesConfig,
@@ -47,7 +50,7 @@ import Control.Concurrent.STM.TChan (TChan)
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad (foldM, forM_, guard, when)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ask, runReaderT)
+import Control.Monad.Trans.Reader (ask, asks, runReaderT)
 import Data.Default (Default (..))
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int32)
@@ -61,7 +64,7 @@ import qualified GI.Gdk.Structs.EventScroll as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
 import System.Log.Logger (Priority (..), logM)
-import System.Taffybar.Context (TaffyIO, runX11Def)
+import System.Taffybar.Context (Backend (..), TaffyIO, backend, runX11Def)
 import System.Taffybar.Hyprland (getHyprlandClient)
 import System.Taffybar.Information.EWMHDesktopInfo
   ( WorkspaceId (WorkspaceId),
@@ -72,7 +75,8 @@ import System.Taffybar.Information.EWMHDesktopInfo
   )
 import qualified System.Taffybar.Information.Hyprland.API as HyprAPI
 import System.Taffybar.Information.Workspaces.EWMH
-  ( defaultEWMHWorkspaceProviderConfig,
+  ( EWMHWorkspaceProviderConfig,
+    defaultEWMHWorkspaceProviderConfig,
     getEWMHWorkspaceStateChanAndVarWith,
     workspaceUpdateEvents,
   )
@@ -109,9 +113,18 @@ import System.Taffybar.WindowIcon
 
 type WindowIconPixbufGetter = Int32 -> WindowInfo -> TaffyIO (Maybe Gdk.Pixbuf)
 
+data WorkspaceWidgetController = WorkspaceWidgetController
+  { controllerWidget :: Gtk.Widget,
+    controllerUpdate :: WorkspaceInfo -> TaffyIO (),
+    controllerRefreshIcons :: WorkspaceInfo -> TaffyIO ()
+  }
+
+type ControllerConstructor =
+  WorkspacesConfig -> WorkspaceInfo -> TaffyIO WorkspaceWidgetController
+
 data WorkspacesConfig = WorkspacesConfig
-  { workspaceStateSource :: TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnapshot),
-    widgetGap :: Int,
+  { widgetGap :: Int,
+    widgetBuilder :: ControllerConstructor,
     iconSize :: Maybe Int32,
     maxIcons :: Maybe Int,
     minIcons :: Int,
@@ -127,12 +140,9 @@ data WorkspacesConfig = WorkspacesConfig
 data WorkspaceEntry = WorkspaceEntry
   { entryWrapper :: Gtk.Widget,
     entryButton :: Gtk.EventBox,
-    entryContents :: Gtk.Widget,
-    entryIconsBox :: Gtk.Box,
-    entryLabel :: Gtk.Label,
+    entryController :: WorkspaceWidgetController,
     entryWorkspaceRef :: IORef WorkspaceInfo,
-    entryLastWorkspace :: WorkspaceInfo,
-    entryIcons :: [WindowIconWidget WindowInfo]
+    entryLastWorkspace :: WorkspaceInfo
   }
 
 data WorkspaceCache = WorkspaceCache
@@ -142,11 +152,30 @@ data WorkspaceCache = WorkspaceCache
     cacheLastRevision :: Word64
   }
 
+defaultChannelEWMHWorkspaceProviderConfig :: EWMHWorkspaceProviderConfig
+defaultChannelEWMHWorkspaceProviderConfig =
+  defaultEWMHWorkspaceProviderConfig
+    { workspaceUpdateEvents =
+        ewmhWMIcon : workspaceUpdateEvents defaultEWMHWorkspaceProviderConfig
+    }
+
+defaultEWMHWorkspaceStateSource ::
+  TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnapshot)
+defaultEWMHWorkspaceStateSource =
+  getEWMHWorkspaceStateChanAndVarWith defaultChannelEWMHWorkspaceProviderConfig
+
+autoWorkspaceStateSource :: TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnapshot)
+autoWorkspaceStateSource = do
+  backendType <- asks backend
+  case backendType of
+    BackendWayland -> getHyprlandWorkspaceStateChanAndVar
+    BackendX11 -> defaultEWMHWorkspaceStateSource
+
 defaultWorkspacesConfig :: WorkspacesConfig
 defaultWorkspacesConfig =
   WorkspacesConfig
-    { workspaceStateSource = getHyprlandWorkspaceStateChanAndVar,
-      widgetGap = 0,
+    { widgetGap = 0,
+      widgetBuilder = defaultWidgetBuilder,
       iconSize = Just 16,
       maxIcons = Nothing,
       minIcons = 0,
@@ -160,17 +189,46 @@ defaultWorkspacesConfig =
     }
 
 defaultEWMHWorkspacesConfig :: WorkspacesConfig
-defaultEWMHWorkspacesConfig =
-  defaultWorkspacesConfig
-    { workspaceStateSource = getEWMHWorkspaceStateChanAndVarWith providerConfig,
-      onWorkspaceClick = defaultOnWorkspaceClickEWMH
-    }
-  where
-    providerConfig =
-      defaultEWMHWorkspaceProviderConfig
-        { workspaceUpdateEvents =
-            ewmhWMIcon : workspaceUpdateEvents defaultEWMHWorkspaceProviderConfig
-        }
+defaultEWMHWorkspacesConfig = defaultWorkspacesConfig
+
+defaultWidgetBuilder :: ControllerConstructor
+defaultWidgetBuilder cfg wsInfo = do
+  wsRef <- liftIO $ newIORef wsInfo
+  lastWorkspaceRef <- liftIO $ newIORef wsInfo
+  iconsRef <- liftIO $ newIORef []
+  iconsBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
+  label <- liftIO $ Gtk.labelNew Nothing
+  _ <- widgetSetClassGI label "workspace-label"
+  iconsWidget <- Gtk.toWidget iconsBox
+  labelWidget <- Gtk.toWidget label
+  contents <- buildWorkspaceIconLabelOverlay iconsWidget labelWidget
+  let updateController forceIcons newWs = do
+        oldWs <- liftIO $ readIORef lastWorkspaceRef
+        liftIO $ writeIORef wsRef newWs
+        labelText <- labelSetter cfg newWs
+        let wsState = toCSSState cfg newWs
+        liftIO $ Gtk.labelSetMarkup label (T.pack labelText)
+        liftIO $ setWorkspaceWidgetStatusClass wsState contents
+        liftIO $ setWorkspaceWidgetStatusClass wsState label
+        currentIcons <- liftIO $ readIORef iconsRef
+        let needsIconUpdate =
+              forceIcons
+                || null currentIcons
+                || workspaceWindows oldWs /= workspaceWindows newWs
+        updatedIcons <-
+          if needsIconUpdate
+            then updateWorkspaceIcons cfg wsRef iconsBox currentIcons newWs
+            else return currentIcons
+        liftIO $ writeIORef iconsRef updatedIcons
+        liftIO $ writeIORef lastWorkspaceRef newWs
+      controller =
+        WorkspaceWidgetController
+          { controllerWidget = contents,
+            controllerUpdate = updateController False,
+            controllerRefreshIcons = updateController True
+          }
+  controllerRefreshIcons controller wsInfo
+  return controller
 
 instance Default WorkspacesConfig where
   def = defaultWorkspacesConfig
@@ -285,6 +343,13 @@ addCustomIconsAndFallback getCustomIconPath fallback defaultGetter =
 
 defaultOnWorkspaceClick :: WorkspaceInfo -> TaffyIO ()
 defaultOnWorkspaceClick wsInfo = do
+  backendType <- asks backend
+  case backendType of
+    BackendX11 -> defaultOnWorkspaceClickEWMH wsInfo
+    BackendWayland -> defaultOnWorkspaceClickHyprland wsInfo
+
+defaultOnWorkspaceClickHyprland :: WorkspaceInfo -> TaffyIO ()
+defaultOnWorkspaceClickHyprland wsInfo = do
   client <- getHyprlandClient
   let targetText = workspaceName (workspaceIdentity wsInfo)
   case HyprAPI.mkHyprlandWorkspaceTarget targetText of
@@ -341,9 +406,17 @@ workspacesNew cfg = do
   cont <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal (fromIntegral $ widgetGap cfg)
   _ <- widgetSetClassGI cont "workspaces"
   cacheVar <- liftIO $ MV.newMVar (WorkspaceCache M.empty [] [] 0)
-  (chan, snapshotVar) <- workspaceStateSource cfg
+  (chan, snapshotVar) <- autoWorkspaceStateSource
   initialSnapshot <- liftIO $ MV.readMVar snapshotVar
   renderWorkspaces cfg cont cacheVar initialSnapshot
+  _ <-
+    liftIO $
+      Gtk.onWidgetRealize cont $ do
+        latestSnapshot <- MV.readMVar snapshotVar
+        postGUIASync $
+          runReaderT
+            (renderWorkspaces cfg cont cacheVar latestSnapshot)
+            ctx
   _ <-
     liftIO $
       channelWidgetNew
@@ -387,9 +460,9 @@ updateCache cfg cont cacheVar snapshot oldCache = do
                 Just existing
                   | entryLastWorkspace existing == wsInfo ->
                       if forceIconRefresh
-                        then refreshWorkspaceEntryIcons cfg existing wsInfo
+                        then refreshWorkspaceEntryIcons existing wsInfo
                         else return existing
-                  | otherwise -> updateWorkspaceEntry cfg existing wsInfo
+                  | otherwise -> updateWorkspaceEntry existing wsInfo
                 Nothing -> buildWorkspaceEntry cfg cacheVar wsInfo
             return (M.insert wsKey entry cacheAcc, (wsInfo, entry) : entriesAcc)
       (newEntries, orderedEntriesRev) <-
@@ -429,16 +502,11 @@ buildWorkspaceEntry ::
   TaffyIO WorkspaceEntry
 buildWorkspaceEntry cfg cacheVar wsInfo = do
   wsRef <- liftIO $ newIORef wsInfo
-  iconsBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
-  label <- liftIO $ Gtk.labelNew Nothing
-  _ <- widgetSetClassGI label "workspace-label"
-  iconsWidget <- Gtk.toWidget iconsBox
-  labelWidget <- Gtk.toWidget label
-  contents <- buildWorkspaceIconLabelOverlay iconsWidget labelWidget
+  controller <- widgetBuilder cfg cfg wsInfo
   button <- liftIO Gtk.eventBoxNew
   _ <- widgetSetClassGI button "workspace-button"
   liftIO $ Gtk.eventBoxSetVisibleWindow button False
-  liftIO $ Gtk.containerAdd button contents
+  liftIO $ Gtk.containerAdd button (controllerWidget controller)
   wrapperBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
   liftIO $ Gtk.containerAdd wrapperBox button
   wrapper <- Gtk.toWidget wrapperBox
@@ -463,48 +531,32 @@ buildWorkspaceEntry cfg cacheVar wsInfo = do
           Gdk.ScrollDirectionDown -> scrollNext
           Gdk.ScrollDirectionRight -> scrollNext
           _ -> return False
-  updateWorkspaceEntry
-    cfg
+  return
     WorkspaceEntry
       { entryWrapper = wrapper,
         entryButton = button,
-        entryContents = contents,
-        entryIconsBox = iconsBox,
-        entryLabel = label,
+        entryController = controller,
         entryWorkspaceRef = wsRef,
-        entryLastWorkspace = wsInfo,
-        entryIcons = []
+        entryLastWorkspace = wsInfo
       }
-    wsInfo
 
 updateWorkspaceEntry ::
-  WorkspacesConfig ->
   WorkspaceEntry ->
   WorkspaceInfo ->
   TaffyIO WorkspaceEntry
-updateWorkspaceEntry cfg entry wsInfo = do
-  let oldWs = entryLastWorkspace entry
+updateWorkspaceEntry entry wsInfo = do
   liftIO $ writeIORef (entryWorkspaceRef entry) wsInfo
-  labelText <- labelSetter cfg wsInfo
-  let wsState = toCSSState cfg wsInfo
-  liftIO $ Gtk.labelSetMarkup (entryLabel entry) (T.pack labelText)
-  liftIO $ setWorkspaceWidgetStatusClass wsState (entryContents entry)
-  liftIO $ setWorkspaceWidgetStatusClass wsState (entryLabel entry)
-  icons <-
-    if workspaceWindows oldWs /= workspaceWindows wsInfo
-      then updateWorkspaceIcons cfg (entryWorkspaceRef entry) (entryIconsBox entry) (entryIcons entry) wsInfo
-      else return (entryIcons entry)
-  return entry {entryLastWorkspace = wsInfo, entryIcons = icons}
+  controllerUpdate (entryController entry) wsInfo
+  return entry {entryLastWorkspace = wsInfo}
 
 refreshWorkspaceEntryIcons ::
-  WorkspacesConfig ->
   WorkspaceEntry ->
   WorkspaceInfo ->
   TaffyIO WorkspaceEntry
-refreshWorkspaceEntryIcons cfg entry wsInfo = do
+refreshWorkspaceEntryIcons entry wsInfo = do
   liftIO $ writeIORef (entryWorkspaceRef entry) wsInfo
-  icons <- updateWorkspaceIcons cfg (entryWorkspaceRef entry) (entryIconsBox entry) (entryIcons entry) wsInfo
-  return entry {entryLastWorkspace = wsInfo, entryIcons = icons}
+  controllerRefreshIcons (entryController entry) wsInfo
+  return entry {entryLastWorkspace = wsInfo}
 
 switchWorkspaceRelative ::
   WorkspacesConfig ->

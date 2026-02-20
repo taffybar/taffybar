@@ -35,8 +35,13 @@ import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.Pango as Pango
 import System.Taffybar.Context
+import System.Taffybar.Information.EWMHDesktopInfo
+  ( ewmhWMIcon,
+  )
 import System.Taffybar.Information.Workspaces.EWMH
-  ( getEWMHWorkspaceStateChanAndVar,
+  ( defaultEWMHWorkspaceProviderConfig,
+    getEWMHWorkspaceStateChanAndVarWith,
+    workspaceUpdateEvents,
   )
 import System.Taffybar.Information.Workspaces.Hyprland
   ( getHyprlandWorkspaceStateChanAndVar,
@@ -55,8 +60,7 @@ import System.Taffybar.Widget.Workspaces
 
 -- | Behavior configuration for the windows menu widget.
 data WindowsConfig = WindowsConfig
-  { windowStateSource :: TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnapshot),
-    -- | A monadic function used to build labels for windows in the menu.
+  { -- | A monadic function used to build labels for windows in the menu.
     getMenuLabel :: WindowInfo -> TaffyIO T.Text,
     -- | Action to build the label text for the active window.
     getActiveLabel :: Maybe WindowInfo -> TaffyIO T.Text,
@@ -68,6 +72,24 @@ data WindowsConfig = WindowsConfig
     -- | Action when a menu item is selected.
     onMenuWindowClick :: WindowInfo -> TaffyIO ()
   }
+
+defaultChannelEWMHWorkspaceStateSource ::
+  TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnapshot)
+defaultChannelEWMHWorkspaceStateSource =
+  getEWMHWorkspaceStateChanAndVarWith providerConfig
+  where
+    providerConfig =
+      defaultEWMHWorkspaceProviderConfig
+        { workspaceUpdateEvents =
+            ewmhWMIcon : workspaceUpdateEvents defaultEWMHWorkspaceProviderConfig
+        }
+
+autoWindowStateSource :: TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnapshot)
+autoWindowStateSource = do
+  backendType <- asks backend
+  case backendType of
+    BackendWayland -> getHyprlandWorkspaceStateChanAndVar
+    BackendX11 -> defaultChannelEWMHWorkspaceStateSource
 
 -- | Build a menu label from the window title.
 defaultGetMenuLabel :: WindowInfo -> TaffyIO T.Text
@@ -91,8 +113,7 @@ truncatedGetMenuLabel maxLength windowInfo =
 defaultWindowsConfig :: WindowsConfig
 defaultWindowsConfig =
   WindowsConfig
-    { windowStateSource = getHyprlandWorkspaceStateChanAndVar,
-      getMenuLabel = defaultGetMenuLabel,
+    { getMenuLabel = defaultGetMenuLabel,
       getActiveLabel = defaultGetActiveLabel,
       getActiveWindowIconPixbuf = Just getWindowIconPixbufByClassHints,
       menuWindowSort = pure . sortWindowsByPosition,
@@ -101,10 +122,7 @@ defaultWindowsConfig =
 
 -- | EWMH/X11 preset configuration.
 defaultEWMHWindowsConfig :: WindowsConfig
-defaultEWMHWindowsConfig =
-  defaultWindowsConfig
-    { windowStateSource = getEWMHWorkspaceStateChanAndVar
-    }
+defaultEWMHWindowsConfig = defaultWindowsConfig
 
 instance Default WindowsConfig where
   def = defaultWindowsConfig
@@ -113,7 +131,7 @@ instance Default WindowsConfig where
 windowsNew :: WindowsConfig -> TaffyIO Gtk.Widget
 windowsNew config = do
   hbox <- lift $ Gtk.boxNew Gtk.OrientationHorizontal 0
-  (stateChan, stateVar) <- windowStateSource config
+  (stateChan, stateVar) <- autoWindowStateSource
   initialSnapshot <- liftIO $ MV.readMVar stateVar
   activeWindowRef <- liftIO $ newIORef $ getActiveWindow initialSnapshot
 
@@ -137,6 +155,11 @@ windowsNew config = do
   void $ refreshFromSnapshot initialSnapshot
 
   ctx <- ask
+  _ <-
+    liftIO $
+      Gtk.onWidgetRealize hbox $ do
+        latestSnapshot <- MV.readMVar stateVar
+        void $ runReaderT (refreshFromSnapshot latestSnapshot) ctx
   _ <-
     liftIO $
       channelWidgetNew
