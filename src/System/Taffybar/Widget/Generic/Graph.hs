@@ -24,7 +24,8 @@ module System.Taffybar.Widget.Generic.Graph
 where
 
 import Control.Concurrent
-import Control.Monad (when)
+import Control.Exception (bracket_)
+import Control.Monad (forM, when)
 import Control.Monad.IO.Class
 import Data.Default (Default (..))
 import Data.Sequence (Seq (..), ViewL (..), viewl, (<|))
@@ -33,6 +34,7 @@ import qualified Data.Text as T
 import qualified GI.Cairo.Render as C
 import GI.Cairo.Render.Connector
 import qualified GI.Cairo.Render.Matrix as M
+import qualified GI.Gdk.Structs.RGBA as GdkRGBA
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
@@ -50,7 +52,7 @@ data GraphState
 data GraphDirection = LEFT_TO_RIGHT | RIGHT_TO_LEFT deriving (Eq)
 
 -- 'RGBA' represents a color with a transparency.
-type RGBA = (Double, Double, Double, Double)
+type GraphColor = (Double, Double, Double, Double)
 
 -- | The style of the graph. Generally, you will want to draw all 'Area' graphs
 -- first, and then all 'Line' graphs.
@@ -66,13 +68,16 @@ data GraphConfig = GraphConfig
   { -- | Number of pixels of padding on each side of the graph widget
     graphPadding :: Int,
     -- | The background color of the graph (default black)
-    graphBackgroundColor :: RGBA,
+    graphBackgroundColor :: GraphColor,
     -- | The border color drawn around the graph (default gray)
-    graphBorderColor :: RGBA,
+    graphBorderColor :: GraphColor,
     -- | The width of the border (default 1, use 0 to disable the border)
     graphBorderWidth :: Int,
     -- | Colors for each data set (default cycles between red, green and blue)
-    graphDataColors :: [RGBA],
+    graphDataColors :: [GraphColor],
+    -- | Draw graph colors from CSS classes. When enabled, each dataset color is
+    -- read from @color@ using @graph-data-N@ classes on the drawing area.
+    graphColorsFromCss :: Bool,
     -- | How to draw each data point (default @repeat Area@)
     graphDataStyles :: [GraphStyle],
     -- | The number of data points to retain for each data set (default 20)
@@ -93,6 +98,7 @@ defaultGraphConfig =
       graphBorderColor = (0.5, 0.5, 0.5, 1.0),
       graphBorderWidth = 1,
       graphDataColors = cycle [(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0)],
+      graphColorsFromCss = False,
       graphDataStyles = repeat Area,
       graphHistorySize = 20,
       graphLabel = Nothing,
@@ -128,36 +134,70 @@ outlineData pctToY xStep pct = do
   (curX, _) <- C.getCurrentPoint
   C.lineTo (curX + xStep) (pctToY pct)
 
-renderFrameAndBackground :: GraphConfig -> Int -> Int -> C.Render ()
-renderFrameAndBackground cfg w h = do
-  let (backR, backG, backB, backA) = graphBackgroundColor cfg
-      (frameR, frameG, frameB, frameA) = graphBorderColor cfg
-      pad = graphPadding cfg
+normalStateFlags :: [Gtk.StateFlags]
+normalStateFlags = [Gtk.StateFlagsNormal]
+
+rgbaToGraphColor :: GdkRGBA.RGBA -> IO GraphColor
+rgbaToGraphColor rgba = do
+  r <- GdkRGBA.getRGBARed rgba
+  g <- GdkRGBA.getRGBAGreen rgba
+  b <- GdkRGBA.getRGBABlue rgba
+  a <- GdkRGBA.getRGBAAlpha rgba
+  return (r, g, b, a)
+
+withStyleContextSave :: Gtk.StyleContext -> IO a -> IO a
+withStyleContextSave styleContext =
+  bracket_
+    (Gtk.styleContextSave styleContext)
+    (Gtk.styleContextRestore styleContext)
+
+getDataColorFromCss :: Gtk.StyleContext -> Int -> IO GraphColor
+getDataColorFromCss styleContext index =
+  withStyleContextSave styleContext $ do
+    Gtk.styleContextAddClass styleContext (T.pack "graph-data")
+    Gtk.styleContextAddClass styleContext (T.pack $ "graph-data-" <> show index)
+    Gtk.styleContextGetColor styleContext normalStateFlags >>= rgbaToGraphColor
+
+renderFrameAndBackground :: GraphConfig -> Maybe Gtk.StyleContext -> Int -> Int -> C.Render ()
+renderFrameAndBackground cfg styleContext w h = do
+  let pad = graphPadding cfg
       fpad = fromIntegral pad
       fw = fromIntegral w
       fh = fromIntegral h
+      frameX = fpad
+      frameY = fpad
+      frameWidth = fw - 2 * fpad
+      frameHeight = fh - 2 * fpad
+  case (graphColorsFromCss cfg, styleContext) of
+    (True, Just context) ->
+      toRender $ \cairoCtx -> do
+        Gtk.renderBackground context cairoCtx frameX frameY frameWidth frameHeight
+        when (graphBorderWidth cfg > 0) $
+          Gtk.renderFrame context cairoCtx frameX frameY frameWidth frameHeight
+    _ -> do
+      let (backR, backG, backB, backA) = graphBackgroundColor cfg
+          (frameR, frameG, frameB, frameA) = graphBorderColor cfg
+      -- Draw the requested background
+      C.setSourceRGBA backR backG backB backA
+      C.rectangle frameX frameY frameWidth frameHeight
+      C.fill
 
-  -- Draw the requested background
-  C.setSourceRGBA backR backG backB backA
-  C.rectangle fpad fpad (fw - 2 * fpad) (fh - 2 * fpad)
-  C.fill
+      -- Draw a frame around the widget area (unless equal to background color,
+      -- which likely means the user does not want a frame)
+      when (graphBorderWidth cfg > 0) $ do
+        let p = fromIntegral (graphBorderWidth cfg)
+        C.setLineWidth p
+        C.setSourceRGBA frameR frameG frameB frameA
+        C.rectangle
+          (fpad + (p / 2))
+          (fpad + (p / 2))
+          (fw - 2 * fpad - p)
+          (fh - 2 * fpad - p)
+        C.stroke
 
-  -- Draw a frame around the widget area (unless equal to background color,
-  -- which likely means the user does not want a frame)
-  when (graphBorderWidth cfg > 0) $ do
-    let p = fromIntegral (graphBorderWidth cfg)
-    C.setLineWidth p
-    C.setSourceRGBA frameR frameG frameB frameA
-    C.rectangle
-      (fpad + (p / 2))
-      (fpad + (p / 2))
-      (fw - 2 * fpad - p)
-      (fh - 2 * fpad - p)
-    C.stroke
-
-renderGraph :: [Seq Double] -> GraphConfig -> Int -> Int -> Double -> C.Render ()
-renderGraph hists cfg w h xStep = do
-  renderFrameAndBackground cfg w h
+renderGraph :: [Seq Double] -> [GraphColor] -> GraphConfig -> Maybe Gtk.StyleContext -> Int -> Int -> Double -> C.Render ()
+renderGraph hists dataColors cfg styleContext w h xStep = do
+  renderFrameAndBackground cfg styleContext w h
 
   C.setLineWidth 0.1
 
@@ -205,7 +245,7 @@ renderGraph hists cfg w h xStep = do
     zipWith3
       renderDataSet
       hists
-      (graphDataColors cfg)
+      dataColors
       (graphDataStyles cfg)
 
 drawBorder :: MVar GraphState -> Gtk.DrawingArea -> C.Render ()
@@ -213,7 +253,8 @@ drawBorder mv drawArea = do
   (w, h) <- widgetGetAllocatedSize drawArea
   s <- liftIO $ readMVar mv
   let cfg = graphConfig s
-  renderFrameAndBackground cfg w h
+  styleContext <- C.liftIO $ Gtk.widgetGetStyleContext drawArea
+  renderFrameAndBackground cfg (Just styleContext) w h
   liftIO $ modifyMVar_ mv (\s' -> return s' {graphIsBootstrapped = True})
   return ()
 
@@ -225,17 +266,24 @@ drawGraph mv drawArea = do
   let hist = graphHistory s
       cfg = graphConfig s
       histSize = graphHistorySize cfg
-      -- Subtract 1 here since the first data point doesn't require
+  styleContext <- C.liftIO $ Gtk.widgetGetStyleContext drawArea
+  dataColors <-
+    if graphColorsFromCss cfg
+      then C.liftIO $ forM [1 .. length hist] (getDataColorFromCss styleContext)
+      else return $ graphDataColors cfg
+  let -- Subtract 1 here since the first data point doesn't require
       -- any movement in the X direction
       xStep = fromIntegral w / fromIntegral (histSize - 1)
 
   case hist of
-    [] -> renderFrameAndBackground cfg w h
-    _ -> renderGraph hist cfg w h xStep
+    [] -> renderFrameAndBackground cfg (Just styleContext) w h
+    _ -> renderGraph hist dataColors cfg (Just styleContext) w h xStep
 
 graphNew :: (MonadIO m) => GraphConfig -> m (Gtk.Widget, GraphHandle)
 graphNew cfg = liftIO $ do
   drawArea <- Gtk.drawingAreaNew
+  Gtk.widgetGetStyleContext drawArea >>= \styleContext ->
+    Gtk.styleContextAddClass styleContext (T.pack "graph")
   mv <-
     newMVar
       GraphState
