@@ -201,7 +201,6 @@ library
                  , System.Taffybar.Widget.Generic.PollingLabel
                  , System.Taffybar.Widget.Generic.VerticalBar
                  , System.Taffybar.Widget.HyprlandLayout
-                 , System.Taffybar.Widget.HyprlandWindows
                  , System.Taffybar.Widget.Inhibitor
                  , System.Taffybar.Widget.KeyboardState
                  , System.Taffybar.Widget.Layout

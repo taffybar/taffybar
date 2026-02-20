@@ -277,7 +277,7 @@ buildBarConfig workspaceWidget barUnique mode =
   where
     windowsCfg =
       def
-        { Windows.getActiveLabel = pure "line 1\nline 2\nline 3\nline 4",
+        { Windows.getActiveLabel = const $ pure "line 1\nline 2\nline 3\nline 4",
           Windows.getActiveWindowIconPixbuf = Nothing
         }
     baseStrutConfig h =
