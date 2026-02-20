@@ -39,6 +39,9 @@ import Control.Monad (void)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import Data.IORef
+import Data.List (findIndex)
+import qualified Data.Map.Strict as M
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
@@ -83,6 +86,13 @@ data CollapsibleSNITrayParams = CollapsibleSNITrayParams
     --
     -- Non-positive values disable collapsing.
     collapsibleSNITrayMaxVisibleIcons :: Int,
+    -- | Optional collapsed-mode priority cutoff.
+    --
+    -- When set, collapsed mode shows only icons whose priority index is less
+    -- than or equal to this value, where the index comes from
+    -- 'trayPriorityMatchers' order in 'TrayPriorityConfig'. This takes
+    -- precedence over 'collapsibleSNITrayMaxVisibleIcons' when collapsed.
+    collapsibleSNITrayCollapsedPriorityCutoff :: Maybe Int,
     -- | Whether the tray starts expanded.
     collapsibleSNITrayStartExpanded :: Bool,
     -- | Show the indicator while expanded.
@@ -106,6 +116,7 @@ defaultCollapsibleSNITrayParams =
   CollapsibleSNITrayParams
     { collapsibleSNITrayConfig = defaultSNITrayConfig,
       collapsibleSNITrayMaxVisibleIcons = 6,
+      collapsibleSNITrayCollapsedPriorityCutoff = Nothing,
       collapsibleSNITrayStartExpanded = False,
       collapsibleSNITrayShowIndicatorWhenExpanded = True,
       collapsibleSNITrayIndicatorLabel = defaultCollapsibleSNITrayIndicatorLabel
@@ -141,11 +152,10 @@ sniTrayNewFromHostConfig SNITrayConfig {..} host = do
   client <- asks sessionDBusClient
   lift $ do
     tray <-
-      buildTrayWithPriority
+      buildTray
         host
         client
-        sniTrayTrayParams
-        sniTrayPriorityConfig
+        sniTrayTrayParams {trayPriorityConfig = sniTrayPriorityConfig}
     _ <- widgetSetClassGI tray "sni-tray"
     Gtk.widgetShowAll tray
     Gtk.toWidget tray
@@ -168,12 +178,12 @@ sniTrayCollapsibleNewFromHostParams CollapsibleSNITrayParams {..} host = do
   client <- asks sessionDBusClient
   lift $ do
     let SNITrayConfig {..} = collapsibleSNITrayConfig
+        TrayPriorityConfig {trayPriorityMatchers = priorityMatchers} = sniTrayPriorityConfig
     tray <-
-      buildTrayWithPriority
+      buildTray
         host
         client
-        sniTrayTrayParams
-        sniTrayPriorityConfig
+        sniTrayTrayParams {trayPriorityConfig = sniTrayPriorityConfig}
     _ <- widgetSetClassGI tray "sni-tray"
     outer <- Gtk.boxNew (trayOrientation sniTrayTrayParams) 0
     _ <- widgetSetClassGI outer "sni-tray-collapsible"
@@ -194,9 +204,25 @@ sniTrayCollapsibleNewFromHostParams CollapsibleSNITrayParams {..} host = do
           children <- Gtk.containerGetChildren tray
 
           expanded <- readIORef expandedRef
-          let shouldLimit = maxVisible > 0
+          priorityVisibleCount <-
+            case collapsibleSNITrayCollapsedPriorityCutoff of
+              Nothing -> return Nothing
+              Just cutoff -> do
+                infoMap <- H.itemInfoMap host
+                let getPriorityIndex info =
+                      fromMaybe
+                        (length priorityMatchers)
+                        (findIndex (\matcher -> trayItemMatcherPredicate matcher info) priorityMatchers)
+                    visibleCount =
+                      length $
+                        filter
+                          (\info -> getPriorityIndex info <= cutoff)
+                          (M.elems infoMap)
+                return (Just visibleCount)
+          let shouldLimit = maybe (maxVisible > 0) (const True) priorityVisibleCount
+              collapsedVisibleCount = fromMaybe maxVisible priorityVisibleCount
               visibleCount
-                | shouldLimit && not expanded = maxVisible
+                | shouldLimit && not expanded = max 0 collapsedVisibleCount
                 | otherwise = length children
               visibleChildren = take visibleCount children
               hiddenChildren = drop visibleCount children

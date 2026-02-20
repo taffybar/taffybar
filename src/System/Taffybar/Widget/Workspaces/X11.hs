@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-deprecations #-}
-
 -----------------------------------------------------------------------------
 
 -----------------------------------------------------------------------------
@@ -13,9 +11,8 @@
 -- Stability   : unstable
 -- Portability : unportable
 module System.Taffybar.Widget.Workspaces.X11
-  {-# DEPRECATED "Legacy X11 workspaces implementation. Use System.Taffybar.Widget.Workspaces (or System.Taffybar.Widget.Workspaces.Legacy.X11) instead." #-}
-  ( module System.Taffybar.Widget.Workspaces.Legacy.X11,
+  ( module System.Taffybar.Widget.Workspaces.EWMH,
   )
 where
 
-import System.Taffybar.Widget.Workspaces.Legacy.X11
+import System.Taffybar.Widget.Workspaces.EWMH

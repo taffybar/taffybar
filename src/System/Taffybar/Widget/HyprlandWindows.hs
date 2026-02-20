@@ -37,7 +37,7 @@ import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.DynamicMenu
 import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import System.Taffybar.Widget.Util
-import System.Taffybar.Widget.Workspaces.Legacy.Hyprland
+import System.Taffybar.Widget.Workspaces.Hyprland
   ( HyprlandClient,
     HyprlandWindow (..),
     HyprlandWindowIconPixbufGetter,

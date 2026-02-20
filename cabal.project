@@ -1,5 +1,11 @@
 packages:
   ./
   ./example
+
+source-repository-package
+  type: git
+  location: https://github.com/taffybar/gtk-sni-tray.git
+  tag: v0.2.0.0
+
 program-options
   ghc-options: -fwrite-ide-info
