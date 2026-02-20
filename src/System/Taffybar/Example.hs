@@ -24,7 +24,6 @@ module System.Taffybar.Example where
 import Data.Default (def)
 import System.Taffybar.Context (TaffybarConfig (..))
 import System.Taffybar.Hooks
-import System.Taffybar.Information.CPU
 import System.Taffybar.Information.Memory
 import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
@@ -75,11 +74,6 @@ memCallback = do
   mi <- parseMeminfo
   return [memoryUsedRatio mi]
 
-cpuCallback :: IO [Double]
-cpuCallback = do
-  (_, systemLoad, totalLoad) <- cpuLoad
-  return [totalLoad, systemLoad]
-
 exampleTaffybarConfig :: TaffybarConfig
 exampleTaffybarConfig =
   let myWorkspacesConfig :: Workspaces.WorkspacesConfig
@@ -94,7 +88,7 @@ exampleTaffybarConfig =
                     }
               }
       workspaces = Workspaces.workspacesNew myWorkspacesConfig
-      cpu = pollingGraphNew cpuCfg 0.5 cpuCallback
+      cpu = cpuMonitorNew cpuCfg 0.5 "cpu"
       mem = pollingGraphNew memCfg 1 memCallback
       net = networkGraphNew netCfg Nothing
       clock = textClockNewWith def
@@ -128,7 +122,7 @@ exampleTaffybarConfig =
 exampleWaylandTaffybarConfig :: TaffybarConfig
 exampleWaylandTaffybarConfig =
   let clock = textClockNewWith def
-      cpu = pollingGraphNew cpuCfg 1 cpuCallback
+      cpu = cpuMonitorNew cpuCfg 1 "cpu"
       myConfig =
         def
           { startWidgets = [],

@@ -1,35 +1,17 @@
-module System.Taffybar.Information.CPU (cpuLoad) where
+{-# LANGUAGE NamedFieldPuns #-}
 
-import Control.Concurrent (threadDelay)
-import System.IO (IOMode (ReadMode), hClose, hGetLine, openFile)
+module System.Taffybar.Information.CPU
+  {-# DEPRECATED "Legacy CPU module. Use System.Taffybar.Information.CPU2.getCPULoadChan (preferred) or sampleCPULoad/CPULoad." #-}
+  (cpuLoad)
+where
 
-procData :: IO [Double]
-procData = do
-  h <- openFile "/proc/stat" ReadMode
-  firstLine <- hGetLine h
-  length firstLine `seq` return ()
-  hClose h
-  return (procParser firstLine)
+import System.Taffybar.Information.CPU2 (CPULoad (..), sampleCPULoad)
 
-procParser :: String -> [Double]
-procParser = map read . drop 1 . words
+{-# DEPRECATED cpuLoad "Legacy API. Use System.Taffybar.Information.CPU2.getCPULoadChan (preferred) or sampleCPULoad." #-}
 
-truncVal :: Double -> Double
-truncVal v
-  | isNaN v || v < 0.0 = 0.0
-  | otherwise = v
-
--- | Return a pair with (user time, system time, total time) (read
--- from /proc/stat).  The function waits for 50 ms between samples.
+-- | Return a triple with (user time, system time, total time), sampled from
+-- /proc/stat over 50ms.
 cpuLoad :: IO (Double, Double, Double)
 cpuLoad = do
-  a <- procData
-  threadDelay 50000
-  b <- procData
-  let dif = zipWith (-) b a
-      tot = sum dif
-      pct = map (/ tot) dif
-      user = sum $ take 2 pct
-      system = pct !! 2
-      t = user + system
-  return (truncVal user, truncVal system, truncVal t)
+  CPULoad {cpuUserLoad, cpuSystemLoad, cpuTotalLoad} <- sampleCPULoad 0.05 "cpu"
+  return (cpuUserLoad, cpuSystemLoad, cpuTotalLoad)
