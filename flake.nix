@@ -77,6 +77,9 @@
       overlays = [ self.overlays.default ];
       config.allowBroken = true;
     };
+    taffybarPackage = pkgs.haskellPackages.taffybar;
+    taffybarPackageNoChecks = pkgs.haskell.lib.dontCheck taffybarPackage;
+    taffybarPackageWithChecks = pkgs.haskell.lib.doCheck taffybarPackage;
 
     mkHyprlandAppearanceVmTest =
       { compare ? false
@@ -84,7 +87,7 @@
       }:
       import ./nix/appearance-hyprland-vm-test.nix {
         inherit pkgs;
-        taffybarPackage = pkgs.haskellPackages.taffybar;
+        taffybarPackage = taffybarPackageNoChecks;
         cssFile = ./test/data/appearance-test.css;
         inherit compare goldenFile;
       };
@@ -96,10 +99,9 @@
       (compiler: pkgs.haskell.packages.${compiler}.taffybar.env);
 
     packages = {
-      default = self.packages.${system}.taffybar;
-      inherit (pkgs.haskellPackages)
-        taffybar
-        my-taffybar;
+      default = taffybarPackageNoChecks;
+      taffybar = taffybarPackageNoChecks;
+      inherit (pkgs.haskellPackages) my-taffybar;
     } // lib.listToAttrs (map (compiler: {
       name = "${compiler}-taffybar";
       value = pkgs.haskell.packages.${compiler}.taffybar;
@@ -115,7 +117,7 @@
       ormolu = pkgs.haskellPackages.taffybar.ormolu;
       hlint = pkgs.haskellPackages.taffybar.hlint;
       ghc-warnings = pkgs.haskellPackages.taffybar.fail-on-all-warnings;
-      tests = pkgs.haskellPackages.taffybar;
+      tests = taffybarPackageWithChecks;
     } // lib.optionalAttrs (system == "x86_64-linux") {
       dependency-graph = weeder-nix.lib.${system}.makeWeederCheck {
         weederToml = ./weeder.toml;
