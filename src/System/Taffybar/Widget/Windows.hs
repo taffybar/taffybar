@@ -223,11 +223,10 @@ fillMenu config snapshot menu =
                 >> return True
         item <- Gtk.menuItemNew
         content <- Gtk.boxNew Gtk.OrientationHorizontal 6
-        _ <-
-          forM iconPixbuf $ \pixbuf -> do
-            icon <- Gtk.imageNewFromPixbuf (Just pixbuf)
-            Gtk.boxPackStart content icon False False 0
-            pure icon
+        forM_ iconPixbuf $ \pixbuf -> do
+          icon <- Gtk.imageNewFromPixbuf (Just pixbuf)
+          Gtk.boxPackStart content icon False False 0
+          pure icon
         label <- Gtk.labelNew (Just labelText)
         Gtk.labelSetXalign label 0
         Gtk.boxPackStart content label True True 0
