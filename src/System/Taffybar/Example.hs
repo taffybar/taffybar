@@ -26,6 +26,7 @@ module System.Taffybar.Example where
 import Data.Default (def)
 import System.Taffybar.Context (TaffybarConfig (..))
 import System.Taffybar.Hooks
+import System.Taffybar.Information.CPU (cpuLoad)
 import System.Taffybar.Information.Memory
 import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
