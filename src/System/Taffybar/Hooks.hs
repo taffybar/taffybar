@@ -130,11 +130,11 @@ startDesktopEntryCacheWatch = do
           _ <- MV.takeMVar updateSignal
           threadDelay 200000
           flushUpdates updateSignal
-          void $ flip runReaderT ctx refreshDirectoryEntriesCache
-  void $ refreshDirectoryEntriesCache
+          void $ runReaderT refreshDirectoryEntriesCache ctx
+  void refreshDirectoryEntriesCache
   return $
     DesktopEntryCacheWatch $
-      mapM_ id stopActions
+      sequence_ stopActions
 
 refreshDirectoryEntriesCache :: TaffyIO (MM.MultiMap String DesktopEntry)
 refreshDirectoryEntriesCache = do

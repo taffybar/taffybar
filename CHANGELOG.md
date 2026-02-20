@@ -6,6 +6,9 @@
    stacked multi-row bars with per-level `start`/`center`/`end` widget lists.
  * Keep backward compatibility for existing configs: when `barLevels` is
    `Nothing`, the legacy single-row widget fields are used unchanged.
+ * Add `mpris2NewWithControls`, an opt-in MPRIS2 constructor that shows
+   previous/play-pause/next controls gated by player capabilities
+   (`CanGoPrevious`, `CanPlay`, `CanPause`, `CanGoNext`).
 
 ## Dependency Bumps
 

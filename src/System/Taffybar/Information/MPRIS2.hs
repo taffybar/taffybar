@@ -36,7 +36,11 @@ data NowPlaying = NowPlaying
   { npTitle :: String,
     npArtists :: [String],
     npStatus :: String,
-    npBusName :: DBus.BusName
+    npBusName :: DBus.BusName,
+    npCanGoPrevious :: Bool,
+    npCanPlay :: Bool,
+    npCanPause :: Bool,
+    npCanGoNext :: Bool
   }
   deriving (Show, Eq)
 
@@ -67,12 +71,32 @@ getNowPlayingInfo client =
                       MaybeT $
                         getPlaybackStatus client busName
                           >>= eitherToMaybeWithLog
+                    canGoPrevious <-
+                      lift $
+                        fromMaybe False
+                          <$> (getCanGoPrevious client busName >>= eitherToMaybeWithLog)
+                    canPlay <-
+                      lift $
+                        fromMaybe False
+                          <$> (getCanPlay client busName >>= eitherToMaybeWithLog)
+                    canPause <-
+                      lift $
+                        fromMaybe False
+                          <$> (getCanPause client busName >>= eitherToMaybeWithLog)
+                    canGoNext <-
+                      lift $
+                        fromMaybe False
+                          <$> (getCanGoNext client busName >>= eitherToMaybeWithLog)
                     return
                       NowPlaying
                         { npTitle = title,
                           npArtists = artists,
                           npStatus = status,
-                          npBusName = busName
+                          npBusName = busName,
+                          npCanGoPrevious = canGoPrevious,
+                          npCanPlay = canPlay,
+                          npCanPause = canPause,
+                          npCanGoNext = canGoNext
                         }
             lift $ catMaybes <$> mapM getSongData mediaPlayerBusNames
         )
