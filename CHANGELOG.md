@@ -1,5 +1,17 @@
 # Unreleased
 
+# 5.2.1
+
+## Fixes
+
+* Guard EWMH window-icon property subscriptions behind X11 context presence to
+  avoid non-X11 build/runtime failures.
+
+## Tests
+
+* Simplify appearance snapshot apps/tests to a single workspaces mode by
+  removing legacy channel-workspaces snapshot wiring and flags.
+
 # 5.2.0
 
 ## New Features
