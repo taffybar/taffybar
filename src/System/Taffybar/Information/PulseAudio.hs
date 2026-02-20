@@ -41,7 +41,7 @@ module System.Taffybar.Information.PulseAudio
 where
 
 import Control.Applicative ((<|>))
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, finally, throwIO, try)
@@ -74,6 +74,7 @@ import System.Taffybar.DBus.Client.Params
     paServerLookupInterfaceName,
     paServerLookupObjectPath,
   )
+import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 import System.Taffybar.Util (logPrintF, maybeToEither)
 
 -- | PulseAudio information for the default (or provided) sink.
@@ -144,18 +145,24 @@ getPulseAudioInfoChanVarFor :: forall a. (KnownSymbol a) => TaffyIO (PulseAudioI
 getPulseAudioInfoChanVarFor =
   getStateDefault $ do
     let sinkSpec = symbolVal (Proxy @a)
+    retryWakeupChan <- getWakeupChannelForDelay (5 :: Double)
+    blockWakeupChan <- getWakeupChannelForDelay (1000 :: Double)
+    retryOurWakeupChan <- liftIO $ atomically $ dupTChan retryWakeupChan
+    blockOurWakeupChan <- liftIO $ atomically $ dupTChan blockWakeupChan
     liftIO $ do
       chan <- newBroadcastTChanIO
       var <- newMVar Nothing
-      _ <- forkIO $ monitorPulseAudioInfo sinkSpec chan var
+      _ <- forkIO $ monitorPulseAudioInfo sinkSpec retryOurWakeupChan blockOurWakeupChan chan var
       pure $ PulseAudioInfoChanVar (chan, var)
 
 monitorPulseAudioInfo ::
   String ->
+  TChan a ->
+  TChan b ->
   TChan (Maybe PulseAudioInfo) ->
   MVar (Maybe PulseAudioInfo) ->
   IO ()
-monitorPulseAudioInfo sinkSpec chan var = do
+monitorPulseAudioInfo sinkSpec retryWakeupChan blockWakeupChan chan var = do
   refreshLock <- newMVar ()
   let writeInfo info = do
         _ <- swapMVar var info
@@ -260,7 +267,7 @@ monitorPulseAudioInfo sinkSpec chan var = do
           Nothing -> do
             writeInfo Nothing
             -- No polling; just retry connection periodically.
-            threadDelay 5000000
+            void $ atomically $ readTChan retryWakeupChan
             loop
           Just client -> do
             let runWithClient = do
@@ -326,7 +333,7 @@ monitorPulseAudioInfo sinkSpec chan var = do
 
       -- Avoid BlockedIndefinitelyOnMVar exceptions from the "empty mvar trick".
       blockForever =
-        forever $ threadDelay 1000000000 -- ~1000s; interruptible by async exceptions.
+        forever $ void $ atomically $ readTChan blockWakeupChan -- ~1000s; interruptible by async exceptions.
   loop
 
 -- | Query volume and mute state for the provided sink name.

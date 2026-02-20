@@ -30,16 +30,16 @@ module System.Taffybar.Information.DiskUsage
   )
 where
 
-import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception.Enclosed (catchAny)
-import Control.Monad (forever, void)
+import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import System.DiskSpace (diskAvail, diskFree, diskTotal, getDiskUsage)
 import System.Log.Logger (Priority (..))
 import System.Taffybar.Context (TaffyIO, getStateDefault)
+import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 import System.Taffybar.Util (logPrintF)
 
 -- | Disk usage statistics for a single filesystem.
@@ -105,19 +105,20 @@ getDiskUsageInfoState interval path = do
   liftIO $ readMVar var
 
 setupDiskUsageChanVar :: Double -> FilePath -> TaffyIO DiskUsageChanVar
-setupDiskUsageChanVar interval path = getStateDefault $ liftIO $ do
-  chan <- newBroadcastTChanIO
-  info <- getDiskUsageInfo path
-  var <- newMVar info
-  void $ forkIO $ forever $ do
-    threadDelay (floor $ interval * 1000000)
-    catchAny
-      ( do
-          newInfo <- getDiskUsageInfo path
-          void $ swapMVar var newInfo
-          atomically $ writeTChan chan newInfo
-      )
-      (logPrintF logName WARNING "DiskUsage poll failed: %s")
+setupDiskUsageChanVar interval path = getStateDefault $ do
+  chan <- liftIO newBroadcastTChanIO
+  info <- liftIO $ getDiskUsageInfo path
+  var <- liftIO $ newMVar info
+  void $
+    taffyForeverWithDelay interval $
+      liftIO $
+        catchAny
+          ( do
+              newInfo <- getDiskUsageInfo path
+              void $ swapMVar var newInfo
+              atomically $ writeTChan chan newInfo
+          )
+          (logPrintF logName WARNING "DiskUsage poll failed: %s")
   pure $ DiskUsageChanVar (chan, var)
 
 logName :: String

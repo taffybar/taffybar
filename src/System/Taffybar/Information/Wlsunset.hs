@@ -34,7 +34,6 @@ module System.Taffybar.Information.Wlsunset
   )
 where
 
-import Control.Concurrent (threadDelay)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception.Enclosed (catchAny)
@@ -49,6 +48,7 @@ import System.Posix.Signals (sigUSR1, signalProcess)
 import System.Posix.Types (CPid (..))
 import System.Process (readProcess, spawnCommand)
 import System.Taffybar.Context
+import System.Taffybar.Information.Wakeup (getWakeupChannelSeconds)
 import System.Taffybar.Util (logPrintF)
 import Text.Read (readMaybe)
 
@@ -167,11 +167,13 @@ monitorWlsunset cfg = do
           }
   stateVar <- liftIO $ newMVar initialState
   chan <- liftIO newBroadcastTChanIO
+  wakeupChan <- getWakeupChannelSeconds (max 1 (wlsunsetPollIntervalSec cfg))
+  ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
   taffyFork $ do
     wlsunsetLog DEBUG "Starting wlsunset polling loop"
     let loop = do
           liftIO $ pollWlsunset chan stateVar
-          liftIO $ threadDelay (wlsunsetPollIntervalSec cfg * 1000000)
+          liftIO $ void $ atomically $ readTChan ourWakeupChan
           loop
     loop
   return (chan, stateVar, cfg)

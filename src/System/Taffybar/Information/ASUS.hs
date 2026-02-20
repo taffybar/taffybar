@@ -29,7 +29,6 @@ module System.Taffybar.Information.ASUS
   )
 where
 
-import Control.Concurrent (threadDelay)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, try)
@@ -52,6 +51,7 @@ import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath ((</>))
 import System.Log.Logger
 import System.Taffybar.Context
+import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 import System.Taffybar.Util (logPrintF, maybeToEither)
 import Text.Read (readMaybe)
 
@@ -300,16 +300,19 @@ monitorASUSInfo :: TaffyIO (TChan ASUSInfo, MVar ASUSInfo)
 monitorASUSInfo = do
   infoVar <- lift $ newMVar unknownASUSInfo
   chan <- liftIO newBroadcastTChanIO
+  wakeupChan <- getWakeupChannelForDelay (2 :: Double)
+  ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
   taffyFork $ do
     ctx <- ask
     let updateInfo = updateASUSInfo chan infoVar
         signalCallback _ _ _ _ = runReaderT updateInfo ctx
+        waitForNextPoll = void $ atomically $ readTChan ourWakeupChan
     _ <- registerForASUSPropertiesChanged signalCallback
     -- Do an initial update
     updateInfo
     -- Then poll every 2 seconds for CPU freq/temp changes
     lift $ forever $ do
-      threadDelay 2_000_000
+      waitForNextPoll
       runReaderT updateInfo ctx
   return (chan, infoVar)
 

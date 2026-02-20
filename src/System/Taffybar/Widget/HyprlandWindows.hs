@@ -32,6 +32,7 @@ import System.Log.Logger (Priority (..))
 import System.Taffybar.Context
 import System.Taffybar.Hyprland (runHyprlandCommandRawT)
 import qualified System.Taffybar.Information.Hyprland as Hypr
+import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.DynamicMenu
 import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
@@ -103,13 +104,8 @@ hyprlandWindowsNew config = do
         lift $ setLabelTitle labelText
 
   let refresh = refreshLabel >> lift refreshIcon
-  ctx <- ask
   void refresh
-  threadId <-
-    lift $
-      foreverWithDelay (updateIntervalSeconds config) $
-        void $
-          runReaderT refresh ctx
+  threadId <- taffyForeverWithDelay (updateIntervalSeconds config) (void refresh)
 
   _ <- lift $ Gtk.onWidgetUnrealize hbox $ killThread threadId
 

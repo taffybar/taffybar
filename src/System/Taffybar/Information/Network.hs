@@ -25,8 +25,9 @@ import Data.Maybe (mapMaybe)
 import Data.Time.Clock
 import Data.Time.Clock.System
 import Safe (atMay, initSafe, readDef)
+import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.StreamInfo (getParsedInfo)
-import System.Taffybar.Util
+import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 
 -- | Source file for Linux per-interface byte counters.
 networkInfoFile :: FilePath
@@ -107,16 +108,16 @@ data TxSample = TxSample
 -- per-interface download/upload rates in bytes per second.
 monitorNetworkInterfaces ::
   (RealFrac a1) =>
-  a1 -> ([(String, (Rational, Rational))] -> IO ()) -> IO ()
-monitorNetworkInterfaces interval onUpdate = void $ do
-  samplesVar <- MV.newMVar []
+  a1 -> ([(String, (Rational, Rational))] -> IO ()) -> TaffyIO ()
+monitorNetworkInterfaces interval onUpdate = do
+  samplesVar <- liftIO $ MV.newMVar []
   let sampleToSpeeds (device, (s1, s2)) = (device, getSpeed s1 s2)
       doOnUpdate samples = do
         let speedInfo = map sampleToSpeeds samples
         onUpdate speedInfo
         return samples
       doUpdate = MV.modifyMVar_ samplesVar (updateSamples >=> doOnUpdate)
-  foreverWithDelay interval doUpdate
+  void $ taffyForeverWithDelay interval (liftIO doUpdate)
 
 -- | Update sample history by pairing newest and previous samples per interface.
 updateSamples ::

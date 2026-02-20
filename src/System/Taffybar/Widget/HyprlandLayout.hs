@@ -41,6 +41,7 @@ import System.Taffybar.Hyprland
     runHyprlandCommandRawT,
   )
 import qualified System.Taffybar.Information.Hyprland as Hypr
+import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
 
@@ -78,11 +79,7 @@ hyprlandLayoutNew config = do
         lift $ postGUIASync $ Gtk.labelSetMarkup label markup
 
   void refresh
-  threadId <-
-    lift $
-      foreverWithDelay (updateIntervalSeconds config) $
-        void $
-          runReaderT refresh ctx
+  threadId <- taffyForeverWithDelay (updateIntervalSeconds config) (void refresh)
 
   ebox <- lift Gtk.eventBoxNew
   lift $ Gtk.containerAdd ebox label

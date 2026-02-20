@@ -38,11 +38,11 @@ module System.Taffybar.Information.Bluetooth
   )
 where
 
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, finally, try)
-import Control.Monad (forever)
+import Control.Monad (forever, void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Reader (asks)
@@ -57,6 +57,7 @@ import qualified Data.Text as T
 import Data.Word (Word8)
 import System.Log.Logger (Priority (..))
 import System.Taffybar.Context (TaffyIO, getStateDefault, systemDBusClient)
+import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 import System.Taffybar.Util (logPrintF)
 
 -- | Information about a Bluetooth device.
@@ -155,10 +156,14 @@ getBluetoothInfoChanVar :: TaffyIO BluetoothInfoChanVar
 getBluetoothInfoChanVar =
   getStateDefault $ do
     client <- asks systemDBusClient
+    retryWakeupChan <- getWakeupChannelForDelay (5 :: Double)
+    blockWakeupChan <- getWakeupChannelForDelay (1000 :: Double)
+    retryOurWakeupChan <- liftIO $ atomically $ dupTChan retryWakeupChan
+    blockOurWakeupChan <- liftIO $ atomically $ dupTChan blockWakeupChan
     liftIO $ do
       chan <- newBroadcastTChanIO
       var <- newMVar defaultBluetoothInfo
-      _ <- forkIO $ monitorBluetoothInfo client chan var
+      _ <- forkIO $ monitorBluetoothInfo client retryOurWakeupChan blockOurWakeupChan chan var
       pure $ BluetoothInfoChanVar (chan, var)
 
 defaultBluetoothInfo :: BluetoothInfo
@@ -173,10 +178,12 @@ defaultBluetoothInfo =
 -- | Monitor Bluetooth information changes.
 monitorBluetoothInfo ::
   Client ->
+  TChan a ->
+  TChan b ->
   TChan BluetoothInfo ->
   MVar BluetoothInfo ->
   IO ()
-monitorBluetoothInfo client chan var = do
+monitorBluetoothInfo client retryWakeupChan blockWakeupChan chan var = do
   refreshLock <- newMVar ()
   let writeInfo info = do
         _ <- swapMVar var info
@@ -243,10 +250,10 @@ monitorBluetoothInfo client chan var = do
           Right _ -> pure ()
 
         -- Wait before retrying
-        threadDelay 5000000
+        void $ atomically $ readTChan retryWakeupChan
         loop
 
-      blockForever = forever $ threadDelay 1000000000
+      blockForever = forever $ void $ atomically $ readTChan blockWakeupChan
 
   loop
 

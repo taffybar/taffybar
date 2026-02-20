@@ -38,11 +38,10 @@ module System.Taffybar.Information.Privacy
   )
 where
 
-import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, catch)
-import Control.Monad (forever)
+import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Data.Aeson
@@ -62,6 +61,7 @@ import qualified Data.Text.Encoding as TE
 import GHC.Generics (Generic)
 import System.Log.Logger (Priority (..))
 import System.Taffybar.Context (TaffyIO, getStateDefault)
+import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 import System.Taffybar.Util (logPrintF, runCommand)
 
 -- | Type of privacy-relevant node.
@@ -289,34 +289,22 @@ getPrivacyInfoState config = do
 getPrivacyInfoChanVar :: PrivacyConfig -> TaffyIO PrivacyInfoChanVar
 getPrivacyInfoChanVar config =
   getStateDefault $ do
-    liftIO $ do
-      chan <- newBroadcastTChanIO
-      var <- newMVar (PrivacyInfo [])
-      _ <- forkIO $ monitorPrivacyInfo config chan var
-      pure $ PrivacyInfoChanVar (chan, var)
+    chan <- liftIO newBroadcastTChanIO
+    var <- liftIO $ newMVar (PrivacyInfo [])
+    let intervalSeconds :: Double
+        intervalSeconds = max 0.1 (privacyPollingInterval config)
+    liftIO $ refreshPrivacyInfo config chan var
+    void $ taffyForeverWithDelay intervalSeconds (liftIO $ refreshPrivacyInfo config chan var)
+    pure $ PrivacyInfoChanVar (chan, var)
 
-monitorPrivacyInfo ::
+refreshPrivacyInfo ::
   PrivacyConfig ->
   TChan PrivacyInfo ->
   MVar PrivacyInfo ->
   IO ()
-monitorPrivacyInfo config chan var = do
-  let intervalMicros :: Int
-      intervalMicros = max 100000 (floor (privacyPollingInterval config * 1000000))
-
-      writeInfo info = do
-        _ <- swapMVar var info
-        atomically $ writeTChan chan info
-
-      refresh = do
-        info <- catch (getPrivacyInfo config) $ \(e :: SomeException) -> do
-          privacyLogF WARNING "Privacy info refresh failed: %s" e
-          return $ PrivacyInfo []
-        writeInfo info
-
-  -- Initial refresh
-  refresh
-  -- Polling loop
-  forever $ do
-    threadDelay intervalMicros
-    refresh
+refreshPrivacyInfo config chan var = do
+  info <- catch (getPrivacyInfo config) $ \(e :: SomeException) -> do
+    privacyLogF WARNING "Privacy info refresh failed: %s" e
+    return $ PrivacyInfo []
+  _ <- swapMVar var info
+  atomically $ writeTChan chan info
