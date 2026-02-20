@@ -39,6 +39,7 @@ pollingLabelNew ::
 pollingLabelNew interval cmd =
   pollingLabelNewWithTooltip interval $ (,Nothing) <$> cmd
 
+-- | Like 'pollingLabelNew', but also updates tooltip text.
 pollingLabelNewWithTooltip ::
   (MonadIO m) =>
   -- | Update interval (in seconds)
@@ -51,6 +52,7 @@ pollingLabelNewWithTooltip interval action =
   where
     withInterval (a, b) = (a, b, interval)
 
+-- | Create a polling label where each action result controls the next delay.
 pollingLabelWithVariableDelay ::
   (MonadIO m) =>
   IO (T.Text, Maybe T.Text, Double) ->
@@ -71,6 +73,8 @@ defaultPollingLabelConfig =
     }
 
 -- TODO: Customize the delay and message on mouse click
+
+-- | Like 'pollingLabelWithVariableDelay', with optional click-to-refresh.
 pollingLabelWithVariableDelayAndRefresh ::
   (MonadIO m) =>
   IO (T.Text, Maybe T.Text, Double) ->

@@ -58,6 +58,7 @@ import System.Taffybar.Context
 import System.Taffybar.DBus.Client.Params
 import System.Taffybar.Util (logPrintF, maybeToEither)
 
+-- | High-level WiFi connectivity state from NetworkManager.
 data WifiState
   = WifiDisabled
   | WifiDisconnected
@@ -65,6 +66,7 @@ data WifiState
   | WifiUnknown
   deriving (Eq, Show)
 
+-- | Snapshot of WiFi-specific connection information.
 data WifiInfo = WifiInfo
   { wifiState :: WifiState,
     wifiSsid :: Maybe Text,
@@ -73,12 +75,14 @@ data WifiInfo = WifiInfo
   }
   deriving (Eq, Show)
 
+-- | High-level non-device-specific network connectivity state.
 data NetworkState
   = NetworkConnected
   | NetworkDisconnected
   | NetworkUnknown
   deriving (Eq, Show)
 
+-- | Active network transport type.
 data NetworkType
   = NetworkWifi
   | NetworkWired
@@ -86,6 +90,7 @@ data NetworkType
   | NetworkOther Text
   deriving (Eq, Show)
 
+-- | Snapshot of the current active network connection.
 data NetworkInfo = NetworkInfo
   { networkState :: NetworkState,
     networkType :: Maybe NetworkType,
@@ -134,11 +139,13 @@ wifiDisconnectedInfo =
 
 newtype WifiInfoChanVar = WifiInfoChanVar (TChan WifiInfo, MVar WifiInfo)
 
+-- | Read the latest cached 'WifiInfo' value.
 getWifiInfoState :: TaffyIO WifiInfo
 getWifiInfoState = do
   WifiInfoChanVar (_, theVar) <- getWifiInfoChanVar
   lift $ readMVar theVar
 
+-- | Get a broadcast channel of WiFi info updates.
 getWifiInfoChan :: TaffyIO (TChan WifiInfo)
 getWifiInfoChan = do
   WifiInfoChanVar (chan, _) <- getWifiInfoChanVar
@@ -239,9 +246,11 @@ getProperties client path iface = runExceptT $ do
       maybeToEither dummyMethodError $
         listToMaybe (methodReturnBody reply) >>= fromVariant
 
+-- | Query WiFi information using taffybar's shared DBus client.
 getWifiInfo :: TaffyIO WifiInfo
 getWifiInfo = asks systemDBusClient >>= liftIO . getWifiInfoFromClient
 
+-- | Query WiFi information from the provided NetworkManager DBus client.
 getWifiInfoFromClient :: Client -> IO WifiInfo
 getWifiInfoFromClient client = do
   nmPropsResult <- getProperties client nmObjectPath nmInterfaceName
@@ -334,11 +343,13 @@ networkUnknownInfo =
       networkWirelessEnabled = Nothing
     }
 
+-- | Read the latest cached 'NetworkInfo' value.
 getNetworkInfoState :: TaffyIO NetworkInfo
 getNetworkInfoState = do
   NetworkInfoChanVar (_, theVar) <- getNetworkInfoChanVar
   lift $ readMVar theVar
 
+-- | Get a broadcast channel of network info updates.
 getNetworkInfoChan :: TaffyIO (TChan NetworkInfo)
 getNetworkInfoChan = do
   NetworkInfoChanVar (chan, _) <- getNetworkInfoChanVar
@@ -372,6 +383,7 @@ updateNetworkInfo chan var = do
     _ <- swapMVar var info
     atomically $ writeTChan chan info
 
+-- | Query network information using taffybar's shared DBus client.
 getNetworkInfo :: TaffyIO NetworkInfo
 getNetworkInfo = asks systemDBusClient >>= liftIO . getNetworkInfoFromClient
 
@@ -383,6 +395,7 @@ data ActiveConnectionInfo = ActiveConnectionInfo
   }
   deriving (Eq, Show)
 
+-- | Query network information from the provided NetworkManager DBus client.
 getNetworkInfoFromClient :: Client -> IO NetworkInfo
 getNetworkInfoFromClient client = do
   nmPropsResult <- getProperties client nmObjectPath nmInterfaceName

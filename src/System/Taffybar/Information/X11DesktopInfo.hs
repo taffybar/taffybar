@@ -110,8 +110,10 @@ type X11PropertyT m a = ReaderT X11Context m a
 -- | 'IO' actions with access to an 'X11Context'.
 type X11Property a = X11PropertyT IO a
 
+-- | X11 window identifier.
 type X11Window = Window
 
+-- | Low-level property fetcher for a given window and atom.
 type PropertyFetcher a = Display -> Atom -> X11Window -> IO (Maybe [a])
 
 -- | Makes a connection to the default X11 display using

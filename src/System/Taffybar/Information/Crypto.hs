@@ -43,6 +43,7 @@ import System.Taffybar.Context
 import System.Taffybar.Util
 import Text.Printf
 
+-- | Build a map from lowercase symbol to CoinGecko coin identifier.
 getSymbolToCoinGeckoId :: (MonadIO m) => m (M.Map Text Text)
 getSymbolToCoinGeckoId = do
   let uri = "https://api.coingecko.com/api/v3/coins/list?include_platform=false"
@@ -64,19 +65,24 @@ getSymbolToCoinGeckoId = do
         )
         coinInfos
 
+-- | Cached symbol-to-CoinGecko-id map.
 newtype SymbolToCoinGeckoId = SymbolToCoinGeckoId (M.Map Text Text)
 
+-- | Last observed price value.
 newtype CryptoPriceInfo = CryptoPriceInfo {lastPrice :: Double}
 
+-- | Broadcast channel and latest-value cache for a typed symbol pair.
 newtype CryptoPriceChannel (a :: Symbol)
   = CryptoPriceChannel (TChan CryptoPriceInfo, MVar CryptoPriceInfo)
 
+-- | Get (or initialize) the shared price channel for a symbol pair type.
 getCryptoPriceChannel :: (KnownSymbol a) => TaffyIO (CryptoPriceChannel a)
 getCryptoPriceChannel = do
   -- XXX: This is a gross hack that is needed to avoid deadlock
   symbolToId <- getStateDefault $ SymbolToCoinGeckoId <$> getSymbolToCoinGeckoId
   getStateDefault $ buildCryptoPriceChannel (60.0 :: Double) symbolToId
 
+-- | Minimal record returned by CoinGecko coin-list endpoints.
 data CoinGeckoInfo
   = CoinGeckoInfo {identifier :: Text, symbol :: Text}
   deriving (Show)
@@ -84,6 +90,7 @@ data CoinGeckoInfo
 instance FromJSON CoinGeckoInfo where
   parseJSON = withObject "CoinGeckoInfo" (\v -> CoinGeckoInfo <$> v .: "id" <*> v .: "symbol")
 
+-- | Log helper for crypto information code.
 logCrypto :: (MonadIO m) => Priority -> String -> m ()
 logCrypto p = liftIO . logM "System.Taffybar.Information.Crypto" p
 
@@ -94,6 +101,8 @@ nextCryptoBackoff :: Double -> Double -> (Double, Double)
 nextCryptoBackoff maxBackoff current =
   (min (current * 2) maxBackoff, current)
 
+-- | Resolve a type-level symbol pair like @BTC-USD@ into a CoinGecko id and
+-- quote currency.
 resolveSymbolPair :: (KnownSymbol a) => Proxy a -> SymbolToCoinGeckoId -> Either String (Text, Text)
 resolveSymbolPair sym symbolToId = do
   (symbolName, inCurrency) <- parseSymbolPair (symbolVal sym)
@@ -111,6 +120,7 @@ resolveSymbolPair sym symbolToId = do
         (printf "Symbol \"%s\" not found in coin gecko list" (T.unpack symbolName))
         (M.lookup symbolName m)
 
+-- | Create a background polling channel for a symbol pair with retry backoff.
 buildCryptoPriceChannel ::
   forall a. (KnownSymbol a) => Double -> SymbolToCoinGeckoId -> TaffyIO (CryptoPriceChannel a)
 buildCryptoPriceChannel delay symbolToId = do
@@ -144,6 +154,7 @@ buildCryptoPriceChannel delay symbolToId = do
 
   return $ CryptoPriceChannel (chan, var)
 
+-- | Fetch the latest price for one CoinGecko id in a target currency.
 getLatestPrice :: (MonadIO m) => Text -> Text -> m (Maybe Double)
 getLatestPrice tokenId inCurrency = do
   let uri =
@@ -155,6 +166,7 @@ getLatestPrice tokenId inCurrency = do
   bodyText <- getResponseBody <$> httpLBS request
   return $ decode bodyText >>= parseMaybe ((.: Key.fromText tokenId) >=> (.: Key.fromText inCurrency))
 
+-- | Fetch metadata for a symbol from CoinMarketCap's API.
 getCryptoMeta :: (MonadIO m) => String -> String -> m LBS.ByteString
 getCryptoMeta cmcAPIKey symbolName = do
   let headers = [("X-CMC_PRO_API_KEY", BS.fromString cmcAPIKey)] :: RequestHeaders

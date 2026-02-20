@@ -39,9 +39,12 @@ import System.Posix.Files (getFileStatus, isSocket)
 logIO :: Priority -> String -> IO ()
 logIO = logM "System.Taffybar.Context.Backend"
 
+-- | Backend selected for the current taffybar process.
 data Backend
-  = BackendX11
-  | BackendWayland
+  = -- | Use the X11 backend.
+    BackendX11
+  | -- | Use the Wayland backend.
+    BackendWayland
   deriving (Eq, Show)
 
 -- | Try to find a @wayland-*@ socket in the given runtime directory.

@@ -1,3 +1,4 @@
+-- | Graph widgets driven by samples arriving over a broadcast channel.
 module System.Taffybar.Widget.Generic.ChannelGraph where
 
 import Control.Concurrent

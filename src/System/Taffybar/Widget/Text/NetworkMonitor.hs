@@ -1,3 +1,4 @@
+-- | Text network throughput widget.
 module System.Taffybar.Widget.Text.NetworkMonitor where
 
 import Control.Monad
@@ -12,9 +13,11 @@ import System.Taffybar.Widget.Generic.ChannelWidget
 import Text.Printf
 import Text.StringTemplate
 
+-- | Default template for 'networkMonitorNew'.
 defaultNetFormat :: String
 defaultNetFormat = "▼ $inAuto$ ▲ $outAuto$"
 
+-- | Render inbound/outbound speeds into a template.
 showInfo :: String -> Int -> (Double, Double) -> T.Text
 showInfo template prec (incomingb, outgoingb) =
   let attribs =
@@ -29,17 +32,21 @@ showInfo template prec (incomingb, outgoingb) =
         ]
    in render . setManyAttrib attribs $ newSTMP template
 
+-- | Convert bytes per second to KiB/s.
 toKB :: Int -> Double -> String
 toKB prec = setDigits prec . (/ 1024)
 
+-- | Convert bytes per second to MiB/s.
 toMB :: Int -> Double -> String
 toMB prec = setDigits prec . (/ (1024 * 1024))
 
+-- | Render a floating-point value with fixed precision.
 setDigits :: Int -> Double -> String
 setDigits dig = printf format
   where
     format = "%." ++ show dig ++ "f"
 
+-- | Convert bytes per second to an automatically chosen unit.
 toAuto :: Int -> Double -> String
 toAuto prec value = printf "%.*f%s" p v unit
   where
@@ -57,6 +64,10 @@ toAuto prec value = printf "%.*f%s" p v unit
     p :: Int
     p = max 0 $ floor $ fromIntegral prec - logBase 10 v
 
+-- | Create a text network monitor widget.
+--
+-- The optional interface list restricts aggregation to matching interface
+-- names; when omitted, all interfaces are included.
 networkMonitorNew :: String -> Maybe [String] -> TaffyIO GI.Gtk.Widget
 networkMonitorNew template interfaces = do
   NetworkInfoChan chan <- getNetworkChan

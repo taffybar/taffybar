@@ -1,3 +1,6 @@
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
+
 -----------------------------------------------------------------------------
 
 -----------------------------------------------------------------------------
@@ -24,7 +27,9 @@ module System.Taffybar.SimpleConfig
     toTaffybarConfig,
     useAllMonitors,
     usePrimaryMonitor,
-    StrutSize (..),
+    StrutSize,
+    pattern ExactSize,
+    pattern ScreenRatio,
   )
 where
 
@@ -37,11 +42,28 @@ import Data.Maybe
 import Data.Unique
 import GI.Gdk
 import qualified GI.Gtk as Gtk
-import Graphics.UI.GIGtkStrut
+import Graphics.UI.GIGtkStrut hiding (ExactSize, ScreenRatio, StrutSize)
+import qualified Graphics.UI.GIGtkStrut as GIGtkStrut
 import System.Taffybar
 import System.Taffybar.Context hiding (BarConfig (..), TaffybarConfig (..))
 import qualified System.Taffybar.Context as BC (BarConfig (..), TaffybarConfig (..))
 import System.Taffybar.Util
+
+-- | Size of a bar strut reservation. This is an alias for
+-- 'Graphics.UI.GIGtkStrut.StrutSize'.
+type StrutSize = GIGtkStrut.StrutSize
+
+-- | Reserve an exact number of pixels.
+pattern ExactSize :: Int -> StrutSize
+pattern ExactSize size <- GIGtkStrut.ExactSize (fromIntegral -> size)
+  where
+    ExactSize size = GIGtkStrut.ExactSize (fromIntegral size)
+
+-- | Reserve a fraction of the monitor dimension as a strut size.
+pattern ScreenRatio :: Rational -> StrutSize
+pattern ScreenRatio ratio = GIGtkStrut.ScreenRatio ratio
+
+{-# COMPLETE ExactSize, ScreenRatio #-}
 
 -- | An ADT representing the edge of the monitor along which taffybar should be
 -- displayed.
@@ -139,6 +161,8 @@ toBarConfig config monitor = do
 newtype SimpleBarConfigs = SimpleBarConfigs (MV.MVar [(Int, BC.BarConfig)])
 
 {-# DEPRECATED toTaffyConfig "Use toTaffybarConfig instead" #-}
+
+-- | Deprecated alias for 'toTaffybarConfig'.
 toTaffyConfig :: SimpleTaffyConfig -> BC.TaffybarConfig
 toTaffyConfig = toTaffybarConfig
 

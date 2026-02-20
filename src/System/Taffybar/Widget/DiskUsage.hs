@@ -45,6 +45,7 @@ import System.Taffybar.Widget.Util (buildIconLabelBox)
 import Text.Printf (printf)
 import Text.StringTemplate
 
+-- | Configuration for disk usage widgets.
 data DiskUsageWidgetConfig = DiskUsageWidgetConfig
   { -- | Filesystem path to monitor (default @\/@).
     diskUsagePath :: FilePath,
@@ -58,6 +59,7 @@ data DiskUsageWidgetConfig = DiskUsageWidgetConfig
     diskUsageIcon :: T.Text
   }
 
+-- | Default disk usage widget configuration.
 defaultDiskUsageWidgetConfig :: DiskUsageWidgetConfig
 defaultDiskUsageWidgetConfig =
   DiskUsageWidgetConfig

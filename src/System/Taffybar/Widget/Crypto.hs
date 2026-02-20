@@ -78,6 +78,7 @@ cryptoPriceLabelWithIcon = do
 
   Gtk.toWidget hbox
 
+-- | Stored CoinMarketCap API key used for on-demand icon fetches.
 newtype CMCAPIKey = CMCAPIKey String
 
 -- | Set the coinmarketcap.com api key that will be used for retrieving crypto
@@ -100,6 +101,7 @@ setCMCAPIKey key =
 cryptoPriceLabel :: forall a. (KnownSymbol a) => TaffyIO Gtk.Widget
 cryptoPriceLabel = getCryptoPriceChannel @a >>= cryptoPriceLabel'
 
+-- | Build a crypto price label from an existing price channel.
 cryptoPriceLabel' :: CryptoPriceChannel a -> TaffyIO Gtk.Widget
 cryptoPriceLabel' (CryptoPriceChannel (chan, var)) = do
   label <- Gtk.labelNew Nothing
@@ -113,9 +115,11 @@ cryptoPriceLabel' (CryptoPriceChannel (chan, var)) = do
       readMVar var >>= updateWidget
   Gtk.toWidget =<< channelWidgetNew label chan updateWidget
 
+-- | Directory used to cache downloaded crypto icons.
 cryptoIconsDir :: IO FilePath
 cryptoIconsDir = (</> "crypto_icons") <$> taffyStateDir
 
+-- | Cache path for a specific crypto symbol icon.
 pathForCryptoSymbol :: String -> IO FilePath
 pathForCryptoSymbol symbol =
   (</> printf "%s.png" symbol) <$> cryptoIconsDir
@@ -128,17 +132,20 @@ pathForCryptoSymbol symbol =
 getCryptoPixbuf :: String -> TaffyIO (Maybe Gdk.Pixbuf)
 getCryptoPixbuf = getCryptoIconFromCache <||> getCryptoIconFromCMC
 
+-- | Try to load a cached icon for a symbol from disk.
 getCryptoIconFromCache :: (MonadIO m) => String -> m (Maybe Gdk.Pixbuf)
 getCryptoIconFromCache symbol =
   liftIO $
     pathForCryptoSymbol symbol >>= safePixbufNewFromFile
 
+-- | Try to fetch an icon via CoinMarketCap using the configured API key.
 getCryptoIconFromCMC :: String -> TaffyIO (Maybe Gdk.Pixbuf)
 getCryptoIconFromCMC symbol =
   runMaybeT $ do
     CMCAPIKey cmcAPIKey <- MaybeT getState
     MaybeT $ lift $ getCryptoIconFromCMC' cmcAPIKey symbol
 
+-- | Fetch a symbol icon from CoinMarketCap metadata and cache it to disk.
 getCryptoIconFromCMC' :: String -> String -> IO (Maybe Gdk.Pixbuf)
 getCryptoIconFromCMC' cmcAPIKey symbol = do
   jsonText <- getCryptoMeta cmcAPIKey symbol
@@ -147,6 +154,7 @@ getCryptoIconFromCMC' cmcAPIKey symbol = do
   maybe (return ()) (`downloadURIToPath` path) uri
   safePixbufNewFromFile path
 
+-- | Extract the logo URI for a symbol from CoinMarketCap metadata JSON.
 getIconURIFromJSON :: String -> LBS.ByteString -> Maybe Data.Text.Text
 getIconURIFromJSON symbol jsonText =
   decode jsonText

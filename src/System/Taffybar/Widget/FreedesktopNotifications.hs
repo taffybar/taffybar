@@ -227,6 +227,8 @@ startTimeoutThread s Notification {..} = case noteExpireTimeout of
     wakeupDisplayThread s
 
 --------------------------------------------------------------------------------
+
+-- | Rendering and behavior settings for the notification widget.
 data NotificationConfig = NotificationConfig
   { -- | Maximum time that a notification will be displayed (in seconds).  Default: None
     notificationMaxTimeout :: Maybe Int32,

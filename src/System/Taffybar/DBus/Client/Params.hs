@@ -128,6 +128,7 @@ paDeviceGenerationParams =
     { genTakeSignalErrorHandler = True
     }
 
+-- | UPower device type enum.
 data BatteryType
   = BatteryTypeUnknown
   | BatteryTypeLinePower
@@ -140,6 +141,7 @@ data BatteryType
   | BatteryTypePhone
   deriving (Show, Ord, Eq, Enum)
 
+-- | UPower battery charging state enum.
 data BatteryState
   = BatteryStateUnknown
   | BatteryStateCharging
@@ -150,6 +152,7 @@ data BatteryState
   | BatteryStatePendingDischarge
   deriving (Show, Ord, Eq, Enum)
 
+-- | UPower battery chemistry enum.
 data BatteryTechnology
   = BatteryTechnologyUnknown
   | BatteryTechnologyLithiumIon

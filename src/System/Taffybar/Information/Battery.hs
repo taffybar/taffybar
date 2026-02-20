@@ -51,14 +51,17 @@ import System.Taffybar.DBus.Client.UPower
 import System.Taffybar.DBus.Client.UPowerDevice
 import System.Taffybar.Util
 
+-- | Logger namespace for battery modules.
 batteryLogPath :: String
 batteryLogPath = "System.Taffybar.Information.Battery"
 
+-- | Log a message to the battery logger.
 batteryLog ::
   (MonadIO m) =>
   Priority -> String -> m ()
 batteryLog priority = liftIO . logM batteryLogPath priority
 
+-- | Formatted logging helper for the battery logger.
 batteryLogF ::
   (MonadIO m, Show t) =>
   Priority -> String -> t -> m ()
@@ -102,6 +105,8 @@ readDictIntegral dict key dflt = fromMaybe (fromIntegral dflt) $ do
     f = fromMaybe (fromIntegral dflt) . fromVariant
 
 -- XXX: Remove this once it is exposed in haskell-dbus
+
+-- | Placeholder 'MethodError' used when required reply payload is missing.
 dummyMethodError :: MethodError
 dummyMethodError = methodError (Serial 1) $ errorName_ "org.ClientTypeMismatch"
 
@@ -124,6 +129,7 @@ getBatteryInfo battPath =
             listToMaybe (methodReturnBody reply) >>= fromVariant
     return $ infoMapToBatteryInfo dict
 
+-- | Decode a UPower property map into a 'BatteryInfo' record.
 infoMapToBatteryInfo :: Map Text Variant -> BatteryInfo
 infoMapToBatteryInfo dict =
   BatteryInfo
@@ -159,6 +165,7 @@ infoMapToBatteryInfo dict =
       batteryIconName = readDict dict "IconName" ""
     }
 
+-- | Enumerate UPower object paths that represent batteries.
 getBatteryPaths :: TaffyIO (Either MethodError [ObjectPath])
 getBatteryPaths = do
   client <- asks systemDBusClient
@@ -166,14 +173,17 @@ getBatteryPaths = do
     paths <- ExceptT $ enumerateDevices client
     return $ filter isBattery paths
 
+-- | Shared display-battery update channel and latest-value cache.
 newtype DisplayBatteryChanVar
   = DisplayBatteryChanVar (TChan BatteryInfo, MVar BatteryInfo)
 
+-- | Read the latest display battery snapshot.
 getDisplayBatteryInfo :: TaffyIO BatteryInfo
 getDisplayBatteryInfo = do
   DisplayBatteryChanVar (_, theVar) <- getDisplayBatteryChanVar
   lift $ readMVar theVar
 
+-- | Default set of UPower properties that trigger display-battery refreshes.
 defaultMonitorDisplayBatteryProperties :: [String]
 defaultMonitorDisplayBatteryProperties = ["IconName", "State", "Percentage"]
 
@@ -184,15 +194,18 @@ setupDisplayBatteryChanVar properties =
   getStateDefault $
     DisplayBatteryChanVar <$> monitorDisplayBattery properties
 
+-- | Get (or initialize) the shared display-battery channel+state holder.
 getDisplayBatteryChanVar :: TaffyIO DisplayBatteryChanVar
 getDisplayBatteryChanVar =
   setupDisplayBatteryChanVar defaultMonitorDisplayBatteryProperties
 
+-- | Get the broadcast channel for display-battery updates.
 getDisplayBatteryChan :: TaffyIO (TChan BatteryInfo)
 getDisplayBatteryChan = do
   DisplayBatteryChanVar (chan, _) <- getDisplayBatteryChanVar
   return chan
 
+-- | Refresh battery info for a path and publish it to the shared state.
 updateBatteryInfo ::
   TChan BatteryInfo ->
   MVar BatteryInfo ->
@@ -207,11 +220,14 @@ updateBatteryInfo chan var path =
         >> void (atomically $ writeTChan chan info)
     warnOfFailure = batteryLogF WARNING "Failed to update battery info %s"
 
+-- | Register for any UPower device property changes.
 registerForAnyUPowerPropertiesChanged ::
   (Signal -> String -> Map String Variant -> [String] -> IO ()) ->
   ReaderT Context IO SignalHandler
 registerForAnyUPowerPropertiesChanged = registerForUPowerPropertyChanges []
 
+-- | Register for UPower device property changes, optionally filtering by
+-- property names.
 registerForUPowerPropertyChanges ::
   [String] ->
   (Signal -> String -> Map String Variant -> [String] -> IO ()) ->

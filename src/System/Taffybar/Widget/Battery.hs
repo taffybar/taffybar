@@ -108,12 +108,14 @@ textBatteryNew format = textBatteryNewWithLabelAction labelSetter
       labelSetMarkup label $
         formatBattInfo (getBatteryWidgetInfo info) format
 
+-- | CSS-threshold configuration for battery level classes.
 data BatteryClassesConfig = BatteryClassesConfig
   { batteryHighThreshold :: Double,
     batteryLowThreshold :: Double,
     batteryCriticalThreshold :: Double
   }
 
+-- | Default thresholds for 'BatteryClassesConfig'.
 defaultBatteryClassesConfig :: BatteryClassesConfig
 defaultBatteryClassesConfig =
   BatteryClassesConfig
@@ -125,6 +127,8 @@ defaultBatteryClassesConfig =
 instance Default BatteryClassesConfig where
   def = defaultBatteryClassesConfig
 
+-- | Add/remove CSS classes on a widget to reflect battery charging state and
+-- level thresholds.
 setBatteryStateClasses ::
   (IsDescendantOf Widget a, GObject a, MonadIO m) =>
   BatteryClassesConfig -> a -> BatteryInfo -> m ()
@@ -170,6 +174,7 @@ textBatteryNewWithLabelAction labelSetter = do
 themeLoadFlags :: [IconLookupFlags]
 themeLoadFlags = [IconLookupFlagsGenericFallback, IconLookupFlagsUseBuiltin]
 
+-- | Create an icon-only battery widget using the battery icon name from UPower.
 batteryIconNew :: TaffyIO Widget
 batteryIconNew = do
   chan <- getDisplayBatteryChan

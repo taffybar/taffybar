@@ -44,6 +44,7 @@ import qualified System.Taffybar.Information.Hyprland as Hypr
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
 
+-- | Configuration for 'hyprlandLayoutNew'.
 data HyprlandLayoutConfig = HyprlandLayoutConfig
   { formatLayout :: T.Text -> TaffyIO T.Text,
     updateIntervalSeconds :: Double,
@@ -54,6 +55,7 @@ data HyprlandLayoutConfig = HyprlandLayoutConfig
 instance Default HyprlandLayoutConfig where
   def = defaultHyprlandLayoutConfig
 
+-- | Default Hyprland layout widget configuration.
 defaultHyprlandLayoutConfig :: HyprlandLayoutConfig
 defaultHyprlandLayoutConfig =
   HyprlandLayoutConfig

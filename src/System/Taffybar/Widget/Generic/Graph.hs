@@ -39,6 +39,7 @@ import qualified GI.Gtk as Gtk
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
 
+-- | Handle used to add samples to a graph widget.
 newtype GraphHandle = GH (MVar GraphState)
 
 data GraphState
@@ -49,6 +50,7 @@ data GraphState
     graphConfig :: GraphConfig
   }
 
+-- | Direction in which historical samples flow across the widget.
 data GraphDirection = LEFT_TO_RIGHT | RIGHT_TO_LEFT deriving (Eq)
 
 -- 'RGBA' represents a color with a transparency.
@@ -90,6 +92,7 @@ data GraphConfig = GraphConfig
     graphDirection :: GraphDirection
   }
 
+-- | Default graph configuration.
 defaultGraphConfig :: GraphConfig
 defaultGraphConfig =
   GraphConfig
@@ -279,6 +282,7 @@ drawGraph mv drawArea = do
     [] -> renderFrameAndBackground cfg (Just styleContext) w h
     _ -> renderGraph hist dataColors cfg (Just styleContext) w h xStep
 
+-- | Construct a new graph widget and its mutable handle.
 graphNew :: (MonadIO m) => GraphConfig -> m (Gtk.Widget, GraphHandle)
 graphNew cfg = liftIO $ do
   drawArea <- Gtk.drawingAreaNew

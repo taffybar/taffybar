@@ -28,6 +28,7 @@ import Safe (atMay, initSafe, readDef)
 import System.Taffybar.Information.StreamInfo (getParsedInfo)
 import System.Taffybar.Util
 
+-- | Source file for Linux per-interface byte counters.
 networkInfoFile :: FilePath
 networkInfoFile = "/proc/net/dev"
 
@@ -39,15 +40,19 @@ getNetInfo iface = runMaybeT $ do
   isInterfaceUp iface
   handleFailure $ getParsedInfo networkInfoFile parseDevNet' iface
 
+-- | Parse @/proc/net/dev@ into a simplified map of
+-- @(interface, [receivedBytes, transmittedBytes])@.
 parseDevNet' :: String -> [(String, [Int])]
 parseDevNet' input =
   map makeList $ parseDevNet input
   where
     makeList (a, (u, d)) = (a, [u, d])
 
+-- | Parse @/proc/net/dev@ into @(interface, (receivedBytes, transmittedBytes))@.
 parseDevNet :: String -> [(String, (Int, Int))]
 parseDevNet = mapMaybe (getDeviceUpDown . words) . drop 2 . lines
 
+-- | Parse one tokenized @/proc/net/dev@ line.
 getDeviceUpDown :: [String] -> Maybe (String, (Int, Int))
 getDeviceUpDown s = do
   dev <- initSafe <$> s `atMay` 0
@@ -58,6 +63,8 @@ getDeviceUpDown s = do
     out = length s - 8
 
 -- Nothing if interface does not exist or is down
+
+-- | Check whether a network interface exists and reports as up.
 isInterfaceUp :: String -> MaybeT IO ()
 isInterfaceUp iface = do
   state <- handleFailure $ readFile $ "/sys/class/net/" ++ iface ++ "/operstate"
@@ -65,12 +72,14 @@ isInterfaceUp iface = do
     'u' : _ -> return ()
     _ -> mzero
 
+-- | Convert IO exceptions into @Nothing@ for polling helpers.
 handleFailure :: IO a -> MaybeT IO a
 handleFailure action = MaybeT $ catch (Just <$> action) eToNothing
   where
     eToNothing :: SomeException -> IO (Maybe a)
     eToNothing _ = pure Nothing
 
+-- | Collect per-interface byte-counter samples with timestamps.
 getDeviceSamples :: IO (Maybe [TxSample])
 getDeviceSamples = runMaybeT $ handleFailure $ do
   contents <- readFile networkInfoFile
@@ -85,6 +94,7 @@ getDeviceSamples = runMaybeT $ handleFailure $ do
           }
   return $ map mkSample $ parseDevNet contents
 
+-- | Raw network sample for a single interface at a point in time.
 data TxSample = TxSample
   { sampleUp :: Int,
     sampleDown :: Int,
@@ -93,6 +103,8 @@ data TxSample = TxSample
   }
   deriving (Show, Eq)
 
+-- | Periodically monitor interface speeds and call a callback with
+-- per-interface download/upload rates in bytes per second.
 monitorNetworkInterfaces ::
   (RealFrac a1) =>
   a1 -> ([(String, (Rational, Rational))] -> IO ()) -> IO ()
@@ -106,6 +118,7 @@ monitorNetworkInterfaces interval onUpdate = void $ do
       doUpdate = MV.modifyMVar_ samplesVar (updateSamples >=> doOnUpdate)
   foreverWithDelay interval doUpdate
 
+-- | Update sample history by pairing newest and previous samples per interface.
 updateSamples ::
   [(String, (TxSample, TxSample))] ->
   IO [(String, (TxSample, TxSample))]
@@ -117,6 +130,7 @@ updateSamples currentSamples = do
          in lastSample `seq` (device, (sample, lastSample))
   maybe currentSamples (map getSamplePair) <$> getDeviceSamples
 
+-- | Compute download/upload speeds from two samples.
 getSpeed :: TxSample -> TxSample -> (Rational, Rational)
 getSpeed
   TxSample
@@ -141,6 +155,7 @@ getSpeed
           fromIntegral (thisUp - lastUp) * intervalRatio
         )
 
+-- | Sum download/upload speeds across interfaces.
 sumSpeeds :: [(Rational, Rational)] -> (Rational, Rational)
 sumSpeeds = foldr1 sumOne
   where

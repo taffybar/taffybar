@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | Text clock widget with optional popup calendar.
 module System.Taffybar.Widget.SimpleClock
   ( textClockNew,
     textClockNewWith,
@@ -70,11 +71,17 @@ textClockNew userLocale format interval =
           clockUpdateStrategy = ConstantInterval interval
         }
 
+-- | Strategy for scheduling clock updates.
 data ClockUpdateStrategy
-  = ConstantInterval Double
-  | RoundedTargetInterval Int Double
+  = -- | Re-render at a fixed interval in seconds.
+    ConstantInterval Double
+  | -- | Re-render near rounded time boundaries.
+    -- The first argument is the rounding step in seconds and the second is an
+    -- offset in seconds.
+    RoundedTargetInterval Int Double
   deriving (Eq, Ord, Show)
 
+-- | Configuration for 'textClockNewWith'.
 data ClockConfig = ClockConfig
   { clockTimeZone :: Maybe TimeZone,
     clockTimeLocale :: Maybe L.TimeLocale,

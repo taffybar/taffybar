@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | Track Chrome tab favicon updates and map them to X11 windows.
 module System.Taffybar.Information.Chrome where
 
 import Control.Concurrent
@@ -22,35 +23,43 @@ import Text.Read hiding (lift)
 import Text.Regex
 import Web.Scotty
 
+-- | Module logger.
 logIO :: System.Log.Logger.Priority -> String -> IO ()
 logIO = logM "System.Taffybar.Information.Chrome"
 
+-- | Favicon image data associated with a Chrome tab id.
 data ChromeTabImageData = ChromeTabImageData
   { tabImageData :: Gdk.Pixbuf,
     tabImageDataId :: Int
   }
 
+-- | Shared favicon table and broadcast update channel.
 newtype ChromeTabImageDataState
   = ChromeTabImageDataState
       (MVar (M.Map Int ChromeTabImageData), TChan ChromeTabImageData)
 
+-- | Get or initialize Chrome favicon state.
 getChromeTabImageDataState :: TaffyIO ChromeTabImageDataState
 getChromeTabImageDataState = do
   ChromeFaviconServerPort port <- fromMaybe (ChromeFaviconServerPort 5000) <$> getState
   getStateDefault (listenForChromeFaviconUpdates port)
 
+-- | Get the broadcast channel for favicon updates.
 getChromeTabImageDataChannel :: TaffyIO (TChan ChromeTabImageData)
 getChromeTabImageDataChannel = do
   ChromeTabImageDataState (_, chan) <- getChromeTabImageDataState
   return chan
 
+-- | Get the mutable favicon table keyed by tab id.
 getChromeTabImageDataTable :: TaffyIO (MVar (M.Map Int ChromeTabImageData))
 getChromeTabImageDataTable = do
   ChromeTabImageDataState (table, _) <- getChromeTabImageDataState
   return table
 
+-- | TCP port used by the local Chrome favicon update server.
 newtype ChromeFaviconServerPort = ChromeFaviconServerPort Int
 
+-- | Start an HTTP listener that receives favicon updates from browser helpers.
 listenForChromeFaviconUpdates :: Int -> TaffyIO ChromeTabImageDataState
 listenForChromeFaviconUpdates port = do
   infoVar <- lift $ newMVar M.empty
@@ -79,12 +88,15 @@ listenForChromeFaviconUpdates port = do
             Gdk.pixbufLoaderGetPixbuf loader >>= maybe (return ()) updateChannelAndMVar
   return $ ChromeTabImageDataState (infoVar, outChan)
 
+-- | Mapping from X11 window ids to parsed Chrome tab ids.
 newtype X11WindowToChromeTabId = X11WindowToChromeTabId (MVar (M.Map X11Window Int))
 
+-- | Get or initialize the X11-window to tab-id mapping.
 getX11WindowToChromeTabId :: TaffyIO X11WindowToChromeTabId
 getX11WindowToChromeTabId =
   getStateDefault $ X11WindowToChromeTabId <$> maintainX11WindowToChromeTabId
 
+-- | Maintain and update the X11-window to tab-id mapping from title changes.
 maintainX11WindowToChromeTabId :: TaffyIO (MVar (M.Map X11Window Int))
 maintainX11WindowToChromeTabId = do
   startTabMap <- updateTabMap M.empty
@@ -100,17 +112,21 @@ maintainX11WindowToChromeTabId = do
   _ <- subscribeToPropertyEvents [ewmhWMName] handleEvent
   return tabMapVar
 
+-- | Regex for tab-id markers embedded in window titles.
 tabIDRegex :: Regex
 tabIDRegex = mkRegexWithOpts "[|]%([0-9]*)%[|]" True True
 
+-- | Extract a tab id from a window title, if present.
 getTabIdFromTitle :: String -> Maybe Int
 getTabIdFromTitle title =
   matchRegex tabIDRegex title >>= listToMaybe >>= readMaybe
 
+-- | Insert or update a window->tab mapping based on a title string.
 addTabIdEntry :: M.Map X11Window Int -> (X11Window, String) -> M.Map X11Window Int
 addTabIdEntry theMap (win, title) =
   maybe theMap ((flip $ M.insert win) theMap) $ getTabIdFromTitle title
 
+-- | Rebuild the window->tab map by scanning all current X11 windows.
 updateTabMap :: M.Map X11Window Int -> TaffyIO (M.Map X11Window Int)
 updateTabMap tabMap =
   runX11Def tabMap $ do

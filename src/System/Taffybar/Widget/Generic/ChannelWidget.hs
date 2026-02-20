@@ -1,3 +1,4 @@
+-- | Connect widget updates to a broadcast 'TChan' on a dedicated worker thread.
 module System.Taffybar.Widget.Generic.ChannelWidget where
 
 import Control.Concurrent

@@ -1,3 +1,5 @@
+-- | Helpers for resolving and constructing window icons from EWMH metadata,
+-- desktop entries, icon themes, and browser tab image hooks.
 module System.Taffybar.WindowIcon where
 
 import Control.Concurrent
@@ -31,6 +33,7 @@ import System.Taffybar.Util
 import System.Taffybar.Widget.Util
 import Text.Printf
 
+-- | Packed 32-bit RGBA color value used by 'pixBufFromColor'.
 type ColorRGBA = Word32
 
 -- | Convert a C array of integer pixels in the ARGB format to the ABGR format.
@@ -60,6 +63,7 @@ pixelsARGBToBytesABGR ptr size = do
   writeIndexAndNext 0
   return target
 
+-- | Pick the best icon candidate for a target size from EWMH icon variants.
 selectEWMHIcon :: Int32 -> [EWMHIcon] -> Maybe EWMHIcon
 selectEWMHIcon imgSize icons = listToMaybe prefIcon
   where
@@ -69,6 +73,7 @@ selectEWMHIcon imgSize icons = listToMaybe prefIcon
     largestIcon = take 1 $ reverse sortedIcons
     prefIcon = smallestLargerIcon ++ largestIcon
 
+-- | Create a pixbuf from the best matching EWMH icon for the requested size.
 getPixbufFromEWMHIcons :: Int32 -> [EWMHIcon] -> IO (Maybe Gdk.Pixbuf)
 getPixbufFromEWMHIcons size = traverse pixBufFromEWMHIcon . selectEWMHIcon size
 
@@ -89,6 +94,7 @@ pixBufFromEWMHIcon EWMHIcon {ewmhWidth = w, ewmhHeight = h, ewmhPixelsARGB = px}
     rowStride
     (Just free)
 
+-- | Read EWMH icon data from an X11 window and convert it into a pixbuf.
 getIconPixBufFromEWMH :: Int32 -> X11Window -> X11Property (Maybe Gdk.Pixbuf)
 getIconPixBufFromEWMH size x11WindowId = runMaybeT $ do
   ewmhData <- MaybeT $ getWindowIconsData x11WindowId
@@ -103,6 +109,7 @@ pixBufFromColor imgSize c = do
   Gdk.pixbufFill pixbuf c
   return pixbuf
 
+-- | Resolve a desktop entry by X11 class name.
 getDirectoryEntryByClass ::
   String ->
   TaffyIO (Maybe DesktopEntry)
@@ -117,6 +124,7 @@ getDirectoryEntryByClass klass = do
           (intercalate ", " $ map deFilename entries)
   return $ listToMaybe entries
 
+-- | Try icon lookup for each parsed class component until one succeeds.
 getWindowIconForAllClasses ::
   (Monad m) =>
   (p -> String -> m (Maybe a)) -> p -> String -> m (Maybe a)
@@ -126,6 +134,7 @@ getWindowIconForAllClasses doOnClass size klass =
     combine soFar theClass =
       maybeTCombine soFar (doOnClass size theClass)
 
+-- | Resolve a window icon through desktop-entry icon metadata.
 getWindowIconFromDesktopEntryByClasses ::
   Int32 -> String -> TaffyIO (Maybe Gdk.Pixbuf)
 getWindowIconFromDesktopEntryByClasses =
@@ -142,12 +151,14 @@ getWindowIconFromDesktopEntryByClasses =
             (deFilename entry, klass)
         MaybeT $ lift $ getImageForDesktopEntry size entry
 
+-- | Resolve a window icon directly by class names in the icon theme.
 getWindowIconFromClasses :: Int32 -> String -> IO (Maybe Gdk.Pixbuf)
 getWindowIconFromClasses =
   getWindowIconForAllClasses getWindowIconFromClass
   where
     getWindowIconFromClass size klass = loadPixbufByName size (T.pack klass)
 
+-- | Resolve a window icon from cached Chrome tab image data.
 getPixBufFromChromeData :: X11Window -> TaffyIO (Maybe Gdk.Pixbuf)
 getPixBufFromChromeData window = do
   imageData <- getChromeTabImageDataTable >>= lift . readMVar

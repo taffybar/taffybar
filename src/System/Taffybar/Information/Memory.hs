@@ -1,3 +1,5 @@
+-- | Parse memory usage data from Linux @/proc/meminfo@ and expose a derived
+-- summary record used by memory widgets.
 module System.Taffybar.Information.Memory
   ( MemoryInfo (..),
     parseMeminfo,
@@ -13,6 +15,7 @@ safeRatio
   0 = 0
 safeRatio numerator denominator = numerator / denominator
 
+-- | Snapshot of parsed memory and swap values from @/proc/meminfo@.
 data MemoryInfo = MemoryInfo
   { memoryTotal :: Double,
     memoryFree :: Double,
@@ -48,6 +51,7 @@ parseLines (line : rest) memInfo = parseLines rest newMemInfo
       _ -> memInfo
 parseLines _ memInfo = memInfo
 
+-- | Read @/proc/meminfo@ and return memory/swap totals and usage ratios in MiB.
 parseMeminfo :: IO MemoryInfo
 parseMeminfo = do
   s <- readFile "/proc/meminfo"

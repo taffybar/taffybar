@@ -2,6 +2,16 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
+-- |
+-- Module      : System.Taffybar.Widget
+-- Copyright   : (c) Ivan A. Malison
+-- License     : BSD3-style (see LICENSE)
+--
+-- Maintainer  : Ivan A. Malison
+-- Stability   : unstable
+-- Portability : unportable
+--
+-- Convenience re-export module for commonly used widgets.
 module System.Taffybar.Widget
   ( module System.Taffybar.Widget.Util
   -- * "System.Taffybar.Widget.PulseAudio"

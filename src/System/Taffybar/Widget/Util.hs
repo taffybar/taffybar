@@ -111,6 +111,7 @@ updateWindowIconWidgetState iconWidget windowData titleFn statusFn = do
     [statusString]
     possibleStatusStrings
 
+-- | Wrap an icon getter to scale returned pixbufs to the requested size.
 scaledPixbufGetter ::
   (MonadIO m) =>
   (Int32 -> a -> m (Maybe GI.Pixbuf)) ->
@@ -119,6 +120,7 @@ scaledPixbufGetter getter size windowData =
   getter size windowData
     >>= traverse (liftIO . scalePixbufToSize size Gtk.OrientationHorizontal)
 
+-- | Catch exceptions from a pixbuf getter and log them.
 handlePixbufGetterException ::
   (MonadBaseControl IO m, Show a) =>
   (Priority -> String -> m ()) ->
@@ -199,6 +201,7 @@ displayPopup widget window = do
     then windowMove window x (y - y')
     else windowMove window x y'
 
+-- | Read current allocated widget width and height.
 widgetGetAllocatedSize ::
   (Gtk.IsWidget self, MonadIO m) =>
   self -> m (Int, Int)
@@ -223,31 +226,38 @@ colorize fg bg = printf "<span%s%s>%s</span>" (attr ("fg" :: String) fg :: Strin
       | null value = ""
       | otherwise = printf " %scolor=\"%s\"" name value
 
+-- | Run an action forever on a background thread.
 backgroundLoop :: IO a -> IO ()
 backgroundLoop = void . forkIO . forever
 
+-- | Register an action on widget realization and return the widget.
 drawOn :: (Gtk.IsWidget object) => object -> IO () -> IO object
 drawOn drawArea action = Gtk.onWidgetRealize drawArea action $> drawArea
 
+-- | Add a CSS class to a widget and return it.
 widgetSetClassGI :: (Gtk.IsWidget b, MonadIO m) => b -> T.Text -> m b
 widgetSetClassGI widget klass =
   Gtk.widgetGetStyleContext widget
     >>= flip Gtk.styleContextAddClass klass
     >> return widget
 
+-- | Standard icon-theme load flags used by icon helpers.
 themeLoadFlags :: [Gtk.IconLookupFlags]
 themeLoadFlags =
   [ Gtk.IconLookupFlagsGenericFallback,
     Gtk.IconLookupFlagsUseBuiltin
   ]
 
+-- | Resolve and load an icon for a desktop entry.
 getImageForDesktopEntry :: Int32 -> DesktopEntry -> IO (Maybe GI.Pixbuf)
 getImageForDesktopEntry size de = getImageForMaybeIconName (T.pack <$> deIcon de) size
 
+-- | Resolve and load an icon from an optional icon name.
 getImageForMaybeIconName :: Maybe T.Text -> Int32 -> IO (Maybe GI.Pixbuf)
 getImageForMaybeIconName mIconName size =
   join <$> traverse (`getImageForIconName` size) mIconName
 
+-- | Resolve and load an icon by theme name or filesystem path.
 getImageForIconName :: T.Text -> Int32 -> IO (Maybe GI.Pixbuf)
 getImageForIconName iconName size =
   maybeTCombine
@@ -256,6 +266,7 @@ getImageForIconName iconName size =
         >>= traverse (scalePixbufToSize size Gtk.OrientationHorizontal)
     )
 
+-- | Load an icon pixbuf from the current icon theme by symbolic name.
 loadPixbufByName :: Int32 -> T.Text -> IO (Maybe GI.Pixbuf)
 loadPixbufByName size name = do
   iconTheme <- Gtk.iconThemeGetDefault
@@ -264,17 +275,20 @@ loadPixbufByName size name = do
     then Gtk.iconThemeLoadIcon iconTheme name size themeLoadFlags
     else return Nothing
 
+-- | Center a widget in both axes.
 alignCenter :: (Gtk.IsWidget o, MonadIO m) => o -> m ()
 alignCenter widget =
   Gtk.setWidgetValign widget Gtk.AlignCenter
     >> Gtk.setWidgetHalign widget Gtk.AlignCenter
 
+-- | Make a widget vertically fill and horizontally centered.
 vFillCenter :: (Gtk.IsWidget o, MonadIO m) => o -> m ()
 vFillCenter widget =
   Gtk.widgetSetVexpand widget True
     >> Gtk.setWidgetValign widget Gtk.AlignFill
     >> Gtk.setWidgetHalign widget Gtk.AlignCenter
 
+-- | Load and scale a pixbuf from file to a target height.
 pixbufNewFromFileAtScaleByHeight :: Int32 -> String -> IO (Either String PB.Pixbuf)
 pixbufNewFromFileAtScaleByHeight height name =
   fmap (handleResult . first show) $
@@ -283,16 +297,19 @@ pixbufNewFromFileAtScaleByHeight height name =
   where
     handleResult = (maybe (Left "gdk function returned NULL") Right =<<)
 
+-- | Load an icon shipped with taffybar's data files.
 loadIcon :: Int32 -> String -> IO (Either String PB.Pixbuf)
 loadIcon height name =
   getDataDir
     >>= pixbufNewFromFileAtScaleByHeight height . (</> "icons" </> name)
 
+-- | Set a minimum widget width while preserving natural height.
 setMinWidth :: (Gtk.IsWidget w, MonadIO m) => Int -> w -> m w
 setMinWidth width widget = liftIO $ do
   Gtk.widgetSetSizeRequest widget (fromIntegral width) (-1)
   return widget
 
+-- | Add a CSS class if it is not already present.
 addClassIfMissing ::
   (IsDescendantOf Widget a, MonadIO m, GObject a) => T.Text -> a -> m ()
 addClassIfMissing klass widget = do
@@ -300,6 +317,7 @@ addClassIfMissing klass widget = do
   Gtk.styleContextHasClass context klass
     >>= (`when` Gtk.styleContextAddClass context klass) . not
 
+-- | Remove a CSS class when it is currently present.
 removeClassIfPresent ::
   (IsDescendantOf Widget a, MonadIO m, GObject a) => T.Text -> a -> m ()
 removeClassIfPresent klass widget = do
@@ -326,6 +344,7 @@ buildPadBox contents = liftIO $ do
   Gtk.widgetShow innerBox
   Gtk.toWidget outerBox
 
+-- | Wrap a widget in a @contents@ box and then in the standard pad boxes.
 buildContentsBox :: (MonadIO m) => Gtk.Widget -> m Gtk.Widget
 buildContentsBox widget = liftIO $ do
   contents <- Gtk.boxNew Gtk.OrientationHorizontal 0

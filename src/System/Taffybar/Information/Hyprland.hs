@@ -104,6 +104,7 @@ import System.Posix.Types (EpochTime)
 import System.Taffybar.Util (runCommand)
 import Text.Printf (printf)
 
+-- | Errors that can occur while talking to Hyprland.
 data HyprlandError
   = HyprlandEnvMissing String
   | HyprlandSocketUnavailable HyprlandSocket [FilePath]
@@ -113,6 +114,7 @@ data HyprlandError
   | HyprlandCommandBuildFailed String
   deriving (Show, Eq)
 
+-- | Configuration for creating and using a 'HyprlandClient'.
 data HyprlandClientConfig = HyprlandClientConfig
   { -- | Try the Hyprland command/event sockets when possible.
     useSocket :: Bool,
@@ -122,6 +124,9 @@ data HyprlandClientConfig = HyprlandClientConfig
   }
   deriving (Show, Eq)
 
+-- | Default 'HyprlandClientConfig'.
+--
+-- Uses sockets when available and falls back to @hyprctl@.
 defaultHyprlandClientConfig :: HyprlandClientConfig
 defaultHyprlandClientConfig =
   HyprlandClientConfig
@@ -130,12 +135,14 @@ defaultHyprlandClientConfig =
       hyprctlPath = "hyprctl"
     }
 
+-- | Environment-derived values used for socket path resolution.
 data HyprlandClientEnv = HyprlandClientEnv
   { instanceSignature :: String,
     runtimeDir :: Maybe FilePath
   }
   deriving (Show, Eq)
 
+-- | Read Hyprland-specific values from the process environment.
 getHyprlandClientEnv :: IO (Either HyprlandError HyprlandClientEnv)
 getHyprlandClientEnv = do
   mSig <- lookupEnv "HYPRLAND_INSTANCE_SIGNATURE"
@@ -151,6 +158,7 @@ getHyprlandClientEnv = do
               runtimeDir = mRuntime
             }
 
+-- | Runtime client state used by command and event helpers.
 data HyprlandClient = HyprlandClient
   { clientConfig :: HyprlandClientConfig,
     clientEnv :: Maybe HyprlandClientEnv
@@ -175,31 +183,38 @@ reloadHyprlandClient client = newHyprlandClient (clientConfig client)
 -- | A reader transformer that carries a 'HyprlandClient'.
 type HyprlandT m a = ReaderT HyprlandClient m a
 
+-- | Run a 'HyprlandT' computation with the provided client.
 runHyprlandT :: HyprlandClient -> HyprlandT m a -> m a
 runHyprlandT = flip runReaderT
 
+-- | Get the current 'HyprlandClient' from 'HyprlandT'.
 askHyprlandClient :: (Monad m) => HyprlandT m HyprlandClient
 askHyprlandClient = ask
 
+-- | Run a command in 'HyprlandT' and return the raw bytes response.
 runHyprlandCommandRawM :: (MonadIO m) => HyprlandCommand -> HyprlandT m (Either HyprlandError BS.ByteString)
 runHyprlandCommandRawM cmd = do
   client <- ask
   liftIO $ runHyprlandCommandRaw client cmd
 
+-- | Run a command in 'HyprlandT' and decode the response as JSON.
 runHyprlandCommandJsonM :: (MonadIO m, FromJSON a) => HyprlandCommand -> HyprlandT m (Either HyprlandError a)
 runHyprlandCommandJsonM cmd = do
   client <- ask
   liftIO $ runHyprlandCommandJson client cmd
 
+-- | Which Hyprland socket should be used for a request.
 data HyprlandSocket
   = HyprlandCommandSocket
   | HyprlandEventSocket
   deriving (Show, Eq)
 
+-- | Socket file basename for a given 'HyprlandSocket' kind.
 hyprlandSocketName :: HyprlandSocket -> FilePath
 hyprlandSocketName HyprlandCommandSocket = ".socket.sock"
 hyprlandSocketName HyprlandEventSocket = ".socket2.sock"
 
+-- | Candidate socket paths for a client and socket type.
 hyprlandSocketPaths :: HyprlandClient -> HyprlandSocket -> [FilePath]
 hyprlandSocketPaths HyprlandClient {clientEnv = Nothing} _ = []
 hyprlandSocketPaths
@@ -220,6 +235,7 @@ hyprlandSocketPaths
         tmpPath = "/tmp/hypr/" ++ sig ++ "/" ++ name
      in runtimePaths ++ [tmpPath]
 
+-- | Open a Hyprland unix socket, trying known and discovered locations.
 openHyprlandSocket :: HyprlandClient -> HyprlandSocket -> IO (Either HyprlandError NS.Socket)
 openHyprlandSocket client sock = do
   -- Prefer the instance signature from the process environment first. If that
@@ -291,6 +307,7 @@ connectToSocket path = do
       void $ NS.close sock `catchAny` \_ -> pure ()
       return $ Left $ HyprlandSocketException path (show e)
 
+-- | Open the Hyprland event socket and return it as a line-buffered 'Handle'.
 openHyprlandEventSocket :: HyprlandClient -> IO (Either HyprlandError Handle)
 openHyprlandEventSocket client = do
   sockResult <- openHyprlandSocket client HyprlandEventSocket
@@ -301,6 +318,7 @@ openHyprlandEventSocket client = do
       hSetBuffering handle LineBuffering
       return (Right handle)
 
+-- | Bracket-style helper for safely using the Hyprland event socket handle.
 withHyprlandEventSocket :: HyprlandClient -> (Handle -> IO a) -> IO (Either HyprlandError a)
 withHyprlandEventSocket client action = do
   handleResult <- openHyprlandEventSocket client
@@ -322,10 +340,12 @@ withHyprlandEventSocket client action = do
 newtype HyprlandEventChan
   = HyprlandEventChan (TChan T.Text)
 
+-- | Subscribe to a per-reader cursor for a shared Hyprland event channel.
 subscribeHyprlandEvents :: HyprlandEventChan -> IO (TChan T.Text)
 subscribeHyprlandEvents (HyprlandEventChan chan) =
   atomically $ dupTChan chan
 
+-- | Create and maintain a shared Hyprland event broadcast channel.
 buildHyprlandEventChan :: HyprlandClient -> IO HyprlandEventChan
 buildHyprlandEventChan client = do
   chan <- newBroadcastTChanIO
@@ -380,18 +400,22 @@ getFocusedMonitorPosition client = do
         (m : _) -> return $ Just (hmX m, hmY m)
         [] -> return Nothing
 
+-- | Structured representation of a Hyprland command invocation.
 data HyprlandCommand = HyprlandCommand
   { commandArgs :: [String],
     commandJson :: Bool
   }
   deriving (Show, Eq)
 
+-- | Construct a non-JSON command.
 hyprCommand :: [String] -> HyprlandCommand
 hyprCommand args = HyprlandCommand {commandArgs = args, commandJson = False}
 
+-- | Construct a command whose output should be JSON.
 hyprCommandJson :: [String] -> HyprlandCommand
 hyprCommandJson args = HyprlandCommand {commandArgs = args, commandJson = True}
 
+-- | Encode a 'HyprlandCommand' into the bytes expected by the command socket.
 hyprlandCommandToSocketCommand :: HyprlandCommand -> Either HyprlandError BS.ByteString
 hyprlandCommandToSocketCommand HyprlandCommand {commandArgs = args, commandJson = isJson}
   | null args = Left $ HyprlandCommandBuildFailed "No Hyprland command provided"
@@ -510,6 +534,7 @@ recvAll sock = go []
         then return (BS.concat (reverse acc))
         else go (chunk : acc)
 
+-- | Run a command and decode the response body as JSON.
 runHyprlandCommandJson :: (FromJSON a) => HyprlandClient -> HyprlandCommand -> IO (Either HyprlandError a)
 runHyprlandCommandJson client cmd = do
   raw <- runHyprlandCommandRaw client cmd

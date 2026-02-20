@@ -50,6 +50,7 @@ import System.Taffybar.Widget.Util
 import System.Taffybar.WindowIcon
 import Text.Printf
 
+-- | Log helper for this module.
 mprisLog :: (MonadIO m, Show t) => Priority -> String -> t -> m ()
 mprisLog = logPrintF "System.Taffybar.Widget.MPRIS2"
 
@@ -83,6 +84,7 @@ data MPRIS2Config a
     updatePlayerWidget :: UpdateMPRIS2PlayerWidget a
   }
 
+-- | Default MPRIS2 widget configuration using 'simplePlayerWidget'.
 defaultMPRIS2Config :: MPRIS2Config MPRIS2PlayerWidget
 defaultMPRIS2Config =
   MPRIS2Config
@@ -90,6 +92,7 @@ defaultMPRIS2Config =
       updatePlayerWidget = simplePlayerWidget def
     }
 
+-- | Internal widget state for the default simple player renderer.
 data MPRIS2PlayerWidget = MPRIS2PlayerWidget
   { playerLabel :: Gtk.Label,
     playerWidget :: Gtk.Widget
@@ -112,11 +115,13 @@ defaultMPRIS2ControlsConfig =
       updatePlayerWidget = simplePlayerWidgetWithControls def
     }
 
+-- | Configuration for 'simplePlayerWidget'.
 data SimpleMPRIS2PlayerConfig = SimpleMPRIS2PlayerConfig
   { setNowPlayingLabel :: NowPlaying -> IO T.Text,
     showPlayerWidgetFn :: NowPlaying -> IO Bool
   }
 
+-- | Default 'SimpleMPRIS2PlayerConfig'.
 defaultPlayerConfig :: SimpleMPRIS2PlayerConfig
 defaultPlayerConfig =
   SimpleMPRIS2PlayerConfig
@@ -128,10 +133,14 @@ defaultPlayerConfig =
 instance Default SimpleMPRIS2PlayerConfig where
   def = defaultPlayerConfig
 
+-- | Lift a @Maybe@-producing IO function into an 'ExceptT' with a custom
+-- failure message.
 makeExcept :: String -> (a -> IO (Maybe b)) -> a -> ExceptT String IO b
 makeExcept errorString actionBuilder =
   ExceptT . fmap (maybeToEither errorString) . actionBuilder
 
+-- | Resolve an icon for a player bus name and load it at the requested size.
+-- Falls back to a default icon (or a blank pixbuf) on errors.
 loadIconAtSize ::
   Client -> BusName -> Int32 -> IO Gdk.Pixbuf
 loadIconAtSize client busName size =

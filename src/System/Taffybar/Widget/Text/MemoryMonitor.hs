@@ -1,3 +1,5 @@
+-- | Text memory monitor helpers built on top of
+-- "System.Taffybar.Information.Memory".
 module System.Taffybar.Widget.Text.MemoryMonitor (textMemoryMonitorNew, showMemoryInfo) where
 
 import Control.Monad.IO.Class (MonadIO)
@@ -23,6 +25,9 @@ textMemoryMonitorNew fmt period = do
   label <- pollingLabelNew period (showMemoryInfo fmt 3 <$> parseMeminfo)
   GI.Gtk.toWidget label
 
+-- | Render a 'MemoryInfo' snapshot into a template string.
+--
+-- The template supports keys documented in 'textMemoryMonitorNew'.
 showMemoryInfo :: String -> Int -> MemoryInfo -> T.Text
 showMemoryInfo fmt prec info =
   let template = ST.newSTMP fmt

@@ -75,6 +75,7 @@ getHyprlandClientWith _cfg = asks hyprlandClient
 -- applied. We therefore spell out the underlying 'ReaderT Context IO' here.
 type HyprlandIO a = HyprlandT (ReaderT Context IO) a
 
+-- | Run a Hyprland action using the shared client from 'Context'.
 runHyprland :: HyprlandIO a -> TaffyIO a
 runHyprland action = getHyprlandClient >>= \client -> runHyprlandT client action
 
@@ -100,10 +101,12 @@ getHyprlandEventChanWith cfg = do
         c <- buildHyprlandEventChan client
         pure (Just c, c)
 
+-- | Run a raw Hyprland command in 'TaffyIO'.
 runHyprlandCommandRawT :: HyprlandCommand -> TaffyIO (Either HyprlandError BS.ByteString)
 runHyprlandCommandRawT cmd =
   getHyprlandClient >>= \client -> liftIO $ runHyprlandCommandRaw client cmd
 
+-- | Run a JSON-decoded Hyprland command in 'TaffyIO'.
 runHyprlandCommandJsonT :: (FromJSON a) => HyprlandCommand -> TaffyIO (Either HyprlandError a)
 runHyprlandCommandJsonT cmd =
   getHyprlandClient >>= \client -> liftIO $ runHyprlandCommandJson client cmd

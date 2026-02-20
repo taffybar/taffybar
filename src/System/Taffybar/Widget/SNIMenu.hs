@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | Helpers for attaching DBusMenu popups to widgets.
 module System.Taffybar.Widget.SNIMenu
   ( withSniMenu,
     withNmAppletMenu,

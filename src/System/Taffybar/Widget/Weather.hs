@@ -89,6 +89,7 @@ import Text.Parsec
 import Text.Printf
 import Text.StringTemplate
 
+-- | Parsed NOAA weather report values used by the weather widget.
 data WeatherInfo = WI
   { stationPlace :: String,
     stationState :: String,
