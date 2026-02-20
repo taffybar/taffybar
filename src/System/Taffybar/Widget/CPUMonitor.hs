@@ -38,4 +38,5 @@ cpuMonitorNew cfg interval cpu = liftIO $ do
   channelGraphNew cfg chan toSample
 
 toSample :: CPULoad -> IO [Double]
-toSample CPULoad {cpuTotalLoad, cpuSystemLoad} = return [cpuTotalLoad, cpuSystemLoad]
+toSample CPULoad {cpuTotalLoad = totalLoad, cpuSystemLoad = systemLoad} =
+  return [totalLoad, systemLoad]
