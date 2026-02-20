@@ -24,12 +24,15 @@
 -- interval permits.
 module System.Taffybar.Information.Wakeup
   ( WakeupEvent (..),
+    WakeupSchedulerEvent (..),
     WakeupChannel (..),
     taffyForeverWithDelay,
     getWakeupChannelNanoseconds,
     getWakeupChannelSeconds,
     getWakeupChannelForDelay,
     getWakeupChannel,
+    getWakeupSchedulerEvents,
+    getRegisteredWakeupIntervalsNanoseconds,
     intervalSecondsToNanoseconds,
     nextWallAlignedWakeupNs,
     nextAlignedWakeupNs,
@@ -51,6 +54,7 @@ import System.Log.Logger (Priority (..), logM)
 import System.Taffybar.Context (Context, TaffyIO, wakeupManager)
 import System.Taffybar.Information.Wakeup.Manager
   ( WakeupEvent (..),
+    WakeupSchedulerEvent (..),
     WakeupManager,
     intervalDueAtStepNs,
     intervalSecondsToNanoseconds,
@@ -58,7 +62,9 @@ import System.Taffybar.Information.Wakeup.Manager
     nextWallAlignedWakeupNs,
     registerWakeupInterval,
     secondsToNanoseconds,
+    subscribeWakeupSchedulerEvents,
   )
+import qualified System.Taffybar.Information.Wakeup.Manager as WakeupManager
 import Text.Printf (printf)
 
 -- | Type-tagged wakeup channel for @TypeApplications@-based lookup.
@@ -91,6 +97,18 @@ getWakeupChannelNanoseconds :: Word64 -> TaffyIO (TChan WakeupEvent)
 getWakeupChannelNanoseconds intervalNs = do
   manager <- getWakeupManager
   liftIO $ registerWakeupInterval manager intervalNs
+
+-- | Subscribe to aggregated scheduler wakeup events.
+getWakeupSchedulerEvents :: TaffyIO (TChan WakeupSchedulerEvent)
+getWakeupSchedulerEvents = do
+  manager <- getWakeupManager
+  liftIO $ subscribeWakeupSchedulerEvents manager
+
+-- | Return all currently registered wakeup intervals (nanoseconds).
+getRegisteredWakeupIntervalsNanoseconds :: TaffyIO [Word64]
+getRegisteredWakeupIntervalsNanoseconds = do
+  manager <- getWakeupManager
+  liftIO $ WakeupManager.getRegisteredWakeupIntervalsNanoseconds manager
 
 -- | Return the shared wakeup channel for @seconds@.
 getWakeupChannelSeconds :: Int -> TaffyIO (TChan WakeupEvent)

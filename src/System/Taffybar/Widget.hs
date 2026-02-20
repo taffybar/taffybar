@@ -82,6 +82,9 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.SimpleCommandButton"
   , module System.Taffybar.Widget.SimpleCommandButton
 
+  -- * "System.Taffybar.Widget.WakeupDebug"
+  , module System.Taffybar.Widget.WakeupDebug
+
   -- * "System.Taffybar.Widget.Text.CPUMonitor"
   , module System.Taffybar.Widget.Text.CPUMonitor
 
@@ -160,6 +163,7 @@ import System.Taffybar.Widget.PowerProfiles
 import System.Taffybar.Widget.SNITray
 import System.Taffybar.Widget.SimpleClock
 import System.Taffybar.Widget.SimpleCommandButton
+import System.Taffybar.Widget.WakeupDebug
 import System.Taffybar.Widget.Text.CPUMonitor
 import System.Taffybar.Widget.Text.MemoryMonitor
 import System.Taffybar.Widget.Text.NetworkMonitor

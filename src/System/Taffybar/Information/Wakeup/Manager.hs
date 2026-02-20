@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiWayIf #-}
-
 -- |
 -- Module      : System.Taffybar.Information.Wakeup.Manager
 -- Copyright   : (c) Ivan A. Malison
@@ -12,9 +10,12 @@
 -- Internal shared wakeup manager implementation.
 module System.Taffybar.Information.Wakeup.Manager
   ( WakeupEvent (..),
+    WakeupSchedulerEvent (..),
     WakeupManager,
     newWakeupManager,
     registerWakeupInterval,
+    subscribeWakeupSchedulerEvents,
+    getRegisteredWakeupIntervalsNanoseconds,
     secondsToNanoseconds,
     intervalSecondsToNanoseconds,
     nextWallAlignedWakeupNs,
@@ -37,7 +38,9 @@ import Control.Concurrent.STM
   )
 import Control.Concurrent.STM.TChan
   ( TChan,
+    dupTChan,
     newBroadcastTChan,
+    newBroadcastTChanIO,
     newTChanIO,
     readTChan,
     tryReadTChan,
@@ -45,6 +48,7 @@ import Control.Concurrent.STM.TChan
   )
 import Control.Exception.Enclosed (catchAny)
 import qualified Data.Map.Strict as M
+import Data.Maybe (mapMaybe)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Data.Word (Word64)
 import GHC.Clock (getMonotonicTimeNSec)
@@ -57,6 +61,13 @@ data WakeupEvent = WakeupEvent
     -- | Monotonic counter for this interval. If the scheduler was delayed,
     -- this counter can advance by more than one between events.
     wakeupTickCount :: !Word64
+  }
+  deriving (Eq, Show)
+
+-- | A scheduler event containing all interval wakeups published together.
+data WakeupSchedulerEvent = WakeupSchedulerEvent
+  { wakeupEventTimeNanoseconds :: !Word64,
+    wakeupDueEvents :: ![WakeupEvent]
   }
   deriving (Eq, Show)
 
@@ -73,7 +84,8 @@ data WakeupManager = WakeupManager
   { -- Approximate wall clock as @monotonic + wakeupRealtimeOffsetNs@.
     wakeupRealtimeOffsetNs :: !Integer,
     wakeupIntervals :: TVar (M.Map Word64 IntervalRegistration),
-    wakeupRescheduleChan :: TChan ()
+    wakeupRescheduleChan :: TChan (),
+    wakeupDebugChan :: TChan WakeupSchedulerEvent
   }
 
 newWakeupManager :: IO WakeupManager
@@ -81,11 +93,13 @@ newWakeupManager = do
   realtimeOffsetNs <- getRealtimeOffsetNs
   intervalsVar <- newTVarIO M.empty
   rescheduleChan <- newTChanIO
+  debugChan <- newBroadcastTChanIO
   let manager =
         WakeupManager
           { wakeupRealtimeOffsetNs = realtimeOffsetNs,
             wakeupIntervals = intervalsVar,
-            wakeupRescheduleChan = rescheduleChan
+            wakeupRescheduleChan = rescheduleChan,
+            wakeupDebugChan = debugChan
           }
   _ <- forkIO (runWakeupScheduler manager)
   pure manager
@@ -121,6 +135,14 @@ registerWakeupInterval manager intervalNs =
             writeTChan (wakeupRescheduleChan manager) ()
             pure channel
 
+subscribeWakeupSchedulerEvents :: WakeupManager -> IO (TChan WakeupSchedulerEvent)
+subscribeWakeupSchedulerEvents manager =
+  atomically $ dupTChan (wakeupDebugChan manager)
+
+getRegisteredWakeupIntervalsNanoseconds :: WakeupManager -> IO [Word64]
+getRegisteredWakeupIntervalsNanoseconds manager =
+  atomically $ M.keys <$> readTVar (wakeupIntervals manager)
+
 runWakeupScheduler :: WakeupManager -> IO ()
 runWakeupScheduler manager =
   schedulerLoop `catchAny` onSchedulerException
@@ -152,12 +174,23 @@ publishDueIntervals :: WakeupManager -> Word64 -> IO ()
 publishDueIntervals manager nowNs =
   atomically $ do
     registrations <- readTVar (wakeupIntervals manager)
-    updated <- mapM (advanceIntervalIfDue nowNs) registrations
+    updatedWithEvents <- mapM (advanceIntervalIfDue nowNs) registrations
+    let updated = fst <$> updatedWithEvents
+        dueEvents = mapMaybe snd (M.elems updatedWithEvents)
     writeTVar (wakeupIntervals manager) updated
+    if null dueEvents
+      then pure ()
+      else
+        writeTChan
+          (wakeupDebugChan manager)
+          WakeupSchedulerEvent
+            { wakeupEventTimeNanoseconds = nowNs,
+              wakeupDueEvents = dueEvents
+            }
 
-advanceIntervalIfDue :: Word64 -> IntervalRegistration -> STM IntervalRegistration
+advanceIntervalIfDue :: Word64 -> IntervalRegistration -> STM (IntervalRegistration, Maybe WakeupEvent)
 advanceIntervalIfDue nowNs registration
-  | intervalNextDueNs registration > nowNs = pure registration
+  | intervalNextDueNs registration > nowNs = pure (registration, Nothing)
   | otherwise = do
       let intervalsElapsed =
             ((nowNs - intervalNextDueNs registration) `div` intervalNanoseconds registration) + 1
@@ -166,17 +199,21 @@ advanceIntervalIfDue nowNs registration
               toInteger (intervalNextDueNs registration)
                 + toInteger intervalsElapsed * toInteger (intervalNanoseconds registration)
           tickCount = intervalTickCount registration + intervalsElapsed
+          wakeupEvent =
+            WakeupEvent
+              { wakeupIntervalNanoseconds = intervalNanoseconds registration,
+                wakeupTickCount = tickCount
+              }
       writeTChan
         (intervalChannel registration)
-        WakeupEvent
-          { wakeupIntervalNanoseconds = intervalNanoseconds registration,
-            wakeupTickCount = tickCount
-          }
+        wakeupEvent
       pure
-        registration
-          { intervalNextDueNs = nextDueNs',
-            intervalTickCount = tickCount
-          }
+        ( registration
+            { intervalNextDueNs = nextDueNs',
+              intervalTickCount = tickCount
+            },
+          Just wakeupEvent
+        )
 
 nextDueNs :: M.Map Word64 IntervalRegistration -> Maybe Word64
 nextDueNs registrations
