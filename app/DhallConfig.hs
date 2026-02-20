@@ -23,6 +23,7 @@ import System.Taffybar.Context (TaffyIO, TaffybarConfig)
 import System.Taffybar.DBus (withLogServer, withToggleServer)
 import System.Taffybar.Hooks (withBatteryRefresh, withLogLevels)
 import qualified System.Taffybar.Information.Wlsunset as WlsunsetInfo
+import qualified System.Taffybar.Information.Workspaces.Model as WorkspaceModel
 import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
 import qualified System.Taffybar.Widget.Backlight as Backlight
@@ -32,10 +33,6 @@ import qualified System.Taffybar.Widget.PulseAudio as PulseAudio
 import qualified System.Taffybar.Widget.ScreenLock as ScreenLock
 import qualified System.Taffybar.Widget.Windows as Windows
 import qualified System.Taffybar.Widget.Wlsunset as Wlsunset
-import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
-import qualified System.Taffybar.Widget.Workspaces.EWMH as EWMHWorkspaces
-import qualified System.Taffybar.Widget.Workspaces.Hyprland as HyprlandWorkspaces
-import qualified System.Taffybar.Widget.Workspaces.Shared as WorkspaceShared
 
 runDhallConfigFromFile :: FilePath -> IO ()
 runDhallConfigFromFile path = do
@@ -292,8 +289,8 @@ widgetFromSpec = \case
   Backlight maybeBacklightSpec -> Backlight.backlightNewChanWith (backlightConfigFromSpec maybeBacklightSpec)
   DiskUsage maybeDiskSpec -> DiskUsage.diskUsageNewWith (diskUsageConfigFromSpec maybeDiskSpec)
   Windows maybeWindowsSpec -> Windows.windowsNew (windowsConfigFromSpec maybeWindowsSpec)
-  WorkspacesEWMH maybeSpec -> EWMHWorkspaces.workspacesNew (ewmhConfigFromSpec maybeSpec)
-  WorkspacesHyprland maybeSpec -> HyprlandWorkspaces.hyprlandWorkspacesNew (hyprlandConfigFromSpec maybeSpec)
+  WorkspacesEWMH maybeSpec -> workspacesNew (ewmhConfigFromSpec maybeSpec)
+  WorkspacesHyprland maybeSpec -> workspacesNew (hyprlandConfigFromSpec maybeSpec)
   ScreenLock maybeSpec -> ScreenLock.screenLockNewWithConfig (screenLockConfigFromSpec maybeSpec)
   Wlsunset maybeSpec -> Wlsunset.wlsunsetNewWithConfig (wlsunsetConfigFromSpec maybeSpec)
   Layout -> layoutNew defaultLayoutConfig
@@ -424,23 +421,16 @@ defaultEWMHWorkspacesSpec =
       ewmhUpdateRateLimitMicroseconds = 100000
     }
 
-ewmhConfigFromSpec :: Maybe EWMHWorkspacesSpec -> EWMHWorkspaces.WorkspacesConfig
+ewmhConfigFromSpec :: Maybe EWMHWorkspacesSpec -> WorkspacesConfig
 ewmhConfigFromSpec maybeSpec =
   let spec = fromMaybe defaultEWMHWorkspacesSpec maybeSpec
-      base = EWMHWorkspaces.defaultWorkspacesConfig
-      common = EWMHWorkspaces.workspacesCommonConfig base
-      common' =
-        common
-          { WorkspaceConfig.minIcons = naturalToInt (ewmhMinIcons spec),
-            WorkspaceConfig.maxIcons = fmap naturalToInt (ewmhMaxIcons spec),
-            WorkspaceConfig.widgetGap = naturalToInt (ewmhWidgetGap spec),
-            WorkspaceConfig.showWorkspaceFn = if ewmhShowEmpty spec then const True else EWMHWorkspaces.hideEmpty,
-            WorkspaceConfig.urgentWorkspaceState = ewmhUrgentWorkspaceState spec
-          }
-      base' = EWMHWorkspaces.applyCommonWorkspacesConfig common' base
-   in base'
-        { EWMHWorkspaces.borderWidth = naturalToInt (ewmhBorderWidth spec),
-          EWMHWorkspaces.updateRateLimitMicroseconds = fromIntegral (ewmhUpdateRateLimitMicroseconds spec)
+      base = defaultEWMHWorkspacesConfig
+   in base
+        { minIcons = naturalToInt (ewmhMinIcons spec),
+          maxIcons = fmap naturalToInt (ewmhMaxIcons spec),
+          widgetGap = naturalToInt (ewmhWidgetGap spec),
+          showWorkspaceFn = if ewmhShowEmpty spec then const True else hideEmpty,
+          urgentWorkspaceState = ewmhUrgentWorkspaceState spec
         }
 
 defaultHyprlandWorkspacesSpec :: HyprlandWorkspacesSpec
@@ -456,31 +446,23 @@ defaultHyprlandWorkspacesSpec =
       hyprlandIconSize = 16
     }
 
-hyprlandConfigFromSpec :: Maybe HyprlandWorkspacesSpec -> HyprlandWorkspaces.HyprlandWorkspacesConfig
+hyprlandConfigFromSpec :: Maybe HyprlandWorkspacesSpec -> WorkspacesConfig
 hyprlandConfigFromSpec maybeSpec =
   let spec = fromMaybe defaultHyprlandWorkspacesSpec maybeSpec
-      base = HyprlandWorkspaces.defaultHyprlandWorkspacesConfig
-      common = HyprlandWorkspaces.hyprlandWorkspacesCommonConfig base
+      base = defaultWorkspacesConfig
       shouldShowWorkspace ws =
-        let isEmpty = HyprlandWorkspaces.workspaceState ws == WorkspaceShared.Empty
-            isSpecial =
-              let name = T.toLower $ T.pack $ HyprlandWorkspaces.workspaceName ws
-               in T.isPrefixOf "special" name || HyprlandWorkspaces.workspaceIdx ws < 0
+        let isEmpty = WorkspaceModel.workspaceState ws == WorkspaceModel.WorkspaceEmpty
+            isSpecial = WorkspaceModel.workspaceIsSpecial ws
             emptyAllowed = hyprlandShowEmpty spec || not isEmpty
             specialAllowed = hyprlandShowSpecial spec || not isSpecial
          in emptyAllowed && specialAllowed
-      common' =
-        common
-          { WorkspaceConfig.minIcons = naturalToInt (hyprlandMinIcons spec),
-            WorkspaceConfig.maxIcons = fmap naturalToInt (hyprlandMaxIcons spec),
-            WorkspaceConfig.widgetGap = naturalToInt (hyprlandWidgetGap spec),
-            WorkspaceConfig.showWorkspaceFn = shouldShowWorkspace,
-            WorkspaceConfig.urgentWorkspaceState = hyprlandUrgentWorkspaceState spec
-          }
-      base' = HyprlandWorkspaces.applyCommonHyprlandWorkspacesConfig common' base
-   in base'
-        { HyprlandWorkspaces.updateIntervalSeconds = hyprlandUpdateIntervalSeconds spec,
-          HyprlandWorkspaces.iconSize = fromIntegral (hyprlandIconSize spec)
+   in base
+        { minIcons = naturalToInt (hyprlandMinIcons spec),
+          maxIcons = fmap naturalToInt (hyprlandMaxIcons spec),
+          widgetGap = naturalToInt (hyprlandWidgetGap spec),
+          showWorkspaceFn = shouldShowWorkspace,
+          urgentWorkspaceState = hyprlandUrgentWorkspaceState spec,
+          iconSize = Just (fromIntegral (hyprlandIconSize spec))
         }
 
 screenLockConfigFromSpec :: Maybe ScreenLockSpec -> ScreenLock.ScreenLockConfig

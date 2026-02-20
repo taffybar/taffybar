@@ -101,38 +101,6 @@ module System.Taffybar.Widget
   -- * "System.Taffybar.Widget.Windows"
   , module System.Taffybar.Widget.Windows
 
-  -- * "System.Taffybar.Widget.ChannelWorkspaces"
-  , ChannelWorkspacesConfig
-  , defaultChannelWorkspacesConfig
-  , defaultChannelEWMHWorkspacesConfig
-  , channelWorkspacesNew
-
-  -- * "System.Taffybar.Widget.HyprlandWorkspaces"
-  , HyprlandWorkspacesConfig(..)
-  , defaultHyprlandWorkspacesConfig
-  , hyprlandWorkspacesNew
-  , HyprlandWorkspace(..)
-  , HyprlandWindow(..)
-  , HyprlandWindowIconPixbufGetter
-  , HyprlandWorkspaceWidgetController(..)
-  , HyprlandWWC(..)
-  , HyprlandControllerConstructor
-  , HyprlandParentControllerConstructor
-  , hyprlandBuildLabelController
-  , hyprlandBuildIconController
-  , hyprlandBuildContentsController
-  , hyprlandBuildLabelOverlayController
-  , hyprlandBuildCustomOverlayController
-  , hyprlandBuildButtonController
-  , defaultHyprlandWidgetBuilder
-  , defaultHyprlandGetWindowIconPixbuf
-  , getHyprlandWorkspaces
-  , hyprlandSwitchToWorkspace
-  , getActiveWindowAddress
-  , runHyprctlJson
-  , HyprlandClient(..)
-  , windowFromClient
-
   -- * "System.Taffybar.Widget.Workspaces"
   , module System.Taffybar.Widget.Workspaces
 
@@ -140,8 +108,6 @@ module System.Taffybar.Widget
   , module System.Taffybar.Widget.XDGMenu.MenuWidget
   ) where
 
-import qualified GI.Gtk as Gtk
-import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Widget.Battery
 import System.Taffybar.Widget.BatteryDonut
 import System.Taffybar.Widget.BatteryTextIcon
@@ -174,40 +140,5 @@ import System.Taffybar.Widget.PulseAudio
 import System.Taffybar.Widget.Backlight
 import System.Taffybar.Widget.Weather
 import System.Taffybar.Widget.Windows
-import System.Taffybar.Widget.Workspaces.Hyprland hiding
-  ( HyprlandWorkspacesConfig(..)
-  , defaultHyprlandWorkspacesConfig
-  , hyprlandBuildButtonController
-  , hyprlandBuildContentsController
-  , hyprlandBuildCustomOverlayController
-  , hyprlandBuildIconController
-  , hyprlandBuildLabelController
-  , hyprlandBuildLabelOverlayController
-  , hyprlandWorkspacesNew
-  , defaultHyprlandWidgetBuilder
-  )
-import System.Taffybar.Widget.Workspaces.Hyprland.Compat
-  ( HyprlandWorkspacesConfig(..)
-  , defaultHyprlandWorkspacesConfig
-  , hyprlandWorkspacesNew
-  , hyprlandBuildLabelController
-  , hyprlandBuildIconController
-  , hyprlandBuildContentsController
-  , hyprlandBuildLabelOverlayController
-  , hyprlandBuildCustomOverlayController
-  , hyprlandBuildButtonController
-  , defaultHyprlandWidgetBuilder
-  )
 import System.Taffybar.Widget.Workspaces
 import System.Taffybar.Widget.XDGMenu.MenuWidget
-
-type ChannelWorkspacesConfig = WorkspacesConfig
-
-defaultChannelWorkspacesConfig :: ChannelWorkspacesConfig
-defaultChannelWorkspacesConfig = defaultWorkspacesConfig
-
-defaultChannelEWMHWorkspacesConfig :: ChannelWorkspacesConfig
-defaultChannelEWMHWorkspacesConfig = defaultEWMHWorkspacesConfig
-
-channelWorkspacesNew :: ChannelWorkspacesConfig -> TaffyIO Gtk.Widget
-channelWorkspacesNew = workspacesNew
