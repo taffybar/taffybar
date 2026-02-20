@@ -16,11 +16,26 @@
 -- Channel-driven workspace widget that renders backend-agnostic workspace state.
 module System.Taffybar.Widget.Workspaces
   ( WorkspacesConfig (..),
+    WindowIconPixbufGetter,
     defaultWorkspacesConfig,
     defaultEWMHWorkspacesConfig,
     workspacesNew,
+    hideEmpty,
     sortWindowsByPosition,
+    sortWindowsByStackIndex,
+    scaledWindowIconPixbufGetter,
+    constantScaleWindowIconPixbufGetter,
+    handleIconGetterException,
+    getWindowIconPixbufFromClassHints,
+    getWindowIconPixbufFromDesktopEntry,
+    getWindowIconPixbufFromClass,
     getWindowIconPixbufByClassHints,
+    getWindowIconPixbufFromChrome,
+    getWindowIconPixbufFromEWMH,
+    defaultGetWindowIconPixbuf,
+    unscaledDefaultGetWindowIconPixbuf,
+    addCustomIconsToDefaultWithFallbackByPath,
+    addCustomIconsAndFallback,
     defaultOnWorkspaceClick,
     defaultOnWorkspaceClickEWMH,
     defaultOnWindowClick,
@@ -30,16 +45,19 @@ where
 import qualified Control.Concurrent.MVar as MV
 import Control.Concurrent.STM.TChan (TChan)
 import Control.Exception.Enclosed (catchAny)
-import Control.Monad (foldM, forM_, when)
+import Control.Monad (foldM, forM_, guard, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask, runReaderT)
 import Data.Default (Default (..))
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int32)
-import Data.List (sortOn)
+import Data.List (elemIndex, sortBy, sortOn)
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
+import Data.Word (Word64)
+import qualified GI.Gdk.Enums as Gdk
+import qualified GI.Gdk.Structs.EventScroll as Gdk
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
 import System.Log.Logger (Priority (..), logM)
@@ -47,23 +65,29 @@ import System.Taffybar.Context (TaffyIO, runX11Def)
 import System.Taffybar.Hyprland (getHyprlandClient)
 import System.Taffybar.Information.EWMHDesktopInfo
   ( WorkspaceId (WorkspaceId),
+    ewmhWMIcon,
     focusWindow,
+    getWindowsStacking,
     switchToWorkspace,
   )
 import qualified System.Taffybar.Information.Hyprland.API as HyprAPI
 import System.Taffybar.Information.Workspaces.EWMH
-  ( getEWMHWorkspaceStateChanAndVar,
+  ( defaultEWMHWorkspaceProviderConfig,
+    getEWMHWorkspaceStateChanAndVarWith,
+    workspaceUpdateEvents,
   )
 import System.Taffybar.Information.Workspaces.Hyprland
   ( getHyprlandWorkspaceStateChanAndVar,
   )
 import System.Taffybar.Information.Workspaces.Model
-import System.Taffybar.Util (postGUIASync)
+import System.Taffybar.Util (getPixbufFromFilePath, postGUIASync, (<|||>))
 import System.Taffybar.Widget.Generic.ChannelWidget (channelWidgetNew)
 import System.Taffybar.Widget.Generic.ScalingImage (getScalingImageStrategy)
 import System.Taffybar.Widget.Util
   ( WindowIconWidget (..),
     computeIconStripLayout,
+    handlePixbufGetterException,
+    scaledPixbufGetter,
     syncWidgetPool,
     updateWindowIconWidgetState,
     widgetSetClassGI,
@@ -76,10 +100,14 @@ import System.Taffybar.Widget.Workspaces.Shared
     setWorkspaceWidgetStatusClass,
   )
 import System.Taffybar.WindowIcon
-  ( getWindowIconFromClasses,
+  ( getIconPixBufFromEWMH,
+    getPixBufFromChromeData,
+    getWindowIconFromClasses,
     getWindowIconFromDesktopEntryByClasses,
     pixBufFromColor,
   )
+
+type WindowIconPixbufGetter = Int32 -> WindowInfo -> TaffyIO (Maybe Gdk.Pixbuf)
 
 data WorkspacesConfig = WorkspacesConfig
   { workspaceStateSource :: TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnapshot),
@@ -87,7 +115,7 @@ data WorkspacesConfig = WorkspacesConfig
     iconSize :: Maybe Int32,
     maxIcons :: Maybe Int,
     minIcons :: Int,
-    getWindowIconPixbuf :: Int32 -> WindowInfo -> TaffyIO (Maybe Gdk.Pixbuf),
+    getWindowIconPixbuf :: WindowIconPixbufGetter,
     labelSetter :: WorkspaceInfo -> TaffyIO String,
     showWorkspaceFn :: WorkspaceInfo -> Bool,
     iconSort :: [WindowInfo] -> TaffyIO [WindowInfo],
@@ -110,7 +138,8 @@ data WorkspaceEntry = WorkspaceEntry
 data WorkspaceCache = WorkspaceCache
   { cacheEntries :: M.Map WorkspaceIdentity WorkspaceEntry,
     cacheOrder :: [WorkspaceIdentity],
-    cacheLastWorkspaces :: [WorkspaceInfo]
+    cacheLastWorkspaces :: [WorkspaceInfo],
+    cacheLastRevision :: Word64
   }
 
 defaultWorkspacesConfig :: WorkspacesConfig
@@ -121,9 +150,9 @@ defaultWorkspacesConfig =
       iconSize = Just 16,
       maxIcons = Nothing,
       minIcons = 0,
-      getWindowIconPixbuf = getWindowIconPixbufByClassHints,
+      getWindowIconPixbuf = defaultGetWindowIconPixbuf,
       labelSetter = return . T.unpack . workspaceName . workspaceIdentity,
-      showWorkspaceFn = \ws -> workspaceState ws /= WorkspaceEmpty && not (workspaceIsSpecial ws),
+      showWorkspaceFn = \ws -> hideEmpty ws && not (workspaceIsSpecial ws),
       iconSort = pure . sortWindowsByPosition,
       urgentWorkspaceState = False,
       onWorkspaceClick = defaultOnWorkspaceClick,
@@ -133,12 +162,22 @@ defaultWorkspacesConfig =
 defaultEWMHWorkspacesConfig :: WorkspacesConfig
 defaultEWMHWorkspacesConfig =
   defaultWorkspacesConfig
-    { workspaceStateSource = getEWMHWorkspaceStateChanAndVar,
+    { workspaceStateSource = getEWMHWorkspaceStateChanAndVarWith providerConfig,
       onWorkspaceClick = defaultOnWorkspaceClickEWMH
     }
+  where
+    providerConfig =
+      defaultEWMHWorkspaceProviderConfig
+        { workspaceUpdateEvents =
+            ewmhWMIcon : workspaceUpdateEvents defaultEWMHWorkspaceProviderConfig
+        }
 
 instance Default WorkspacesConfig where
   def = defaultWorkspacesConfig
+
+hideEmpty :: WorkspaceInfo -> Bool
+hideEmpty WorkspaceInfo {workspaceState = WorkspaceEmpty} = False
+hideEmpty _ = True
 
 sortWindowsByPosition :: [WindowInfo] -> [WindowInfo]
 sortWindowsByPosition =
@@ -147,20 +186,102 @@ sortWindowsByPosition =
       fromMaybe (999999999, 999999999) (windowPosition w)
     )
 
-getWindowIconPixbufByClassHints :: Int32 -> WindowInfo -> TaffyIO (Maybe Gdk.Pixbuf)
-getWindowIconPixbufByClassHints size winInfo = tryHints classHints
+sortWindowsByStackIndex :: [WindowInfo] -> TaffyIO [WindowInfo]
+sortWindowsByStackIndex wins = do
+  stackingWindows <- runX11Def [] getWindowsStacking
+  let getStackIdx windowInfo =
+        case windowIdentity windowInfo of
+          X11WindowIdentity wid -> fromMaybe (-1) $ elemIndex (fromIntegral wid) stackingWindows
+          HyprlandWindowIdentity _ -> -1
+      compareWindowData a b = compare (getStackIdx b) (getStackIdx a)
+  return $ sortBy compareWindowData wins
+
+scaledWindowIconPixbufGetter :: WindowIconPixbufGetter -> WindowIconPixbufGetter
+scaledWindowIconPixbufGetter = scaledPixbufGetter
+
+constantScaleWindowIconPixbufGetter ::
+  Int32 -> WindowIconPixbufGetter -> WindowIconPixbufGetter
+constantScaleWindowIconPixbufGetter constantSize getter =
+  const $ scaledWindowIconPixbufGetter getter constantSize
+
+handleIconGetterException :: WindowIconPixbufGetter -> WindowIconPixbufGetter
+handleIconGetterException = handlePixbufGetterException wLog
+
+getWindowIconPixbufFromClassHints :: WindowIconPixbufGetter
+getWindowIconPixbufFromClassHints =
+  getWindowIconPixbufFromDesktopEntry <|||> getWindowIconPixbufFromClass
+
+getWindowIconPixbufFromDesktopEntry :: WindowIconPixbufGetter
+getWindowIconPixbufFromDesktopEntry = handleIconGetterException $ \size winInfo ->
+  tryHints size (map T.unpack (windowClassHints winInfo))
   where
-    classHints = map T.unpack (windowClassHints winInfo)
-    tryHints [] = return Nothing
-    tryHints (klass : rest) = do
-      fromDesktopEntry <- getWindowIconFromDesktopEntryByClasses size klass
+    tryHints _ [] = return Nothing
+    tryHints requestedSize (klass : rest) = do
+      fromDesktopEntry <- getWindowIconFromDesktopEntryByClasses requestedSize klass
       case fromDesktopEntry of
         Just _ -> return fromDesktopEntry
-        Nothing -> do
-          fromClass <- liftIO $ getWindowIconFromClasses size klass
-          case fromClass of
-            Just _ -> return fromClass
-            Nothing -> tryHints rest
+        Nothing -> tryHints requestedSize rest
+
+getWindowIconPixbufFromClass :: WindowIconPixbufGetter
+getWindowIconPixbufFromClass = handleIconGetterException $ \size winInfo ->
+  tryHints size (map T.unpack (windowClassHints winInfo))
+  where
+    tryHints _ [] = return Nothing
+    tryHints requestedSize (klass : rest) = do
+      fromClass <- liftIO $ getWindowIconFromClasses requestedSize klass
+      case fromClass of
+        Just _ -> return fromClass
+        Nothing -> tryHints requestedSize rest
+
+getWindowIconPixbufByClassHints :: Int32 -> WindowInfo -> TaffyIO (Maybe Gdk.Pixbuf)
+getWindowIconPixbufByClassHints = getWindowIconPixbufFromClassHints
+
+getWindowIconPixbufFromChrome :: WindowIconPixbufGetter
+getWindowIconPixbufFromChrome _ windowData =
+  case windowIdentity windowData of
+    X11WindowIdentity wid -> getPixBufFromChromeData (fromIntegral wid)
+    HyprlandWindowIdentity _ -> return Nothing
+
+getWindowIconPixbufFromEWMH :: WindowIconPixbufGetter
+getWindowIconPixbufFromEWMH = handleIconGetterException $ \size windowData ->
+  case windowIdentity windowData of
+    X11WindowIdentity wid ->
+      runX11Def Nothing (getIconPixBufFromEWMH size (fromIntegral wid))
+    HyprlandWindowIdentity _ -> return Nothing
+
+defaultGetWindowIconPixbuf :: WindowIconPixbufGetter
+defaultGetWindowIconPixbuf =
+  scaledWindowIconPixbufGetter unscaledDefaultGetWindowIconPixbuf
+
+unscaledDefaultGetWindowIconPixbuf :: WindowIconPixbufGetter
+unscaledDefaultGetWindowIconPixbuf =
+  getWindowIconPixbufFromDesktopEntry
+    <|||> getWindowIconPixbufFromClass
+    <|||> getWindowIconPixbufFromEWMH
+
+addCustomIconsToDefaultWithFallbackByPath ::
+  (WindowInfo -> Maybe FilePath) ->
+  FilePath ->
+  WindowIconPixbufGetter
+addCustomIconsToDefaultWithFallbackByPath getCustomIconPath fallbackPath =
+  addCustomIconsAndFallback
+    getCustomIconPath
+    (const $ liftIO $ getPixbufFromFilePath fallbackPath)
+    unscaledDefaultGetWindowIconPixbuf
+
+addCustomIconsAndFallback ::
+  (WindowInfo -> Maybe FilePath) ->
+  (Int32 -> TaffyIO (Maybe Gdk.Pixbuf)) ->
+  WindowIconPixbufGetter ->
+  WindowIconPixbufGetter
+addCustomIconsAndFallback getCustomIconPath fallback defaultGetter =
+  scaledWindowIconPixbufGetter $
+    getCustomIcon <|||> defaultGetter <|||> (\s _ -> fallback s)
+  where
+    getCustomIcon :: WindowIconPixbufGetter
+    getCustomIcon _ windowInfo =
+      maybe (return Nothing) (liftIO . getPixbufFromFilePath) $
+        getCustomIconPath windowInfo
 
 defaultOnWorkspaceClick :: WorkspaceInfo -> TaffyIO ()
 defaultOnWorkspaceClick wsInfo = do
@@ -219,7 +340,7 @@ workspacesNew cfg = do
   ctx <- ask
   cont <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal (fromIntegral $ widgetGap cfg)
   _ <- widgetSetClassGI cont "workspaces"
-  cacheVar <- liftIO $ MV.newMVar (WorkspaceCache M.empty [] [])
+  cacheVar <- liftIO $ MV.newMVar (WorkspaceCache M.empty [] [] 0)
   (chan, snapshotVar) <- workspaceStateSource cfg
   initialSnapshot <- liftIO $ MV.readMVar snapshotVar
   renderWorkspaces cfg cont cacheVar initialSnapshot
@@ -241,17 +362,21 @@ renderWorkspaces cfg cont cacheVar snapshot = do
   ctx <- ask
   liftIO $
     MV.modifyMVar_ cacheVar $ \oldCache ->
-      runReaderT (updateCache cfg cont snapshot oldCache) ctx
+      runReaderT (updateCache cfg cont cacheVar snapshot oldCache) ctx
 
 updateCache ::
   WorkspacesConfig ->
   Gtk.Box ->
+  MV.MVar WorkspaceCache ->
   WorkspaceSnapshot ->
   WorkspaceCache ->
   TaffyIO WorkspaceCache
-updateCache cfg cont snapshot oldCache = do
+updateCache cfg cont cacheVar snapshot oldCache = do
   let workspaces = snapshotWorkspaces snapshot
-  if workspaces == cacheLastWorkspaces oldCache
+      forceIconRefresh =
+        snapshotBackend snapshot == WorkspaceBackendEWMH
+          && snapshotRevision snapshot /= cacheLastRevision oldCache
+  if workspaces == cacheLastWorkspaces oldCache && not forceIconRefresh
     then return oldCache
     else do
       let oldEntries = cacheEntries oldCache
@@ -260,9 +385,12 @@ updateCache cfg cont snapshot oldCache = do
             entry <-
               case M.lookup wsKey oldEntries of
                 Just existing
-                  | entryLastWorkspace existing == wsInfo -> return existing
+                  | entryLastWorkspace existing == wsInfo ->
+                      if forceIconRefresh
+                        then refreshWorkspaceEntryIcons cfg existing wsInfo
+                        else return existing
                   | otherwise -> updateWorkspaceEntry cfg existing wsInfo
-                Nothing -> buildWorkspaceEntry cfg wsInfo
+                Nothing -> buildWorkspaceEntry cfg cacheVar wsInfo
             return (M.insert wsKey entry cacheAcc, (wsInfo, entry) : entriesAcc)
       (newEntries, orderedEntriesRev) <-
         foldM buildOrUpdate (M.empty, []) workspaces
@@ -290,11 +418,16 @@ updateCache cfg cont snapshot oldCache = do
         WorkspaceCache
           { cacheEntries = newEntries,
             cacheOrder = desiredOrder,
-            cacheLastWorkspaces = workspaces
+            cacheLastWorkspaces = workspaces,
+            cacheLastRevision = snapshotRevision snapshot
           }
 
-buildWorkspaceEntry :: WorkspacesConfig -> WorkspaceInfo -> TaffyIO WorkspaceEntry
-buildWorkspaceEntry cfg wsInfo = do
+buildWorkspaceEntry ::
+  WorkspacesConfig ->
+  MV.MVar WorkspaceCache ->
+  WorkspaceInfo ->
+  TaffyIO WorkspaceEntry
+buildWorkspaceEntry cfg cacheVar wsInfo = do
   wsRef <- liftIO $ newIORef wsInfo
   iconsBox <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
   label <- liftIO $ Gtk.labelNew Nothing
@@ -318,6 +451,18 @@ buildWorkspaceEntry cfg wsInfo = do
           currentWs <- readIORef wsRef
           runReaderT (onWorkspaceClick cfg currentWs) ctx
           return True
+  _ <-
+    liftIO $
+      Gtk.onWidgetScrollEvent button $ \scrollEvent -> do
+        direction <- Gdk.getEventScrollDirection scrollEvent
+        let scrollPrevious = runReaderT (switchWorkspaceRelative cfg cacheVar wsRef True) ctx
+            scrollNext = runReaderT (switchWorkspaceRelative cfg cacheVar wsRef False) ctx
+        case direction of
+          Gdk.ScrollDirectionUp -> scrollPrevious
+          Gdk.ScrollDirectionLeft -> scrollPrevious
+          Gdk.ScrollDirectionDown -> scrollNext
+          Gdk.ScrollDirectionRight -> scrollNext
+          _ -> return False
   updateWorkspaceEntry
     cfg
     WorkspaceEntry
@@ -350,6 +495,41 @@ updateWorkspaceEntry cfg entry wsInfo = do
       then updateWorkspaceIcons cfg (entryWorkspaceRef entry) (entryIconsBox entry) (entryIcons entry) wsInfo
       else return (entryIcons entry)
   return entry {entryLastWorkspace = wsInfo, entryIcons = icons}
+
+refreshWorkspaceEntryIcons ::
+  WorkspacesConfig ->
+  WorkspaceEntry ->
+  WorkspaceInfo ->
+  TaffyIO WorkspaceEntry
+refreshWorkspaceEntryIcons cfg entry wsInfo = do
+  liftIO $ writeIORef (entryWorkspaceRef entry) wsInfo
+  icons <- updateWorkspaceIcons cfg (entryWorkspaceRef entry) (entryIconsBox entry) (entryIcons entry) wsInfo
+  return entry {entryLastWorkspace = wsInfo, entryIcons = icons}
+
+switchWorkspaceRelative ::
+  WorkspacesConfig ->
+  MV.MVar WorkspaceCache ->
+  IORef WorkspaceInfo ->
+  Bool ->
+  TaffyIO Bool
+switchWorkspaceRelative cfg cacheVar wsRef moveBackward = do
+  currentWs <- liftIO $ readIORef wsRef
+  cache <- liftIO $ MV.readMVar cacheVar
+  let identities = cacheOrder cache
+      currentIdentity = workspaceIdentity currentWs
+      step = if moveBackward then (-1) else 1
+      getTargetIdentity = do
+        idx <- elemIndex currentIdentity identities
+        let total = length identities
+        guard (total > 0)
+        let wrappedIndex = (idx + step + total) `mod` total
+        return (identities !! wrappedIndex)
+  case getTargetIdentity >>= (`M.lookup` cacheEntries cache) of
+    Nothing -> return False
+    Just targetEntry -> do
+      targetWorkspace <- liftIO $ readIORef (entryWorkspaceRef targetEntry)
+      onWorkspaceClick cfg targetWorkspace
+      return True
 
 updateWorkspaceIcons ::
   WorkspacesConfig ->
