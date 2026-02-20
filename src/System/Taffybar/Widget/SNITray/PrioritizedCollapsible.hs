@@ -17,21 +17,24 @@ module System.Taffybar.Widget.SNITray.PrioritizedCollapsible
   )
 where
 
-import Control.Monad (forM_, void)
+import Control.Applicative ((<|>))
+import Control.Monad (forM_, join, void)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
-import Control.Applicative ((<|>))
 import qualified Data.Aeson as A
-import Data.Aeson.Types (Parser)
+import qualified Data.Aeson.Key as AKey
+import qualified Data.Aeson.KeyMap as AKeyMap
+import Data.Aeson.Types (Parser, parseMaybe)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BS8
 import Data.IORef
 import Data.Int (Int32)
 import Data.List (sortOn)
 import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe, listToMaybe, mapMaybe, maybeToList)
+import Data.Maybe (fromMaybe, isNothing, listToMaybe, mapMaybe, maybeToList)
 import Data.Ord (Down (..))
 import qualified Data.Text as T
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as BS8
+import qualified Data.Yaml as Y
 import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
@@ -51,7 +54,6 @@ import System.Taffybar.Widget.SNITray
   )
 import System.Taffybar.Widget.Util
 import Text.Read (readMaybe)
-import qualified Data.Yaml as Y
 
 type SNIPriorityMap = M.Map String Int
 
@@ -60,8 +62,13 @@ data SNIPriorityEntry = SNIPriorityEntry
     sniPriorityEntryPriority :: Int
   }
 
-newtype SNIPriorityFile = SNIPriorityFile
-  { sniPriorityFilePriorities :: SNIPriorityMap
+data SNIPriorityFile = SNIPriorityFile
+  { sniPriorityFilePriorities :: SNIPriorityMap,
+    sniPriorityFileMaxVisibleIcons :: Maybe Int,
+    -- Nothing: no persisted override (use config default)
+    -- Just Nothing: explicitly no threshold
+    -- Just (Just n): explicit threshold n
+    sniPriorityFileVisibilityThreshold :: Maybe (Maybe Int)
   }
 
 instance A.FromJSON SNIPriorityEntry where
@@ -91,19 +98,32 @@ instance A.FromJSON SNIPriorityFile where
   parseJSON = A.withObject "SNIPriorityFile" $ \obj -> do
     maybePriorities <- obj A..:? "priorities"
     priorities <- maybe (return M.empty) parsePrioritiesValue maybePriorities
-    return $ SNIPriorityFile priorities
+    maxVisibleIcons <- obj A..:? "max_visible_icons"
+    let thresholdKey = AKey.fromString "visibility_threshold"
+    visibilityThreshold <-
+      if AKeyMap.member thresholdKey obj
+        then Just <$> obj A..:? "visibility_threshold"
+        else return Nothing
+    return $
+      SNIPriorityFile
+        { sniPriorityFilePriorities = priorities,
+          sniPriorityFileMaxVisibleIcons = maxVisibleIcons,
+          sniPriorityFileVisibilityThreshold = visibilityThreshold
+        }
 
 instance A.ToJSON SNIPriorityFile where
-  toJSON (SNIPriorityFile priorities) =
+  toJSON SNIPriorityFile {..} =
     let sortedEntries =
           map
-            (\(key, priority) -> SNIPriorityEntry key priority)
-            (sortOn (\(key, priority) -> (Down priority, key)) (M.toList priorities))
-     in
-      A.object
-        [ "format_version" A..= (1 :: Int),
-          "priorities" A..= sortedEntries
-        ]
+            (uncurry SNIPriorityEntry)
+            (sortOn (\(key, priority) -> (Down priority, key)) (M.toList sniPriorityFilePriorities))
+     in A.object
+          ( [ "format_version" A..= (2 :: Int),
+              "priorities" A..= sortedEntries
+            ]
+              <> maybe [] (\value -> ["max_visible_icons" A..= value]) sniPriorityFileMaxVisibleIcons
+              <> maybe [] (\value -> ["visibility_threshold" A..= value]) sniPriorityFileVisibilityThreshold
+          )
 
 -- | Configuration for a collapsible tray with editable icon priorities.
 data PrioritizedCollapsibleSNITrayParams = PrioritizedCollapsibleSNITrayParams
@@ -166,49 +186,77 @@ parseLegacySNIPriorityMap :: BS.ByteString -> Maybe SNIPriorityMap
 parseLegacySNIPriorityMap content =
   M.fromList <$> (readMaybe (BS8.unpack content) :: Maybe [(String, Int)])
 
-parseSNIPriorityMap :: BS.ByteString -> Maybe SNIPriorityMap
-parseSNIPriorityMap content =
-  parseYaml <|> parseLegacySNIPriorityMap content
+parseLegacySNIPriorityFile :: BS.ByteString -> Maybe SNIPriorityFile
+parseLegacySNIPriorityFile content =
+  legacyFile <$> parseLegacySNIPriorityMap content
   where
-    parseYaml =
+    legacyFile priorities =
+      SNIPriorityFile
+        { sniPriorityFilePriorities = priorities,
+          sniPriorityFileMaxVisibleIcons = Nothing,
+          sniPriorityFileVisibilityThreshold = Nothing
+        }
+
+parseSNIPriorityFile :: BS.ByteString -> Maybe SNIPriorityFile
+parseSNIPriorityFile content =
+  parseYamlState <|> parseYamlPriorityOnly <|> parseLegacySNIPriorityFile content
+  where
+    parseYamlState =
       either
         (const Nothing)
-        (Just . sniPriorityFilePriorities)
+        Just
         (Y.decodeEither' content :: Either Y.ParseException SNIPriorityFile)
+    parseYamlPriorityOnly = do
+      yamlValue <- either (const Nothing) Just (Y.decodeEither' content :: Either Y.ParseException A.Value)
+      priorities <- parseMaybe parsePrioritiesValue yamlValue
+      return $
+        SNIPriorityFile
+          { sniPriorityFilePriorities = priorities,
+            sniPriorityFileMaxVisibleIcons = Nothing,
+            sniPriorityFileVisibilityThreshold = Nothing
+          }
 
-loadSNIPriorityMapFromPath :: FilePath -> IO (Maybe SNIPriorityMap)
-loadSNIPriorityMapFromPath path = do
+loadSNIPriorityFileFromPath :: FilePath -> IO (Maybe SNIPriorityFile)
+loadSNIPriorityFileFromPath path = do
   exists <- doesFileExist path
   if not exists
     then return Nothing
-    else parseSNIPriorityMap <$> BS.readFile path
+    else parseSNIPriorityFile <$> BS.readFile path
 
 legacyPriorityStateFallbackPath :: FilePath -> Maybe FilePath
 legacyPriorityStateFallbackPath path
   | takeExtension path == ".yaml" = Just (replaceExtension path "dat")
   | otherwise = Nothing
 
-loadSNIPriorityMapFromFile :: FilePath -> IO SNIPriorityMap
-loadSNIPriorityMapFromFile path = do
-  loaded <- loadSNIPriorityMapFromPath path
+loadSNIPriorityFileFromFile :: FilePath -> IO SNIPriorityFile
+loadSNIPriorityFileFromFile path = do
+  loaded <- loadSNIPriorityFileFromPath path
   case loaded of
-    Just priorities -> return priorities
+    Just priorityFile -> return priorityFile
     Nothing ->
       case legacyPriorityStateFallbackPath path of
-        Nothing -> return M.empty
+        Nothing -> return emptyPriorityFile
         Just legacyPath -> do
-          fallbackLoaded <- loadSNIPriorityMapFromPath legacyPath
+          fallbackLoaded <- loadSNIPriorityFileFromPath legacyPath
           case fallbackLoaded of
-            Nothing -> return M.empty
-            Just priorities -> do
+            Nothing -> return emptyPriorityFile
+            Just priorityFile -> do
               -- One-time migration path for existing show/read .dat files.
-              persistSNIPriorityMapToFile path priorities
-              return priorities
+              persistSNIPriorityFileToFile path priorityFile
+              return priorityFile
 
-persistSNIPriorityMapToFile :: FilePath -> SNIPriorityMap -> IO ()
-persistSNIPriorityMapToFile path priorities = do
+emptyPriorityFile :: SNIPriorityFile
+emptyPriorityFile =
+  SNIPriorityFile
+    { sniPriorityFilePriorities = M.empty,
+      sniPriorityFileMaxVisibleIcons = Nothing,
+      sniPriorityFileVisibilityThreshold = Nothing
+    }
+
+persistSNIPriorityFileToFile :: FilePath -> SNIPriorityFile -> IO ()
+persistSNIPriorityFileToFile path priorityFile = do
   createDirectoryIfMissing True (takeDirectory path)
-  BS.writeFile path (Y.encode (SNIPriorityFile priorities))
+  BS.writeFile path (Y.encode priorityFile)
 
 nonEmptyString :: String -> Maybe String
 nonEmptyString value
@@ -280,18 +328,17 @@ sortedInfosByPriority ::
   [H.ItemInfo] ->
   [H.ItemInfo]
 sortedInfosByPriority highPriorityFirstInMatcherOrder priorityMin priorityMax defaultPriority priorities infos =
-  let itemPriority info =
-        itemPriorityFromMap priorityMin priorityMax defaultPriority priorities info
+  let itemPriority =
+        itemPriorityFromMap priorityMin priorityMax defaultPriority priorities
       prioritySortKey info =
         if highPriorityFirstInMatcherOrder
           then negate (itemPriority info)
           else itemPriority info
-   in
-    -- Matchers may need to be reversed to keep higher numeric priorities on the
-    -- visual left when the tray is end-aligned.
-    sortOn
-      (\info -> (prioritySortKey info, itemStableIdentity info))
-      infos
+   in -- Matchers may need to be reversed to keep higher numeric priorities on the
+      -- visual left when the tray is end-aligned.
+      sortOn
+        (\info -> (prioritySortKey info, itemStableIdentity info))
+        infos
 
 lookupExplicitPriority ::
   SNIPriorityMap ->
@@ -349,7 +396,7 @@ showPriorityEditMenu anchor priorityMin priorityMax defaultPriority currentExpli
   Gtk.menuShellAppend menu sep
 
   let clearPrefix =
-        if currentExplicit == Nothing
+        if isNothing currentExplicit
           then "\x2713 " :: T.Text
           else "   "
       clearLabel =
@@ -471,12 +518,25 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
             _ -> True
 
     statePath <- resolveSNIPriorityStateFile prioritizedCollapsibleSNITrayPriorityStateFile
-    persistedPriorities <- loadSNIPriorityMapFromFile statePath
-    prioritiesRef <- newIORef (M.map clampPriority persistedPriorities)
+    persistedPriorityFile <- loadSNIPriorityFileFromFile statePath
+    let persistedPriorities =
+          M.map clampPriority (sniPriorityFilePriorities persistedPriorityFile)
+        initialMaxVisibleIcons =
+          max
+            0
+            ( fromMaybe
+                collapsibleSNITrayMaxVisibleIcons
+                (sniPriorityFileMaxVisibleIcons persistedPriorityFile)
+            )
+        initialVisibilityThreshold =
+          case sniPriorityFileVisibilityThreshold persistedPriorityFile of
+            Nothing -> visibilityThreshold
+            Just persistedThreshold -> clampPriority <$> persistedThreshold
+    prioritiesRef <- newIORef persistedPriorities
     expandedRef <- newIORef collapsibleSNITrayStartExpanded
     priorityEditModeRef <- newIORef prioritizedCollapsibleSNITrayStartPriorityEditMode
-    maxVisibleIconsRef <- newIORef collapsibleSNITrayMaxVisibleIcons
-    visibilityThresholdRef <- newIORef visibilityThreshold
+    maxVisibleIconsRef <- newIORef initialMaxVisibleIcons
+    visibilityThresholdRef <- newIORef initialVisibilityThreshold
     knownItemIdentitiesRef <- newIORef ([] :: [String])
     orderedInfosRef <- newIORef ([] :: [H.ItemInfo])
     trayRef <- newIORef Nothing
@@ -521,6 +581,18 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
             Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT_IDLE $
               rebuild >> return False
 
+        persistCurrentState = do
+          priorities <- readIORef prioritiesRef
+          maxVisibleIcons <- readIORef maxVisibleIconsRef
+          visibilityThresholdOverride <- readIORef visibilityThresholdRef
+          persistSNIPriorityFileToFile
+            statePath
+            SNIPriorityFile
+              { sniPriorityFilePriorities = priorities,
+                sniPriorityFileMaxVisibleIcons = Just (max 0 maxVisibleIcons),
+                sniPriorityFileVisibilityThreshold = Just visibilityThresholdOverride
+              }
+
         editPriorityForClick clickContext = do
           let clickedInfo = trayClickItemInfo clickContext
           priorities <- readIORef prioritiesRef
@@ -528,7 +600,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
               updatePriority newPriority = do
                 setExplicitPriorityForItem
                   prioritiesRef
-                  (\updatedPriorities -> persistSNIPriorityMapToFile statePath updatedPriorities >> queueRebuild)
+                  (\_ -> persistCurrentState >> queueRebuild)
                   clickedInfo
                   (fmap clampPriority newPriority)
           showPriorityEditMenu
@@ -651,10 +723,9 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                   then do
                     editPriorityForClick clickContext
                     return ConsumeClick
-                  else
-                    case baseClickHook of
-                      Just clickHook -> clickHook clickContext
-                      Nothing -> return UseDefaultClickAction
+                  else case baseClickHook of
+                    Just clickHook -> clickHook clickContext
+                    Nothing -> return UseDefaultClickAction
               trayParams =
                 sniTrayTrayParams
                   { trayEventHooks =
@@ -679,6 +750,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
               currentItemIdentities =
                 sortOn id (map itemStableIdentity infos)
           tray <- buildTrayWithPriorities priorities orderedInfos
+          Gtk.widgetHide tray
           oldTray <- readIORef trayRef
           forM_ oldTray $ \existingTray -> do
             Gtk.containerRemove trayContainer existingTray
@@ -687,8 +759,8 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
           writeIORef trayRef (Just tray)
           writeIORef orderedInfosRef orderedInfos
           writeIORef knownItemIdentitiesRef currentItemIdentities
-          Gtk.widgetShowAll trayContainer
           void refresh
+          Gtk.widgetShow tray
 
     writeIORef rebuildTrayRef rebuildTray
 
@@ -723,7 +795,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
             priorityMax
             maxVisibleIconsRef
             visibilityThresholdRef
-            (void refresh)
+            (persistCurrentState >> void refresh)
           return True
         else return False
 
@@ -739,8 +811,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                           sortOn id (map itemStableIdentity (M.elems infoMap))
                     if currentItemIdentities /= knownItemIdentities
                       then do
-                        rebuild <- readIORef rebuildTrayRef
-                        rebuild
+                        join (readIORef rebuildTrayRef)
                       else void refresh
                   H.ItemRemoved -> do
                     infoMap <- H.itemInfoMap host
@@ -749,8 +820,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                           sortOn id (map itemStableIdentity (M.elems infoMap))
                     if currentItemIdentities /= knownItemIdentities
                       then do
-                        rebuild <- readIORef rebuildTrayRef
-                        rebuild
+                        join (readIORef rebuildTrayRef)
                       else void refresh
                   _ -> void refresh
                 return False
