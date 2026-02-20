@@ -102,6 +102,9 @@ data WorkspaceWidgetMode
   | UseChannelWorkspaces
   deriving (Eq, Show)
 
+snapshotWatchdogTimeoutUsec :: Int
+snapshotWatchdogTimeoutUsec = 60_000_000
+
 main :: IO ()
 main = do
   Args
@@ -177,7 +180,7 @@ runUnderWm wmProc outPath cssPath mode wsMode mExpectedTopStrut = do
 
   -- Hard watchdog for CI stability: always tries to end the GTK loop, and
   -- stops the WM as a last resort.
-  void $ forkIO $ watchdogThread wmProc ctxVar resultVar doneVar 30_000_000
+  void $ forkIO $ watchdogThread wmProc ctxVar resultVar doneVar snapshotWatchdogTimeoutUsec
 
   barUnique <- newUnique
   let wsCfgDefault = def :: WorkspacesConfig

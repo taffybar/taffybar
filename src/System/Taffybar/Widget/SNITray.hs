@@ -212,7 +212,7 @@ sniTrayCollapsibleNewFromHostParams CollapsibleSNITrayParams {..} host = do
                 let getPriorityIndex info =
                       fromMaybe
                         (length priorityMatchers)
-                        (findIndex (\matcher -> trayItemMatcherPredicate matcher info) priorityMatchers)
+                        (findIndex (`trayItemMatcherPredicate` info) priorityMatchers)
                     visibleCount =
                       length $
                         filter

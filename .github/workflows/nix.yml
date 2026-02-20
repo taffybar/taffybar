@@ -31,6 +31,8 @@ jobs:
       - name: Use ${{ matrix.nixpkgs }}
         if: matrix.nixpkgs != 'nixos-unstable'
         run: nix flake update nixpkgs --override-input nixpkgs github:NixOS/nixpkgs/${{ matrix.nixpkgs }}
+      - name: Run hlint early (short-circuit on lint failures)
+        run: nix build --print-build-logs --option substituters "https://cache.nixos.org/" .#checks.x86_64-linux.hlint
       - name: Nix build dependencies
         run: nix develop --print-build-logs $drv --command ghc-pkg list
       - name: Nix build

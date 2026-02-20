@@ -12,6 +12,7 @@ where
 
 import Control.Monad.IO.Class (liftIO)
 import Data.Default (def)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Dhall
 import GHC.Generics (Generic)
@@ -425,7 +426,7 @@ defaultEWMHWorkspacesSpec =
 
 ewmhConfigFromSpec :: Maybe EWMHWorkspacesSpec -> EWMHWorkspaces.WorkspacesConfig
 ewmhConfigFromSpec maybeSpec =
-  let spec = maybe defaultEWMHWorkspacesSpec id maybeSpec
+  let spec = fromMaybe defaultEWMHWorkspacesSpec maybeSpec
       base = EWMHWorkspaces.defaultWorkspacesConfig
       common = EWMHWorkspaces.workspacesCommonConfig base
       common' =
@@ -457,7 +458,7 @@ defaultHyprlandWorkspacesSpec =
 
 hyprlandConfigFromSpec :: Maybe HyprlandWorkspacesSpec -> HyprlandWorkspaces.HyprlandWorkspacesConfig
 hyprlandConfigFromSpec maybeSpec =
-  let spec = maybe defaultHyprlandWorkspacesSpec id maybeSpec
+  let spec = fromMaybe defaultHyprlandWorkspacesSpec maybeSpec
       base = HyprlandWorkspaces.defaultHyprlandWorkspacesConfig
       common = HyprlandWorkspaces.hyprlandWorkspacesCommonConfig base
       shouldShowWorkspace ws =
