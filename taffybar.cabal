@@ -240,6 +240,7 @@ library
                  , System.Taffybar.Widget.XDGMenu.Menu
                  , System.Taffybar.Widget.XDGMenu.MenuWidget
                  , System.Taffybar.WindowIcon
+                 , System.Taffybar.WindowIcon.Cache
 
   if flag(Deprecated-Pager-Hints)
     build-depends: xmonad
