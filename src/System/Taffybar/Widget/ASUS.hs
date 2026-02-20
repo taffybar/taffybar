@@ -164,7 +164,7 @@ setupClickHandler ctx ebox = do
           showProfileMenu ctx ebox
           return True
         3 -> do
-          let client = systemDBusClient ctx
+          client <- readSystemDBusClient ctx
           result <- cycleASUSProfile client
           case result of
             Left err ->
@@ -197,7 +197,7 @@ showProfileMenu ctx ebox = do
             else "   "
     item <- Gtk.menuItemNewWithLabel (prefix <> labelText)
     void $ Gtk.onMenuItemActivate item $ do
-      let client = systemDBusClient ctx
+      client <- readSystemDBusClient ctx
       result <- setASUSProfile client profile
       case result of
         Left err ->

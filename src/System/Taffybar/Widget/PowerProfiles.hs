@@ -228,7 +228,7 @@ setupClickHandler ctx ebox = do
     if eventType == Gdk.EventTypeButtonPress && button == 1
       then do
         info <- runReaderT getPowerProfileInfoState ctx
-        let client = systemDBusClient ctx
+        client <- readSystemDBusClient ctx
         result <- cycleProfile client info
         case result of
           Left err ->

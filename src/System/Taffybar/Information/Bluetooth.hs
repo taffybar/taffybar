@@ -45,7 +45,6 @@ import Control.Exception (SomeException, finally, try)
 import Control.Monad (forever)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.STM (atomically)
-import Control.Monad.Trans.Reader (asks)
 import DBus
 import DBus.Client
 import Data.List (sortOn)
@@ -56,7 +55,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Word (Word8)
 import System.Log.Logger (Priority (..))
-import System.Taffybar.Context (TaffyIO, getStateDefault, systemDBusClient)
+import System.Taffybar.Context (TaffyIO, getStateDefault, getSystemDBusClient)
 import System.Taffybar.Util (logPrintF)
 
 -- | Information about a Bluetooth device.
@@ -154,7 +153,7 @@ getBluetoothInfoState = do
 getBluetoothInfoChanVar :: TaffyIO BluetoothInfoChanVar
 getBluetoothInfoChanVar =
   getStateDefault $ do
-    client <- asks systemDBusClient
+    client <- getSystemDBusClient
     liftIO $ do
       chan <- newBroadcastTChanIO
       var <- newMVar defaultBluetoothInfo

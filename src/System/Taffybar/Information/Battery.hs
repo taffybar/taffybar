@@ -110,7 +110,7 @@ dummyMethodError = methodError (Serial 1) $ errorName_ "org.ClientTypeMismatch"
 -- here.  Don't bet anything critical on it.
 getBatteryInfo :: ObjectPath -> TaffyIO (Either MethodError BatteryInfo)
 getBatteryInfo battPath =
-  asks systemDBusClient >>= \client -> lift $ runExceptT $ do
+  getSystemDBusClient >>= \client -> lift $ runExceptT $ do
     reply <-
       ExceptT $
         getAllProperties client $
@@ -161,7 +161,7 @@ infoMapToBatteryInfo dict =
 
 getBatteryPaths :: TaffyIO (Either MethodError [ObjectPath])
 getBatteryPaths = do
-  client <- asks systemDBusClient
+  client <- getSystemDBusClient
   liftIO $ runExceptT $ do
     paths <- ExceptT $ enumerateDevices client
     return $ filter isBattery paths
@@ -217,7 +217,7 @@ registerForUPowerPropertyChanges ::
   (Signal -> String -> Map String Variant -> [String] -> IO ()) ->
   ReaderT Context IO SignalHandler
 registerForUPowerPropertyChanges properties signalHandler = do
-  client <- asks systemDBusClient
+  client <- getSystemDBusClient
   lift $
     DBus.registerForPropertiesChanged
       client
@@ -238,7 +238,7 @@ monitorDisplayBattery ::
   [String] -> TaffyIO (TChan BatteryInfo, MVar BatteryInfo)
 monitorDisplayBattery propertiesToMonitor = do
   lift $ batteryLog DEBUG "Starting Battery Monitor"
-  client <- asks systemDBusClient
+  client <- getSystemDBusClient
   infoVar <- lift $ newMVar $ infoMapToBatteryInfo M.empty
   chan <- liftIO newBroadcastTChanIO
   taffyFork $ do
@@ -280,7 +280,7 @@ refreshBatteriesOnPropChange =
 -- refresh mechanism is not working properly.
 refreshAllBatteries :: TaffyIO ()
 refreshAllBatteries = do
-  client <- asks systemDBusClient
+  client <- getSystemDBusClient
   let doRefresh path =
         batteryLogF DEBUG "Refreshing battery: %s" path >> refresh client path
   eerror <- runExceptT $ ExceptT getBatteryPaths >>= liftIO . mapM doRefresh

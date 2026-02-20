@@ -16,7 +16,7 @@ import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk (EventType (..), getEventButtonButton, getEventButtonType)
 import qualified GI.Gtk as Gtk
 import System.Log.Logger (Priority (..), logM)
-import System.Taffybar.Context (Context (..), TaffyIO)
+import System.Taffybar.Context (TaffyIO, readSessionDBusClient)
 import Text.Printf (printf)
 
 sniMenuLogger :: Priority -> String -> IO ()
@@ -41,7 +41,7 @@ withSniMenu busName menuPath mkWidget = do
           currentEvent <- Gtk.getCurrentEvent
           catchAny
             ( do
-                let client = sessionDBusClient ctx
+                client <- readSessionDBusClient ctx
                 gtkMenu <- DBusMenu.buildMenu client busName menuPath
                 Gtk.menuAttachToWidget gtkMenu ebox Nothing
                 _ <- Gtk.onWidgetHide gtkMenu $

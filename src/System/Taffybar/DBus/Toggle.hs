@@ -154,7 +154,6 @@ exportTogglesInterface = do
         toggleTaffyOnMon not $ fromMaybe 0 num
       takeInt :: (Int -> a) -> (Int32 -> a)
       takeInt = (. fromIntegral)
-  client <- asks sessionDBusClient
   let interface =
         defaultInterface
           { interfaceName = taffybarToggleInterface,
@@ -171,7 +170,7 @@ exportTogglesInterface = do
                 autoMethod "exit" $ exitTaffybar ctx
               ]
           }
-  lift $ do
+  installSessionDBusClientHook $ \client -> do
     _ <-
       requestName
         client

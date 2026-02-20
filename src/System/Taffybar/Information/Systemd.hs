@@ -148,8 +148,8 @@ monitorSystemdInfo = do
 
   taffyFork $ do
     ctx <- ask
-    systemClient <- asks systemDBusClient
-    sessionClient <- asks sessionDBusClient
+    systemClient <- getSystemDBusClient
+    sessionClient <- getSessionDBusClient
 
     let doUpdate = updateSystemdInfo chan infoVar systemClient sessionClient
         debouncedUpdate = do
@@ -204,8 +204,8 @@ updateSystemdInfo chan var systemClient sessionClient = do
 -- | Get systemd info using the clients from Context.
 getSystemdInfo :: TaffyIO SystemdInfo
 getSystemdInfo = do
-  systemClient <- asks systemDBusClient
-  sessionClient <- asks sessionDBusClient
+  systemClient <- getSystemDBusClient
+  sessionClient <- getSessionDBusClient
   liftIO $ getSystemdInfoFromClients systemClient sessionClient
 
 -- | Get systemd info from the provided DBus clients.

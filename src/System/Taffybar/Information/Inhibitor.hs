@@ -213,7 +213,7 @@ getInhibitorChan types = do
 toggleInhibitor :: [InhibitType] -> TaffyIO ()
 toggleInhibitor types = do
   ctx <- getInhibitorContext types
-  client <- asks systemDBusClient
+  client <- getSystemDBusClient
   liftIO $ modifyMVar_ (inhibitorFdVar ctx) $ \maybeFd -> do
     case maybeFd of
       Just fd -> do

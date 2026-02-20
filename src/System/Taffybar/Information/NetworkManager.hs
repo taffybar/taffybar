@@ -150,7 +150,7 @@ getWifiInfoChanVar =
 
 monitorWifiInfo :: TaffyIO (TChan WifiInfo, MVar WifiInfo)
 monitorWifiInfo = do
-  _client <- asks systemDBusClient
+  _client <- getSystemDBusClient
   infoVar <- lift $ newMVar wifiUnknownInfo
   chan <- liftIO newBroadcastTChanIO
   taffyFork $ do
@@ -167,7 +167,7 @@ registerForNetworkManagerPropertiesChanged ::
   (Signal -> String -> Map String Variant -> [String] -> IO ()) ->
   ReaderT Context IO SignalHandler
 registerForNetworkManagerPropertiesChanged signalHandler = do
-  client <- asks systemDBusClient
+  client <- getSystemDBusClient
   lift $
     DBus.registerForPropertiesChanged
       client
@@ -181,7 +181,7 @@ registerForActiveConnectionPropertiesChanged ::
   (Signal -> String -> Map String Variant -> [String] -> IO ()) ->
   ReaderT Context IO SignalHandler
 registerForActiveConnectionPropertiesChanged signalHandler = do
-  client <- asks systemDBusClient
+  client <- getSystemDBusClient
   lift $
     DBus.registerForPropertiesChanged
       client
@@ -195,7 +195,7 @@ registerForAccessPointPropertiesChanged ::
   (Signal -> String -> Map String Variant -> [String] -> IO ()) ->
   ReaderT Context IO SignalHandler
 registerForAccessPointPropertiesChanged signalHandler = do
-  client <- asks systemDBusClient
+  client <- getSystemDBusClient
   lift $
     DBus.registerForPropertiesChanged
       client
@@ -240,7 +240,7 @@ getProperties client path iface = runExceptT $ do
         listToMaybe (methodReturnBody reply) >>= fromVariant
 
 getWifiInfo :: TaffyIO WifiInfo
-getWifiInfo = asks systemDBusClient >>= liftIO . getWifiInfoFromClient
+getWifiInfo = getSystemDBusClient >>= liftIO . getWifiInfoFromClient
 
 getWifiInfoFromClient :: Client -> IO WifiInfo
 getWifiInfoFromClient client = do
@@ -373,7 +373,7 @@ updateNetworkInfo chan var = do
     atomically $ writeTChan chan info
 
 getNetworkInfo :: TaffyIO NetworkInfo
-getNetworkInfo = asks systemDBusClient >>= liftIO . getNetworkInfoFromClient
+getNetworkInfo = getSystemDBusClient >>= liftIO . getNetworkInfoFromClient
 
 data ActiveConnectionInfo = ActiveConnectionInfo
   { activeConnectionPath :: ObjectPath,

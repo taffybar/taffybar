@@ -260,7 +260,7 @@ readCpuTempC = do
 
 -- | Get current ASUS info using the system DBus client from Context.
 getASUSInfo :: TaffyIO ASUSInfo
-getASUSInfo = asks systemDBusClient >>= liftIO . getASUSInfoFromClient
+getASUSInfo = getSystemDBusClient >>= liftIO . getASUSInfoFromClient
 
 -- | Get current ASUS info from a DBus client.
 getASUSInfoFromClient :: Client -> IO ASUSInfo
@@ -317,7 +317,7 @@ registerForASUSPropertiesChanged ::
   (Signal -> String -> Map String Variant -> [String] -> IO ()) ->
   ReaderT Context IO SignalHandler
 registerForASUSPropertiesChanged signalHandler = do
-  client <- asks systemDBusClient
+  client <- getSystemDBusClient
   lift $
     DBus.registerForPropertiesChanged
       client

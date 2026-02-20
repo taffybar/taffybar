@@ -27,12 +27,13 @@ import Control.Monad (forM_, void, when)
 import Control.Monad.IO.Unlift (MonadUnliftIO (..))
 import DBus
 import DBus.Client
+import Data.Either (isLeft)
 import Data.Function ((&))
 import Data.Int (Int64)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import System.FilePath (takeFileName, (<.>), (</>))
-import System.IO (hClose, hGetLine)
+import System.IO (Handle, hClose, hGetLine)
 import System.Process.Typed
 import System.Taffybar.Test.UtilSpec (getSpecLogPriority, laxTimeout', logSetup, setServiceDefaults, specLog, withService, withSetEnv)
 import Test.Hspec
@@ -94,13 +95,16 @@ withDBusDaemon bus socketDir action = do
   specLog $ "withDBusDaemon " ++ show bus ++ " running: " ++ show cfg
   withService cfg $ \p -> consumeAddress (getStdout p) >>= action
   where
-    consumeAddress h = (just . parseAddress =<< hGetLine h) `finally` hClose h
-    just = maybe (throwString "Could not parse address from dbus-daemon") pure
-
     makeDBusDaemon configFile logLevel =
       proc "dbus-daemon" ["--print-address", "--config-file", configFile]
         & setServiceDefaults logLevel
         & setStdout createPipe
+
+-- | Read and parse one dbus address from dbus-daemon's stdout.
+consumeAddress :: Handle -> IO Address
+consumeAddress h = (parse =<< hGetLine h) `finally` hClose h
+  where
+    parse s = maybe (throwString "Could not parse address from dbus-daemon") pure (parseAddress s)
 
 -- | Start a D-Bus daemon of the given 'Bus' type, and set the
 -- corresponding environment variable while running the given action.
@@ -296,6 +300,36 @@ spec = logSetup $ around_ (laxTimeout' 1_000_000) $ around (withSystemTempDirect
         it "simple" $ \_ -> pendingWith "python-dbusmock fails to start in CI"
 
         it "UPower" $ \_ -> pendingWith "python-dbusmock fails to start in CI"
+
+  describe "dbus-daemon restarts" $
+    it "existing clients do not recover automatically after daemon restart" $ \socketDir -> do
+      configFile <- setupBusDir Session socketDir
+      logLevel <- getSpecLogPriority
+      let cfg =
+            proc "dbus-daemon" ["--print-address", "--config-file", configFile]
+              & setServiceDefaults logLevel
+              & setStdout createPipe
+
+      withProcessTerm cfg $ \p1 -> do
+        addr1 <- consumeAddress (getStdout p1)
+        withClient addr1 $ \client1 -> do
+          (fmap methodReturnBody <$> call client1 ping) `shouldReturn` Right []
+
+          stopProcess p1
+          _ <- waitExitCode p1
+
+          resultAfterStop <- laxTimeout' 1_000_000 (call client1 ping)
+          resultAfterStop `shouldSatisfy` isLeft
+
+          withProcessTerm cfg $ \p2 -> do
+            addr2 <- consumeAddress (getStdout p2)
+            addr2 `shouldBe` addr1
+
+            withClient addr2 $ \client2 -> do
+              (fmap methodReturnBody <$> call client2 ping) `shouldReturn` Right []
+
+            oldClientResult <- laxTimeout' 1_000_000 (call client1 ping)
+            oldClientResult `shouldSatisfy` isLeft
 
 gdbusPing :: Bus -> ProcessConfig () () ()
 gdbusPing bus = proc "gdbus" ["call", "--" ++ busName bus, "--dest", "org.freedesktop.DBus", "--object-path", "/org/freedesktop/DBus", "--method", "org.freedesktop.DBus.Peer.Ping"]
