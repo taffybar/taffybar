@@ -20,7 +20,7 @@ module System.Taffybar.Widget.Windows where
 
 import qualified Control.Concurrent.MVar as MV
 import Control.Concurrent.STM.TChan (TChan)
-import Control.Monad (forM, forM_, void)
+import Control.Monad (forM_, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
