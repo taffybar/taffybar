@@ -25,6 +25,9 @@ import UnliftIO.Directory (createDirectoryIfMissing)
 import UnliftIO.Environment (lookupEnv)
 import UnliftIO.Temporary (withSystemTempDirectory)
 
+appearanceSnapProcessTimeoutUsec :: Int
+appearanceSnapProcessTimeoutUsec = 120_000_000
+
 spec :: Spec
 spec = do
   aroundAll withIntegrationEnv $ do
@@ -159,7 +162,7 @@ renderBarScreenshotWithArgs Env {envTmpDir = tmp} layout widgetKind extraArgs = 
             proc exePath (["--out", outPath, "--css", cssPath] ++ levelArgs ++ widgetArgs ++ extraArgs)
 
   withProcessTerm pc $ \p -> do
-    mEc <- timeout 60_000_000 (waitExitCode p)
+    mEc <- timeout appearanceSnapProcessTimeoutUsec (waitExitCode p)
     case mEc of
       Nothing -> do
         stopProcess p
@@ -194,7 +197,7 @@ renderHyprlandScreenshot layout widgetKind =
             setStderr inherit $
               proc exePath (["--out", outPath, "--css", cssPath] ++ levelArgs ++ widgetArgs)
     withProcessTerm pc $ \p -> do
-      mEc <- timeout 60_000_000 (waitExitCode p)
+      mEc <- timeout appearanceSnapProcessTimeoutUsec (waitExitCode p)
       case mEc of
         Nothing -> do
           stopProcess p

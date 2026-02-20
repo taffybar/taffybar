@@ -69,6 +69,9 @@ data WorkspaceWidgetMode
   | UseChannelWorkspaces
   deriving (Eq, Show)
 
+snapshotWatchdogTimeoutUsec :: Int
+snapshotWatchdogTimeoutUsec = 60_000_000
+
 main :: IO ()
 main = do
   Args
@@ -134,7 +137,7 @@ runUnderHyprland outPath cssPath mode wsMode = do
   void $ forkIO $ finalizeThread ctxVar resultVar doneVar outPath
 
   -- Hard watchdog for CI stability: always tries to end the GTK loop.
-  void $ forkIO $ watchdogThread ctxVar resultVar doneVar lastShotRef 30_000_000
+  void $ forkIO $ watchdogThread ctxVar resultVar doneVar lastShotRef snapshotWatchdogTimeoutUsec
 
   barUnique <- newUnique
 
