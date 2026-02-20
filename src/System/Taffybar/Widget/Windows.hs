@@ -34,6 +34,7 @@ import System.Taffybar.Widget.Generic.DynamicMenu
 import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import System.Taffybar.Widget.Util
 import System.Taffybar.Widget.Workspaces.EWMH (WindowIconPixbufGetter, defaultGetWindowIconPixbuf, getWindowData)
+import System.Taffybar.WindowIcon (pixBufFromColor)
 
 -- | Behavior configuration for the windows menu widget.
 data WindowsConfig = WindowsConfig
@@ -135,12 +136,14 @@ buildWindowsLabel = do
 buildWindowsIcon :: WindowIconPixbufGetter -> TaffyIO (IO (), Gtk.Widget)
 buildWindowsIcon windowIconPixbufGetter = do
   runTaffy <- asks (flip runReaderT)
-  let getActiveWindowPixbuf size = runTaffy . runMaybeT $ do
-        wd <-
-          MaybeT $
-            runX11Def Nothing $
-              traverse (getWindowData Nothing []) =<< getActiveWindow
-        MaybeT $ windowIconPixbufGetter size wd
+  let getActiveWindowPixbuf size = do
+        maybePixbuf <- runTaffy . runMaybeT $ do
+          wd <-
+            MaybeT $
+              runX11Def Nothing $
+                traverse (getWindowData Nothing []) =<< getActiveWindow
+          MaybeT $ windowIconPixbufGetter size wd
+        maybe (Just <$> pixBufFromColor size 0) (return . Just) maybePixbuf
 
   (imageWidget, updateImage) <- scalingImage getActiveWindowPixbuf Gtk.OrientationHorizontal
   return (postGUIASync updateImage, imageWidget)
