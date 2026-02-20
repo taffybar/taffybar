@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE LambdaCase #-}
 
 -- | Helpers for resolving and constructing window icons from EWMH metadata,
 -- desktop entries, icon themes, and browser tab image hooks.
@@ -67,11 +68,10 @@ buildWindowIconCache = do
     invalidateThemeWindowIconCacheEntries cacheEntries
     void $ runReaderT refreshTaffyWindows context
   _ <-
-    subscribeToPropertyEvents [ewmhWMIcon] $ \event ->
-      case event of
-        PropertyEvent _ _ _ _ windowId' _ _ _ ->
-          liftIO $ invalidateEWMHWindowIconCacheEntriesForWindow cacheEntries windowId'
-        _ -> return ()
+    subscribeToPropertyEvents [ewmhWMIcon] $ \case
+      PropertyEvent _ _ _ _ windowId' _ _ _ ->
+        liftIO $ invalidateEWMHWindowIconCacheEntriesForWindow cacheEntries windowId'
+      _ -> return ()
   return cache
 
 getCachedWindowIcon ::
