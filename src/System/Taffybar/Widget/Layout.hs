@@ -56,10 +56,12 @@ import System.Taffybar.Widget.Util
 --
 -- now you can use @los@ as any other Taffybar widget.
 
+-- | Configuration for how the current layout name is rendered.
 newtype LayoutConfig = LayoutConfig
   { formatLayout :: T.Text -> TaffyIO T.Text
   }
 
+-- | Default layout formatting: display the layout name unchanged.
 defaultLayoutConfig :: LayoutConfig
 defaultLayoutConfig = LayoutConfig return
 

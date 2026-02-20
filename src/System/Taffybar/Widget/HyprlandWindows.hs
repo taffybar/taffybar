@@ -57,16 +57,20 @@ data HyprlandWindowsConfig = HyprlandWindowsConfig
     updateIntervalSeconds :: Double
   }
 
+-- | Build a menu label from a window title, truncating to a maximum length.
 truncatedGetMenuLabel :: Int -> HyprlandWindow -> TaffyIO T.Text
 truncatedGetMenuLabel maxLength window =
   return $ truncateText maxLength (T.pack $ windowTitle window)
 
+-- | Default menu label builder used by 'defaultHyprlandWindowsConfig'.
 defaultGetMenuLabel :: HyprlandWindow -> TaffyIO T.Text
 defaultGetMenuLabel = truncatedGetMenuLabel 35
 
+-- | Default active-window label builder used by 'defaultHyprlandWindowsConfig'.
 defaultGetActiveLabel :: Maybe HyprlandWindow -> TaffyIO T.Text
 defaultGetActiveLabel = maybe (return "") defaultGetMenuLabel
 
+-- | Default configuration for 'hyprlandWindowsNew'.
 defaultHyprlandWindowsConfig :: HyprlandWindowsConfig
 defaultHyprlandWindowsConfig =
   HyprlandWindowsConfig
@@ -122,6 +126,7 @@ hyprlandWindowsNew config = do
 
   widgetSetClassGI menu "windows"
 
+-- | Create the label widget used to show the active window title.
 buildWindowsLabel :: TaffyIO (T.Text -> IO (), Gtk.Widget)
 buildWindowsLabel = do
   label <- lift $ Gtk.labelNew Nothing
@@ -130,6 +135,7 @@ buildWindowsLabel = do
   let setLabelTitle title = postGUIASync $ Gtk.labelSetText label title
   (setLabelTitle,) <$> Gtk.toWidget label
 
+-- | Create the icon widget used to show the active window icon.
 buildWindowsIcon :: HyprlandWindowIconPixbufGetter -> TaffyIO (IO (), Gtk.Widget)
 buildWindowsIcon windowIconPixbufGetter = do
   runTaffy <- asks (flip runReaderT)
@@ -140,9 +146,11 @@ buildWindowsIcon windowIconPixbufGetter = do
   (imageWidget, updateImage) <- scalingImage getActiveWindowPixbuf Gtk.OrientationHorizontal
   return (postGUIASync updateImage, imageWidget)
 
+-- | Retrieve the currently active Hyprland window, if one is known.
 getActiveHyprlandWindow :: TaffyIO (Maybe HyprlandWindow)
 getActiveHyprlandWindow = find windowActive <$> getHyprlandWindows
 
+-- | Retrieve all Hyprland windows currently reported by @hyprctl@.
 getHyprlandWindows :: TaffyIO [HyprlandWindow]
 getHyprlandWindows = do
   activeAddr <- getActiveWindowAddress
@@ -158,6 +166,7 @@ getHyprlandWindows = do
     Right clients ->
       return $ map (windowFromClient activeAddr) (clients :: [HyprlandClient])
 
+-- | Populate the dynamic menu with the current Hyprland windows.
 fillMenu :: (Gtk.IsMenuShell a) => HyprlandWindowsConfig -> a -> ReaderT Context IO ()
 fillMenu config menu =
   ask >>= \context -> do
@@ -173,6 +182,7 @@ fillMenu config menu =
         Gtk.menuShellAppend menu item
         Gtk.widgetShow item
 
+-- | Focus the supplied window using Hyprland's @dispatch focuswindow@ command.
 focusHyprlandWindow :: HyprlandWindow -> TaffyIO ()
 focusHyprlandWindow windowData = do
   result <-

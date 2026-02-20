@@ -102,13 +102,17 @@ import System.Posix.Signals (Handler (..), Signal, installHandler, sigHUP, sigIN
 import qualified System.Process as P
 import Text.Printf
 
+-- | Per-user state directory for taffybar runtime/cache data.
 taffyStateDir :: IO FilePath
 taffyStateDir = getUserDataDir "taffybar"
 
 {-# DEPRECATED liftReader "Use Control.Monad.Trans.Reader.mapReaderT instead" #-}
+
+-- | Deprecated alias for 'mapReaderT'.
 liftReader :: (Monad m) => (m1 a -> m b) -> ReaderT r m1 a -> ReaderT r m b
 liftReader = mapReaderT
 
+-- | Log a formatted value using 'printf' into a specific logger path.
 logPrintF ::
   (MonadIO m, Show t) =>
   String -> Priority -> String -> t -> m ()
@@ -116,31 +120,41 @@ logPrintF logPath priority format toPrint =
   liftIO $ logM logPath priority $ printf format $ show toPrint
 
 {-# DEPRECATED logPrintFDebug "Use logPrintF instead" #-}
+
+-- | Deprecated debug-level convenience wrapper around 'logPrintF'.
 logPrintFDebug :: (MonadIO m, Show t) => String -> String -> t -> m ()
 logPrintFDebug path = logPrintF path DEBUG
 
 infixl 4 ??
 
+-- | Apply a pure argument to a functor-wrapped function.
 (??) :: (Functor f) => f (a -> b) -> a -> f b
 fab ?? a = fmap ($ a) fab
 {-# INLINE (??) #-}
 {-# DEPRECATED (??) "Use @f <*> pure a@ instead" #-}
 
+-- | Monadic conditional.
 ifM :: (Monad m) => m Bool -> m a -> m a -> m a
 ifM cond whenTrue whenFalse =
   cond >>= (\bool -> if bool then whenTrue else whenFalse)
 
+-- | Evaluate two monadic computations from the same input and return both
+-- results.
 forkM :: (Monad m) => (c -> m a) -> (c -> m b) -> c -> m (a, b)
 forkM a b = sequenceT . (a &&& b)
 
+-- | Convert a 'Maybe' into an 'Either' with a provided left value.
 maybeToEither :: b -> Maybe a -> Either b a
 maybeToEither = flip maybe Right . Left
 
+-- | Truncate a string to at most @n@ characters, appending an ellipsis when
+-- truncation occurs.
 truncateString :: Int -> String -> String
 truncateString n incoming
   | length incoming <= n = incoming
   | otherwise = take n incoming ++ "…"
 
+-- | Text variant of 'truncateString'.
 truncateText :: Int -> T.Text -> T.Text
 truncateText n incoming
   | T.length incoming <= n = incoming
@@ -160,6 +174,8 @@ runCommand cmd args = liftIO $ do
     ExitFailure exitCode -> Left $ printf "Exit code %s: %s " (show exitCode) err
 
 {-# DEPRECATED runCommandFromPath "Use runCommand instead" #-}
+
+-- | Deprecated alias for 'runCommand'.
 runCommandFromPath :: (MonadIO m) => FilePath -> [String] -> m (Either String String)
 runCommandFromPath = runCommand
 
@@ -258,6 +274,7 @@ foreverWithVariableDelayWithConfig config action = liftIO $ forkIO $ action >>= 
           sleepMicros = min waitChunkMicros remainingMicros
       when (sleepMicros > 0) $ threadDelay sleepMicros >> waitUntil waitChunkMicros target
 
+-- | Lift an action-taker combinator into a 'ReaderT' context.
 liftActionTaker ::
   (Monad m) =>
   ((a -> m a) -> m b) -> (a -> ReaderT c m a) -> ReaderT c m b
@@ -265,6 +282,7 @@ liftActionTaker actionTaker action = do
   ctx <- ask
   lift $ actionTaker $ flip runReaderT ctx . action
 
+-- | Combine two @Maybe@-producing actions, preferring the first successful one.
 maybeTCombine ::
   (Monad m) =>
   m (Maybe a) -> m (Maybe a) -> m (Maybe a)
@@ -272,6 +290,7 @@ maybeTCombine a b = runMaybeT $ MaybeT a <|> MaybeT b
 
 infixl 3 <||>
 
+-- | Pointwise 'maybeTCombine' for unary functions.
 (<||>) ::
   (Monad m) =>
   (t -> m (Maybe a)) -> (t -> m (Maybe a)) -> t -> m (Maybe a)
@@ -281,6 +300,7 @@ a <||> b = combineOptions
 
 infixl 3 <|||>
 
+-- | Pointwise 'maybeTCombine' for binary functions.
 (<|||>) ::
   (Monad m) =>
   (t -> t1 -> m (Maybe a)) ->
@@ -292,12 +312,14 @@ a <|||> b = combineOptions
   where
     combineOptions v v1 = maybeTCombine (a v v1) (b v v1)
 
+-- | Catch GLib errors as 'Left', otherwise return 'Right'.
 catchGErrorsAsLeft :: IO a -> IO (Either GError a)
 catchGErrorsAsLeft action = catch (Right <$> action) (return . Left)
 
 catchGErrorsAsNothing :: IO a -> IO (Maybe a)
 catchGErrorsAsNothing = fmap rightToMaybe . catchGErrorsAsLeft
 
+-- | Safely load a pixbuf from file, returning 'Nothing' on GDK errors.
 safePixbufNewFromFile :: FilePath -> IO (Maybe Gdk.Pixbuf)
 safePixbufNewFromFile =
   handleResult . catchGErrorsAsNothing . Gdk.pixbufNewFromFile
@@ -308,6 +330,7 @@ safePixbufNewFromFile =
     handleResult = id
 #endif
 
+-- | Load a pixbuf from file and emit a warning log on failure.
 getPixbufFromFilePath :: FilePath -> IO (Maybe Gdk.Pixbuf)
 getPixbufFromFilePath filepath = do
   result <- safePixbufNewFromFile filepath
@@ -316,6 +339,7 @@ getPixbufFromFilePath filepath = do
       printf "Failed to load icon from filepath %s" filepath
   return result
 
+-- | Download a URI response body directly to a local file path.
 downloadURIToPath :: Request -> FilePath -> IO ()
 downloadURIToPath uri filepath =
   createDirectoryIfMissing True directory
@@ -323,6 +347,7 @@ downloadURIToPath uri filepath =
   where
     (directory, _) = splitFileName filepath
 
+-- | Monadic 'any'.
 anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
 anyM _ [] = return False
 anyM p (x : xs) = do

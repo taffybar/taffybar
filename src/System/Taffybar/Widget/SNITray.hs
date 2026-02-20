@@ -47,11 +47,22 @@ import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified StatusNotifier.Host.Service as H
-import StatusNotifier.Tray
+import StatusNotifier.Tray hiding (TrayItemMatcher, TrayParams, defaultTrayPriorityConfig)
+import qualified StatusNotifier.Tray as Tray
 import System.Posix.Process
 import System.Taffybar.Context
 import System.Taffybar.Widget.Util
 import Text.Printf
+
+-- | Parameters controlling tray construction and orientation.
+type TrayParams = Tray.TrayParams
+
+-- | Predicate used to match tray items in priority configuration.
+type TrayItemMatcher = Tray.TrayItemMatcher
+
+-- | Default tray icon priority configuration.
+defaultTrayPriorityConfig :: TrayPriorityConfig
+defaultTrayPriorityConfig = Tray.defaultTrayPriorityConfig
 
 -- | Configuration for the base SNI tray widget.
 data SNITrayConfig = SNITrayConfig

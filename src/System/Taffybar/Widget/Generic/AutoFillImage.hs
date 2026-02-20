@@ -24,6 +24,7 @@ import qualified GI.Gtk as Gtk
 import System.Taffybar.Widget.Generic.AutoSizeImage
 import System.Taffybar.Widget.Util
 
+-- | Cached sizing/scaling state for an auto-fill image widget.
 data AutoFillCache = AutoFillCache
   { afRequestSize :: Int32,
     afScaleFactor :: Int32,
@@ -36,6 +37,10 @@ data AutoFillCache = AutoFillCache
     afOffsetY :: Double
   }
 
+-- | Scale and center a pixbuf inside the allocated widget content box.
+--
+-- Returns content width/height, draw offsets, and an optionally scaled pixbuf
+-- (GDK may fail and return @Nothing@).
 fitPixbufToBox ::
   -- | scale factor
   Int32 ->

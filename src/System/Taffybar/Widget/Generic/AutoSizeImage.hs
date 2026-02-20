@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | Auto-scaling image helpers that resize pixbufs to widget allocation.
 module System.Taffybar.Widget.Generic.AutoSizeImage
   ( autoSizeImage,
     autoSizeImageNew,
@@ -60,6 +61,7 @@ insetFunctions =
     Gtk.styleContextGetBorder
   ]
 
+-- | Aggregate border/padding/margin dimensions for a widget.
 data BorderInfo = BorderInfo
   { borderTop :: Int16,
     borderBottom :: Int16,
@@ -68,11 +70,17 @@ data BorderInfo = BorderInfo
   }
   deriving (Show, Eq)
 
+-- | Zero-valued 'BorderInfo'.
 borderInfoZero :: BorderInfo
 borderInfoZero = BorderInfo 0 0 0 0
 
+-- | Total horizontal border extent.
+-- This includes left + right values.
 borderWidth, borderHeight :: BorderInfo -> Int16
 borderWidth borderInfo = borderLeft borderInfo + borderRight borderInfo
+
+-- | Total vertical border extent.
+-- This includes top + bottom values.
 borderHeight borderInfo = borderTop borderInfo + borderBottom borderInfo
 
 toBorderInfo :: (MonadIO m) => Gtk.Border -> m BorderInfo

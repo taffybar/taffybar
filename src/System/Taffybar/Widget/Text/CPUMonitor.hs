@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
+-- | Textual CPU monitor widgets.
 module System.Taffybar.Widget.Text.CPUMonitor (textCpuMonitorNew) where
 
 import Control.Monad (void)

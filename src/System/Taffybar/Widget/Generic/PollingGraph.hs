@@ -23,6 +23,7 @@ import GI.Gtk
 import System.Taffybar.Util
 import System.Taffybar.Widget.Generic.Graph
 
+-- | Construct a polling graph whose callback also supplies tooltip text.
 pollingGraphNewWithTooltip ::
   (MonadIO m) =>
   GraphConfig -> Double -> IO ([Double], Maybe T.Text) -> m GI.Gtk.Widget
@@ -41,6 +42,7 @@ pollingGraphNewWithTooltip cfg pollSeconds action = liftIO $ do
 
   return graphWidget
 
+-- | Construct a polling graph from a fixed-interval sample callback.
 pollingGraphNew ::
   (MonadIO m) =>
   GraphConfig -> Double -> IO [Double] -> m GI.Gtk.Widget

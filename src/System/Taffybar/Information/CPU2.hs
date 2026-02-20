@@ -46,9 +46,11 @@ data CPULoad = CPULoad
 getCPUInfo :: String -> IO [Int]
 getCPUInfo = getParsedInfo "/proc/stat" parse
 
+-- | Parse @/proc/stat@ contents into CPU-name/sample tuples.
 parse :: String -> [(String, [Int])]
 parse = mapMaybe (tuplize . words) . filter (\x -> take 3 x == "cpu") . lines
 
+-- | Convert tokenized @/proc/stat@ lines into a typed CPU sample entry.
 tuplize :: [String] -> Maybe (String, [Int])
 tuplize s = do
   cpu <- s `atMay` 0
@@ -118,14 +120,18 @@ getCPUTemperatureDirectory =
         </> "coretemp.0"
         </> "hwmon"
 
+-- | Read one core-temperature file from sysfs and convert milli-degrees to
+-- degrees Celsius.
 readCPUTempFile :: FilePath -> IO Double
 readCPUTempFile cpuTempFilePath = (/ 1000) . read <$> readFile cpuTempFilePath
 
+-- | List core-temperature input files in a hwmon directory.
 getAllTemperatureFiles :: FilePath -> IO [FilePath]
 getAllTemperatureFiles temperaturesDirectory =
   filter (liftM2 (&&) (isPrefixOf "temp") (isSuffixOf "input"))
     <$> listDirectory temperaturesDirectory
 
+-- | Read all available CPU core temperatures from sysfs.
 getCPUTemperatures :: IO [(String, Double)]
 getCPUTemperatures = do
   dir <- getCPUTemperatureDirectory

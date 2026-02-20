@@ -81,6 +81,7 @@ import System.Taffybar.Information.X11DesktopInfo
 logHere :: (MonadIO m) => Priority -> String -> m ()
 logHere p = liftIO . logM "System.Taffybar.Information.EWMHDesktopInfo" p
 
+-- | Workspace index (starting at 0).
 newtype WorkspaceId = WorkspaceId Int deriving (Show, Read, Ord, Eq)
 
 -- A super annoying detail of the XGetWindowProperty interface is that: "If the
@@ -94,22 +95,63 @@ type PixelsWordType = Word64
 
 type EWMHProperty = String
 
-ewmhActiveWindow, ewmhClientList, ewmhClientListStacking, ewmhCurrentDesktop, ewmhDesktopNames, ewmhNumberOfDesktops, ewmhStateHidden, ewmhWMDesktop, ewmhWMStateHidden, ewmhWMClass, ewmhWMState, ewmhWMIcon, ewmhWMName, ewmhWMName2 :: EWMHProperty
+-- | EWMH property name for active window id.
+ewmhActiveWindow :: EWMHProperty
 ewmhActiveWindow = "_NET_ACTIVE_WINDOW"
+
+-- | EWMH property name for client list in mapping order.
+ewmhClientList :: EWMHProperty
 ewmhClientList = "_NET_CLIENT_LIST"
+
+-- | EWMH property name for client list in stacking order.
+ewmhClientListStacking :: EWMHProperty
 ewmhClientListStacking = "_NET_CLIENT_LIST_STACKING"
+
+-- | EWMH property name for current desktop index.
+ewmhCurrentDesktop :: EWMHProperty
 ewmhCurrentDesktop = "_NET_CURRENT_DESKTOP"
+
+-- | EWMH property name for desktop names.
+ewmhDesktopNames :: EWMHProperty
 ewmhDesktopNames = "_NET_DESKTOP_NAMES"
+
+-- | EWMH property name for number of desktops.
+ewmhNumberOfDesktops :: EWMHProperty
 ewmhNumberOfDesktops = "_NET_NUMBER_OF_DESKTOPS"
+
+-- | EWMH atom name for hidden window state.
+ewmhStateHidden :: EWMHProperty
 ewmhStateHidden = "_NET_WM_STATE_HIDDEN"
+
+-- | ICCCM property name for window class.
+ewmhWMClass :: EWMHProperty
 ewmhWMClass = "WM_CLASS"
+
+-- | EWMH property name for window desktop assignment.
+ewmhWMDesktop :: EWMHProperty
 ewmhWMDesktop = "_NET_WM_DESKTOP"
+
+-- | EWMH property name for window icon data.
+ewmhWMIcon :: EWMHProperty
 ewmhWMIcon = "_NET_WM_ICON"
+
+-- | EWMH property name for UTF-8 window title.
+ewmhWMName :: EWMHProperty
 ewmhWMName = "_NET_WM_NAME"
+
+-- | Fallback ICCCM property name for window title.
+ewmhWMName2 :: EWMHProperty
 ewmhWMName2 = "WM_NAME"
+
+-- | EWMH property name for window state list.
+ewmhWMState :: EWMHProperty
 ewmhWMState = "_NET_WM_STATE"
+
+-- | EWMH atom string for hidden window state entry.
+ewmhWMStateHidden :: EWMHProperty
 ewmhWMStateHidden = "_NET_WM_STATE_HIDDEN"
 
+-- | List of EWMH property names commonly observed by workspace/window widgets.
 allEWMHProperties :: [EWMHProperty]
 allEWMHProperties =
   [ ewmhActiveWindow,
@@ -128,8 +170,10 @@ allEWMHProperties =
     ewmhWMStateHidden
   ]
 
+-- | Raw EWMH icon data buffer and element count.
 type EWMHIconData = (ForeignPtr PixelsWordType, Int)
 
+-- | Parsed EWMH icon entry.
 data EWMHIcon = EWMHIcon
   { ewmhWidth :: Int,
     ewmhHeight :: Int,
@@ -137,10 +181,12 @@ data EWMHIcon = EWMHIcon
   }
   deriving (Show, Eq)
 
+-- | Check whether a particular EWMH window-state atom is present.
 getWindowStateProperty :: String -> X11Window -> X11Property Bool
 getWindowStateProperty property window =
   not . null <$> getWindowState window [property]
 
+-- | Read and decode the EWMH window state list, filtered to requested names.
 getWindowState :: X11Window -> [String] -> X11Property [String]
 getWindowState window request = do
   let getAsLong s = fromIntegral <$> getAtom s
@@ -215,6 +261,7 @@ getWindowTitle window = do
 getWindowClass :: X11Window -> X11Property String
 getWindowClass window = readAsString (Just window) ewmhWMClass
 
+-- | Split a raw @WM_CLASS@ string into non-empty class components.
 parseWindowClasses :: String -> [String]
 parseWindowClasses = filter (not . null) . splitOn "\NUL"
 

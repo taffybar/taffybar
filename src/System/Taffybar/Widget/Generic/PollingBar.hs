@@ -20,6 +20,7 @@ import qualified GI.Gtk
 import System.Taffybar.Widget.Generic.VerticalBar
 import System.Taffybar.Widget.Util (backgroundLoop)
 
+-- | Construct a bar widget driven directly by a sample callback.
 verticalBarFromCallback ::
   (MonadIO m) =>
   BarConfig -> IO Double -> m GI.Gtk.Widget
@@ -30,6 +31,7 @@ verticalBarFromCallback cfg action = liftIO $ do
     traverse (verticalBarSetPercent h) esample
   return drawArea
 
+-- | Construct a polling bar with a fixed polling interval (seconds).
 pollingBarNew ::
   (MonadIO m) =>
   BarConfig -> Double -> IO Double -> m GI.Gtk.Widget

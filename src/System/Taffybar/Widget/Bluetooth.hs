@@ -73,6 +73,7 @@ data BluetoothWidgetConfig = BluetoothWidgetConfig
     bluetoothNoControllerIcon :: T.Text
   }
 
+-- | Default Bluetooth widget configuration.
 defaultBluetoothWidgetConfig :: BluetoothWidgetConfig
 defaultBluetoothWidgetConfig =
   BluetoothWidgetConfig

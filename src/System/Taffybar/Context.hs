@@ -192,6 +192,7 @@ data BarConfig = BarConfig
 instance Eq BarConfig where
   a == b = barId a == barId b
 
+-- | Action that returns the list of bar configurations to realize.
 type BarConfigGetter = TaffyIO [BarConfig]
 
 -- | 'TaffybarConfig' provides an advanced interface for configuring taffybar.

@@ -70,6 +70,7 @@ import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import System.Taffybar.Widget.Util (buildIconLabelBox)
 import Text.StringTemplate
 
+-- | Formatting configuration for WiFi label widgets.
 data WifiWidgetConfig = WifiWidgetConfig
   { wifiConnectedFormat :: String,
     wifiDisconnectedFormat :: String,
@@ -78,6 +79,7 @@ data WifiWidgetConfig = WifiWidgetConfig
     wifiTooltipFormat :: Maybe String
   }
 
+-- | Default 'WifiWidgetConfig'.
 defaultWifiWidgetConfig :: WifiWidgetConfig
 defaultWifiWidgetConfig =
   WifiWidgetConfig
@@ -92,9 +94,11 @@ defaultWifiWidgetConfig =
 instance Default WifiWidgetConfig where
   def = defaultWifiWidgetConfig
 
+-- | Build a WiFi status label widget with default formatting.
 networkManagerWifiLabelNew :: TaffyIO Widget
 networkManagerWifiLabelNew = networkManagerWifiLabelNewWith defaultWifiWidgetConfig
 
+-- | Build a WiFi status label widget with custom formatting.
 networkManagerWifiLabelNewWith :: WifiWidgetConfig -> TaffyIO Widget
 networkManagerWifiLabelNewWith config = do
   chan <- getWifiInfoChan
@@ -111,6 +115,7 @@ networkManagerWifiLabelNewWith config = do
         runReaderT getWifiInfoState ctx >>= updateWidget
     toWidget =<< channelWidgetNew label chan updateWidget
 
+-- | Icon configuration for WiFi icon widgets.
 data NetworkManagerWifiIconConfig = NetworkManagerWifiIconConfig
   { wifiIconNone :: String,
     wifiIconWeak :: String,
@@ -123,6 +128,7 @@ data NetworkManagerWifiIconConfig = NetworkManagerWifiIconConfig
     wifiIconTooltipFormat :: Maybe String
   }
 
+-- | Default 'NetworkManagerWifiIconConfig'.
 defaultNetworkManagerWifiIconConfig :: NetworkManagerWifiIconConfig
 defaultNetworkManagerWifiIconConfig =
   NetworkManagerWifiIconConfig
@@ -141,9 +147,11 @@ defaultNetworkManagerWifiIconConfig =
 themeLoadFlags :: [IconLookupFlags]
 themeLoadFlags = [IconLookupFlagsGenericFallback, IconLookupFlagsUseBuiltin]
 
+-- | Build a WiFi icon widget with default icon names and formatting.
 networkManagerWifiIconNew :: TaffyIO Widget
 networkManagerWifiIconNew = networkManagerWifiIconNewWith defaultNetworkManagerWifiIconConfig
 
+-- | Build a WiFi icon widget with custom icon names and tooltip formatting.
 networkManagerWifiIconNewWith :: NetworkManagerWifiIconConfig -> TaffyIO Widget
 networkManagerWifiIconNewWith config = do
   chan <- getWifiInfoChan
@@ -219,9 +227,11 @@ strengthIconName cfg strength =
       | s < 70 -> wifiIconGood cfg
       | otherwise -> wifiIconExcellent cfg
 
+-- | Build a combined WiFi icon and label widget with default configs.
 networkManagerWifiNew :: TaffyIO Widget
 networkManagerWifiNew = networkManagerWifiNewWith defaultWifiWidgetConfig defaultNetworkManagerWifiIconConfig
 
+-- | Build a combined WiFi icon and label widget with custom configs.
 networkManagerWifiNewWith ::
   WifiWidgetConfig ->
   NetworkManagerWifiIconConfig ->
@@ -294,6 +304,7 @@ wifiTextIcon info =
 
 -- Network (WiFi + wired + vpn + disconnected)
 
+-- | Formatting configuration for generic network label widgets.
 data NetworkWidgetConfig = NetworkWidgetConfig
   { networkWifiFormat :: String,
     networkWiredFormat :: String,
@@ -305,6 +316,7 @@ data NetworkWidgetConfig = NetworkWidgetConfig
     networkTooltipFormat :: Maybe String
   }
 
+-- | Default 'NetworkWidgetConfig'.
 defaultNetworkWidgetConfig :: NetworkWidgetConfig
 defaultNetworkWidgetConfig =
   NetworkWidgetConfig
@@ -322,10 +334,12 @@ defaultNetworkWidgetConfig =
 instance Default NetworkWidgetConfig where
   def = defaultNetworkWidgetConfig
 
+-- | Build a network status label widget with default formatting.
 networkManagerNetworkLabelNew :: TaffyIO Widget
 networkManagerNetworkLabelNew =
   networkManagerNetworkLabelNewWith defaultNetworkWidgetConfig
 
+-- | Build a network status label widget with custom formatting.
 networkManagerNetworkLabelNewWith :: NetworkWidgetConfig -> TaffyIO Widget
 networkManagerNetworkLabelNewWith config = do
   chan <- getNetworkInfoChan
@@ -342,6 +356,7 @@ networkManagerNetworkLabelNewWith config = do
         runReaderT getNetworkInfoState ctx >>= updateWidget
     toWidget =<< channelWidgetNew label chan updateWidget
 
+-- | Icon configuration for generic network icon widgets.
 data NetworkManagerNetworkIconConfig = NetworkManagerNetworkIconConfig
   { netIconWired :: String,
     netIconVpn :: String,
@@ -357,6 +372,7 @@ data NetworkManagerNetworkIconConfig = NetworkManagerNetworkIconConfig
     netIconTooltipFormat :: Maybe String
   }
 
+-- | Default 'NetworkManagerNetworkIconConfig'.
 defaultNetworkManagerNetworkIconConfig :: NetworkManagerNetworkIconConfig
 defaultNetworkManagerNetworkIconConfig =
   NetworkManagerNetworkIconConfig
@@ -375,10 +391,12 @@ defaultNetworkManagerNetworkIconConfig =
         Just "Type: $type$\nConnection: $connection$\nSSID: $ssid$\nStrength: $strength$%\nState: $state$"
     }
 
+-- | Build a network icon widget with default icon names and formatting.
 networkManagerNetworkIconNew :: TaffyIO Widget
 networkManagerNetworkIconNew =
   networkManagerNetworkIconNewWith defaultNetworkManagerNetworkIconConfig
 
+-- | Build a network icon widget with custom icon names and tooltip formatting.
 networkManagerNetworkIconNewWith :: NetworkManagerNetworkIconConfig -> TaffyIO Widget
 networkManagerNetworkIconNewWith config = do
   chan <- getNetworkInfoChan
@@ -467,10 +485,12 @@ strengthToWifiIcon cfg strength =
       | s < 70 -> netWifiIconGood cfg
       | otherwise -> netWifiIconExcellent cfg
 
+-- | Build a combined network icon and label widget with default configs.
 networkManagerNetworkNew :: TaffyIO Widget
 networkManagerNetworkNew =
   networkManagerNetworkNewWith defaultNetworkWidgetConfig defaultNetworkManagerNetworkIconConfig
 
+-- | Build a combined network icon and label widget with custom configs.
 networkManagerNetworkNewWith ::
   NetworkWidgetConfig ->
   NetworkManagerNetworkIconConfig ->
@@ -562,10 +582,12 @@ networkTextIcon info =
 
 -- Wifi text icon
 
+-- | Build a WiFi text-icon label widget with default formatting config.
 networkManagerWifiTextIconNew :: TaffyIO Widget
 networkManagerWifiTextIconNew =
   networkManagerWifiTextIconNewWith defaultWifiWidgetConfig
 
+-- | Build a WiFi text-icon label widget.
 networkManagerWifiTextIconNewWith :: WifiWidgetConfig -> TaffyIO Widget
 networkManagerWifiTextIconNewWith _config = do
   chan <- getWifiInfoChan
@@ -582,10 +604,12 @@ networkManagerWifiTextIconNewWith _config = do
 
 -- Wifi icon-label
 
+-- | Build a combined WiFi text-icon and label widget with default formatting.
 networkManagerWifiIconLabelNew :: TaffyIO Widget
 networkManagerWifiIconLabelNew =
   networkManagerWifiIconLabelNewWith defaultWifiWidgetConfig
 
+-- | Build a combined WiFi text-icon and label widget.
 networkManagerWifiIconLabelNewWith :: WifiWidgetConfig -> TaffyIO Widget
 networkManagerWifiIconLabelNewWith config = do
   iconWidget <- networkManagerWifiTextIconNewWith config
@@ -594,10 +618,12 @@ networkManagerWifiIconLabelNewWith config = do
 
 -- Network text icon
 
+-- | Build a network text-icon label widget with default formatting config.
 networkManagerNetworkTextIconNew :: TaffyIO Widget
 networkManagerNetworkTextIconNew =
   networkManagerNetworkTextIconNewWith defaultNetworkWidgetConfig
 
+-- | Build a network text-icon label widget.
 networkManagerNetworkTextIconNewWith :: NetworkWidgetConfig -> TaffyIO Widget
 networkManagerNetworkTextIconNewWith _config = do
   chan <- getNetworkInfoChan
@@ -614,10 +640,12 @@ networkManagerNetworkTextIconNewWith _config = do
 
 -- Network icon-label
 
+-- | Build a combined network text-icon and label widget with default formatting.
 networkManagerNetworkIconLabelNew :: TaffyIO Widget
 networkManagerNetworkIconLabelNew =
   networkManagerNetworkIconLabelNewWith defaultNetworkWidgetConfig
 
+-- | Build a combined network text-icon and label widget.
 networkManagerNetworkIconLabelNewWith :: NetworkWidgetConfig -> TaffyIO Widget
 networkManagerNetworkIconLabelNewWith config = do
   iconWidget <- networkManagerNetworkTextIconNewWith config

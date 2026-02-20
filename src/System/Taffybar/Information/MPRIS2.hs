@@ -13,6 +13,8 @@
 -- Maintainer  : Ivan A. Malison
 -- Stability   : unstable
 -- Portability : unportable
+--
+-- Query and decode MPRIS2 metadata from DBus media-player services.
 module System.Taffybar.Information.MPRIS2 where
 
 import Control.Applicative
@@ -32,6 +34,7 @@ import System.Log.Logger
 import System.Taffybar.DBus.Client.MPRIS2
 import Text.Printf
 
+-- | Normalized now-playing metadata for a single MPRIS2 player.
 data NowPlaying = NowPlaying
   { npTitle :: String,
     npArtists :: [String],
@@ -44,6 +47,7 @@ data NowPlaying = NowPlaying
   }
   deriving (Show, Eq)
 
+-- | Convert an 'Either' into a 'Maybe' while logging failures.
 eitherToMaybeWithLog :: (MonadIO m, Show a1) => Either a1 a2 -> m (Maybe a2)
 eitherToMaybeWithLog (Right v) = return $ Just v
 eitherToMaybeWithLog (Left e) = liftIO $ do
@@ -52,6 +56,7 @@ eitherToMaybeWithLog (Left e) = liftIO $ do
       show e
   return Nothing
 
+-- | Query all active MPRIS2 players and return their now-playing metadata.
 getNowPlayingInfo :: (MonadIO m) => DBus.Client -> m [NowPlaying]
 getNowPlayingInfo client =
   fmap (fromMaybe []) $
@@ -101,6 +106,7 @@ getNowPlayingInfo client =
             lift $ catMaybes <$> mapM getSongData mediaPlayerBusNames
         )
 
+-- | Extract title and artist list from an MPRIS metadata map.
 getSongInfo :: M.Map String DBus.Variant -> Maybe (String, [String])
 getSongInfo songData = do
   let lookupVariant k = M.lookup k songData >>= DBus.fromVariant

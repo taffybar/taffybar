@@ -23,6 +23,7 @@ import GI.Gtk hiding (widgetGetAllocatedSize)
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
 
+-- | Handle used to update an existing vertical bar widget.
 newtype VerticalBarHandle = VBH (MVar VerticalBarState)
 
 data VerticalBarState = VerticalBarState
@@ -32,8 +33,10 @@ data VerticalBarState = VerticalBarState
     barConfig :: BarConfig
   }
 
+-- | Direction in which the filled portion grows.
 data BarDirection = HORIZONTAL | VERTICAL
 
+-- | Static or IO-driven configuration for the vertical bar.
 data BarConfig
   = BarConfig
       { -- | Color of the border drawn around the widget
@@ -69,6 +72,7 @@ defaultBarConfig c =
       barDirection = VERTICAL
     }
 
+-- | IO-driven variant of 'defaultBarConfig'.
 defaultBarConfigIO :: (Double -> IO (Double, Double, Double)) -> BarConfig
 defaultBarConfigIO c =
   BarConfigIO
@@ -80,6 +84,7 @@ defaultBarConfigIO c =
       barDirection = VERTICAL
     }
 
+-- | Update the bar value (clamped to @[0, 1]@) and queue a redraw.
 verticalBarSetPercent :: VerticalBarHandle -> Double -> IO ()
 verticalBarSetPercent (VBH mv) pct = do
   s <- readMVar mv
@@ -167,6 +172,7 @@ drawBar mv drawArea = do
     return s
   renderBar (barPercent s) (barConfig s) w h
 
+-- | Construct a bar widget and its mutable update handle.
 verticalBarNew :: (MonadIO m) => BarConfig -> m (GI.Gtk.Widget, VerticalBarHandle)
 verticalBarNew cfg = liftIO $ do
   drawArea <- drawingAreaNew

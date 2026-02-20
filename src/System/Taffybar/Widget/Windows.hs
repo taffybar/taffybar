@@ -35,6 +35,7 @@ import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import System.Taffybar.Widget.Util
 import System.Taffybar.Widget.Workspaces (WindowIconPixbufGetter, defaultGetWindowIconPixbuf, getWindowData)
 
+-- | Behavior configuration for the windows menu widget.
 data WindowsConfig = WindowsConfig
   { -- | A monadic function that will be used to make a label for the window in
     -- the window menu.
@@ -46,11 +47,13 @@ data WindowsConfig = WindowsConfig
     getActiveWindowIconPixbuf :: Maybe WindowIconPixbufGetter
   }
 
+-- | Default menu-label renderer using the X11 window title.
 defaultGetMenuLabel :: X11Window -> TaffyIO T.Text
 defaultGetMenuLabel window = do
   windowString <- runX11Def "(nameless window)" (getWindowTitle window)
   return $ T.pack windowString
 
+-- | Default active-window label renderer.
 defaultGetActiveLabel :: TaffyIO T.Text
 defaultGetActiveLabel = do
   fromMaybe ""
@@ -58,14 +61,17 @@ defaultGetActiveLabel = do
             >>= traverse defaultGetMenuLabel
         )
 
+-- | Truncate the active-window label to a maximum length.
 truncatedGetActiveLabel :: Int -> TaffyIO T.Text
 truncatedGetActiveLabel maxLength =
   truncateText maxLength <$> defaultGetActiveLabel
 
+-- | Truncate window labels in the popup menu to a maximum length.
 truncatedGetMenuLabel :: Int -> X11Window -> TaffyIO T.Text
 truncatedGetMenuLabel maxLength =
   fmap (truncateText maxLength) . defaultGetMenuLabel
 
+-- | Default configuration used by 'windowsNew'.
 defaultWindowsConfig :: WindowsConfig
 defaultWindowsConfig =
   WindowsConfig
@@ -116,6 +122,7 @@ windowsNew config = do
 
   widgetSetClassGI menu "windows"
 
+-- | Build the active-window label and return an update action for it.
 buildWindowsLabel :: TaffyIO (T.Text -> IO (), Gtk.Widget)
 buildWindowsLabel = do
   label <- lift $ Gtk.labelNew Nothing
@@ -124,6 +131,7 @@ buildWindowsLabel = do
   let setLabelTitle title = postGUIASync $ Gtk.labelSetText label title
   (setLabelTitle,) <$> Gtk.toWidget label
 
+-- | Build the active-window icon and return an update action for it.
 buildWindowsIcon :: WindowIconPixbufGetter -> TaffyIO (IO (), Gtk.Widget)
 buildWindowsIcon windowIconPixbufGetter = do
   runTaffy <- asks (flip runReaderT)

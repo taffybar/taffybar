@@ -196,6 +196,8 @@ dbusTogglesStartupHook = do
   logT DEBUG "Exporting toggles interface"
   exportTogglesInterface
 
+-- | Extend a 'TaffybarConfig' with a DBus toggle interface and persisted
+-- per-monitor visibility state.
 handleDBusToggles :: TaffybarConfig -> TaffybarConfig
 handleDBusToggles config =
   config

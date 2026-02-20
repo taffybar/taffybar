@@ -336,6 +336,8 @@ getPulseAudioInfo sinkSpec = do
   result <- withPulseAudio (`getPulseAudioInfoFromClient` sinkSpec)
   return $ join result
 
+-- | Query volume/mute info for a sink using an existing PulseAudio DBus
+-- client.
 getPulseAudioInfoFromClient :: Client -> String -> IO (Maybe PulseAudioInfo)
 getPulseAudioInfoFromClient client sinkSpec = do
   sinkPath <- resolveSinkPath client sinkSpec
@@ -391,6 +393,7 @@ paCorePath = paCoreObjectPath
 nullObjectPath :: ObjectPath
 nullObjectPath = objectPath_ "/"
 
+-- | Connect to the PulseAudio DBus server (if available).
 connectPulseAudio :: IO (Maybe Client)
 connectPulseAudio = do
   addressString <- getPulseAudioAddress

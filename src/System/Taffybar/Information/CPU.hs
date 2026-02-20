@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
+-- | Read short-window CPU utilization samples from @/proc/stat@.
 module System.Taffybar.Information.CPU
   {-# DEPRECATED "Legacy CPU module. Use System.Taffybar.Information.CPU2.getCPULoadChan (preferred) or sampleCPULoad/CPULoad." #-}
   (cpuLoad)

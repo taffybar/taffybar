@@ -13,6 +13,8 @@
 -- Maintainer  : Ivan A. Malison
 -- Stability   : unstable
 -- Portability : unportable
+--
+-- Example taffybar configurations used as reference defaults.
 module System.Taffybar.Example where
 
 -- XXX: in an actual taffybar.hs configuration file, you will need the module
@@ -24,6 +26,7 @@ module System.Taffybar.Example where
 import Data.Default (def)
 import System.Taffybar.Context (TaffybarConfig (..))
 import System.Taffybar.Hooks
+import System.Taffybar.Information.CPU (cpuLoad)
 import System.Taffybar.Information.Memory
 import System.Taffybar.SimpleConfig
 import System.Taffybar.Widget
@@ -31,21 +34,32 @@ import System.Taffybar.Widget.Generic.PollingGraph
 import qualified System.Taffybar.Widget.Workspaces.Config as WorkspaceConfig
 import qualified System.Taffybar.Widget.Workspaces.EWMH as Workspaces
 
-transparent,
-  yellow1,
-  yellow2,
-  green1,
-  green2,
-  taffyBlue ::
-    (Double, Double, Double, Double)
+-- | Fully transparent RGBA color.
+transparent :: (Double, Double, Double, Double)
 transparent = (0.0, 0.0, 0.0, 0.0)
+
+-- | Accent yellow color (dark).
+yellow1 :: (Double, Double, Double, Double)
 yellow1 = (0.9453125, 0.63671875, 0.2109375, 1.0)
+
+-- | Accent yellow color (light).
+yellow2 :: (Double, Double, Double, Double)
 yellow2 = (0.9921875, 0.796875, 0.32421875, 1.0)
+
+-- | Accent green color.
+green1 :: (Double, Double, Double, Double)
 green1 = (0, 1, 0, 1)
+
+-- | Accent translucent magenta color.
+green2 :: (Double, Double, Double, Double)
 green2 = (1, 0, 1, 0.5)
+
+-- | Primary blue accent.
+taffyBlue :: (Double, Double, Double, Double)
 taffyBlue = (0.129, 0.588, 0.953, 1)
 
-myGraphConfig, netCfg, memCfg, cpuCfg :: GraphConfig
+-- | Base graph configuration used by example graphs.
+myGraphConfig :: GraphConfig
 myGraphConfig =
   def
     { graphPadding = 0,
@@ -53,27 +67,44 @@ myGraphConfig =
       graphWidth = 75,
       graphBackgroundColor = transparent
     }
+
+-- | Network graph configuration for the example bar.
+netCfg :: GraphConfig
 netCfg =
   myGraphConfig
     { graphDataColors = [yellow1, yellow2],
       graphLabel = Just "net"
     }
+
+-- | Memory graph configuration for the example bar.
+memCfg :: GraphConfig
 memCfg =
   myGraphConfig
     { graphDataColors = [taffyBlue],
       graphLabel = Just "mem"
     }
+
+-- | CPU graph configuration for the example bar.
+cpuCfg :: GraphConfig
 cpuCfg =
   myGraphConfig
     { graphDataColors = [green1, green2],
       graphLabel = Just "cpu"
     }
 
+-- | Callback used by the example memory graph.
 memCallback :: IO [Double]
 memCallback = do
   mi <- parseMeminfo
   return [memoryUsedRatio mi]
 
+-- | Callback used by the example CPU graph.
+cpuCallback :: IO [Double]
+cpuCallback = do
+  (_, systemLoad, totalLoad) <- cpuLoad
+  return [totalLoad, systemLoad]
+
+-- | Example X11-oriented taffybar configuration.
 exampleTaffybarConfig :: TaffybarConfig
 exampleTaffybarConfig =
   let myWorkspacesConfig :: Workspaces.WorkspacesConfig
@@ -119,6 +150,7 @@ exampleTaffybarConfig =
           }
    in withLogServer $ withToggleServer $ toTaffybarConfig myConfig
 
+-- | Example minimal Wayland-oriented taffybar configuration.
 exampleWaylandTaffybarConfig :: TaffybarConfig
 exampleWaylandTaffybarConfig =
   let clock = textClockNewWith def

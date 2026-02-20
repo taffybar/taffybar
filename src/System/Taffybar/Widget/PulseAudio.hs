@@ -46,6 +46,7 @@ import System.Taffybar.Widget.Generic.ChannelWidget
 import System.Taffybar.Widget.Util (buildIconLabelBox)
 import Text.StringTemplate
 
+-- | Configuration for PulseAudio widgets.
 data PulseAudioWidgetConfig = PulseAudioWidgetConfig
   { pulseAudioSink :: String,
     pulseAudioFormat :: String,
@@ -56,6 +57,7 @@ data PulseAudioWidgetConfig = PulseAudioWidgetConfig
     pulseAudioToggleMuteOnClick :: Bool
   }
 
+-- | Default PulseAudio widget configuration.
 defaultPulseAudioWidgetConfig :: PulseAudioWidgetConfig
 defaultPulseAudioWidgetConfig =
   PulseAudioWidgetConfig
@@ -72,9 +74,11 @@ defaultPulseAudioWidgetConfig =
 instance Default PulseAudioWidgetConfig where
   def = defaultPulseAudioWidgetConfig
 
+-- | Create an icon-only PulseAudio widget with default config.
 pulseAudioIconNew :: TaffyIO Gtk.Widget
 pulseAudioIconNew = pulseAudioIconNewWith defaultPulseAudioWidgetConfig
 
+-- | Create an icon-only PulseAudio widget with custom config.
 pulseAudioIconNewWith :: PulseAudioWidgetConfig -> TaffyIO Gtk.Widget
 pulseAudioIconNewWith config = do
   let sinkSpec = pulseAudioSink config
@@ -90,9 +94,11 @@ pulseAudioIconNewWith config = do
     Gtk.widgetShowAll label
     Gtk.toWidget =<< channelWidgetNew label chan updateIcon
 
+-- | Create a label-only PulseAudio widget with default config.
 pulseAudioLabelNew :: TaffyIO Gtk.Widget
 pulseAudioLabelNew = pulseAudioLabelNewWith defaultPulseAudioWidgetConfig
 
+-- | Create a label-only PulseAudio widget with custom config.
 pulseAudioLabelNewWith :: PulseAudioWidgetConfig -> TaffyIO Gtk.Widget
 pulseAudioLabelNewWith config = do
   let sinkSpec = pulseAudioSink config
@@ -144,9 +150,11 @@ pulseAudioLabelNewWith config = do
     Gtk.widgetShowAll label
     Gtk.toWidget =<< channelWidgetNew label chan updateLabel
 
+-- | Create a combined icon+label PulseAudio widget with default config.
 pulseAudioNew :: TaffyIO Gtk.Widget
 pulseAudioNew = pulseAudioNewWith defaultPulseAudioWidgetConfig
 
+-- | Create a combined icon+label PulseAudio widget with custom config.
 pulseAudioNewWith :: PulseAudioWidgetConfig -> TaffyIO Gtk.Widget
 pulseAudioNewWith config = do
   iconWidget <- pulseAudioIconNewWith config
