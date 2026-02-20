@@ -39,7 +39,8 @@ import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Reader (ask, runReaderT)
 import Control.RateLimit (RateLimit (PerInvocation), generateRateLimitedFunction)
-import Data.List ((\\))
+import Data.Char (toLower)
+import Data.List (isPrefixOf, (\\))
 import qualified Data.MultiMap as MM
 import qualified Data.Text as T
 import Data.Time.Units (Microsecond, fromMicroseconds)
@@ -276,10 +277,15 @@ collectEWMHWorkspaceSnapshot = do
                   },
               workspaceState = wsViewState,
               workspaceHasUrgentWindow = any windowUrgent windowsInfo,
-              workspaceIsSpecial = False,
+              workspaceIsSpecial = isSpecialWorkspaceName name,
               workspaceWindows = windowsInfo
             }
   mapM toWorkspaceInfo names
+
+isSpecialWorkspaceName :: String -> Bool
+isSpecialWorkspaceName name =
+  let lowered = map toLower name
+   in lowered == "nsp" || "special:" `isPrefixOf` lowered
 
 getWorkspaceToWindows ::
   [X11Window] ->
