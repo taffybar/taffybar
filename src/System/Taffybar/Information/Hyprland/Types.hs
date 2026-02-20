@@ -155,6 +155,6 @@ data HyprlandActiveWindowInfo = HyprlandActiveWindowInfo
 instance FromJSON HyprlandActiveWindowInfo where
   parseJSON = withObject "HyprlandActiveWindowInfo" $ \v ->
     HyprlandActiveWindowInfo
-      <$> v .: "address"
+      <$> v .:? "address" .!= ""
       <*> v .:? "title"
       <*> v .:? "class"

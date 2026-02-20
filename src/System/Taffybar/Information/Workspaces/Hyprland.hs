@@ -251,7 +251,9 @@ buildHyprlandWorkspaceSnapshot = do
 
   activeWindowAddress <- case activeWindowResult of
     Left err -> wLog WARNING ("hyprctl activewindow failed: " <> show err) >> return Nothing
-    Right win -> return $ Just (HyprTypes.hyprActiveWindowAddress win)
+    Right win ->
+      let address = HyprTypes.hyprActiveWindowAddress win
+       in return $ if T.null address then Nothing else Just address
 
   let windowsByWorkspace = collectWorkspaceWindows activeWindowAddress clients
       sortedWorkspaces = sortOn HyprTypes.hyprWorkspaceId workspaces
