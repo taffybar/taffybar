@@ -36,6 +36,11 @@ spec = aroundAll withIntegrationEnv $ do
     actualPng <- renderBarScreenshot env LevelsLayout
     assertGolden "appearance-levels" goldenFile actualPng
 
+  it "keeps configured bar height when the windows title has oversized glyph metrics" $ \env -> do
+    actualPng <- renderBarScreenshot env WindowsTitleStressLayout
+    let actualImg = decodePngRGBA8 "stress" actualPng
+    JP.imageHeight actualImg `shouldBe` 55
+
 assertGolden :: String -> FilePath -> BL.ByteString -> IO ()
 assertGolden label goldenFile actualPng = do
   shouldUpdate <- lookupEnv "TAFFYBAR_UPDATE_GOLDENS"
@@ -96,7 +101,7 @@ withIntegrationEnv action =
               ]
             $ action (Env {envTmpDir = tmp})
 
-data LayoutKind = LegacyLayout | LevelsLayout
+data LayoutKind = LegacyLayout | LevelsLayout | WindowsTitleStressLayout
 
 renderBarScreenshot :: Env -> LayoutKind -> IO BL.ByteString
 renderBarScreenshot Env {envTmpDir = tmp} layout = do
@@ -113,6 +118,7 @@ renderBarScreenshot Env {envTmpDir = tmp} layout = do
         case layout of
           LegacyLayout -> []
           LevelsLayout -> ["--levels"]
+          WindowsTitleStressLayout -> ["--windows-title-stress"]
       pc =
         setStdout inherit $
           setStderr inherit $

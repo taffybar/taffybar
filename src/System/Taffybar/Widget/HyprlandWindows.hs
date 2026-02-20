@@ -27,6 +27,7 @@ import Data.Default (Default (..))
 import Data.List (find)
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
+import qualified GI.Pango as Pango
 import System.Log.Logger (Priority (..))
 import System.Taffybar.Context
 import System.Taffybar.Hyprland (runHyprlandCommandRawT)
@@ -124,7 +125,9 @@ hyprlandWindowsNew config = do
 buildWindowsLabel :: TaffyIO (T.Text -> IO (), Gtk.Widget)
 buildWindowsLabel = do
   label <- lift $ Gtk.labelNew Nothing
-  let setLabelTitle title = postGUIASync $ Gtk.labelSetMarkup label title
+  lift $ Gtk.labelSetSingleLineMode label True
+  lift $ Gtk.labelSetEllipsize label Pango.EllipsizeModeEnd
+  let setLabelTitle title = postGUIASync $ Gtk.labelSetText label title
   (setLabelTitle,) <$> Gtk.toWidget label
 
 buildWindowsIcon :: HyprlandWindowIconPixbufGetter -> TaffyIO (IO (), Gtk.Widget)
