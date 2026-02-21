@@ -25,8 +25,9 @@ module System.Taffybar.ContextSpec
 where
 
 import Control.Exception (SomeException, catch)
-import Control.Monad.Trans.Reader (runReaderT)
+import Control.Monad (when)
 import Data.Default (def)
+import Data.List ((\\))
 import Data.Ratio ((%))
 import GHC.Generics (Generic)
 import GI.Gtk (Widget)
@@ -35,7 +36,7 @@ import System.FilePath ((</>))
 import System.Taffybar.Context
 import System.Taffybar.SimpleConfig
 import System.Taffybar.Test.DBusSpec (withTestDBus)
-import System.Taffybar.Test.UtilSpec (logSetup, withSetEnv)
+import System.Taffybar.Test.UtilSpec (diffLiveThreads, laxTimeout', listFds, listLiveThreads, logSetup, withSetEnv)
 import System.Taffybar.Test.XvfbSpec (setDefaultDisplay_, withXdummy)
 import System.Taffybar.Widget.SimpleClock (textClockNewWith)
 import System.Taffybar.Widget.Workspaces (workspacesNew)
@@ -79,14 +80,37 @@ spec = logSetup $ sequential $ aroundAll_ withTestDBus $ aroundAll_ (withXdummy 
           detectBackend `shouldReturn` BackendX11
       removePathForcibly runtime `catch` (\(_ :: SomeException) -> pure ())
 
+  describe "Resource cleanup" $ do
+    it "cleanup happens within a short time" $ example $ do
+      laxTimeout' 1_000_000 $ buildContext def >> pure ()
+
+    it "should not leak file descriptors, e.g. X11 connections" $ example $ do
+      fdsBefore <- listFds
+      fdsDuring <- laxTimeout' 1_000_000 $ buildContext def >> listFds
+      length fdsDuring `shouldSatisfy` (> length fdsBefore)
+      fdsAfter <- listFds
+
+      fdsAfter \\ fdsBefore `shouldBe` []
+
+    it "should not leak threads" $ example $ do
+      threadsBefore <- listLiveThreads
+      when (null threadsBefore) $ pendingWith "GHC version doesn't have listThreads"
+      threadsDuring <- laxTimeout' 1_000_000 $ buildContext def >> listLiveThreads
+      length threadsDuring `shouldSatisfy` (> length threadsBefore)
+
+      threadsAfter <- listLiveThreads
+
+      diffLiveThreads threadsAfter threadsBefore `shouldBe` []
+
   describe "Fuzz tests" $ do
+    prop "too trivial" prop_context_too_trivial
     prop "eval generators" prop_genSimpleConfig
-    xprop "TaffybarConfig" prop_taffybarConfig
+    prop "TaffybarConfig" prop_taffybarConfig
 
 ------------------------------------------------------------------------
 
 runTaffyDefault :: TaffyIO a -> IO a
-runTaffyDefault f = buildContext def >>= runReaderT f
+runTaffyDefault f = buildContext def >>= \ctx -> runTaffy ctx f
 
 ------------------------------------------------------------------------
 
@@ -203,11 +227,18 @@ prop_genSimpleConfig cfg =
     cover 25 (monitors cfg == UsePrimaryMonitor) "Primary monitor only" $
       cfg === cfg
 
-prop_taffybarConfig :: GenSimpleConfig -> Property
-prop_taffybarConfig cfg =
-  within 1_000_000 $
+prop_context_too_trivial :: Property
+prop_context_too_trivial =
+  withMaxSuccess 50 $
     monadicIO $
-      pure (cfg =/= cfg)
+      run $
+        runTaffyDefault (pure ())
+
+prop_taffybarConfig :: GenSimpleConfig -> Property
+prop_taffybarConfig cfg = within 1_000_000 $ monadicIO $ do
+  let cfg' = toTaffybarConfig (toSimpleConfig cfg)
+  a <- run $ buildContext cfg' >> pure True
+  assert a
 
 -- Some possible assertions:
 --   startupHook executed exactly once

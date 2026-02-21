@@ -32,7 +32,7 @@ import Control.Monad.IO.Class
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Except
-import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Reader (ReaderT, ask, asks)
 import DBus
 import DBus.Client
 import DBus.Internal.Types (Serial (..))
@@ -258,6 +258,7 @@ monitorDisplayBattery propertiesToMonitor = do
   infoVar <- lift $ newMVar $ infoMapToBatteryInfo M.empty
   chan <- liftIO newBroadcastTChanIO
   taffyFork $ do
+    labelMyThread "monitorDisplayBattery"
     ctx <- ask
     let warnOfFailedGetDevice err =
           batteryLogF WARNING "Failure getting DisplayBattery: %s" err
@@ -270,7 +271,7 @@ monitorDisplayBattery propertiesToMonitor = do
         signalCallback _ _ changedProps _ =
           do
             batteryLogF DEBUG "Battery changed properties: %s" changedProps
-            runReaderT doUpdate ctx
+            runTaffy ctx doUpdate
     _ <- registerForUPowerPropertyChanges propertiesToMonitor signalCallback
     doUpdate
 
@@ -281,16 +282,16 @@ monitorDisplayBattery propertiesToMonitor = do
 -- something is updated and the update actually being visible. See
 -- https://github.com/taffybar/taffybar/issues/330 for more details.
 refreshBatteriesOnPropChange :: TaffyIO ()
-refreshBatteriesOnPropChange =
-  ask >>= \ctx ->
-    let updateIfRealChange _ _ changedProps _ =
-          flip runReaderT ctx
-            $ when
-              ( any ((`notElem` ["UpdateTime", "Voltage"]) . fst) $
-                  M.toList changedProps
-              )
-            $ lift (threadDelay 1000000) >> refreshAllBatteries
-     in void $ registerForAnyUPowerPropertiesChanged updateIfRealChange
+refreshBatteriesOnPropChange = do
+  ctx <- ask
+  let updateIfRealChange _ _ changedProps _ =
+        runTaffy ctx $
+          when
+            ( any ((`notElem` ["UpdateTime", "Voltage"]) . fst) $
+                M.toList changedProps
+            )
+            (lift (threadDelay 1000000) >> refreshAllBatteries)
+  void $ registerForAnyUPowerPropertiesChanged updateIfRealChange
 
 -- | Request a refresh of all UPower batteries. This is only needed if UPower's
 -- refresh mechanism is not working properly.

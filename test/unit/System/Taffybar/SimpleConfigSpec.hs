@@ -2,7 +2,7 @@
 
 module System.Taffybar.SimpleConfigSpec (spec) where
 
-import Data.Maybe (maybeToList)
+import Data.Maybe (isJust, maybeToList)
 import System.Taffybar.ContextSpec (runTaffyDefault)
 import System.Taffybar.Information.X11DesktopInfo (DisplayName (..))
 import System.Taffybar.SimpleConfig
@@ -14,9 +14,9 @@ import Test.QuickCheck.Monadic
 
 spec :: Spec
 spec = aroundAll_ (withXdummy . flip setDefaultDisplay_) $ do
-  -- Pending: Can't run properties without cleaning up buildContext
+  -- fixme: this fails because it needs gtk_init
   xprop "useAllMonitors" prop_useAllMonitors
-  xprop "usePrimaryMonitor" prop_usePrimaryMonitor
+  prop "usePrimaryMonitor" (withMaxSuccess 50 prop_usePrimaryMonitor)
 
 prop_useAllMonitors :: RRSetup -> Property
 prop_useAllMonitors rr = monadicIO $ do
@@ -27,14 +27,14 @@ prop_useAllMonitors rr = monadicIO $ do
 
   let rrOutputNumbers =
         [ i
-        | (i, o) <- zip [0 ..] rr.outputs,
-          not o.settings.disabled
+        | (i, o) <- zip [0 ..] rr.outputs
+        , not o.settings.disabled
         ]
 
   pure $ allMonitors === rrOutputNumbers
 
 prop_usePrimaryMonitor :: RRSetup -> Property
-prop_usePrimaryMonitor rr = monadicIO $ do
+prop_usePrimaryMonitor rr = isJust rr.primary ==> monadicIO $ do
   primaryMonitor <-
     run $
       withRandrSetup DefaultDisplay rr $

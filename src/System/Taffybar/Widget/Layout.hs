@@ -27,7 +27,7 @@ module System.Taffybar.Widget.Layout
 where
 
 import Control.Monad.Trans.Class
-import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Reader (ask, mapReaderT)
 import Data.Default (Default (..))
 import qualified Data.Text as T
 import GI.Gdk
@@ -95,22 +95,25 @@ layoutNew config = do
     Gtk.containerAdd ebox label
     _ <- Gtk.onWidgetButtonPressEvent ebox $ dispatchButtonEvent ctx
     Gtk.widgetShowAll ebox
-    _ <- Gtk.onWidgetUnrealize ebox $ flip runReaderT ctx $ unsubscribe subscription
+    _ <- Gtk.onWidgetUnrealize ebox $ runTaffy ctx $ unsubscribe subscription
     Gtk.toWidget ebox
 
 -- | Call 'switch' with the appropriate argument (1 for left click, -1 for
 -- right click), depending on the click event received.
 dispatchButtonEvent :: Context -> EventButton -> IO Bool
 dispatchButtonEvent context btn = do
-  pressType <- getEventButtonType btn
-  buttonNumber <- getEventButtonButton btn
-  case pressType of
-    EventTypeButtonPress ->
-      case buttonNumber of
-        1 -> runReaderT (runX11Def () (switch 1)) context >> return True
-        2 -> runReaderT (runX11Def () (switch (-1))) context >> return True
-        _ -> return False
-    _ -> return False
+  ev <- isLR <$> getEventButtonType btn <*> getEventButtonButton btn
+  case ev of
+    Just inc -> do
+      runTaffy context (runX11Def () (switch inc))
+      return True
+    Nothing -> return False
+  where
+    isLR EventTypeButtonPress buttonNumber = case buttonNumber of
+      1 -> Just 1
+      2 -> Just (-1)
+      _ -> Nothing
+    isLR _ _ = Nothing
 
 -- | Emit a new custom event of type _XMONAD_CURRENT_LAYOUT, that can be
 -- intercepted by the PagerHints hook, which in turn can instruct XMonad to

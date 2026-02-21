@@ -31,7 +31,7 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Reader (ask)
 import Data.Default (Default (..))
 import Data.GI.Base.Overloading (IsDescendantOf)
 import Data.IORef (newIORef, readIORef, writeIORef)
@@ -165,10 +165,10 @@ textBatteryNewWithLabelAction labelSetter = do
   liftIO $ do
     label <- labelNew Nothing
     let updateWidget =
-          postGUIASync . flip runReaderT ctx . labelSetter label
+          postGUIASync . runTaffy ctx . labelSetter label
     void $
       onWidgetRealize label $
-        runReaderT getDisplayBatteryInfo ctx >>= updateWidget
+        runTaffy ctx getDisplayBatteryInfo >>= updateWidget
     toWidget =<< channelWidgetNew label chan updateWidget
 
 themeLoadFlags :: [IconLookupFlags]
@@ -184,7 +184,7 @@ batteryIconNew = do
   let setIconForSize size = do
         iw <- readIORef imageWidgetRef
         styleCtx <- widgetGetStyleContext iw
-        name <- T.pack . batteryIconName <$> runReaderT getDisplayBatteryInfo ctx
+        name <- T.pack . batteryIconName <$> runTaffy ctx getDisplayBatteryInfo
         iconThemeLookupIcon defaultTheme name size themeLoadFlags
           >>= traverse (\info -> fst <$> iconInfoLoadSymbolicForContext info styleCtx)
   (imageWidget, updateImage) <- scalingImage setIconForSize OrientationHorizontal

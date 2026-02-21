@@ -23,7 +23,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
-import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Reader (ask, asks)
 import DBus
 import DBus.Client
 import Data.Int
@@ -132,7 +132,7 @@ exportTogglesInterface = do
   ctx <- ask
   lift $ taffyStateDir >>= createDirectoryIfMissing True
   stateFile <- lift toggleStateFile
-  let toggleTaffyOnMon fn mon = flip runReaderT ctx $ do
+  let toggleTaffyOnMon fn mon = runTaffy ctx $ do
         lift $ MV.modifyMVar_ enabledVar $ \numToEnabled -> do
           let current = fromMaybe True $ M.lookup mon numToEnabled
               result = M.insert mon (fn current) numToEnabled
@@ -167,7 +167,7 @@ exportTogglesInterface = do
                 autoMethod "showOnMonitor" $
                   takeInt $
                     toggleTaffyOnMon (const True),
-                autoMethod "refresh" $ runReaderT refreshTaffyWindows ctx,
+                autoMethod "refresh" $ runTaffy ctx refreshTaffyWindows,
                 autoMethod "exit" $ exitTaffybar ctx
               ]
           }
