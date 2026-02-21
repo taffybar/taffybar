@@ -1,5 +1,20 @@
 # Unreleased
 
+# 6.0.0
+
+## Breaking Changes
+
+* Remove legacy workspace widget implementations.
+
+## Fixes
+
+* Fix workspace filter visibility after bar recreation.
+* Fix window icon cache poisoning on failed lookups.
+
+## Tests
+
+* Refresh appearance golden images.
+
 # 5.2.1
 
 ## Fixes
