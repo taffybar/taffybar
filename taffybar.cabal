@@ -181,6 +181,7 @@ library
                  , System.Taffybar.Widget.Bluetooth
                  , System.Taffybar.Widget.CPUMonitor
                  , System.Taffybar.Widget.CommandRunner
+                 , System.Taffybar.Widget.CoordinatedClock
                  , System.Taffybar.Widget.Crypto
                  , System.Taffybar.Widget.DiskIOMonitor
                  , System.Taffybar.Widget.DiskUsage
