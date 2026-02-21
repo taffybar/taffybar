@@ -19,7 +19,7 @@ module System.Taffybar.Widget.SNITray.PrioritizedCollapsible
 where
 
 import Control.Applicative ((<|>))
-import Control.Monad (forM_, guard, join, void)
+import Control.Monad (forM_, guard, join, void, when)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import qualified DBus as D
@@ -594,71 +594,122 @@ showPriorityEditMenu anchor priorityMin priorityMax defaultPriority currentExpli
   Gtk.widgetShowAll menu
   Gtk.menuPopupAtPointer menu currentEvent
 
-showPrioritySettingsMenu ::
+showPriorityControlsMenu ::
   Gtk.EventBox ->
   Int ->
   Int ->
+  Bool ->
+  (Bool -> T.Text) ->
+  IORef Bool ->
+  IORef Bool ->
+  IORef Int ->
   IORef Int ->
   IORef (Maybe Int) ->
   IO () ->
+  IO () ->
   IO ()
-showPrioritySettingsMenu anchor priorityMin priorityMax maxVisibleRef thresholdRef onSettingsChanged = do
-  currentEvent <- Gtk.getCurrentEvent
-  currentMaxVisible <- readIORef maxVisibleRef
-  currentThreshold <- readIORef thresholdRef
+showPriorityControlsMenu
+  anchor
+  priorityMin
+  priorityMax
+  alwaysShowExpandControl
+  priorityModeLabel
+  expandedRef
+  priorityEditModeRef
+  hiddenCountRef
+  maxVisibleRef
+  thresholdRef
+  onControlStateChanged
+  onSettingsChanged = do
+    currentEvent <- Gtk.getCurrentEvent
+    currentExpanded <- readIORef expandedRef
+    currentPriorityEditMode <- readIORef priorityEditModeRef
+    currentHiddenCount <- readIORef hiddenCountRef
+    currentMaxVisible <- readIORef maxVisibleRef
+    currentThreshold <- readIORef thresholdRef
 
-  menu <- Gtk.menuNew
-  Gtk.menuAttachToWidget menu anchor Nothing
+    menu <- Gtk.menuNew
+    Gtk.menuAttachToWidget menu anchor Nothing
 
-  maxVisibleItem <- Gtk.menuItemNewWithLabel ("Max visible (collapsed)" :: T.Text)
-  maxVisibleMenu <- Gtk.menuNew
-  Gtk.menuItemSetSubmenu maxVisibleItem (Just maxVisibleMenu)
-  let maxVisibleOptions = [0 .. 20]
-  forM_ maxVisibleOptions $ \option -> do
-    let optionLabel =
-          if option <= 0
-            then "No limit" :: T.Text
-            else T.pack (show option)
-        prefix =
-          if option == currentMaxVisible
+    let showExpandControl =
+          alwaysShowExpandControl || currentExpanded || currentHiddenCount > 0
+    when showExpandControl $ do
+      let expandLabel =
+            if currentExpanded
+              then "Allow tray icon hiding" :: T.Text
+              else "Show all tray icons"
+      expandItem <- Gtk.menuItemNewWithLabel expandLabel
+      void $ Gtk.onMenuItemActivate expandItem $ do
+        modifyIORef' expandedRef not
+        onControlStateChanged
+      Gtk.menuShellAppend menu expandItem
+
+    let priorityModePrefix =
+          if currentPriorityEditMode
             then "\x2713 " :: T.Text
             else "   "
-    item <- Gtk.menuItemNewWithLabel (prefix <> optionLabel)
-    void $ Gtk.onMenuItemActivate item $ do
-      writeIORef maxVisibleRef option
-      onSettingsChanged
-    Gtk.menuShellAppend maxVisibleMenu item
-  Gtk.menuShellAppend menu maxVisibleItem
+        priorityModeItemLabel =
+          priorityModePrefix
+            <> "Priority edit mode: "
+            <> priorityModeLabel currentPriorityEditMode
+    priorityModeItem <- Gtk.menuItemNewWithLabel priorityModeItemLabel
+    void $ Gtk.onMenuItemActivate priorityModeItem $ do
+      modifyIORef' priorityEditModeRef not
+      onControlStateChanged
+    Gtk.menuShellAppend menu priorityModeItem
 
-  thresholdItem <- Gtk.menuItemNewWithLabel ("Priority threshold" :: T.Text)
-  thresholdMenu <- Gtk.menuNew
-  Gtk.menuItemSetSubmenu thresholdItem (Just thresholdMenu)
-  let thresholdOptions = Nothing : map Just [priorityMin .. priorityMax]
-  forM_ thresholdOptions $ \option -> do
-    let optionLabel =
-          case option of
-            Nothing -> "No threshold" :: T.Text
-            Just value -> ">= " <> T.pack (show value)
-        prefix =
-          if option == currentThreshold
-            then "\x2713 " :: T.Text
-            else "   "
-    item <- Gtk.menuItemNewWithLabel (prefix <> optionLabel)
-    void $ Gtk.onMenuItemActivate item $ do
-      writeIORef thresholdRef option
-      onSettingsChanged
-    Gtk.menuShellAppend thresholdMenu item
-  Gtk.menuShellAppend menu thresholdItem
+    controlsSep <- Gtk.separatorMenuItemNew
+    Gtk.menuShellAppend menu controlsSep
 
-  void $
-    Gtk.onWidgetHide menu $
-      void $
-        GLib.idleAdd GLib.PRIORITY_LOW $ do
-          Gtk.widgetDestroy menu
-          return False
+    maxVisibleItem <- Gtk.menuItemNewWithLabel ("Max visible (collapsed)" :: T.Text)
+    maxVisibleMenu <- Gtk.menuNew
+    Gtk.menuItemSetSubmenu maxVisibleItem (Just maxVisibleMenu)
+    let maxVisibleOptions = [0 .. 20]
+    forM_ maxVisibleOptions $ \option -> do
+      let optionLabel =
+            if option <= 0
+              then "No limit" :: T.Text
+              else T.pack (show option)
+          prefix =
+            if option == currentMaxVisible
+              then "\x2713 " :: T.Text
+              else "   "
+      item <- Gtk.menuItemNewWithLabel (prefix <> optionLabel)
+      void $ Gtk.onMenuItemActivate item $ do
+        writeIORef maxVisibleRef option
+        onSettingsChanged
+      Gtk.menuShellAppend maxVisibleMenu item
+    Gtk.menuShellAppend menu maxVisibleItem
 
-  Gtk.widgetShowAll menu
-  Gtk.menuPopupAtPointer menu currentEvent
+    thresholdItem <- Gtk.menuItemNewWithLabel ("Priority threshold" :: T.Text)
+    thresholdMenu <- Gtk.menuNew
+    Gtk.menuItemSetSubmenu thresholdItem (Just thresholdMenu)
+    let thresholdOptions = Nothing : map Just [priorityMin .. priorityMax]
+    forM_ thresholdOptions $ \option -> do
+      let optionLabel =
+            case option of
+              Nothing -> "No threshold" :: T.Text
+              Just value -> ">= " <> T.pack (show value)
+          prefix =
+            if option == currentThreshold
+              then "\x2713 " :: T.Text
+              else "   "
+      item <- Gtk.menuItemNewWithLabel (prefix <> optionLabel)
+      void $ Gtk.onMenuItemActivate item $ do
+        writeIORef thresholdRef option
+        onSettingsChanged
+      Gtk.menuShellAppend thresholdMenu item
+    Gtk.menuShellAppend menu thresholdItem
+
+    void $
+      Gtk.onWidgetHide menu $
+        void $
+          GLib.idleAdd GLib.PRIORITY_LOW $ do
+            Gtk.widgetDestroy menu
+            return False
+
+    Gtk.widgetShowAll menu
+    Gtk.menuPopupAtPointer menu currentEvent
 
 -- | Build a collapsible StatusNotifierItem tray with priority editing controls
 -- and persisted priority state.
@@ -713,6 +764,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     priorityEditModeRef <- newIORef prioritizedCollapsibleSNITrayStartPriorityEditMode
     maxVisibleIconsRef <- newIORef initialMaxVisibleIcons
     visibilityThresholdRef <- newIORef initialVisibilityThreshold
+    hiddenCountRef <- newIORef 0
     knownItemIdentitiesRef <- newIORef ([] :: [String])
     orderedInfosRef <- newIORef ([] :: [H.ItemInfo])
     processDisambiguationKeysRef <- newIORef (M.empty :: M.Map String String)
@@ -730,26 +782,17 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     overflowCountLabel <- Gtk.labelNew Nothing
     _ <- widgetSetClassGI overflowCountLabel "sni-tray-overflow-count-label"
 
-    expandIcon <- Gtk.imageNewFromIconName (Just "pan-down-symbolic") menuIconSize
-    expandToggle <- Gtk.eventBoxNew
-    _ <- widgetSetClassGI expandToggle "sni-tray-expand-toggle"
-    Gtk.containerAdd expandToggle expandIcon
-
-    priorityModeIcon <- Gtk.imageNewFromIconName (Just "document-edit-symbolic") menuIconSize
-    priorityModeToggle <- Gtk.eventBoxNew
-    _ <- widgetSetClassGI priorityModeToggle "sni-tray-edit-toggle"
-    Gtk.containerAdd priorityModeToggle priorityModeIcon
-
     settingsIcon <- Gtk.imageNewFromIconName (Just "emblem-system-symbolic") menuIconSize
+    settingsContent <- Gtk.boxNew trayOrientation' 3
+    _ <- widgetSetClassGI settingsContent "sni-tray-settings-toggle-content"
+    Gtk.boxPackStart settingsContent settingsIcon False False 0
+    Gtk.boxPackStart settingsContent overflowCountLabel False False 0
     settingsToggle <- Gtk.eventBoxNew
     _ <- widgetSetClassGI settingsToggle "sni-tray-settings-toggle"
-    Gtk.containerAdd settingsToggle settingsIcon
-    Gtk.widgetSetTooltipText settingsToggle (Just "Tray display settings")
+    Gtk.containerAdd settingsToggle settingsContent
+    Gtk.widgetSetTooltipText settingsToggle (Just "Tray controls")
 
     Gtk.boxPackStart outer trayContainer False False 0
-    Gtk.boxPackStart outer overflowCountLabel False False 0
-    Gtk.boxPackStart outer expandToggle False False 0
-    Gtk.boxPackStart outer priorityModeToggle False False 0
     Gtk.boxPackStart outer settingsToggle False False 0
 
     let queueRebuild = do
@@ -797,22 +840,11 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
 
         refreshPriorityModeToggle = do
           editing <- readIORef priorityEditModeRef
-          let tooltipText =
-                if editing
-                  then "Disable icon priority edit mode"
-                  else "Enable icon priority edit mode"
-          Gtk.widgetSetTooltipText
-            priorityModeToggle
-            (Just tooltipText)
-          if editing
-            then addClassIfMissing "sni-tray-edit-toggle-active" priorityModeToggle
-            else removeClassIfPresent "sni-tray-edit-toggle-active" priorityModeToggle
           if editing
             then do
               addClassIfMissing "sni-tray-editing" outer
             else do
               removeClassIfPresent "sni-tray-editing" outer
-          Gtk.widgetShowAll priorityModeToggle
 
         refresh = do
           maybeTray <- readIORef trayRef
@@ -853,33 +885,11 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                   visibleChildren = take visibleCount children
                   hiddenChildren = drop visibleCount children
                   hiddenCount = length hiddenChildren
-                  showExpandToggle =
-                    prioritizedCollapsibleSNITrayAlwaysShowExpandToggle
-                      || ( if expanded
-                             then collapsibleSNITrayShowIndicatorWhenExpanded && hiddenCount > 0
-                             else hiddenCount > 0
-                         )
-                  expandIconName =
-                    if expanded
-                      then "pan-up-symbolic"
-                      else "pan-down-symbolic"
-                  expandTooltip =
-                    if expanded
-                      then "Allow tray icon hiding"
-                      else "Show all tray icons"
                   hiddenCountText = T.pack (show hiddenCount)
 
               mapM_ Gtk.widgetShow visibleChildren
               mapM_ Gtk.widgetHide hiddenChildren
-
-              Gtk.imageSetFromIconName expandIcon (Just expandIconName) menuIconSize
-              if showExpandToggle
-                then do
-                  Gtk.widgetSetTooltipText expandToggle (Just expandTooltip)
-                  Gtk.widgetShowAll expandToggle
-                else do
-                  Gtk.widgetSetTooltipText expandToggle Nothing
-                  Gtk.widgetHide expandToggle
+              writeIORef hiddenCountRef hiddenCount
 
               if hiddenCount > 0
                 then do
@@ -960,37 +970,23 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
 
     writeIORef rebuildTrayRef rebuildTray
 
-    _ <- Gtk.onWidgetButtonPressEvent expandToggle $ \event -> do
-      eventType <- Gdk.getEventButtonType event
-      button <- Gdk.getEventButtonButton event
-      if eventType == Gdk.EventTypeButtonPress && button == 1
-        then do
-          modifyIORef' expandedRef not
-          void refresh
-          return True
-        else return False
-
-    _ <- Gtk.onWidgetButtonPressEvent priorityModeToggle $ \event -> do
-      eventType <- Gdk.getEventButtonType event
-      button <- Gdk.getEventButtonButton event
-      if eventType == Gdk.EventTypeButtonPress && button == 1
-        then do
-          modifyIORef' priorityEditModeRef not
-          refreshPriorityModeToggle
-          return True
-        else return False
-
     _ <- Gtk.onWidgetButtonPressEvent settingsToggle $ \event -> do
       eventType <- Gdk.getEventButtonType event
       button <- Gdk.getEventButtonButton event
       if eventType == Gdk.EventTypeButtonPress && button == 1
         then do
-          showPrioritySettingsMenu
+          showPriorityControlsMenu
             settingsToggle
             priorityMin
             priorityMax
+            prioritizedCollapsibleSNITrayAlwaysShowExpandToggle
+            prioritizedCollapsibleSNITrayPriorityModeLabel
+            expandedRef
+            priorityEditModeRef
+            hiddenCountRef
             maxVisibleIconsRef
             visibilityThresholdRef
+            (refreshPriorityModeToggle >> void refresh)
             (persistCurrentState >> void refresh)
           return True
         else return False
@@ -1024,7 +1020,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     _ <- Gtk.onWidgetDestroy outer $ H.removeUpdateHandler host handlerId
 
     rebuildTray
+    Gtk.widgetShowAll outer
     refreshPriorityModeToggle
     _ <- refresh
-    Gtk.widgetShowAll outer
     return outerWidget
