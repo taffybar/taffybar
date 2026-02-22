@@ -1,5 +1,12 @@
 # Agent Guidelines
 
+## Environment Loading
+
+- Run project commands through `direnv` so the expected toolchain and env vars
+  from `.envrc` are active.
+- Use `direnv exec . <command>` for non-interactive commands (builds, tests,
+  formatters, linters, etc.).
+
 ## Formatting Before Commit
 
 - Always run `ormolu` on all changed Haskell files before every commit.
