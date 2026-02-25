@@ -5,6 +5,7 @@ module WatcherSpec (spec) where
 import Control.Exception (finally)
 import Data.Either (isLeft)
 import Data.List (isPrefixOf)
+import DBus (BusName, busName_, formatBusName, objectPath_)
 import DBus.Client
 import qualified StatusNotifier.Watcher.Client as WatcherClient
 import Test.Hspec
@@ -73,6 +74,32 @@ spec = around withIsolatedSessionBus $ do
       watcher <- startWatcher
       result <- WatcherClient.getObjectPathForItemName watcher "org.test.Missing"
       result `shouldSatisfy` isLeft
+
+    it "accepts registration from a different connection of the same process (KDE-style)" $ \() -> do
+      watcher <- startWatcher
+      -- Simulate KDE's KStatusNotifierItem pattern: one connection registers
+      -- the SNI item, but the actual SNI interface lives on a separate connection.
+      mainClient <- connectSession
+      (sniClient, sniBusName) <- connectSessionWithName
+      let sniPath = objectPath_ "/StatusNotifierItem"
+          sniIface = Interface
+            { interfaceName = "org.kde.StatusNotifierItem"
+            , interfaceMethods = []
+            , interfaceProperties =
+                [ readOnlyProperty "IconName" (pure ("test-icon" :: String))
+                , readOnlyProperty "OverlayIconName" (pure ("" :: String))
+                , readOnlyProperty "ItemIsMenu" (pure False)
+                ]
+            , interfaceSignals = []
+            }
+          sniNameStr = formatBusName sniBusName
+      export sniClient sniPath sniIface
+      -- Register using the SNI connection's unique bus name, sent from mainClient
+      result <- WatcherClient.registerStatusNotifierItem mainClient sniNameStr
+      result `shouldBe` Right ()
+      Right entries <- WatcherClient.getRegisteredSNIEntries watcher
+      let matching = filter ((== sniNameStr) . fst) entries
+      length matching `shouldBe` 1
 
     it "rejects registration for unowned well-known names" $ \() -> do
       watcher <- startWatcher

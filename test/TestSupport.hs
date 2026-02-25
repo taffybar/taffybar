@@ -5,23 +5,27 @@ module TestSupport
   ( withIsolatedSessionBus
   , startWatcher
   , registerSimpleItem
+  , connectSessionWithName
   , waitFor
   ) where
 
 import Control.Concurrent (threadDelay)
 import Control.Exception (SomeException, displayException, finally, try)
 import Control.Monad (filterM)
-import DBus (busName_, objectPath_)
+import DBus (BusName, busName_, formatBusName, objectPath_)
 import DBus.Client
   ( Client
   , Interface (..)
   , RequestNameReply (NamePrimaryOwner)
   , connectSession
+  , connectWithName
+  , defaultClientOptions
   , export
   , readOnlyProperty
   , releaseName
   , requestName
   )
+import DBus.Internal.Address (getSessionAddress)
 import StatusNotifier.Watcher.Constants
   ( defaultWatcherParams
   , watcherDBusClient
@@ -180,6 +184,13 @@ registerSimpleItem client busName objectPath iconName = do
   pure $ do
     _ <- releaseName client (busName_ busName)
     pure ()
+
+connectSessionWithName :: IO (Client, BusName)
+connectSessionWithName = do
+  env <- getSessionAddress
+  case env of
+    Nothing -> error "connectSessionWithName: DBUS_SESSION_BUS_ADDRESS is invalid."
+    Just addr -> connectWithName defaultClientOptions addr
 
 waitFor :: Int -> IO Bool -> IO Bool
 waitFor timeoutMicros predicate =

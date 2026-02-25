@@ -239,15 +239,24 @@ buildWatcher WatcherParams
         senderName <- ExceptT $ return $ maybeToEither senderMissingError sender
         busName <-
           case parsedBusName of
-            Just providedBusName -> do
-              owner <- ExceptT $ remapErrorName <$>
-                       DBusTH.getNameOwner client (coerce providedBusName)
-              unless (owner == coerce senderName) $
-                throwE $ makeErrorReply errorInvalidParameters $
-                  printf "Sender %s does not own service %s."
-                    (coerce senderName :: String)
-                    name
-              return providedBusName
+            Just providedBusName
+              -- Unique bus names (starting with ':') are assigned by the D-Bus
+              -- daemon and cannot be spoofed. Some applications (e.g. KDE's
+              -- KStatusNotifierItem) register their SNI on a separate D-Bus
+              -- connection, so the sender's unique name differs from the
+              -- registered item's unique name even though they belong to the
+              -- same process. Skip the ownership check for unique names.
+              | ":" `isPrefixOf` (coerce providedBusName :: String) ->
+                  return providedBusName
+              | otherwise -> do
+                  owner <- ExceptT $ remapErrorName <$>
+                           DBusTH.getNameOwner client (coerce providedBusName)
+                  unless (owner == coerce senderName) $
+                    throwE $ makeErrorReply errorInvalidParameters $
+                      printf "Sender %s does not own service %s."
+                        (coerce senderName :: String)
+                        name
+                  return providedBusName
             Nothing -> return senderName
         let item = ItemEntry { serviceName = busName
                              , servicePath = path
