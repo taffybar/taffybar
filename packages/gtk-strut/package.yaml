@@ -1,0 +1,30 @@
+name:                gtk-strut
+version:             0.1.4.0
+github:              "IvanMalison/gtk-strut"
+license:             BSD3
+author:              "Ivan Malison"
+maintainer:          "IvanMalison@gmail.com"
+copyright:           "Ivan Malison"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+synopsis:            Library for creating strut windows with gi-gtk
+category:            System
+
+description:         Please see the README on Github at <https://github.com/IvanMalison/gtk-strut#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- data-default
+- gi-gdk3
+- gi-gtk3
+- hslogger
+- text
+- transformers
+
+library:
+  source-dirs: src
+  other-modules:
+    - Graphics.UI.EWMHStrut
