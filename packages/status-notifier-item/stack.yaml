@@ -1,0 +1,12 @@
+resolver: lts-11.7
+packages:
+- .
+extra-deps:
+- byte-order-0.1.2.0
+- dbus-1.2.1
+- dbus-hslogger-0.1.0.1
+nix:
+  packages:
+    - zlib
+    - libxml2
+    - pkgconfig

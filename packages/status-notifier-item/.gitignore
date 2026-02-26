@@ -1,0 +1,6 @@
+.stack-work/
+*~
+.worktrees/
+dist-newstyle/
+.direnv/
+result*

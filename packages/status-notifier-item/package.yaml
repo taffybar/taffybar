@@ -1,0 +1,78 @@
+name:                status-notifier-item
+version:             0.3.2.10
+github:              "IvanMalison/status-notifier-item"
+license:             BSD3
+author:              "Ivan Malison"
+maintainer:          "IvanMalison@gmail.com"
+copyright:           "2018 Ivan Malison"
+
+category: Desktop
+synopsis: A wrapper over the StatusNotifierItem/libappindicator dbus specification
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+- xml/*
+
+description: Please see the README on Github at <https://github.com/IvanMalison/status-notifier-item#readme>
+
+library:
+  source-dirs: src
+  dependencies:
+    - base >= 4.7 && < 5
+    - byte-order < 0.2
+    - bytestring < 0.13
+    - bytestring-to-vector < 0.4
+    - containers < 0.8
+    - directory < 1.4
+    - dbus >= 1.2.1 && < 2
+    - filepath < 1.6
+    - hslogger < 1.4
+    - lens < 5.4
+    - template-haskell < 2.24
+    - text < 2.2
+    - transformers < 0.7
+    - vector < 0.14
+
+executables:
+  status-notifier-watcher:
+    source-dirs: ./watcher
+    dependencies:
+      - base >= 4.7 && < 5
+      - dbus >= 1.2.1 && < 2
+      - dbus-hslogger >= 0.1.0.1 && < 0.2
+      - hslogger < 1.4
+      - status-notifier-item
+      - optparse-applicative < 0.20
+    main: Main.hs
+  sni-cl-tool:
+    source-dirs: ./tool
+    dependencies:
+      - base >= 4.7 && < 5
+      - dbus >= 1.2.1 && < 2
+      - status-notifier-item
+      - optparse-applicative < 0.20
+    main: Main.hs
+  status-notifier-item-static:
+    source-dirs: ./item
+    dependencies:
+      - base >= 4.7 && < 5
+      - status-notifier-item
+      - optparse-applicative < 0.20
+    main: Main.hs
+
+tests:
+  status-notifier-item-test:
+    source-dirs: test
+    main: Main.hs
+    dependencies:
+      - base >= 4.7 && < 5
+      - status-notifier-item
+      - dbus >= 1.2.1 && < 2
+      - containers < 0.8
+      - directory < 1.4
+      - filepath < 1.6
+      - hslogger < 1.4
+      - hspec < 3
+      - process < 1.7
+      - unix < 2.9
