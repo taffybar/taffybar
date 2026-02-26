@@ -1,0 +1,39 @@
+name:                dbus-menu
+version:             0.1.3.2
+github:              "taffybar/dbus-menu"
+license:             BSD3
+author:              "Ivan Malison"
+maintainer:          "IvanMalison@gmail.com"
+copyright:           "2018 Ivan Malison"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+- dbus-xml/com.canonical.dbusmenu.xml
+
+synopsis:            A Haskell implementation of the DBusMenu protocol
+category:            System
+description:         Haskell client for the com.canonical.dbusmenu DBus interface, providing GTK3 menu construction from DBusMenu services.
+
+library:
+  exposed-modules:
+    - DBusMenu
+    - DBusMenu.Client
+    - DBusMenu.Client.Util
+  dependencies:
+    - base >= 4.7 && < 5
+    - containers >= 0.5 && < 0.8
+    - dbus >= 1 && < 2
+    - enclosed-exceptions >= 1.0.0.1 && < 1.1
+    - filepath >= 1.3 && < 1.6
+    - gi-glib >= 2.0 && < 2.1
+    - gi-gobject >= 2.0 && < 2.1
+    - gi-gtk3 >= 3.0 && < 3.1
+    - haskell-gi >= 0.21.2 && < 0.27
+    - haskell-gi-base >= 0.21.1 && < 0.27
+    - hslogger >= 1.2 && < 1.4
+    - template-haskell >= 2.10 && < 2.24
+    - text >= 1.2 && < 2.2
+  source-dirs: src
+  pkg-config-dependencies:
+    - gtk+-3.0
