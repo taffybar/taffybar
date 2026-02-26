@@ -1,0 +1,20 @@
+resolver: lts-23.6
+packages:
+- .
+nix:
+  packages:
+    - hicolor-icon-theme
+    - gcc
+    - gobjectIntrospection
+    - gtk3
+    - libdbusmenu-glib
+    - libdbusmenu-gtk3
+    - libxml2
+    - pkgconfig
+    - x11
+    - xorg.libX11
+    - xorg.libXext
+    - xorg.libXinerama
+    - xorg.libXrandr
+    - xorg.libXrender
+    - zlib

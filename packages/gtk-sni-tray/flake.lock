@@ -1,0 +1,163 @@
+{
+  "nodes": {
+    "dbus-menu": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "git-ignore-nix": [
+          "git-ignore-nix"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1770957161,
+        "narHash": "sha256-jXLEo7toB/1Vm5VUPYLsdforwT23Cn3KAajhZhDbqG8=",
+        "owner": "taffybar",
+        "repo": "dbus-menu",
+        "rev": "c18b84f7f251e520d6f6fcef290cfdd0b45ba057",
+        "type": "github"
+      },
+      "original": {
+        "owner": "taffybar",
+        "repo": "dbus-menu",
+        "type": "github"
+      }
+    },
+    "flake-utils": {
+      "inputs": {
+        "systems": "systems"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "git-ignore-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1709087332,
+        "narHash": "sha256-HG2cCnktfHsKV0s4XW83gU3F57gaTljL9KNSuG6bnQs=",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "637db329424fd7e46cf4185293b9cc8c88c95394",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "type": "github"
+      }
+    },
+    "gtk-strut": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "git-ignore-nix": [
+          "git-ignore-nix"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1760271730,
+        "narHash": "sha256-AiVtcbO+JR/XwHALm8z6kiN14f5lJ/iwkVI7khYy+oA=",
+        "owner": "taffybar",
+        "repo": "gtk-strut",
+        "rev": "62e8e83f861d562ff360f356b1d4b64f6576d329",
+        "type": "github"
+      },
+      "original": {
+        "owner": "taffybar",
+        "repo": "gtk-strut",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1760038930,
+        "narHash": "sha256-Oncbh0UmHjSlxO7ErQDM3KM0A5/Znfofj2BSzlHLeVw=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "0b4defa2584313f3b781240b29d61f6f9f7e0df3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "dbus-menu": "dbus-menu",
+        "flake-utils": "flake-utils",
+        "git-ignore-nix": "git-ignore-nix",
+        "gtk-strut": "gtk-strut",
+        "nixpkgs": "nixpkgs",
+        "status-notifier-item": "status-notifier-item"
+      }
+    },
+    "status-notifier-item": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "git-ignore-nix": [
+          "git-ignore-nix"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1770970375,
+        "narHash": "sha256-0G5dkc1bjAdbAJBBnipeEE2HbEkd4+bdkyRraumMRs4=",
+        "owner": "taffybar",
+        "repo": "status-notifier-item",
+        "rev": "233aa43606036d06e58f19be156c48fa979506f2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "taffybar",
+        "repo": "status-notifier-item",
+        "type": "github"
+      }
+    },
+    "systems": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

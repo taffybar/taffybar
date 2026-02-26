@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+need_pkg() {
+  local pkg="$1"
+  if ! command -v pkg-config >/dev/null 2>&1; then
+    echo "error: pkg-config is required to build this project." >&2
+    return 1
+  fi
+  if ! pkg-config --exists "$pkg"; then
+    echo "error: missing system dependency: $pkg (pkg-config name)" >&2
+    return 1
+  fi
+}
+
+need_pkg "gtk+-3.0"
+need_pkg "gtk-layer-shell-0"
+
+exec cabal run "$@"
+

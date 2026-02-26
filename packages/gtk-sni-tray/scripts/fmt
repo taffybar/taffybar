@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -gt 0 ]]; then
+  files=("$@")
+else
+  mapfile -d '' -t files < <(git ls-files -z '*.hs')
+fi
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+printf '%s\0' "${files[@]}" | xargs -0 ormolu --mode inplace
+

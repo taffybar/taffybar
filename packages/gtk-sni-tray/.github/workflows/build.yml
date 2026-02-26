@@ -1,0 +1,20 @@
+name: Nix
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Nix Flake - Linux
+    steps:
+      - name: Clone project
+        uses: actions/checkout@v5
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: nix build
+      - run: nix flake check
