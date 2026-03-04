@@ -445,12 +445,6 @@ mpris2NewWithConfig config =
             updatedWidgets <- M.fromList <$> mapM updateWidgetFromNP nowPlayings
             return $ M.union updatedWidgets playerWidgets
 
-          updatePlayerWidgetsVar nowPlayings =
-            postGUISync $
-              MV.modifyMVar_ playerWidgetsVar $
-                flip runReaderT ctx
-                  . updatePlayerWidgets nowPlayings
-
           setPlayingClass = do
             anyVisible <- anyM Gtk.widgetIsVisible =<< Gtk.containerGetChildren grid
             if anyVisible
@@ -463,8 +457,11 @@ mpris2NewWithConfig config =
 
           doUpdate = do
             nowPlayings <- getNowPlayingInfo client
-            updatePlayerWidgetsVar nowPlayings
-            setPlayingClass
+            postGUISync $ do
+              MV.modifyMVar_ playerWidgetsVar $
+                flip runReaderT ctx
+                  . updatePlayerWidgets nowPlayings
+              setPlayingClass
 
           signalCallback _ _ _ _ = doUpdate
 
