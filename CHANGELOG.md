@@ -1,5 +1,10 @@
 # Unreleased
 
+## Fixes
+
+* Switch `System.Taffybar.Information.CPU2.getCPULoadChan` to coordinated
+  wakeups and run CPU widgets on the shared wakeup scheduler.
+
 # 6.0.0
 
 ## Breaking Changes

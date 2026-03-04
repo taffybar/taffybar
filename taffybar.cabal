@@ -140,7 +140,6 @@ library
                  , System.Taffybar.Information.ASUS
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.Bluetooth
-                 , System.Taffybar.Information.CPU
                  , System.Taffybar.Information.CPU2
                  , System.Taffybar.Information.Chrome
                  , System.Taffybar.Information.Crypto
