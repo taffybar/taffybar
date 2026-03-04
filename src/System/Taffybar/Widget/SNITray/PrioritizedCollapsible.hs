@@ -798,7 +798,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     let queueRebuild = do
           rebuild <- readIORef rebuildTrayRef
           void $
-            Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT_IDLE $
+            Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT $
               rebuild >> return False
 
         persistCurrentState = do
@@ -932,7 +932,8 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
               trayParams =
                 sniTrayTrayParams
                   { trayEventHooks =
-                      baseHooks {trayClickHook = Just combinedClickHook}
+                      baseHooks {trayClickHook = Just combinedClickHook},
+                    trayShowNewIconsImmediately = False
                   }
           tray <- buildTray host client trayParams {trayPriorityConfig = priorityConfig}
           _ <- widgetSetClassGI tray "sni-tray"
@@ -993,7 +994,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
 
     let queueRefresh updateType _ =
           void $
-            Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT_IDLE $
+            Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT $
               do
                 case updateType of
                   H.ItemAdded -> do

@@ -183,7 +183,10 @@ sniTrayCollapsibleNewFromHostParams CollapsibleSNITrayParams {..} host = do
       buildTray
         host
         client
-        sniTrayTrayParams {trayPriorityConfig = sniTrayPriorityConfig}
+        sniTrayTrayParams
+          { trayPriorityConfig = sniTrayPriorityConfig,
+            trayShowNewIconsImmediately = False
+          }
     _ <- widgetSetClassGI tray "sni-tray"
     outer <- Gtk.boxNew (trayOrientation sniTrayTrayParams) 0
     _ <- widgetSetClassGI outer "sni-tray-collapsible"
@@ -274,7 +277,7 @@ sniTrayCollapsibleNewFromHostParams CollapsibleSNITrayParams {..} host = do
 
     let queueRefresh _ _ =
           void $
-            Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT_IDLE $
+            Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT $
               void refresh >> return False
     handlerId <- H.addUpdateHandler host queueRefresh
     _ <- Gtk.onWidgetDestroy outer $ H.removeUpdateHandler host handlerId

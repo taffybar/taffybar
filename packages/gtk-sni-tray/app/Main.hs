@@ -707,6 +707,7 @@ buildWindows
                   trayRightClickAction = PopupMenu,
                   trayMenuBackend = menuBackend,
                   trayCenterIcons = centerIcons,
+                  trayShowNewIconsImmediately = True,
                   trayPriorityConfig = defaultTrayPriorityConfig,
                   trayPixbufTransform = mkIconTransform,
                   trayEventHooks = defaultTrayEventHooks
