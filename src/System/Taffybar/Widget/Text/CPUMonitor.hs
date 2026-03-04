@@ -4,9 +4,10 @@
 module System.Taffybar.Widget.Text.CPUMonitor (textCpuMonitorNew) where
 
 import Control.Monad (void)
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Class (liftIO)
 import qualified Data.Text as T
 import qualified GI.Gtk
+import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.CPU2 (CPULoad (..), getCPULoadChan)
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Generic.ChannelWidget (channelWidgetNew)
@@ -17,23 +18,23 @@ import qualified Text.StringTemplate as ST
 -- | Creates a simple textual CPU monitor. It updates once every polling
 -- period (in seconds).
 textCpuMonitorNew ::
-  (MonadIO m) =>
   -- | Format. You can use variables: $total$, $user$, $system$
   String ->
   -- | Polling period (in seconds)
   Double ->
-  m GI.Gtk.Widget
-textCpuMonitorNew fmt period = liftIO $ do
+  TaffyIO GI.Gtk.Widget
+textCpuMonitorNew fmt period = do
   chan <- getCPULoadChan "cpu" period
-  label <- GI.Gtk.labelNew Nothing
-  _ <- widgetSetClassGI label (T.pack "text-cpu-monitor")
-  void $
-    channelWidgetNew label chan $ \sample ->
-      postGUIASync $
-        GI.Gtk.labelSetMarkup label $
-          renderCpuInfo fmt sample
-  widget <- GI.Gtk.toWidget label
-  widgetSetClassGI widget (T.pack "text-cpu-monitor")
+  liftIO $ do
+    label <- GI.Gtk.labelNew Nothing
+    _ <- widgetSetClassGI label (T.pack "text-cpu-monitor")
+    void $
+      channelWidgetNew label chan $ \sample ->
+        postGUIASync $
+          GI.Gtk.labelSetMarkup label $
+            renderCpuInfo fmt sample
+    widget <- GI.Gtk.toWidget label
+    widgetSetClassGI widget (T.pack "text-cpu-monitor")
 
 renderCpuInfo :: String -> CPULoad -> T.Text
 renderCpuInfo fmt CPULoad {cpuUserLoad, cpuSystemLoad, cpuTotalLoad} =

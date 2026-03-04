@@ -20,9 +20,10 @@
 -- (Now supports only physical cpu).
 module System.Taffybar.Information.CPU2 where
 
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkIO)
 import Control.Concurrent.STM.TChan
 import Control.Monad
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Data.IORef
 import Data.List
@@ -30,7 +31,9 @@ import Data.Maybe
 import Safe
 import System.Directory
 import System.FilePath
+import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.StreamInfo
+import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 
 -- | Relative CPU load values, expressed as ratios in [0,1].
 data CPULoad = CPULoad
@@ -73,19 +76,24 @@ sampleCPULoad interval cpu = toCPULoad <$> getLoad interval (getCPUInfo cpu)
 
 -- | Build a broadcast channel that is fed by a polling thread.
 --
--- Each channel has its own polling thread; if multiple widgets should share a
+-- The polling thread is paced by the coordinated wakeup scheduler so CPU
+-- sampling aligns with other interval-driven widgets.
+--
+-- Each channel has its own sampling thread; if multiple widgets should share a
 -- data source, create once and reuse the returned channel.
-getCPULoadChan :: String -> Double -> IO (TChan CPULoad)
+getCPULoadChan :: String -> Double -> TaffyIO (TChan CPULoad)
 getCPULoadChan cpu interval = do
-  chan <- newBroadcastTChanIO
-  initial <- getCPUInfo cpu
-  sample <- newIORef initial
-  let delayMicroseconds = max 1 (floor $ interval * 1000000)
-  _ <- forkIO $ forever $ do
-    load <- toCPULoad <$> getAccLoad sample (getCPUInfo cpu)
-    atomically $ writeTChan chan load
-    threadDelay delayMicroseconds
-  return chan
+  wakeupChan <- getWakeupChannelForDelay (max 0.000001 interval)
+  ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
+  liftIO $ do
+    chan <- newBroadcastTChanIO
+    initial <- getCPUInfo cpu
+    sample <- newIORef initial
+    _ <- forkIO $ forever $ do
+      load <- toCPULoad <$> getAccLoad sample (getCPUInfo cpu)
+      atomically $ writeTChan chan load
+      void $ atomically $ readTChan ourWakeupChan
+    return chan
 
 toCPULoad :: [Double] -> CPULoad
 toCPULoad load =

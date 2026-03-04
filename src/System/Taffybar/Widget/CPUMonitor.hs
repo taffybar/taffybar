@@ -18,8 +18,9 @@
 -- available.
 module System.Taffybar.Widget.CPUMonitor where
 
-import Control.Monad.IO.Class
+import Control.Monad.IO.Class (liftIO)
 import qualified GI.Gtk
+import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.CPU2 (CPULoad (..), getCPULoadChan)
 import System.Taffybar.Widget.Generic.ChannelGraph
 import System.Taffybar.Widget.Generic.Graph
@@ -28,18 +29,18 @@ import System.Taffybar.Widget.Util (widgetSetClassGI)
 -- | Creates a new CPU monitor. This is a channel-driven graph fed by CPU load
 -- samples for one core (or all cores when "cpu" is selected).
 cpuMonitorNew ::
-  (MonadIO m) =>
   -- | Configuration data for the Graph.
   GraphConfig ->
   -- | Polling period (in seconds).
   Double ->
   -- | Name of the core to watch (e.g. \"cpu\", \"cpu0\").
   String ->
-  m GI.Gtk.Widget
-cpuMonitorNew cfg interval cpu = liftIO $ do
+  TaffyIO GI.Gtk.Widget
+cpuMonitorNew cfg interval cpu = do
   chan <- getCPULoadChan cpu interval
-  channelGraphNew cfg chan toSample
-    >>= (`widgetSetClassGI` "cpu-monitor")
+  liftIO $
+    channelGraphNew cfg chan toSample
+      >>= (`widgetSetClassGI` "cpu-monitor")
 
 toSample :: CPULoad -> IO [Double]
 toSample CPULoad {cpuTotalLoad = totalLoad, cpuSystemLoad = systemLoad} =
