@@ -1,11 +1,11 @@
 packages:
   ./
   ./example
-
-source-repository-package
-  type: git
-  location: https://github.com/taffybar/gtk-sni-tray.git
-  tag: v0.2.0.0
+  ./packages/gtk-sni-tray
+  ./packages/gtk-strut
+  ./packages/status-notifier-item
+  ./packages/dbus-menu
+  ./packages/dbus-hslogger
 
 program-options
   ghc-options: -fwrite-ide-info

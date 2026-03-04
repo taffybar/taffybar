@@ -2,14 +2,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    gtk-sni-tray = {
-      url = "github:taffybar/gtk-sni-tray/master";
-      flake = false;
-    };
-    gtk-strut = {
-      url = "github:taffybar/gtk-strut/master";
-      flake = false;
-    };
     xmonad = {
       url = "github:xmonad/xmonad/master";
       flake = false;
@@ -18,25 +10,13 @@
       url = "github:xmonad/xmonad-contrib/master";
       flake = false;
     };
-    dbus-hslogger = {
-      url = "github:taffybar/dbus-hslogger";
-      flake = false;
-    };
-    dbus-menu = {
-      url = "github:taffybar/dbus-menu";
-      flake = false;
-    };
-    status-notifier-item = {
-      url = "github:taffybar/status-notifier-item";
-      flake = false;
-    };
     weeder-nix = {
       url = "github:NorfairKing/weeder-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, dbus-hslogger, dbus-menu, gtk-sni-tray, gtk-strut, status-notifier-item, xmonad, xmonad-contrib, weeder-nix }: let
+  outputs = { self, nixpkgs, flake-utils, xmonad, xmonad-contrib, weeder-nix }: let
     inherit (self) lib;
     inherit (nixpkgs.lib) composeExtensions;
     inherit (flake-utils.lib) eachSystem;
@@ -55,8 +35,13 @@
       (final: prev: {
         taffybar = prev.taffybar.extend (final: prev: {
           sourceOverrides = prev.sourceOverrides // {
-            # Flake input dependencies which we want to build from source.
-            inherit dbus-hslogger dbus-menu gtk-strut gtk-sni-tray status-notifier-item xmonad xmonad-contrib;
+            # Monorepo-local dependencies built from source.
+            dbus-hslogger = ./packages/dbus-hslogger;
+            dbus-menu = ./packages/dbus-menu;
+            gtk-strut = ./packages/gtk-strut;
+            gtk-sni-tray = ./packages/gtk-sni-tray;
+            status-notifier-item = ./packages/status-notifier-item;
+            inherit xmonad xmonad-contrib;
           };
         });
       }));
@@ -102,6 +87,11 @@
       default = taffybarPackageNoChecks;
       taffybar = taffybarPackageNoChecks;
       inherit (pkgs.haskellPackages) my-taffybar;
+      gtk-sni-tray = pkgs.haskellPackages."gtk-sni-tray";
+      gtk-strut = pkgs.haskellPackages."gtk-strut";
+      status-notifier-item = pkgs.haskellPackages."status-notifier-item";
+      dbus-menu = pkgs.haskellPackages."dbus-menu";
+      dbus-hslogger = pkgs.haskellPackages."dbus-hslogger";
     } // lib.listToAttrs (map (compiler: {
       name = "${compiler}-taffybar";
       value = pkgs.haskell.packages.${compiler}.taffybar;

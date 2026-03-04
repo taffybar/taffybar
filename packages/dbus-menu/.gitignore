@@ -1,4 +1,3 @@
 dist-newstyle/
-*.cabal
 .ghc.environment.*
 result

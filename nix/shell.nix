@@ -1,7 +1,15 @@
 { pkgs ? import <nixpkgs> { overlays = [ (import ./overlay.nix) ]; } }:
 
 pkgs.haskellPackages.shellFor {
-  packages = p: [ p.taffybar p.my-taffybar ];
+  packages = p: [
+    p.taffybar
+    p.my-taffybar
+    p."gtk-sni-tray"
+    p."gtk-strut"
+    p."status-notifier-item"
+    p."dbus-menu"
+    p."dbus-hslogger"
+  ];
 
   withHoogle = true;
 

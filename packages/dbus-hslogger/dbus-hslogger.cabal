@@ -1,0 +1,56 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.38.3.
+--
+-- see: https://github.com/sol/hpack
+
+name:           dbus-hslogger
+version:        0.1.1.0
+synopsis:       Expose a dbus server to control hslogger
+description:    Please see the README on Github at <https://github.com/IvanMalison/dbus-hslogger#readme>
+category:       System
+homepage:       https://github.com/IvanMalison/dbus-hslogger#readme
+bug-reports:    https://github.com/IvanMalison/dbus-hslogger/issues
+author:         Ivan Malison
+maintainer:     IvanMalison@gmail.com
+copyright:      Ivan Malison
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/IvanMalison/dbus-hslogger
+
+library
+  exposed-modules:
+      System.Log.DBus.Client
+      System.Log.DBus.Server
+  other-modules:
+      Paths_dbus_hslogger
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , containers >=0.5 && <1
+    , dbus >=1.0.1 && <2
+    , hslogger >=1.2 && <2
+  default-language: Haskell2010
+
+executable dbus-hslogger-client
+  main-is: Main.hs
+  other-modules:
+      Paths_dbus_hslogger
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers >=0.5 && <1
+    , dbus >=1.0.0 && <2
+    , dbus-hslogger
+    , hslogger >=1.2 && <2
+    , optparse-applicative >=0.14 && <1
+  default-language: Haskell2010

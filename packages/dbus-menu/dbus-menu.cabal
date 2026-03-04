@@ -1,0 +1,54 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.38.3.
+--
+-- see: https://github.com/sol/hpack
+
+name:           dbus-menu
+version:        0.1.3.2
+synopsis:       A Haskell implementation of the DBusMenu protocol
+description:    Haskell client for the com.canonical.dbusmenu DBus interface, providing GTK3 menu construction from DBusMenu services.
+category:       System
+homepage:       https://github.com/taffybar/dbus-menu#readme
+bug-reports:    https://github.com/taffybar/dbus-menu/issues
+author:         Ivan Malison
+maintainer:     IvanMalison@gmail.com
+copyright:      2018 Ivan Malison
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+    dbus-xml/com.canonical.dbusmenu.xml
+
+source-repository head
+  type: git
+  location: https://github.com/taffybar/dbus-menu
+
+library
+  exposed-modules:
+      DBusMenu
+      DBusMenu.Client
+      DBusMenu.Client.Util
+  other-modules:
+      Paths_dbus_menu
+  hs-source-dirs:
+      src
+  pkgconfig-depends:
+      gtk+-3.0
+  build-depends:
+      base >=4.7 && <5
+    , containers >=0.5 && <0.8
+    , dbus ==1.*
+    , enclosed-exceptions >=1.0.0.1 && <1.1
+    , filepath >=1.3 && <1.6
+    , gi-glib ==2.0.*
+    , gi-gobject ==2.0.*
+    , gi-gtk3 ==3.0.*
+    , haskell-gi >=0.21.2 && <0.27
+    , haskell-gi-base >=0.21.1 && <0.27
+    , hslogger >=1.2 && <1.4
+    , template-haskell >=2.10 && <2.24
+    , text >=1.2 && <2.2
+  default-language: Haskell2010
