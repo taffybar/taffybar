@@ -1,6 +1,6 @@
 name:                gtk-sni-tray
 version:             0.2.0.0
-github:              "IvanMalison/gtk-sni-tray"
+github:              "taffybar/gtk-sni-tray"
 license:             BSD3
 author:              "Ivan Malison"
 maintainer:          "IvanMalison@gmail.com"
@@ -13,7 +13,7 @@ extra-source-files:
 synopsis:            A standalone StatusNotifierItem/AppIndicator tray
 category:            System
 
-description:         Please see the README on Github at <https://github.com/IvanMalison/gtk-sni-tray#readme>
+description:         Please see the README on Github at <https://github.com/taffybar/gtk-sni-tray#readme>
 
 library:
   exposed-modules:

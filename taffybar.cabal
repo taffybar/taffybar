@@ -9,7 +9,7 @@ maintainer: IvanMalison@gmail.com
 category: System
 build-type: Simple
 tested-with: GHC == 9.8.4, GHC == 9.10.3, GHC == 9.12.3
-homepage: http://github.com/taffybar/taffybar
+homepage: https://github.com/taffybar/taffybar
 data-files:
   taffybar.css
   icons/*.svg
@@ -396,4 +396,4 @@ test-suite unit
 
 source-repository head
   type: git
-  location: http://github.com/taffybar/taffybar.git
+  location: https://github.com/taffybar/taffybar.git

@@ -1,6 +1,6 @@
 name:                gtk-strut
 version:             0.1.4.0
-github:              "IvanMalison/gtk-strut"
+github:              "taffybar/gtk-strut"
 license:             BSD3
 author:              "Ivan Malison"
 maintainer:          "IvanMalison@gmail.com"
@@ -13,7 +13,7 @@ extra-source-files:
 synopsis:            Library for creating strut windows with gi-gtk
 category:            System
 
-description:         Please see the README on Github at <https://github.com/IvanMalison/gtk-strut#readme>
+description:         Please see the README on Github at <https://github.com/taffybar/gtk-strut#readme>
 
 dependencies:
 - base >= 4.7 && < 5

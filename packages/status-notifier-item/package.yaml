@@ -1,6 +1,6 @@
 name:                status-notifier-item
 version:             0.3.2.10
-github:              "IvanMalison/status-notifier-item"
+github:              "taffybar/status-notifier-item"
 license:             BSD3
 author:              "Ivan Malison"
 maintainer:          "IvanMalison@gmail.com"
@@ -14,7 +14,7 @@ extra-source-files:
 - ChangeLog.md
 - xml/*
 
-description: Please see the README on Github at <https://github.com/IvanMalison/status-notifier-item#readme>
+description: Please see the README on Github at <https://github.com/taffybar/status-notifier-item#readme>
 
 library:
   source-dirs: src
