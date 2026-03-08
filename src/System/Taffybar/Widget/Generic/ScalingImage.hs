@@ -19,7 +19,7 @@ import Data.Int
 import Data.Typeable
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import StatusNotifier.Tray (scalePixbufToSize)
+import Graphics.UI.GIGtkScalingImage (scalePixbufToSize)
 import System.Taffybar.Context
 import System.Taffybar.Widget.Generic.AutoFillImage (autoFillImage)
 import System.Taffybar.Widget.Generic.AutoSizeImage

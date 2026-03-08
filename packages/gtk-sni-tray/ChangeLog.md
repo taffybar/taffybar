@@ -1,5 +1,10 @@
 # Changelog for gtk-sni-tray
 
+## 0.2.1.0
+
+- Extract generic pixbuf scaling and auto-fill image helpers into the new
+  `gtk-scaling-image` package.
+
 ## 0.2.0.0
 
 - Breaking: remove `buildTrayWithPriority`, `buildTrayWithPixbufTransform`,

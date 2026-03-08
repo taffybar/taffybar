@@ -1,0 +1,30 @@
+name:                gtk-scaling-image
+version:             0.1.0.0
+github:              "taffybar/gtk-scaling-image"
+license:             BSD3
+author:              "Ivan Malison"
+maintainer:          "IvanMalison@gmail.com"
+copyright:           "Ivan Malison"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+synopsis:            Generic GTK image scaling helpers for haskell-gi
+category:            Graphics
+
+description:         Please see the README on Github at <https://github.com/taffybar/gtk-scaling-image#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- gi-cairo-connector >= 0.1 && < 0.2
+- gi-cairo-render >= 0.1 && < 0.2
+- gi-gdk3 >= 3.0 && < 3.1
+- gi-gdkpixbuf >= 2.0.16 && < 2.1
+- gi-gtk3 >= 3.0 && < 3.1
+- hslogger >= 1.2 && < 1.4
+
+library:
+  exposed-modules:
+    - Graphics.UI.GIGtkScalingImage
+  source-dirs: src

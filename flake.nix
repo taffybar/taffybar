@@ -38,6 +38,7 @@
             # Monorepo-local dependencies built from source.
             dbus-hslogger = ./packages/dbus-hslogger;
             dbus-menu = ./packages/dbus-menu;
+            gtk-scaling-image = ./packages/gtk-scaling-image;
             gtk-strut = ./packages/gtk-strut;
             gtk-sni-tray = ./packages/gtk-sni-tray;
             status-notifier-item = ./packages/status-notifier-item;
@@ -87,6 +88,7 @@
       default = taffybarPackageNoChecks;
       taffybar = taffybarPackageNoChecks;
       inherit (pkgs.haskellPackages) my-taffybar;
+      gtk-scaling-image = pkgs.haskellPackages."gtk-scaling-image";
       gtk-sni-tray = pkgs.haskellPackages."gtk-sni-tray";
       gtk-strut = pkgs.haskellPackages."gtk-strut";
       status-notifier-item = pkgs.haskellPackages."status-notifier-item";

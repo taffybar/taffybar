@@ -26,7 +26,16 @@ import qualified Data.Text as T
 import qualified GI.Gdk as Gdk
 import GI.GdkPixbuf.Objects.Pixbuf as Gdk
 import qualified GI.Gtk as Gtk
-import StatusNotifier.Tray (scalePixbufToSize)
+import Graphics.UI.GIGtkScalingImage
+  ( BorderInfo (..),
+    borderHeight,
+    borderInfoZero,
+    borderWidth,
+    getBorderInfo,
+    getContentAllocation,
+    getInsetInfo,
+    scalePixbufToSize,
+  )
 import System.Log.Logger
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
@@ -45,109 +54,6 @@ instance Default ImageScaleStrategy where
 
 imageLog :: Priority -> String -> IO ()
 imageLog = logM "System.Taffybar.Widget.Generic.AutoSizeImage"
-
-borderFunctions :: [Gtk.StyleContext -> [Gtk.StateFlags] -> IO Gtk.Border]
-borderFunctions =
-  [ Gtk.styleContextGetPadding,
-    Gtk.styleContextGetMargin,
-    Gtk.styleContextGetBorder
-  ]
-
--- Insets that are inside a widget's allocation and should be respected when
--- drawing inside it.
-insetFunctions :: [Gtk.StyleContext -> [Gtk.StateFlags] -> IO Gtk.Border]
-insetFunctions =
-  [ Gtk.styleContextGetPadding,
-    Gtk.styleContextGetBorder
-  ]
-
--- | Aggregate border/padding/margin dimensions for a widget.
-data BorderInfo = BorderInfo
-  { borderTop :: Int16,
-    borderBottom :: Int16,
-    borderLeft :: Int16,
-    borderRight :: Int16
-  }
-  deriving (Show, Eq)
-
--- | Zero-valued 'BorderInfo'.
-borderInfoZero :: BorderInfo
-borderInfoZero = BorderInfo 0 0 0 0
-
--- | Total horizontal border extent.
--- This includes left + right values.
-borderWidth, borderHeight :: BorderInfo -> Int16
-borderWidth borderInfo = borderLeft borderInfo + borderRight borderInfo
-
--- | Total vertical border extent.
--- This includes top + bottom values.
-borderHeight borderInfo = borderTop borderInfo + borderBottom borderInfo
-
-toBorderInfo :: (MonadIO m) => Gtk.Border -> m BorderInfo
-toBorderInfo border =
-  BorderInfo
-    <$> Gtk.getBorderTop border
-    <*> Gtk.getBorderBottom border
-    <*> Gtk.getBorderLeft border
-    <*> Gtk.getBorderRight border
-
-addBorderInfo :: BorderInfo -> BorderInfo -> BorderInfo
-addBorderInfo
-  (BorderInfo t1 b1 l1 r1)
-  (BorderInfo t2 b2 l2 r2) =
-    BorderInfo (t1 + t2) (b1 + b2) (l1 + l2) (r1 + r2)
-
--- | Get the total size of the border (the sum of its assigned margin, border
--- and padding values) that will be drawn for a widget as a "BorderInfo" record.
-getBorderInfo :: (MonadIO m, Gtk.IsWidget a) => a -> m BorderInfo
-getBorderInfo widget = liftIO $ do
-  stateFlags <- Gtk.widgetGetStateFlags widget
-  styleContext <- Gtk.widgetGetStyleContext widget
-
-  let getBorderInfoFor borderFn =
-        borderFn styleContext stateFlags >>= toBorderInfo
-      combineBorderInfo lastSum fn =
-        addBorderInfo lastSum <$> getBorderInfoFor fn
-
-  foldM combineBorderInfo borderInfoZero borderFunctions
-
--- | Get the size of the padding+border drawn inside a widget's allocation.
-getInsetInfo :: (MonadIO m, Gtk.IsWidget a) => a -> m BorderInfo
-getInsetInfo widget = liftIO $ do
-  stateFlags <- Gtk.widgetGetStateFlags widget
-  styleContext <- Gtk.widgetGetStyleContext widget
-
-  let getBorderInfoFor borderFn =
-        borderFn styleContext stateFlags >>= toBorderInfo
-      combineBorderInfo lastSum fn =
-        addBorderInfo lastSum <$> getBorderInfoFor fn
-
-  foldM combineBorderInfo borderInfoZero insetFunctions
-
--- | Get the actual allocation for a "Gtk.Widget", accounting for the size of
--- its CSS assined margin, border and padding values.
-getContentAllocation ::
-  (MonadIO m, Gtk.IsWidget a) =>
-  a -> BorderInfo -> m Gdk.Rectangle
-getContentAllocation widget borderInfo = do
-  allocation <- Gtk.widgetGetAllocation widget
-  currentWidth <- Gdk.getRectangleWidth allocation
-  currentHeight <- Gdk.getRectangleHeight allocation
-  currentX <- Gdk.getRectangleX allocation
-  currentY <- Gdk.getRectangleX allocation
-
-  Gdk.setRectangleWidth allocation $
-    max 1 $
-      currentWidth - fromIntegral (borderWidth borderInfo)
-  Gdk.setRectangleHeight allocation $
-    max 1 $
-      currentHeight - fromIntegral (borderHeight borderInfo)
-  Gdk.setRectangleX allocation $
-    currentX + fromIntegral (borderLeft borderInfo)
-  Gdk.setRectangleY allocation $
-    currentY + fromIntegral (borderTop borderInfo)
-
-  return allocation
 
 -- | Automatically update the "Gdk.Pixbuf" of a "Gtk.Image" using the provided
 -- action whenever the "Gtk.Image" is allocated. Returns an action that forces a

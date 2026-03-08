@@ -19,6 +19,12 @@
       inputs.git-ignore-nix.follows = "git-ignore-nix";
       inputs.flake-utils.follows = "flake-utils";
     };
+    gtk-scaling-image = {
+      url = "path:../gtk-scaling-image";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.git-ignore-nix.follows = "git-ignore-nix";
+      inputs.flake-utils.follows = "flake-utils";
+    };
     dbus-menu = {
       url = "github:taffybar/dbus-menu";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -26,7 +32,7 @@
       inputs.flake-utils.follows = "flake-utils";
     };
   };
-  outputs = { self, flake-utils, nixpkgs, git-ignore-nix, status-notifier-item, gtk-strut, dbus-menu }:
+  outputs = { self, flake-utils, nixpkgs, git-ignore-nix, status-notifier-item, gtk-strut, gtk-scaling-image, dbus-menu }:
   flake-utils.lib.eachDefaultSystem (system: let
     inherit (nixpkgs) lib;
     pkgs = import nixpkgs {
@@ -99,6 +105,7 @@
       };
       status-notifier-item = status-notifier-item.overlay or status-notifier-item.overlays.default;
       gtk-strut = gtk-strut.overlay or gtk-strut.overlays.default;
+      gtk-scaling-image = gtk-scaling-image.overlay or gtk-scaling-image.overlays.default;
       dbus-menu = dbus-menu.overlay or dbus-menu.overlays.default;
 
       # Keep `direnv reload` / `use flake` working: the devShell ends up building

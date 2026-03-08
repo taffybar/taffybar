@@ -42,6 +42,7 @@ import DBus
 import DBus.Client
 import DBus.Internal.Types (Serial (..))
 import qualified DBus.TH as DBus
+import qualified Data.ByteString.Char8 as BS8
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
@@ -85,6 +86,9 @@ asusLogPath = "System.Taffybar.Information.ASUS"
 
 asusLogF :: (MonadIO m, Show t) => Priority -> String -> t -> m ()
 asusLogF = logPrintF asusLogPath
+
+readAsciiFileStrict :: FilePath -> IO String
+readAsciiFileStrict = fmap BS8.unpack . BS8.readFile
 
 -- | Convert profile enum to string.
 asusProfileToString :: ASUSPlatformProfile -> Text
@@ -200,7 +204,7 @@ readCpuFreqGHz = do
       if not exists'
         then return Nothing
         else do
-          result <- try $ readFile path :: IO (Either SomeException String)
+          result <- try $ readAsciiFileStrict path :: IO (Either SomeException String)
           case result of
             Left _ -> return Nothing
             Right s -> return $ fmap fromIntegral (readMaybe (strip s) :: Maybe Integer)
@@ -241,7 +245,7 @@ readCpuTempC = do
       if not exists'
         then return Nothing
         else do
-          result <- try $ readFile path :: IO (Either SomeException String)
+          result <- try $ readAsciiFileStrict path :: IO (Either SomeException String)
           case result of
             Left _ -> return Nothing
             Right s -> return $ Just $ strip s
@@ -250,7 +254,7 @@ readCpuTempC = do
       if not exists'
         then return Nothing
         else do
-          result <- try $ readFile path :: IO (Either SomeException String)
+          result <- try $ readAsciiFileStrict path :: IO (Either SomeException String)
           case result of
             Left _ -> return Nothing
             Right s -> case readMaybe (strip s) :: Maybe Integer of

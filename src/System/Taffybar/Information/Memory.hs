@@ -6,6 +6,8 @@ module System.Taffybar.Information.Memory
   )
 where
 
+import qualified Data.ByteString.Char8 as BS8
+
 toMB :: String -> Double
 toMB size = (read size :: Double) / 1024
 
@@ -51,10 +53,13 @@ parseLines (line : rest) memInfo = parseLines rest newMemInfo
       _ -> memInfo
 parseLines _ memInfo = memInfo
 
+readAsciiFileStrict :: FilePath -> IO String
+readAsciiFileStrict = fmap BS8.unpack . BS8.readFile
+
 -- | Read @/proc/meminfo@ and return memory/swap totals and usage ratios in MiB.
 parseMeminfo :: IO MemoryInfo
 parseMeminfo = do
-  s <- readFile "/proc/meminfo"
+  s <- readAsciiFileStrict "/proc/meminfo"
   let m = parseLines (lines s) emptyMemoryInfo
       rest = memoryFree m + memoryBuffer m + memoryCache m
       used = memoryTotal m - rest

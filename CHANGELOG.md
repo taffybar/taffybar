@@ -4,6 +4,8 @@
 
 * Switch `System.Taffybar.Information.CPU2.getCPULoadChan` to coordinated
   wakeups and run CPU widgets on the shared wakeup scheduler.
+* Extract shared pixbuf scaling and auto-fill image helpers into the new
+  `gtk-scaling-image` package.
 
 # 6.0.0
 

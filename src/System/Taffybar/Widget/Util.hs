@@ -33,8 +33,8 @@ import qualified GI.Gdk as D
 import qualified GI.GdkPixbuf.Objects.Pixbuf as GI
 import qualified GI.GdkPixbuf.Objects.Pixbuf as PB
 import GI.Gtk as Gtk
+import Graphics.UI.GIGtkScalingImage (scalePixbufToSize)
 import Paths_taffybar (getDataDir)
-import StatusNotifier.Tray (scalePixbufToSize)
 import System.Environment.XDG.DesktopEntry
 import System.FilePath.Posix
 import System.Log.Logger (Priority (..))

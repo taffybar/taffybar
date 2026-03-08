@@ -1,0 +1,43 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.38.3.
+--
+-- see: https://github.com/sol/hpack
+
+name:           gtk-scaling-image
+version:        0.1.0.0
+synopsis:       Generic GTK image scaling helpers for haskell-gi
+description:    Please see the README on Github at <https://github.com/taffybar/gtk-scaling-image#readme>
+category:       Graphics
+homepage:       https://github.com/taffybar/gtk-scaling-image#readme
+bug-reports:    https://github.com/taffybar/gtk-scaling-image/issues
+author:         Ivan Malison
+maintainer:     IvanMalison@gmail.com
+copyright:      Ivan Malison
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/taffybar/gtk-scaling-image
+
+library
+  exposed-modules:
+      Graphics.UI.GIGtkScalingImage
+  other-modules:
+      Paths_gtk_scaling_image
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , gi-cairo-connector ==0.1.*
+    , gi-cairo-render ==0.1.*
+    , gi-gdk3 ==3.0.*
+    , gi-gdkpixbuf >=2.0.16 && <2.1
+    , gi-gtk3 ==3.0.*
+    , hslogger >=1.2 && <1.4
+  default-language: Haskell2010
