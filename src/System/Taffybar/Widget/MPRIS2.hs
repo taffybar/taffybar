@@ -118,6 +118,7 @@ defaultMPRIS2ControlsConfig =
 -- | Configuration for 'simplePlayerWidget'.
 data SimpleMPRIS2PlayerConfig = SimpleMPRIS2PlayerConfig
   { setNowPlayingLabel :: NowPlaying -> IO T.Text,
+    setupPlayerLabel :: Gtk.Label -> IO (),
     showPlayerWidgetFn :: NowPlaying -> IO Bool
   }
 
@@ -126,6 +127,7 @@ defaultPlayerConfig :: SimpleMPRIS2PlayerConfig
 defaultPlayerConfig =
   SimpleMPRIS2PlayerConfig
     { setNowPlayingLabel = playingText 20 30,
+      setupPlayerLabel = const (pure ()),
       showPlayerWidgetFn =
         \NowPlaying {npStatus = status} -> return $ status /= "Stopped"
     }
@@ -253,6 +255,7 @@ simplePlayerWidget
       image <- autoSizeImageNew (loadIconAtSize client busName) Gtk.OrientationHorizontal
       playerBox <- Gtk.gridNew
       label <- Gtk.labelNew Nothing
+      setupPlayerLabel c label
       ebox <- Gtk.eventBoxNew
       _ <-
         Gtk.onWidgetButtonPressEvent ebox $
@@ -320,6 +323,7 @@ simplePlayerWidgetWithControls
       clickArea <- Gtk.boxNew Gtk.OrientationHorizontal 0
       controlsBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
       label <- Gtk.labelNew Nothing
+      setupPlayerLabel c label
       nowPlayingVar <- MV.newMVar nowPlaying
       (previousButton, _) <- newControlButton backIconText
       (playPauseButton, playPauseButtonLabel) <- newControlButton toggleIconText

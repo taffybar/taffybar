@@ -63,6 +63,8 @@ data WindowsConfig = WindowsConfig
     getMenuLabel :: WindowInfo -> TaffyIO T.Text,
     -- | Action to build the label text for the active window.
     getActiveLabel :: Maybe WindowInfo -> TaffyIO T.Text,
+    -- | Customize the active-window label widget after creation.
+    configureActiveLabel :: Gtk.Label -> TaffyIO (),
     -- | Optional function to retrieve a pixbuf to show next to the
     -- active-window label.
     getActiveWindowIconPixbuf :: Maybe (Int32 -> WindowInfo -> TaffyIO (Maybe Gdk.Pixbuf)),
@@ -114,6 +116,7 @@ defaultWindowsConfig =
   WindowsConfig
     { getMenuLabel = defaultGetMenuLabel,
       getActiveLabel = defaultGetActiveLabel,
+      configureActiveLabel = const (pure ()),
       getActiveWindowIconPixbuf = Just getWindowIconPixbufByClassHints,
       menuWindowSort = pure . sortWindowsByPosition,
       onMenuWindowClick = defaultOnWindowClick
@@ -142,7 +145,7 @@ windowsNew config = do
       pure rf
     Nothing -> pure (pure ())
 
-  (setLabelTitle, label) <- buildWindowsLabel
+  (setLabelTitle, label) <- buildWindowsLabel config
   Gtk.boxPackStart hbox label True True 0
 
   let refreshFromSnapshot snapshot = do
@@ -179,11 +182,12 @@ windowsNew config = do
   widgetSetClassGI menuButtonWidget "windows"
 
 -- | Build the active-window label and return an update action for it.
-buildWindowsLabel :: TaffyIO (T.Text -> IO (), Gtk.Widget)
-buildWindowsLabel = do
+buildWindowsLabel :: WindowsConfig -> TaffyIO (T.Text -> IO (), Gtk.Widget)
+buildWindowsLabel config = do
   label <- lift $ Gtk.labelNew Nothing
   lift $ Gtk.labelSetSingleLineMode label True
   lift $ Gtk.labelSetEllipsize label Pango.EllipsizeModeEnd
+  configureActiveLabel config label
   let setLabelTitle title = postGUIASync $ Gtk.labelSetText label title
   (setLabelTitle,) <$> Gtk.toWidget label
 
