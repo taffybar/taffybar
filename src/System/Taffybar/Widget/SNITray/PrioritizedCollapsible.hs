@@ -770,6 +770,8 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     processDisambiguationKeysRef <- newIORef (M.empty :: M.Map String String)
     trayRef <- newIORef Nothing
     rebuildTrayRef <- newIORef (return ())
+    rebuildInProgressRef <- newIORef False
+    pendingRebuildRef <- newIORef False
 
     outer <- Gtk.boxNew trayOrientation' 0
     _ <- widgetSetClassGI outer "sni-tray-collapsible"
@@ -796,10 +798,14 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     Gtk.boxPackStart outer settingsToggle False False 0
 
     let queueRebuild = do
-          rebuild <- readIORef rebuildTrayRef
-          void $
-            Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT $
-              rebuild >> return False
+          rebuildInProgress <- readIORef rebuildInProgressRef
+          if rebuildInProgress
+            then writeIORef pendingRebuildRef True
+            else do
+              rebuild <- readIORef rebuildTrayRef
+              void $
+                Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT $
+                  rebuild >> return False
 
         persistCurrentState = do
           priorities <- readIORef prioritiesRef
@@ -846,64 +852,66 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
             else do
               removeClassIfPresent "sni-tray-editing" outer
 
+        refreshTray tray = do
+          children <- Gtk.containerGetChildren tray
+          expanded <- readIORef expandedRef
+          priorities <- readIORef prioritiesRef
+          maxVisibleIcons <- readIORef maxVisibleIconsRef
+          thresholdValue <- readIORef visibilityThresholdRef
+          orderedInfos <- readIORef orderedInfosRef
+          processKeyMap <- readIORef processDisambiguationKeysRef
+
+          let itemPriority info =
+                itemPriorityFromMap
+                  priorityMin
+                  priorityMax
+                  defaultPriority
+                  priorities
+                  (processKeyForInfoFromMap processKeyMap info)
+                  info
+              totalCount = length children
+              collapsedThresholdVisibleCount =
+                case thresholdValue of
+                  Nothing -> totalCount
+                  Just threshold ->
+                    min
+                      totalCount
+                      (length $ filter (\info -> itemPriority info >= threshold) orderedInfos)
+              collapsedVisibleCount
+                | maxVisibleIcons > 0 =
+                    min collapsedThresholdVisibleCount maxVisibleIcons
+                | otherwise = collapsedThresholdVisibleCount
+              visibleCount
+                | expanded = totalCount
+                | otherwise = collapsedVisibleCount
+              visibleChildren = take visibleCount children
+              hiddenChildren = drop visibleCount children
+              hiddenCount = length hiddenChildren
+              hiddenCountText = T.pack (show hiddenCount)
+
+          mapM_ Gtk.widgetShow visibleChildren
+          mapM_ Gtk.widgetHide hiddenChildren
+          writeIORef hiddenCountRef hiddenCount
+
+          if hiddenCount > 0
+            then do
+              Gtk.labelSetText overflowCountLabel hiddenCountText
+              Gtk.widgetShow overflowCountLabel
+            else do
+              Gtk.labelSetText overflowCountLabel ""
+              Gtk.widgetHide overflowCountLabel
+
+          if expanded
+            then addClassIfMissing "sni-tray-collapsible-expanded" outer
+            else removeClassIfPresent "sni-tray-collapsible-expanded" outer
+
+          return hiddenCount
+
         refresh = do
           maybeTray <- readIORef trayRef
           case maybeTray of
             Nothing -> return 0
-            Just tray -> do
-              children <- Gtk.containerGetChildren tray
-              expanded <- readIORef expandedRef
-              priorities <- readIORef prioritiesRef
-              maxVisibleIcons <- readIORef maxVisibleIconsRef
-              thresholdValue <- readIORef visibilityThresholdRef
-              orderedInfos <- readIORef orderedInfosRef
-              processKeyMap <- readIORef processDisambiguationKeysRef
-
-              let itemPriority info =
-                    itemPriorityFromMap
-                      priorityMin
-                      priorityMax
-                      defaultPriority
-                      priorities
-                      (processKeyForInfoFromMap processKeyMap info)
-                      info
-                  totalCount = length children
-                  collapsedThresholdVisibleCount =
-                    case thresholdValue of
-                      Nothing -> totalCount
-                      Just threshold ->
-                        min
-                          totalCount
-                          (length $ filter (\info -> itemPriority info >= threshold) orderedInfos)
-                  collapsedVisibleCount
-                    | maxVisibleIcons > 0 =
-                        min collapsedThresholdVisibleCount maxVisibleIcons
-                    | otherwise = collapsedThresholdVisibleCount
-                  visibleCount
-                    | expanded = totalCount
-                    | otherwise = collapsedVisibleCount
-                  visibleChildren = take visibleCount children
-                  hiddenChildren = drop visibleCount children
-                  hiddenCount = length hiddenChildren
-                  hiddenCountText = T.pack (show hiddenCount)
-
-              mapM_ Gtk.widgetShow visibleChildren
-              mapM_ Gtk.widgetHide hiddenChildren
-              writeIORef hiddenCountRef hiddenCount
-
-              if hiddenCount > 0
-                then do
-                  Gtk.labelSetText overflowCountLabel hiddenCountText
-                  Gtk.widgetShow overflowCountLabel
-                else do
-                  Gtk.labelSetText overflowCountLabel ""
-                  Gtk.widgetHide overflowCountLabel
-
-              if expanded
-                then addClassIfMissing "sni-tray-collapsible-expanded" outer
-                else removeClassIfPresent "sni-tray-collapsible-expanded" outer
-
-              return hiddenCount
+            Just tray -> refreshTray tray
 
         buildTrayWithPriorities priorities processKeyMap infos = do
           let priorityConfig =
@@ -940,6 +948,8 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
           return tray
 
         rebuildTray = do
+          writeIORef rebuildInProgressRef True
+          writeIORef pendingRebuildRef False
           priorities <- readIORef prioritiesRef
           infoMap <- H.itemInfoMap host
           processKeyMap <- processDisambiguationKeysForItems client (M.elems infoMap)
@@ -958,16 +968,34 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
           tray <- buildTrayWithPriorities priorities processKeyMap orderedInfos
           Gtk.widgetHide tray
           oldTray <- readIORef trayRef
-          forM_ oldTray $ \existingTray -> do
-            Gtk.containerRemove trayContainer existingTray
-            Gtk.widgetDestroy existingTray
-          Gtk.boxPackStart trayContainer tray False False 0
-          writeIORef trayRef (Just tray)
           writeIORef orderedInfosRef orderedInfos
           writeIORef processDisambiguationKeysRef processKeyMap
           writeIORef knownItemIdentitiesRef currentItemIdentities
-          void refresh
-          Gtk.widgetShow tray
+          let expectedChildCount = length currentItemIdentities
+          waitAttemptsRef <- newIORef (0 :: Int)
+          let finishSwap = do
+                forM_ oldTray $ \existingTray -> do
+                  Gtk.containerRemove trayContainer existingTray
+                  Gtk.widgetDestroy existingTray
+                Gtk.boxPackStart trayContainer tray False False 0
+                writeIORef trayRef (Just tray)
+                void $ refreshTray tray
+                Gtk.widgetShow tray
+                writeIORef rebuildInProgressRef False
+                pendingRebuild <- atomicModifyIORef' pendingRebuildRef (\pending -> (False, pending))
+                when pendingRebuild queueRebuild
+                return False
+              waitForPopulation = do
+                childCount <- length <$> Gtk.containerGetChildren tray
+                attempts <- readIORef waitAttemptsRef
+                pendingRebuild <- readIORef pendingRebuildRef
+                if childCount < expectedChildCount && attempts < 50 && not pendingRebuild
+                  then do
+                    writeIORef waitAttemptsRef (attempts + 1)
+                    return True
+                  else finishSwap
+          void $
+            Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT waitForPopulation
 
     writeIORef rebuildTrayRef rebuildTray
 
@@ -996,26 +1024,29 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
           void $
             Gdk.threadsAddIdle GLib.PRIORITY_DEFAULT $
               do
-                case updateType of
-                  H.ItemAdded -> do
-                    infoMap <- H.itemInfoMap host
-                    knownItemIdentities <- readIORef knownItemIdentitiesRef
-                    let currentItemIdentities =
-                          sortOn id (map itemStableIdentity (M.elems infoMap))
-                    if currentItemIdentities /= knownItemIdentities
-                      then do
-                        join (readIORef rebuildTrayRef)
-                      else void refresh
-                  H.ItemRemoved -> do
-                    infoMap <- H.itemInfoMap host
-                    knownItemIdentities <- readIORef knownItemIdentitiesRef
-                    let currentItemIdentities =
-                          sortOn id (map itemStableIdentity (M.elems infoMap))
-                    if currentItemIdentities /= knownItemIdentities
-                      then do
-                        join (readIORef rebuildTrayRef)
-                      else void refresh
-                  _ -> void refresh
+                rebuildInProgress <- readIORef rebuildInProgressRef
+                if rebuildInProgress
+                  then writeIORef pendingRebuildRef True
+                  else case updateType of
+                    H.ItemAdded -> do
+                      infoMap <- H.itemInfoMap host
+                      knownItemIdentities <- readIORef knownItemIdentitiesRef
+                      let currentItemIdentities =
+                            sortOn id (map itemStableIdentity (M.elems infoMap))
+                      if currentItemIdentities /= knownItemIdentities
+                        then do
+                          join (readIORef rebuildTrayRef)
+                        else void refresh
+                    H.ItemRemoved -> do
+                      infoMap <- H.itemInfoMap host
+                      knownItemIdentities <- readIORef knownItemIdentitiesRef
+                      let currentItemIdentities =
+                            sortOn id (map itemStableIdentity (M.elems infoMap))
+                      if currentItemIdentities /= knownItemIdentities
+                        then do
+                          join (readIORef rebuildTrayRef)
+                        else void refresh
+                    _ -> void refresh
                 return False
     handlerId <- H.addUpdateHandler host queueRefresh
     _ <- Gtk.onWidgetDestroy outer $ H.removeUpdateHandler host handlerId
