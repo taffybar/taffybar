@@ -1,10 +1,10 @@
 cabal-version:       2.4
 name:                xdg-desktop-entry
-version:             0.1.1.3
+version:             0.1.1.4
 synopsis:            Parse files conforming to the xdg desktop entry spec
 description:         Parse files conforming to the xdg desktop entry spec.
-bug-reports:         https://github.com/taffybar/xdg-desktop-entry/issues
-homepage:            https://github.com/taffybar/xdg-desktop-entry
+bug-reports:         https://github.com/taffybar/taffybar/issues
+homepage:            https://github.com/taffybar/taffybar/tree/master/packages/xdg-desktop-entry
 license:             BSD-3-Clause
 license-file:        LICENSE
 author:              Ivan Malison
@@ -16,7 +16,8 @@ tested-with:         GHC == 8.8.4 || == 8.10.7 || == 9.0.2 || == 9.2.8 || == 9.4
 
 source-repository head
   type:     git
-  location: https://github.com/taffybar/xdg-desktop-entry.git
+  location: https://github.com/taffybar/taffybar.git
+  subdir:   packages/xdg-desktop-entry
 
 library
   exposed-modules:     System.Environment.XDG.DesktopEntry
@@ -28,7 +29,7 @@ library
                        multimap >= 1.2.1 && < 1.3,
                        safe >= 0.3.19 && < 0.4,
                        text >= 1.2.4 && < 2.2,
-                       transformers >= 0.5.6 && < 0.6.2,
+                       transformers >= 0.5.6 && < 0.7,
                        unix >= 2.7.2 && < 2.9,
                        unordered-containers >= 0.2.10 && < 0.3
   hs-source-dirs:      src

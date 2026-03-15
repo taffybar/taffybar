@@ -1,6 +1,7 @@
 packages:
   ./
   ./example
+  ./packages/xdg-desktop-entry
   ./packages/gtk-scaling-image
   ./packages/gtk-sni-tray
   ./packages/gtk-strut

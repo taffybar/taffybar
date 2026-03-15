@@ -42,6 +42,7 @@
             gtk-strut = ./packages/gtk-strut;
             gtk-sni-tray = ./packages/gtk-sni-tray;
             status-notifier-item = ./packages/status-notifier-item;
+            xdg-desktop-entry = ./packages/xdg-desktop-entry;
             inherit xmonad xmonad-contrib;
           };
         });
@@ -94,6 +95,7 @@
       status-notifier-item = pkgs.haskellPackages."status-notifier-item";
       dbus-menu = pkgs.haskellPackages."dbus-menu";
       dbus-hslogger = pkgs.haskellPackages."dbus-hslogger";
+      xdg-desktop-entry = pkgs.haskellPackages."xdg-desktop-entry";
     } // lib.listToAttrs (map (compiler: {
       name = "${compiler}-taffybar";
       value = pkgs.haskell.packages.${compiler}.taffybar;

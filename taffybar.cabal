@@ -115,7 +115,7 @@ library
                , tuple >= 0.3.0.2
                , unix
                , utf8-string
-               , xdg-desktop-entry
+               , xdg-desktop-entry >= 0.1.1.4
                , xdg-basedir >= 0.2 && < 0.3
                , xml
                , xml-helpers

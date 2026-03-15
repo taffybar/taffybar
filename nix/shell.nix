@@ -9,6 +9,7 @@ pkgs.haskellPackages.shellFor {
     p."status-notifier-item"
     p."dbus-menu"
     p."dbus-hslogger"
+    p."xdg-desktop-entry"
   ];
 
   withHoogle = true;

@@ -1,5 +1,6 @@
 packages:
 - '.'
+- './packages/xdg-desktop-entry'
 resolver: nightly-2026-02-20
 
 nix:
