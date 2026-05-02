@@ -34,6 +34,7 @@ import Data.Word (Word64)
 data WorkspaceBackend
   = WorkspaceBackendEWMH
   | WorkspaceBackendHyprland
+  | WorkspaceBackendRiverXMonad
   deriving (Eq, Show)
 
 -- | Snapshot of workspace state produced by a backend provider.
@@ -100,6 +101,7 @@ data WorkspaceInfo = WorkspaceInfo
 data WindowIdentity
   = X11WindowIdentity Word64
   | HyprlandWindowIdentity Text
+  | RiverXMonadWindowIdentity Text
   deriving (Eq, Ord, Show)
 
 -- | Backend-neutral window information.

@@ -75,6 +75,10 @@ import System.Taffybar.Information.Workspaces.Hyprland
   ( getHyprlandWorkspaceStateChanAndVar,
   )
 import System.Taffybar.Information.Workspaces.Model
+import System.Taffybar.Information.Workspaces.RiverXMonad
+  ( getRiverXMonadWorkspaceStateChanAndVar,
+    isRiverXMonadSession,
+  )
 import System.Taffybar.Information.Workspaces.Support
   ( WindowIconPixbufGetter,
     addCustomIconsAndFallback,
@@ -209,8 +213,12 @@ mkWorkspaceIconWidget strategy mSize transparentOnNone getPixbufFor mkTransparen
       getPixbuf
       Gtk.OrientationHorizontal
   _ <- widgetSetClassGI imageWidget "window-icon"
-  forM_ mSize $ \s ->
+  forM_ mSize $ \s -> do
     Gtk.widgetSetSizeRequest imageWidget (fromIntegral s) (fromIntegral s)
+    Gtk.widgetSetHexpand imageWidget False
+    Gtk.widgetSetVexpand imageWidget False
+    Gtk.widgetSetHalign imageWidget Gtk.AlignCenter
+    Gtk.widgetSetValign imageWidget Gtk.AlignCenter
   Gtk.containerAdd (iconContainer base) imageWidget
   return base {iconImage = imageWidget, iconForceUpdate = refreshImage}
 
@@ -245,7 +253,11 @@ autoWorkspaceStateSource :: TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceS
 autoWorkspaceStateSource = do
   backendType <- asks backend
   case backendType of
-    BackendWayland -> getHyprlandWorkspaceStateChanAndVar
+    BackendWayland -> do
+      riverXMonad <- liftIO isRiverXMonadSession
+      if riverXMonad
+        then getRiverXMonadWorkspaceStateChanAndVar
+        else getHyprlandWorkspaceStateChanAndVar
     BackendX11 -> defaultEWMHWorkspaceStateSource
 
 defaultWorkspacesConfig :: WorkspacesConfig

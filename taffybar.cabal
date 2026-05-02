@@ -169,6 +169,7 @@ library
                  , System.Taffybar.Information.Workspaces.EWMH
                  , System.Taffybar.Information.Workspaces.Hyprland
                  , System.Taffybar.Information.Workspaces.Model
+                 , System.Taffybar.Information.Workspaces.RiverXMonad
                  , System.Taffybar.Information.Wakeup
                  , System.Taffybar.Information.Wlsunset
                  , System.Taffybar.Information.X11DesktopInfo

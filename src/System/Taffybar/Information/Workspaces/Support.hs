@@ -54,6 +54,7 @@ import System.Taffybar.Information.EWMHDesktopInfo
   )
 import qualified System.Taffybar.Information.Hyprland.API as HyprAPI
 import System.Taffybar.Information.Workspaces.Model
+import System.Taffybar.Information.Workspaces.RiverXMonad (isRiverXMonadSession)
 import System.Taffybar.Util (getPixbufFromFilePath, (<|||>))
 import System.Taffybar.Widget.Util
   ( handlePixbufGetterException,
@@ -82,6 +83,7 @@ sortWindowsByStackIndex windows = do
         case windowIdentity windowInfo of
           X11WindowIdentity wid -> fromMaybe (-1) $ elemIndex (fromIntegral wid) stackingWindows
           HyprlandWindowIdentity _ -> -1
+          RiverXMonadWindowIdentity _ -> -1
       compareWindowData a b = compare (getStackIdx b) (getStackIdx a)
   pure $ sortBy compareWindowData windows
 
@@ -130,12 +132,14 @@ getWindowIconPixbufFromChrome _ windowData =
   case windowIdentity windowData of
     X11WindowIdentity wid -> getPixBufFromChromeData (fromIntegral wid)
     HyprlandWindowIdentity _ -> pure Nothing
+    RiverXMonadWindowIdentity _ -> pure Nothing
 
 getWindowIconPixbufFromEWMH :: WindowIconPixbufGetter
 getWindowIconPixbufFromEWMH = handleIconGetterException $ \size windowData ->
   case windowIdentity windowData of
     X11WindowIdentity wid -> getCachedIconPixBufFromEWMH size (fromIntegral wid)
     HyprlandWindowIdentity _ -> pure Nothing
+    RiverXMonadWindowIdentity _ -> pure Nothing
 
 defaultGetWindowIconPixbuf :: WindowIconPixbufGetter
 defaultGetWindowIconPixbuf =
@@ -176,7 +180,15 @@ defaultOnWorkspaceClick workspaceInfo = do
   backendType <- asks backend
   case backendType of
     BackendX11 -> defaultOnWorkspaceClickEWMH workspaceInfo
-    BackendWayland -> defaultOnWorkspaceClickHyprland workspaceInfo
+    BackendWayland -> do
+      riverXMonad <- liftIO isRiverXMonadSession
+      if riverXMonad
+        then defaultOnWorkspaceClickRiverXMonad workspaceInfo
+        else defaultOnWorkspaceClickHyprland workspaceInfo
+
+defaultOnWorkspaceClickRiverXMonad :: WorkspaceInfo -> TaffyIO ()
+defaultOnWorkspaceClickRiverXMonad _ =
+  pure ()
 
 defaultOnWorkspaceClickHyprland :: WorkspaceInfo -> TaffyIO ()
 defaultOnWorkspaceClickHyprland workspaceInfo = do
@@ -229,6 +241,8 @@ defaultOnWindowClick windowInfo =
               wLog WARNING $
                 "Failed to focus Hyprland window " <> show address <> ": " <> show err
             Right _ -> pure ()
+    RiverXMonadWindowIdentity _ ->
+      pure ()
 
 wLog :: Priority -> String -> TaffyIO ()
 wLog level message =

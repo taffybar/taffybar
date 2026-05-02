@@ -47,6 +47,10 @@ import System.Taffybar.Information.Workspaces.Hyprland
   ( getHyprlandWorkspaceStateChanAndVar,
   )
 import System.Taffybar.Information.Workspaces.Model
+import System.Taffybar.Information.Workspaces.RiverXMonad
+  ( getRiverXMonadWorkspaceStateChanAndVar,
+    isRiverXMonadSession,
+  )
 import System.Taffybar.Information.Workspaces.Support
   ( defaultOnWindowClick,
     getWindowIconPixbufByClassHints,
@@ -89,7 +93,11 @@ autoWindowStateSource :: TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnap
 autoWindowStateSource = do
   backendType <- asks backend
   case backendType of
-    BackendWayland -> getHyprlandWorkspaceStateChanAndVar
+    BackendWayland -> do
+      riverXMonad <- liftIO isRiverXMonadSession
+      if riverXMonad
+        then getRiverXMonadWorkspaceStateChanAndVar
+        else getHyprlandWorkspaceStateChanAndVar
     BackendX11 -> defaultChannelEWMHWorkspaceStateSource
 
 -- | Build a menu label from the window title.
