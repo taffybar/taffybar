@@ -135,7 +135,6 @@ import qualified Control.Concurrent.MVar as MV
 import Control.Exception (finally)
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad
-import Data.Char (toLower)
 import Data.Function (on)
 import qualified Data.GI.Gtk.Threading as GIThreading
 import Data.List (groupBy, isPrefixOf, sort)
@@ -152,7 +151,7 @@ import System.Environment (lookupEnv)
 import System.Environment.XDG.BaseDir (getUserConfigFile)
 import System.Exit (exitFailure)
 import System.FSNotify (Event (..), EventIsDirectory (..), startManager, stopManager, watchDir)
-import System.FilePath (normalise, splitSearchPath, takeDirectory, takeFileName, (</>))
+import System.FilePath (normalise, takeDirectory, takeFileName, (</>))
 import qualified System.IO as IO
 import System.Log.Logger
 import System.Posix.Files (getFileStatus, isSocket)
@@ -199,37 +198,29 @@ getTaffyFile = getUserConfigFile "taffybar"
 
 -- | Return CSS files which should be loaded for the given config.
 getCSSPaths :: TaffybarConfig -> IO [FilePath]
-getCSSPaths TaffybarConfig {cssPaths} = do
-  disableVendor <- envFlag "TAFFYBAR_DISABLE_VENDOR_CSS"
-  disableUser <- envFlag "TAFFYBAR_DISABLE_USER_CSS"
-  explicitUserCss <- lookupEnv "TAFFYBAR_CSS_PATHS"
-  resolvedUserCss <-
-    if disableUser
-      then pure []
-      else case explicitUserCss of
-        Just rawPaths -> pure $ filter (not . null) (splitSearchPath rawPaths)
-        Nothing -> sequence defaultUserCSS
+getCSSPaths config = flattenCSSPaths <$> (cssPathTransform config =<< getDefaultCSSPaths config)
+
+getDefaultCSSPaths :: TaffybarConfig -> IO CSSPaths
+getDefaultCSSPaths TaffybarConfig {cssPaths, includeVendorCss} = do
   vendorCss <-
-    if disableVendor
-      then pure []
-      else (: []) <$> defaultCSS
-  pure (vendorCss <> resolvedUserCss)
+    if includeVendorCss
+      then (: []) <$> getDataFile "taffybar.css"
+      else pure []
+  userCss <- sequence defaultUserCSS
+  pure
+    CSSPaths
+      { vendorCSSPaths = vendorCss,
+        userCSSPaths = userCss
+      }
   where
-    -- Vendor CSS file, which is always loaded before user's CSS.
-    defaultCSS = getDataFile "taffybar.css"
     -- User's configured CSS files, with XDG config file being the default.
     defaultUserCSS
       | null cssPaths = [getTaffyFile "taffybar.css"]
       | otherwise = map return cssPaths
-    envFlag name = do
-      value <- lookupEnv name
-      pure $
-        case fmap (map toLower) value of
-          Just "1" -> True
-          Just "true" -> True
-          Just "yes" -> True
-          Just "on" -> True
-          _ -> False
+
+flattenCSSPaths :: CSSPaths -> [FilePath]
+flattenCSSPaths CSSPaths {vendorCSSPaths, userCSSPaths} =
+  vendorCSSPaths <> userCSSPaths
 
 -- | Overrides the default GTK theme and settings with CSS styles from
 -- the given files (if they exist).

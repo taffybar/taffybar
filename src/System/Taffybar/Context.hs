@@ -26,8 +26,10 @@
 module System.Taffybar.Context
   ( -- * Configuration
     TaffybarConfig (..),
+    CSSPaths (..),
     defaultTaffybarConfig,
     appendHook,
+    appendCSSPathTransform,
 
     -- ** Bars
     BarLevelConfig (..),
@@ -211,6 +213,16 @@ instance Eq BarConfig where
 -- | Action that returns the list of bar configurations to realize.
 type BarConfigGetter = TaffyIO [BarConfig]
 
+-- | The resolved CSS paths that taffybar will load.
+--
+-- 'vendorCSSPaths' contains stylesheets shipped with taffybar itself.
+-- 'userCSSPaths' contains stylesheets from the user's config.
+data CSSPaths = CSSPaths
+  { vendorCSSPaths :: [FilePath],
+    userCSSPaths :: [FilePath]
+  }
+  deriving (Eq, Show)
+
 -- | 'TaffybarConfig' provides an advanced interface for configuring taffybar.
 -- Through the 'getBarConfigsParam', it is possible to specify different
 -- taffybar configurations depending on the number of monitors present, and even
@@ -226,6 +238,10 @@ data TaffybarConfig = TaffybarConfig
     -- | A list of 'FilePath' each of which should be loaded as css files at
     -- startup.
     cssPaths :: [FilePath],
+    -- | Whether to load the stylesheet shipped with taffybar before user CSS.
+    includeVendorCss :: Bool,
+    -- | A hook for altering the CSS paths after defaults have been resolved.
+    cssPathTransform :: CSSPaths -> IO CSSPaths,
     -- | A field used (only) by dyre to provide an error message.
     errorMsg :: Maybe String
   }
@@ -238,6 +254,13 @@ appendHook hook config =
     { startupHook = startupHook config >> hook
     }
 
+-- | Append the provided CSS path transform to the given 'TaffybarConfig'.
+appendCSSPathTransform :: (CSSPaths -> IO CSSPaths) -> TaffybarConfig -> TaffybarConfig
+appendCSSPathTransform transform config =
+  config
+    { cssPathTransform = cssPathTransform config >=> transform
+    }
+
 -- | Default values for a 'TaffybarConfig'. Not usuable without at least
 -- properly setting 'getBarConfigsParam'.
 defaultTaffybarConfig :: TaffybarConfig
@@ -247,6 +270,8 @@ defaultTaffybarConfig =
       startupHook = return (),
       getBarConfigsParam = return [],
       cssPaths = [],
+      includeVendorCss = True,
+      cssPathTransform = pure,
       errorMsg = Nothing
     }
 

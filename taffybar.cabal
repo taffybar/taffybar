@@ -378,6 +378,7 @@ test-suite unit
                , System.Taffybar.AuthSpec
                , System.Taffybar.AppearanceSpec
                , System.Taffybar.ContextSpec
+               , System.Taffybar.HooksSpec
                , System.Taffybar.Information.CryptoSpec
                , System.Taffybar.Information.LayoutSpec
                , System.Taffybar.Information.Workspaces.EWMHSpec

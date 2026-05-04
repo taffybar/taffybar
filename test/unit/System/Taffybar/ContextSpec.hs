@@ -260,6 +260,7 @@ toSimpleConfig GenSimpleConfig {..} =
       endWidgets = map toTaffyWidget end,
       barLevels = Nothing,
       cssPaths = toCssPaths css,
+      includeVendorCss = True,
       startupHook = pure () -- TODO: add something
     }
 
