@@ -6,6 +6,8 @@
 * Add Anthropic usage information and an Anthropic usage widget.
 * Expose the new OpenAI and Anthropic usage information/widget modules from
   the library.
+* Add config-level control for loading vendored CSS and opt-in environment
+  overrides for CSS paths.
 
 ## Fixes
 

@@ -33,12 +33,14 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
+import Data.Char (toLower)
 import Data.List (isSuffixOf, nub)
 import qualified Data.MultiMap as MM
 import System.Directory (doesDirectoryExist)
+import System.Environment (lookupEnv)
 import System.Environment.XDG.DesktopEntry
 import System.FSNotify (Event (eventIsDirectory, eventPath), EventIsDirectory (IsFile), startManager, watchDir)
-import System.FilePath ((</>))
+import System.FilePath (splitSearchPath, (</>))
 import System.Log.Logger
 import System.Taffybar.Context
 import System.Taffybar.DBus
@@ -94,6 +96,92 @@ withLogLevels =
   appendHook $
     lift $
       defaultLogLevelsPath >>= loadLogLevelsFromFile
+
+-- | Environment variable names used by 'withCSSPathEnvConfig'.
+--
+-- All fields are optional so callers can opt in to exactly the environment
+-- surface they want to expose.
+data CSSPathEnvConfig = CSSPathEnvConfig
+  { -- | When set, replaces all resolved CSS paths with the path list from this
+    -- environment variable.
+    cssPathsEnvVar :: Maybe String,
+    -- | When set to a truthy value, drops taffybar's vendored CSS paths.
+    disableVendorCssEnvVar :: Maybe String,
+    -- | When set to a truthy value, drops user CSS paths.
+    disableUserCssEnvVar :: Maybe String
+  }
+
+-- | Default environment variable names for CSS path overrides.
+defaultCSSPathEnvConfig :: CSSPathEnvConfig
+defaultCSSPathEnvConfig =
+  CSSPathEnvConfig
+    { cssPathsEnvVar = Just "TAFFYBAR_CSS_PATHS",
+      disableVendorCssEnvVar = Just "TAFFYBAR_DISABLE_VENDOR_CSS",
+      disableUserCssEnvVar = Just "TAFFYBAR_DISABLE_USER_CSS"
+    }
+
+-- | Opt in to CSS path overrides from the environment.
+--
+-- This hook is intentionally not part of the default CSS loading behavior.
+-- Apply it to a 'TaffybarConfig' when runtime environment overrides are wanted.
+withEnvironmentCSSPaths :: TaffybarConfig -> TaffybarConfig
+withEnvironmentCSSPaths = withCSSPathEnvConfig defaultCSSPathEnvConfig
+
+-- | Opt in to CSS path overrides from caller-selected environment variables.
+withCSSPathEnvConfig :: CSSPathEnvConfig -> TaffybarConfig -> TaffybarConfig
+withCSSPathEnvConfig config =
+  appendCSSPathTransform $ applyCSSPathEnvConfig config
+
+applyCSSPathEnvConfig :: CSSPathEnvConfig -> CSSPaths -> IO CSSPaths
+applyCSSPathEnvConfig
+  CSSPathEnvConfig
+    { cssPathsEnvVar = pathsVar,
+      disableVendorCssEnvVar = disableVendorVar,
+      disableUserCssEnvVar = disableUserVar
+    }
+  paths = do
+    overridePaths <- lookupPathListEnv pathsVar
+    disableVendor <- lookupFlagEnv disableVendorVar
+    disableUser <- lookupFlagEnv disableUserVar
+    let CSSPaths vendorPaths userPaths =
+          case overridePaths of
+            Just pathList -> paths {userCSSPaths = pathList}
+            Nothing -> paths
+    pure
+      CSSPaths
+        { vendorCSSPaths =
+            if disableVendor
+              then []
+              else vendorPaths,
+          userCSSPaths =
+            if disableUser
+              then []
+              else userPaths
+        }
+
+lookupPathListEnv :: Maybe String -> IO (Maybe [FilePath])
+lookupPathListEnv Nothing = pure Nothing
+lookupPathListEnv (Just varName) =
+  fmap parseCSSPathList <$> lookupEnv varName
+
+parseCSSPathList :: String -> [FilePath]
+parseCSSPathList =
+  filter (not . null) . splitSearchPath
+
+lookupFlagEnv :: Maybe String -> IO Bool
+lookupFlagEnv Nothing = pure False
+lookupFlagEnv (Just varName) = envFlag varName
+
+envFlag :: String -> IO Bool
+envFlag name = do
+  value <- lookupEnv name
+  pure $
+    case fmap (map toLower) value of
+      Just "1" -> True
+      Just "true" -> True
+      Just "yes" -> True
+      Just "on" -> True
+      _ -> False
 
 newtype DesktopEntryCacheWatch
   = DesktopEntryCacheWatch (IO ())

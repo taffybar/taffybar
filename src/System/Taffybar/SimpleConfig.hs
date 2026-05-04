@@ -95,6 +95,8 @@ data SimpleTaffyConfig = SimpleTaffyConfig
     barLevels :: Maybe [BarLevelConfig],
     -- | List of paths to CSS stylesheets that should be loaded at startup.
     cssPaths :: [FilePath],
+    -- | Whether to load the stylesheet shipped with taffybar before user CSS.
+    includeVendorCss :: Bool,
     -- | Hook to run at taffybar startup.
     startupHook :: TaffyIO ()
   }
@@ -115,6 +117,7 @@ defaultSimpleTaffyConfig =
       endWidgets = [],
       barLevels = Nothing,
       cssPaths = [],
+      includeVendorCss = True,
       startupHook = return ()
     }
 
@@ -173,6 +176,7 @@ toTaffybarConfig conf =
   def
     { BC.getBarConfigsParam = configGetter,
       BC.cssPaths = cssPaths conf,
+      BC.includeVendorCss = includeVendorCss conf,
       BC.startupHook = startupHook conf
     }
   where
