@@ -324,6 +324,16 @@ collectWorkspaceWindows activeWindowAddress =
           windowData = windowFromClient activeAddr client
        in M.insertWith (++) wsId [windowData] windowsMap
 
+clientIsOnMinimizedWorkspace :: HyprTypes.HyprlandClientInfo -> Bool
+clientIsOnMinimizedWorkspace =
+  workspaceRefIsMinimized . HyprTypes.hyprClientWorkspace
+
+workspaceRefIsMinimized :: HyprTypes.HyprlandWorkspaceRef -> Bool
+workspaceRefIsMinimized workspace =
+  let name = T.toLower $ HyprTypes.hyprWorkspaceRefName workspace
+   in name == "minimized"
+        || name == "special:minimized"
+
 windowFromClient :: Maybe T.Text -> HyprTypes.HyprlandClientInfo -> WindowInfo
 windowFromClient activeAddr client =
   let rawTitle = HyprTypes.hyprClientTitle client
@@ -337,6 +347,7 @@ windowFromClient activeAddr client =
       minimized =
         HyprTypes.hyprClientHidden client
           || not (HyprTypes.hyprClientMapped client)
+          || clientIsOnMinimizedWorkspace client
    in WindowInfo
         { windowIdentity = HyprlandWindowIdentity (HyprTypes.hyprClientAddress client),
           windowTitle = title,
