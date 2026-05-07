@@ -7,9 +7,10 @@ module System.Taffybar.Information.Memory
 where
 
 import qualified Data.ByteString.Char8 as BS8
+import Text.Read (readMaybe)
 
 toMB :: String -> Double
-toMB size = (read size :: Double) / 1024
+toMB size = maybe 0 (/ 1024) (readMaybe size)
 
 safeRatio :: Double -> Double -> Double
 safeRatio

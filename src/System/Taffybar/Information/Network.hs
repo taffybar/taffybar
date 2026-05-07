@@ -158,6 +158,6 @@ getSpeed
 
 -- | Sum download/upload speeds across interfaces.
 sumSpeeds :: [(Rational, Rational)] -> (Rational, Rational)
-sumSpeeds = foldr1 sumOne
+sumSpeeds = foldr sumOne (0, 0)
   where
     sumOne (d1, u1) (d2, u2) = (d1 + d2, u1 + u2)

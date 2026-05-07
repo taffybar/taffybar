@@ -58,9 +58,7 @@ callWttr :: String -> IO T.Text
 callWttr url =
   let unknownLocation rsp =
         -- checks for a common wttr.in bug
-        case T.stripPrefix "Unknown location; please try" rsp of
-          Nothing -> False
-          Just strippedRsp -> T.length strippedRsp < T.length rsp
+        isJust $ T.stripPrefix "Unknown location; please try" rsp
       isImage = isJust . matchRegex (mkRegex ".png")
       getResponseData r =
         ( statusIsSuccessful $ responseStatus r,

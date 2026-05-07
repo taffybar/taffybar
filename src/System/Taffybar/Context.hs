@@ -147,7 +147,6 @@ import System.Taffybar.Window.FocusedMonitor
     setupFocusedMonitorClassUpdates,
   )
 import Text.Printf
-import Unsafe.Coerce
 
 logIO :: Priority -> String -> IO ()
 logIO = logM "System.Taffybar.Context"
@@ -169,12 +168,7 @@ type SubscriptionList = [(Unique, Listener)]
 data Value = forall t. (Typeable t) => Value t
 
 fromValue :: forall t. (Typeable t) => Value -> Maybe t
-fromValue (Value v) =
-  if typeOf v == typeRep (Proxy :: Proxy t)
-    then
-      Just $ unsafeCoerce v
-    else
-      Nothing
+fromValue (Value v) = cast v
 
 -- | 'BarConfig' specifies the configuration for a single taffybar window.
 data BarLevelConfig = BarLevelConfig

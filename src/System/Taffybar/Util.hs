@@ -157,7 +157,7 @@ truncateString n incoming
 -- | Text variant of 'truncateString'.
 truncateText :: Int -> T.Text -> T.Text
 truncateText n incoming
-  | T.length incoming <= n = incoming
+  | T.compareLength incoming n /= GT = incoming
   | otherwise = T.append (T.take n incoming) "…"
 
 -- | Run the provided command with the provided arguments.

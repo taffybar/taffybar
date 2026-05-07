@@ -88,6 +88,7 @@ import System.Taffybar.Widget.Generic.PollingLabel
 import System.Taffybar.Widget.Util (widgetSetClassGI)
 import Text.Parsec
 import Text.Printf
+import Text.Read (readMaybe)
 import Text.StringTemplate
 
 -- | Parsed NOAA weather report values used by the weather widget.
@@ -132,19 +133,26 @@ pTemp = do
   _ <- manyTill anyChar $ char '('
   c <- manyTill num $ char ' '
   _ <- skipRestOfLine
-  return (floor (read c :: Double), floor (read f :: Double))
+  parsedTempC <- parseNumber "temperature Celsius" c :: Parser Double
+  parsedTempF <- parseNumber "temperature Fahrenheit" f :: Parser Double
+  return (floor parsedTempC, floor parsedTempF)
 
 pRh :: Parser Int
 pRh = do
   s <- manyTill digit $ char '%' <|> char '.'
-  return $ read s
+  parseNumber "relative humidity" s
 
 pPressure :: Parser Int
 pPressure = do
   _ <- manyTill anyChar $ char '('
   s <- manyTill digit $ char ' '
   _ <- skipRestOfLine
-  return $ read s
+  parseNumber "pressure" s
+
+parseNumber :: (Read a) => String -> String -> Parser a
+parseNumber valueLabel raw =
+  maybe (fail $ "Could not parse " ++ valueLabel ++ ": " ++ raw) return $
+    readMaybe raw
 
 parseData :: Parser WeatherInfo
 parseData = do
@@ -327,7 +335,7 @@ weatherNew cfg delayMinutes = liftIO $ do
               noHttp = fromMaybe str $ stripPrefix "http://" str
               (phost, pport) = case span (':' /=) noHttp of
                 (h, "") -> (strToBs h, 80) -- HTTP seems to assume 80 to be the default
-                (h, ':' : p) -> (strToBs h, read p)
+                (h, ':' : p) -> (strToBs h, fromMaybe 80 (readMaybe p))
                 _ -> error "unreachable: broken span"
            in useProxy $ Proxy phost pport
   mgr <- newManager $ managerSetProxy usedProxy tlsManagerSettings

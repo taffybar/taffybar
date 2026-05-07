@@ -139,7 +139,7 @@ data BatteryType
   | BatteryTypeKeyboard
   | BatteryTypePda
   | BatteryTypePhone
-  deriving (Show, Ord, Eq, Enum)
+  deriving (Show, Ord, Eq, Enum, Bounded)
 
 -- | UPower battery charging state enum.
 data BatteryState
@@ -150,7 +150,7 @@ data BatteryState
   | BatteryStateFullyCharged
   | BatteryStatePendingCharge
   | BatteryStatePendingDischarge
-  deriving (Show, Ord, Eq, Enum)
+  deriving (Show, Ord, Eq, Enum, Bounded)
 
 -- | UPower battery chemistry enum.
 data BatteryTechnology
@@ -161,7 +161,7 @@ data BatteryTechnology
   | BatteryTechnologyLeadAcid
   | BatteryTechnologyNickelCadmium
   | BatteryTechnologyNickelMetalHydride
-  deriving (Show, Ord, Eq, Enum)
+  deriving (Show, Ord, Eq, Enum, Bounded)
 
 batteryTypeForName :: GetTypeForName
 batteryTypeForName name = const $

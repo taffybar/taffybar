@@ -1,0 +1,74 @@
+# Keep Stan diagnostics focused on actionable issues. Some inspections are too
+# noisy for this codebase's record-heavy configuration API.
+[[check]]
+  id = "STAN-0206"
+  scope = "all"
+  type = "Exclude"
+
+[[check]]
+  id = "STAN-0213"
+  scope = "all"
+  type = "Exclude"
+
+[[check]]
+  id = "STAN-0302"
+  scope = "all"
+  type = "Exclude"
+
+# These are either generated `Enum` methods for small exported sum types, or
+# guarded conversions where out-of-range values are checked before conversion.
+[[check]]
+  id = "STAN-0010"
+  scope = "all"
+  type = "Exclude"
+
+[[check]]
+  id = "STAN-0011"
+  scope = "all"
+  type = "Exclude"
+
+[[check]]
+  id = "STAN-0012"
+  scope = "all"
+  type = "Exclude"
+
+# Stan cannot distinguish many of our finite lists (GTK children, sysfs entries,
+# parsed config values) from arbitrary infinite lists.
+[[check]]
+  id = "STAN-0101"
+  scope = "all"
+  type = "Exclude"
+
+[[check]]
+  id = "STAN-0102"
+  scope = "all"
+  type = "Exclude"
+
+[[check]]
+  id = "STAN-0103"
+  scope = "all"
+  type = "Exclude"
+
+[[check]]
+  id = "STAN-0105"
+  scope = "all"
+  type = "Exclude"
+
+# The default graph palette intentionally cycles forever.
+[[ignore]]
+  id = "OBS-STAN-0006-EpSDv2-104:25"
+
+# These maxima are reached only after explicit non-empty checks.
+[[ignore]]
+  id = "OBS-STAN-0013-ZLuMPB-86:23"
+
+[[ignore]]
+  id = "OBS-STAN-0013-biszuh-241:27"
+
+# SafeX11 intentionally centralizes unsafePerformIO around the X11 request
+# queue/thread boundary.
+[[ignore]]
+  id = "OBS-STAN-0212-BkMsc3-132:16"
+
+[[ignore]]
+  id = "OBS-STAN-0212-BkMsc3-136:13"

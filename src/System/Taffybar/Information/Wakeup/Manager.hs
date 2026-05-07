@@ -216,9 +216,10 @@ advanceIntervalIfDue nowNs registration
         )
 
 nextDueNs :: M.Map Word64 IntervalRegistration -> Maybe Word64
-nextDueNs registrations
-  | M.null registrations = Nothing
-  | otherwise = Just $ minimum $ intervalNextDueNs <$> M.elems registrations
+nextDueNs registrations =
+  case intervalNextDueNs <$> M.elems registrations of
+    [] -> Nothing
+    firstDue : restDue -> Just $ foldl' min firstDue restDue
 
 secondsToNanoseconds :: Int -> Either String Word64
 secondsToNanoseconds seconds

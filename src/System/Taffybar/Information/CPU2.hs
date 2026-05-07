@@ -34,6 +34,7 @@ import System.FilePath
 import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.StreamInfo
 import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
+import Text.Read (readMaybe)
 
 -- | Relative CPU load values, expressed as ratios in [0,1].
 data CPULoad = CPULoad
@@ -131,7 +132,8 @@ getCPUTemperatureDirectory =
 -- | Read one core-temperature file from sysfs and convert milli-degrees to
 -- degrees Celsius.
 readCPUTempFile :: FilePath -> IO Double
-readCPUTempFile cpuTempFilePath = (/ 1000) . read <$> readFile cpuTempFilePath
+readCPUTempFile cpuTempFilePath =
+  maybe 0 (/ 1000) . readMaybe <$> readFile cpuTempFilePath
 
 -- | List core-temperature input files in a hwmon directory.
 getAllTemperatureFiles :: FilePath -> IO [FilePath]

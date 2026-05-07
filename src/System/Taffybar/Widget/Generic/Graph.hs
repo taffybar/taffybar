@@ -273,7 +273,11 @@ drawGraph mv drawArea = do
   styleContext <- C.liftIO $ Gtk.widgetGetStyleContext drawArea
   dataColors <-
     if graphColorsFromCss cfg
-      then C.liftIO $ forM [1 .. length hist] (getDataColorFromCss styleContext)
+      then
+        C.liftIO $
+          forM
+            (take (length hist) [1 :: Int ..])
+            (getDataColorFromCss styleContext)
       else return $ graphDataColors cfg
   let -- Subtract 1 here since the first data point doesn't require
       -- any movement in the X direction

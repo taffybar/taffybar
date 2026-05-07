@@ -16,7 +16,7 @@ import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask, runReaderT)
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
-import Data.List (nub, sort)
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Word (Word64)
 import qualified GI.Gdk as Gdk
@@ -191,7 +191,11 @@ formatEventTicks events
 formatIntervals :: [Word64] -> T.Text
 formatIntervals intervals
   | null intervals = "none"
-  | otherwise = T.intercalate ", " $ fmap formatIntervalNanoseconds (sort (nub intervals))
+  | otherwise =
+      T.intercalate ", " $
+        fmap formatIntervalNanoseconds $
+          Set.toAscList $
+            Set.fromList intervals
 
 formatIntervalNanoseconds :: Word64 -> T.Text
 formatIntervalNanoseconds nanoseconds

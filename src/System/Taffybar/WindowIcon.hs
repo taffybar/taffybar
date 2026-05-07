@@ -158,7 +158,7 @@ selectEWMHIcon imgSize icons = listToMaybe prefIcon
     sortedIcons = sortBy (comparing ewmhHeight) icons
     smallestLargerIcon =
       take 1 $ dropWhile ((<= fromIntegral imgSize) . ewmhHeight) sortedIcons
-    largestIcon = take 1 $ reverse sortedIcons
+    largestIcon = take 1 $ sortBy (comparing (Down . ewmhHeight)) icons
     prefIcon = smallestLargerIcon ++ largestIcon
 
 -- | Create a pixbuf from the best matching EWMH icon for the requested size.
@@ -200,7 +200,10 @@ pixBufFromColor ::
   (MonadIO m) =>
   Int32 -> Word32 -> m Gdk.Pixbuf
 pixBufFromColor imgSize c = do
-  pixbuf <- fromJust <$> Gdk.pixbufNew Gdk.ColorspaceRgb True 8 imgSize imgSize
+  pixbuf <-
+    fromMaybe
+      (error "pixBufFromColor: failed to allocate pixbuf")
+      <$> Gdk.pixbufNew Gdk.ColorspaceRgb True 8 imgSize imgSize
   Gdk.pixbufFill pixbuf c
   return pixbuf
 
@@ -224,10 +227,10 @@ getWindowIconForAllClasses ::
   (Monad m) =>
   (p -> String -> m (Maybe a)) -> p -> String -> m (Maybe a)
 getWindowIconForAllClasses doOnClass size klass =
-  foldl combine (return Nothing) $ parseWindowClasses klass
+  foldr combine (return Nothing) $ parseWindowClasses klass
   where
-    combine soFar theClass =
-      maybeTCombine soFar (doOnClass size theClass)
+    combine theClass =
+      maybeTCombine (doOnClass size theClass)
 
 -- | Resolve a window icon through desktop-entry icon metadata.
 getWindowIconFromDesktopEntryByClasses ::
