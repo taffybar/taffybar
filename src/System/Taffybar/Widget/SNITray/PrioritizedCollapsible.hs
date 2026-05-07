@@ -34,10 +34,11 @@ import Data.Char (isAlphaNum, isDigit, toLower)
 import Data.Foldable (traverse_)
 import Data.IORef
 import Data.Int (Int32)
-import Data.List (isSuffixOf, nub, sortOn, stripPrefix)
+import Data.List (sortOn, stripPrefix)
 import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybeToList)
 import Data.Ord (Down (..))
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Unique (hashUnique)
 import Data.Word (Word32)
@@ -355,7 +356,7 @@ normalizeProcessToken =
 
 processIdentityTokenFromArg :: String -> Maybe String
 processIdentityTokenFromArg arg
-  | ".asar" `isSuffixOf` arg =
+  | takeExtension arg == ".asar" =
       nonEmptyString (takeBaseName (takeDirectory arg))
   | otherwise = Nothing
 
@@ -418,9 +419,17 @@ processDisambiguationKeysForItems client infos = do
           processKey <- processDisambiguationKeyForItem client info
           return $ fmap (itemStableIdentity info,) processKey
 
+dedupe :: (Ord a) => [a] -> [a]
+dedupe = go Set.empty
+  where
+    go _ [] = []
+    go seen (x : xs)
+      | x `Set.member` seen = go seen xs
+      | otherwise = x : go (Set.insert x seen) xs
+
 priorityLookupKeyCandidates :: Maybe String -> H.ItemInfo -> [String]
 priorityLookupKeyCandidates maybeProcessKey info =
-  nub $
+  dedupe $
     concat
       [ maybeToList maybeProcessKey,
         map ("icon-name:" ++) (maybeToList (nonEmptyString (H.iconName info))),
@@ -434,7 +443,7 @@ priorityLookupKeyCandidates maybeProcessKey info =
 
 priorityEditableKeyCandidates :: Maybe String -> H.ItemInfo -> [String]
 priorityEditableKeyCandidates maybeProcessKey info =
-  nub $
+  dedupe $
     concat
       [ maybeToList maybeProcessKey,
         map ("icon-name:" ++) (maybeToList (nonEmptyString (H.iconName info))),

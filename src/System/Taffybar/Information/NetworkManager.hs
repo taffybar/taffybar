@@ -44,7 +44,6 @@ import DBus.Client
 import DBus.Internal.Types (Serial (..))
 import qualified DBus.TH as DBus
 import qualified Data.ByteString as BS
-import Data.List (minimumBy)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe, listToMaybe)
@@ -461,17 +460,17 @@ getActiveConnectionInfo client path = do
 
 pickBestActiveConnection :: [ActiveConnectionInfo] -> Maybe ActiveConnectionInfo
 pickBestActiveConnection [] = Nothing
-pickBestActiveConnection infos =
+pickBestActiveConnection (firstInfo : restInfos) =
   let rank t
         | t == "802-3-ethernet" = 0 :: Int
         | t == "802-11-wireless" = 1
         | t == "vpn" = 2
         | T.null t = 99
         | otherwise = 50
-   in Just $
-        minimumBy
-          (\a b -> compare (rank (activeConnectionType a)) (rank (activeConnectionType b)))
-          infos
+      betterActiveConnection a b
+        | rank (activeConnectionType a) <= rank (activeConnectionType b) = a
+        | otherwise = b
+   in Just $ foldl' betterActiveConnection firstInfo restInfos
 
 toNetworkType :: Text -> NetworkType
 toNetworkType t

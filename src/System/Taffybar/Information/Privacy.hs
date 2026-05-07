@@ -38,6 +38,7 @@ module System.Taffybar.Information.Privacy
   )
 where
 
+import Control.Applicative ((<|>))
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, catch)
@@ -240,11 +241,6 @@ toPrivacyNode _config obj = do
                 nodeName = nName,
                 isMonitor = monitor
               }
-  where
-    (<|>) :: Maybe a -> Maybe a -> Maybe a
-    (<|>) ma mb = case ma of
-      Nothing -> mb
-      just -> just
 
 -- | Map media.class to NodeType.
 classToNodeType :: Text -> Maybe NodeType

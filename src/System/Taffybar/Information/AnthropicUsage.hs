@@ -377,7 +377,7 @@ transcriptLineToEntry path lineNumber bytes = do
 dedupeTranscriptEntries :: [TranscriptUsageEntry] -> [TranscriptUsageEntry]
 dedupeTranscriptEntries =
   snd
-    . foldl
+    . foldl'
       ( \(seen, entries) entry ->
           let requestId = transcriptUsageRequestId entry
            in if Set.member requestId seen
@@ -414,7 +414,7 @@ buildActiveBlockWindow now name duration budget entries =
 
 activeBlock :: UTCTime -> NominalDiffTime -> [TranscriptUsageEntry] -> Maybe (UTCTime, [TranscriptUsageEntry])
 activeBlock now duration entries =
-  case foldl addToBlock Nothing (sortOn transcriptUsageTimestamp entries) of
+  case foldl' addToBlock Nothing (sortOn transcriptUsageTimestamp entries) of
     Nothing -> Nothing
     Just (start, blockEntries)
       | addUTCTime duration start >= now -> Just (start, blockEntries)

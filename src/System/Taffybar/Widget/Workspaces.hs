@@ -55,6 +55,7 @@ import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int32)
 import Data.List (elemIndex)
 import qualified Data.Map.Strict as M
+import Data.Maybe (listToMaybe)
 import qualified Data.Text as T
 import Data.Word (Word64)
 import qualified GI.Gdk.Enums as Gdk
@@ -493,7 +494,7 @@ switchWorkspaceRelative cfg cacheVar wsRef moveBackward = do
         let total = length identities
         guard (total > 0)
         let wrappedIndex = (idx + step + total) `mod` total
-        return (identities !! wrappedIndex)
+        listToMaybe $ drop wrappedIndex identities
   case getTargetIdentity >>= (`M.lookup` cacheEntries cache) of
     Nothing -> return False
     Just targetEntry -> do

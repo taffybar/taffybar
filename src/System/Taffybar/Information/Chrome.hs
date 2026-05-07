@@ -133,4 +133,4 @@ updateTabMap tabMap =
     wins <- getWindows
     titles <- mapM getWindowTitle wins
     let winsWithTitles = zip wins titles
-    return $ foldl addTabIdEntry tabMap winsWithTitles
+    return $ foldl' addTabIdEntry tabMap winsWithTitles

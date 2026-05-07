@@ -106,7 +106,7 @@ noteNext s = atomically $ modifyTVar' (noteQueue s) aux
 noteFreshId :: NotifyState -> IO Word32
 noteFreshId NotifyState {noteIdSource} = atomically $ do
   nId <- readTVar noteIdSource
-  writeTVar noteIdSource (succ nId)
+  writeTVar noteIdSource (nId + 1)
   return nId
 
 --------------------------------------------------------------------------------

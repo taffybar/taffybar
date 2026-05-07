@@ -33,12 +33,12 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
-import Data.List (isSuffixOf, nub)
 import qualified Data.MultiMap as MM
+import qualified Data.Set as Set
 import System.Directory (doesDirectoryExist)
 import System.Environment.XDG.DesktopEntry
 import System.FSNotify (Event (eventIsDirectory, eventPath), EventIsDirectory (IsFile), startManager, watchDir)
-import System.FilePath ((</>))
+import System.FilePath (takeExtension, (</>))
 import System.Log.Logger
 import System.Taffybar.Context
 import System.Taffybar.DBus
@@ -151,12 +151,20 @@ flushUpdates updateSignal = do
 
 isDesktopEntryEvent :: Event -> Bool
 isDesktopEntryEvent event =
-  eventIsDirectory event == IsFile && ".desktop" `isSuffixOf` eventPath event
+  eventIsDirectory event == IsFile && takeExtension (eventPath event) == ".desktop"
 
 getDesktopEntryApplicationDirs :: IO [FilePath]
 getDesktopEntryApplicationDirs = do
   xdgDataDirs <- getXDGDataDirs
-  filterM doesDirectoryExist $ map (</> "applications") $ nub xdgDataDirs
+  filterM doesDirectoryExist $ map (</> "applications") $ dedupe xdgDataDirs
+
+dedupe :: (Ord a) => [a] -> [a]
+dedupe = go Set.empty
+  where
+    go _ [] = []
+    go seen (x : xs)
+      | x `Set.member` seen = go seen xs
+      | otherwise = x : go (Set.insert x seen) xs
 
 -- | Read 'DesktopEntry' values into a 'MM.Multimap', where they are indexed by
 -- the class name specified in the 'DesktopEntry'.

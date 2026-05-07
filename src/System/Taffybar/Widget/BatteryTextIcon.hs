@@ -29,6 +29,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.Default (Default (..))
+import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Text as T
 import GI.Gtk as Gtk
 import System.Taffybar.Context
@@ -92,7 +93,7 @@ selectGlyph [] _ = "?"
 selectGlyph glyphs pct =
   let n = length glyphs
       idx = min (n - 1) $ floor (pct / 100.0 * fromIntegral n)
-   in glyphs !! max 0 idx
+   in fromMaybe "?" $ listToMaybe $ drop (max 0 idx) glyphs
 
 -- | A battery icon widget that uses text glyphs (e.g. Nerd Font icons) to
 -- display battery state. The glyph changes based on charge level and

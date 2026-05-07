@@ -19,7 +19,7 @@ pkgs.haskellPackages.shellFor {
     cabal-install
     haskell-language-server
   ]) ++ (with pkgs.haskellPackages; [
-    alex happy hlint ormolu weeder implicit-hie hie-bios
+    alex happy hlint ormolu stan weeder implicit-hie hie-bios
   ]);
 
   inherit (pkgs.haskellPackages.taffybar.env) shellHook;

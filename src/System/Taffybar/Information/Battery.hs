@@ -104,6 +104,12 @@ readDictIntegral dict key dflt = fromMaybe (fromIntegral dflt) $ do
     f :: (Num a, IsVariant a) => Variant -> a
     f = fromMaybe (fromIntegral dflt) . fromVariant
 
+boundedEnumFromInt :: (Bounded a, Enum a) => a -> Int -> a
+boundedEnumFromInt fallback value
+  | value < fromEnum (minBound `asTypeOf` fallback) = fallback
+  | value > fromEnum (maxBound `asTypeOf` fallback) = fallback
+  | otherwise = toEnum value
+
 -- XXX: Remove this once it is exposed in haskell-dbus
 
 -- | Placeholder 'MethodError' used when required reply payload is missing.
@@ -137,7 +143,10 @@ infoMapToBatteryInfo dict =
       batteryVendor = readDict dict "Vendor" "",
       batteryModel = readDict dict "Model" "",
       batterySerial = readDict dict "Serial" "",
-      batteryType = toEnum $ fromIntegral $ readDictIntegral dict "Type" 0,
+      batteryType =
+        boundedEnumFromInt BatteryTypeUnknown $
+          fromIntegral $
+            readDictIntegral dict "Type" 0,
       batteryPowerSupply = readDict dict "PowerSupply" False,
       batteryHasHistory = readDict dict "HasHistory" False,
       batteryHasStatistics = readDict dict "HasStatistics" False,
@@ -152,11 +161,15 @@ infoMapToBatteryInfo dict =
       batteryTimeToFull = readDict dict "TimeToFull" 0,
       batteryPercentage = readDict dict "Percentage" 0.0,
       batteryIsPresent = readDict dict "IsPresent" False,
-      batteryState = toEnum $ readDictIntegral dict "State" 0,
+      batteryState =
+        boundedEnumFromInt BatteryStateUnknown $
+          readDictIntegral dict "State" 0,
       batteryIsRechargeable = readDict dict "IsRechargable" True,
       batteryCapacity = readDict dict "Capacity" 0.0,
       batteryTechnology =
-        toEnum $ fromIntegral $ readDictIntegral dict "Technology" 0,
+        boundedEnumFromInt BatteryTechnologyUnknown $
+          fromIntegral $
+            readDictIntegral dict "Technology" 0,
       batteryUpdateTime = readDict dict "UpdateTime" 0,
       batteryLuminosity = readDict dict "Luminosity" 0.0,
       batteryTemperature = readDict dict "Temperature" 0.0,

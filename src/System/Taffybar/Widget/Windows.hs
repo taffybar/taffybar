@@ -261,18 +261,18 @@ windowsMenuIconSize :: Int32
 windowsMenuIconSize = 16
 
 getWindows :: WorkspaceSnapshot -> [WindowInfo]
-getWindows snapshot = reverse ordered
+getWindows snapshot = orderedBuilder []
   where
     allWindows =
       [ win
       | wsInfo <- snapshotWorkspaces snapshot,
         win <- workspaceWindows wsInfo
       ]
-    (_, ordered) = foldl keepFirst (Set.empty, []) allWindows
-    keepFirst (seen, acc) windowInfo
-      | windowIdentity windowInfo `Set.member` seen = (seen, acc)
+    (_, orderedBuilder) = foldl' keepFirst (Set.empty, id) allWindows
+    keepFirst (seen, build) windowInfo
+      | windowIdentity windowInfo `Set.member` seen = (seen, build)
       | otherwise =
-          (Set.insert (windowIdentity windowInfo) seen, windowInfo : acc)
+          (Set.insert (windowIdentity windowInfo) seen, build . (windowInfo :))
 
 getActiveWindow :: WorkspaceSnapshot -> Maybe WindowInfo
 getActiveWindow snapshot =

@@ -79,7 +79,6 @@ import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import Data.Aeson (FromJSON (..), eitherDecode', withObject, (.:))
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
 import Data.List (sortOn)
 import Data.Ord (Down (..))
@@ -419,8 +418,8 @@ hyprCommandJson args = HyprlandCommand {commandArgs = args, commandJson = True}
 hyprlandCommandToSocketCommand :: HyprlandCommand -> Either HyprlandError BS.ByteString
 hyprlandCommandToSocketCommand HyprlandCommand {commandArgs = args, commandJson = isJson}
   | null args = Left $ HyprlandCommandBuildFailed "No Hyprland command provided"
-  | isJson = Right $ BS8.pack $ "j/" ++ unwords args
-  | otherwise = Right $ BS8.pack $ unwords args
+  | isJson = Right $ TE.encodeUtf8 $ T.pack $ "j/" ++ unwords args
+  | otherwise = Right $ TE.encodeUtf8 $ T.pack $ unwords args
 
 -- | Run a Hyprland command, preferring the command socket if enabled.
 --

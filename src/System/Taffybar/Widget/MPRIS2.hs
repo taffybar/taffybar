@@ -297,7 +297,7 @@ simplePlayerWidget _ _ _ _ =
     WARNING
     "widget update called with no widget or %s"
     ("nowplaying" :: String)
-    >> return undefined
+    >> error "simplePlayerWidget: impossible widget update state"
 
 -- | This player widget constructor extends the default MPRIS2 row with previous,
 -- play/pause, and next buttons.
@@ -406,7 +406,7 @@ simplePlayerWidgetWithControls _ _ _ _ =
     WARNING
     "widget update called with no widget or %s"
     ("nowplaying" :: String)
-    >> return undefined
+    >> error "simplePlayerWidgetWithControls: impossible widget update state"
 
 -- | Construct a new MPRIS2 widget using the `simplePlayerWidget` constructor.
 mpris2New :: TaffyIO Gtk.Widget
