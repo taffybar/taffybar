@@ -34,7 +34,7 @@ import Data.Char (isAlphaNum, isDigit, toLower)
 import Data.Foldable (traverse_)
 import Data.IORef
 import Data.Int (Int32)
-import Data.List (sortOn, stripPrefix)
+import Data.List (isPrefixOf, sortOn, stripPrefix)
 import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybeToList)
 import Data.Ord (Down (..))
@@ -295,6 +295,10 @@ itemStableIdentity info =
 itemStableIdentityKey :: H.ItemInfo -> String
 itemStableIdentityKey info = "item-identity:" ++ itemStableIdentity info
 
+itemDBusAddress :: H.ItemInfo -> String
+itemDBusAddress info =
+  D.formatBusName (H.itemServiceName info) <> "|" <> D.formatObjectPath (H.itemServicePath info)
+
 orderingComponent :: Maybe String -> (Bool, String)
 orderingComponent value =
   case value >>= nonEmptyString of
@@ -313,6 +317,9 @@ unstableItemIdPrefixes =
 
 sharedItemIdPrefixes :: [String]
 sharedItemIdPrefixes = ["chrome_status_icon_", "systray_"]
+
+unstableServiceNamePrefixes :: [String]
+unstableServiceNamePrefixes = ["org.kde.StatusNotifierItem-"]
 
 matchingItemIdPrefix :: [String] -> String -> Maybe String
 matchingItemIdPrefix prefixes itemId =
@@ -349,15 +356,24 @@ itemIdOrderingToken info = do
   itemId <- H.itemId info >>= nonEmptyString
   return $ fromMaybe itemId (unstableItemIdPrefix itemId)
 
+itemServiceNameOrderingToken :: H.ItemInfo -> Maybe String
+itemServiceNameOrderingToken info =
+  let serviceName = D.formatBusName (H.itemServiceName info)
+   in if ":" `isPrefixOf` serviceName || any (`isPrefixOf` serviceName) unstableServiceNamePrefixes
+        then Nothing
+        else Just serviceName
+
 itemOrderingKey :: Maybe String -> H.ItemInfo -> [(Bool, String)]
 itemOrderingKey maybeProcessKey info =
   map
     orderingComponent
-    [ nonEmptyString (H.iconTitle info),
-      nonEmptyString (H.iconName info),
-      itemIdOrderingToken info,
+    [ Just (itemDBusAddress info),
       maybeProcessKey,
+      itemIdOrderingToken info,
+      nonEmptyString (H.iconName info),
+      nonEmptyString (H.iconTitle info),
       H.itemCategory info >>= nonEmptyString,
+      itemServiceNameOrderingToken info,
       show <$> H.menuPath info,
       Just (show (H.itemServicePath info)),
       Just (itemStableIdentity info)
@@ -450,11 +466,9 @@ processDisambiguationKeysForItems client infos = do
   pairs <- mapM withKey infos
   return $ M.fromList (catMaybes pairs)
   where
-    withKey info
-      | not (isLikelySharedItemIdForInfo info) = return Nothing
-      | otherwise = do
-          processKey <- processDisambiguationKeyForItem client info
-          return $ fmap (itemStableIdentity info,) processKey
+    withKey info = do
+      processKey <- processDisambiguationKeyForItem client info
+      return $ fmap (itemStableIdentity info,) processKey
 
 dedupe :: (Ord a) => [a] -> [a]
 dedupe = go Set.empty
@@ -818,7 +832,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     hoverInsideRef <- newIORef False
     hoverSerialRef <- newIORef (0 :: Int)
     animationSerialRef <- newIORef (0 :: Int)
-    animationVisibleCountRef <- newIORef (Nothing :: Maybe Int)
+    animationVisibleCountRef <- newIORef Nothing
     priorityEditModeRef <- newIORef prioritizedCollapsibleSNITrayStartPriorityEditMode
     maxVisibleIconsRef <- newIORef initialMaxVisibleIcons
     visibilityThresholdRef <- newIORef initialVisibilityThreshold
@@ -831,7 +845,10 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     outer <- Gtk.boxNew trayOrientation' 0
     _ <- widgetSetClassGI outer "sni-tray-collapsible"
     _ <- widgetSetClassGI outer "sni-tray-prioritized-collapsible"
-    outerWidget <- Gtk.toWidget outer
+    outerEventBox <- Gtk.eventBoxNew
+    _ <- widgetSetClassGI outerEventBox "sni-tray-hover-expand-target"
+    Gtk.containerAdd outerEventBox outer
+    outerWidget <- Gtk.toWidget outerEventBox
 
     trayContainer <- Gtk.boxNew trayOrientation' 0
     _ <- widgetSetClassGI trayContainer "sni-tray-collapsible-container"
@@ -1186,22 +1203,26 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
 
     when prioritizedCollapsibleSNITrayHoverExpand $ do
       Gtk.widgetAddEvents
-        settingsToggle
+        outerEventBox
         [ Gdk.EventMaskEnterNotifyMask,
           Gdk.EventMaskLeaveNotifyMask
         ]
+      Gtk.widgetAddEvents settingsToggle [Gdk.EventMaskEnterNotifyMask]
+      _ <- Gtk.onWidgetEnterNotifyEvent outerEventBox $ \_event -> do
+        writeIORef hoverInsideRef True
+        return False
+      _ <- Gtk.onWidgetLeaveNotifyEvent outerEventBox $ \_event -> do
+        writeIORef hoverInsideRef False
+        scheduleHoverExpanded False prioritizedCollapsibleSNITrayHoverCollapseDelayMs
+        return False
       _ <- Gtk.onWidgetEnterNotifyEvent settingsToggle $ \_event -> do
         writeIORef hoverInsideRef True
         scheduleHoverExpanded True prioritizedCollapsibleSNITrayHoverExpandDelayMs
         return False
-      _ <- Gtk.onWidgetLeaveNotifyEvent settingsToggle $ \_event -> do
-        writeIORef hoverInsideRef False
-        scheduleHoverExpanded False prioritizedCollapsibleSNITrayHoverCollapseDelayMs
-        return False
       return ()
 
     _ <-
-      Gtk.onWidgetDestroy outer $
+      Gtk.onWidgetDestroy outerEventBox $
         readIORef updateHandlerRef
           >>= traverse_
             ( \handlerId -> do
@@ -1221,7 +1242,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     installUpdateHandler
     Gtk.widgetShow tray
 
-    Gtk.widgetShowAll outer
+    Gtk.widgetShowAll outerWidget
     refreshPriorityModeToggle
     _ <- refresh
     return outerWidget

@@ -384,10 +384,13 @@ test-suite unit
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.Information.WakeupSpec
                , System.Taffybar.SimpleConfigSpec
+               , System.Taffybar.Widget.SNITray.PrioritizedCollapsibleSpec
                , System.Taffybar.Widget.Workspaces.ChannelSpec
                , System.Taffybar.Widget.WindowsSpec
   build-depends: data-default
                , bytestring
+               , containers
+               , dbus
                , directory
                , JuicyPixels
                , filepath
@@ -397,6 +400,7 @@ test-suite unit
                , hspec-core
                , hspec-golden
                , network
+               , status-notifier-item
                , taffybar
                , taffybar:testlib
                , typed-process
