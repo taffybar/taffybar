@@ -47,6 +47,7 @@ import Control.Concurrent.STM.TChan
     writeTChan,
   )
 import Control.Exception.Enclosed (catchAny)
+import qualified Data.List as List
 import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
 import Data.Time.Clock.POSIX (getPOSIXTime)
@@ -219,7 +220,7 @@ nextDueNs :: M.Map Word64 IntervalRegistration -> Maybe Word64
 nextDueNs registrations =
   case intervalNextDueNs <$> M.elems registrations of
     [] -> Nothing
-    firstDue : restDue -> Just $ foldl' min firstDue restDue
+    firstDue : restDue -> Just $ List.foldl' min firstDue restDue
 
 secondsToNanoseconds :: Int -> Either String Word64
 secondsToNanoseconds seconds

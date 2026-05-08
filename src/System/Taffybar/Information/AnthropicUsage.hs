@@ -33,6 +33,7 @@ import Data.Aeson
 import Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Data.List (sortOn)
+import qualified Data.List as List
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -377,7 +378,7 @@ transcriptLineToEntry path lineNumber bytes = do
 dedupeTranscriptEntries :: [TranscriptUsageEntry] -> [TranscriptUsageEntry]
 dedupeTranscriptEntries =
   snd
-    . foldl'
+    . List.foldl'
       ( \(seen, entries) entry ->
           let requestId = transcriptUsageRequestId entry
            in if Set.member requestId seen
@@ -414,7 +415,7 @@ buildActiveBlockWindow now name duration budget entries =
 
 activeBlock :: UTCTime -> NominalDiffTime -> [TranscriptUsageEntry] -> Maybe (UTCTime, [TranscriptUsageEntry])
 activeBlock now duration entries =
-  case foldl' addToBlock Nothing (sortOn transcriptUsageTimestamp entries) of
+  case List.foldl' addToBlock Nothing (sortOn transcriptUsageTimestamp entries) of
     Nothing -> Nothing
     Just (start, blockEntries)
       | addUTCTime duration start >= now -> Just (start, blockEntries)

@@ -29,6 +29,7 @@ import Data.Default (Default (..))
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int32)
 import Data.List (find)
+import qualified Data.List as List
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified GI.GdkPixbuf.Objects.Pixbuf as Gdk
@@ -268,7 +269,7 @@ getWindows snapshot = orderedBuilder []
       | wsInfo <- snapshotWorkspaces snapshot,
         win <- workspaceWindows wsInfo
       ]
-    (_, orderedBuilder) = foldl' keepFirst (Set.empty, id) allWindows
+    (_, orderedBuilder) = List.foldl' keepFirst (Set.empty, id) allWindows
     keepFirst (seen, build) windowInfo
       | windowIdentity windowInfo `Set.member` seen = (seen, build)
       | otherwise =

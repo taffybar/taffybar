@@ -44,6 +44,7 @@ import DBus.Client
 import DBus.Internal.Types (Serial (..))
 import qualified DBus.TH as DBus
 import qualified Data.ByteString as BS
+import qualified Data.List as List
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe, listToMaybe)
@@ -470,7 +471,7 @@ pickBestActiveConnection (firstInfo : restInfos) =
       betterActiveConnection a b
         | rank (activeConnectionType a) <= rank (activeConnectionType b) = a
         | otherwise = b
-   in Just $ foldl' betterActiveConnection firstInfo restInfos
+   in Just $ List.foldl' betterActiveConnection firstInfo restInfos
 
 toNetworkType :: Text -> NetworkType
 toNetworkType t

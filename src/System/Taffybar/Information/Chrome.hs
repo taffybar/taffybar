@@ -11,6 +11,7 @@ import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Class
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.List as List
 import qualified Data.Map as M
 import Data.Maybe
 import qualified GI.GLib as Gdk
@@ -133,4 +134,4 @@ updateTabMap tabMap =
     wins <- getWindows
     titles <- mapM getWindowTitle wins
     let winsWithTitles = zip wins titles
-    return $ foldl' addTabIdEntry tabMap winsWithTitles
+    return $ List.foldl' addTabIdEntry tabMap winsWithTitles
