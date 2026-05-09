@@ -19,7 +19,7 @@ module System.Taffybar.Widget.SNITray.PrioritizedCollapsible
 where
 
 import Control.Applicative ((<|>))
-import Control.Monad (forM_, guard, void, when)
+import Control.Monad (forM_, guard, unless, void, when)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import qualified DBus as D
@@ -33,7 +33,7 @@ import qualified Data.ByteString.Char8 as BS8
 import Data.Char (isAlphaNum, isDigit, toLower)
 import Data.Foldable (traverse_)
 import Data.IORef
-import Data.Int (Int32)
+import Data.Int (Int32, Int64)
 import Data.List (intercalate, isPrefixOf, sortOn, stripPrefix)
 import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybeToList)
@@ -166,6 +166,8 @@ data PrioritizedCollapsibleSNITrayParams = PrioritizedCollapsibleSNITrayParams
     prioritizedCollapsibleSNITrayHoverExpandDelayMs :: Word32,
     -- | Delay before hover expansion collapses again.
     prioritizedCollapsibleSNITrayHoverCollapseDelayMs :: Word32,
+    -- | Duration for the clipped tray extent animation while hover expanding/collapsing.
+    prioritizedCollapsibleSNITrayHoverAnimationDurationMs :: Word32,
     -- | Label renderer for the priority-edit-mode toggle.
     --
     -- Argument: @editing@.
@@ -192,6 +194,7 @@ defaultPrioritizedCollapsibleSNITrayParams =
       prioritizedCollapsibleSNITrayHoverExpand = False,
       prioritizedCollapsibleSNITrayHoverExpandDelayMs = 120,
       prioritizedCollapsibleSNITrayHoverCollapseDelayMs = 500,
+      prioritizedCollapsibleSNITrayHoverAnimationDurationMs = 180,
       prioritizedCollapsibleSNITrayPriorityModeLabel = defaultPrioritizedCollapsibleSNITrayPriorityModeLabel
     }
 
@@ -828,6 +831,8 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     hoverExpandedRef <- newIORef False
     hoverInsideRef <- newIORef False
     hoverSerialRef <- newIORef (0 :: Int)
+    animationSerialRef <- newIORef (0 :: Int)
+    animationActiveRef <- newIORef False
     priorityEditModeRef <- newIORef prioritizedCollapsibleSNITrayStartPriorityEditMode
     maxVisibleIconsRef <- newIORef initialMaxVisibleIcons
     visibilityThresholdRef <- newIORef initialVisibilityThreshold
@@ -847,6 +852,16 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
 
     trayContainer <- Gtk.boxNew trayOrientation' 0
     _ <- widgetSetClassGI trayContainer "sni-tray-collapsible-container"
+    trayClipper <-
+      Gtk.scrolledWindowNew
+        (Nothing :: Maybe Gtk.Adjustment)
+        (Nothing :: Maybe Gtk.Adjustment)
+    Gtk.scrolledWindowSetPolicy trayClipper Gtk.PolicyTypeNever Gtk.PolicyTypeNever
+    Gtk.scrolledWindowSetShadowType trayClipper Gtk.ShadowTypeNone
+    Gtk.scrolledWindowSetOverlayScrolling trayClipper False
+    Gtk.scrolledWindowSetPropagateNaturalWidth trayClipper False
+    Gtk.scrolledWindowSetPropagateNaturalHeight trayClipper False
+    _ <- widgetSetClassGI trayClipper "sni-tray-collapsible-clipper"
 
     overflowCountLabel <- Gtk.labelNew Nothing
     _ <- widgetSetClassGI overflowCountLabel "sni-tray-overflow-count-label"
@@ -1010,6 +1025,81 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
               then totalCount
               else collapsedVisibleCount
 
+        childPreferredExtent child =
+          case trayOrientation' of
+            Gtk.OrientationVertical -> snd <$> Gtk.widgetGetPreferredHeight child
+            _ -> snd <$> Gtk.widgetGetPreferredWidth child
+
+        preferredTrayExtentForCount tray children visibleCount = do
+          childExtents <- mapM childPreferredExtent (take visibleCount children)
+          spacing <- Gtk.boxGetSpacing tray
+          let spacingExtent =
+                if visibleCount > 1
+                  then fromIntegral (visibleCount - 1) * spacing
+                  else 0
+          return $ sum childExtents + spacingExtent
+
+        setTrayClipperExtent extent =
+          case trayOrientation' of
+            Gtk.OrientationVertical ->
+              Gtk.widgetSetSizeRequest trayClipper (-1) (fromIntegral extent)
+            _ ->
+              Gtk.widgetSetSizeRequest trayClipper (fromIntegral extent) (-1)
+
+        allocatedTrayClipperExtent = do
+          allocatedExtent <-
+            case trayOrientation' of
+              Gtk.OrientationVertical -> Gtk.widgetGetAllocatedHeight trayClipper
+              _ -> Gtk.widgetGetAllocatedWidth trayClipper
+          return $ max 0 allocatedExtent
+
+        easeOutCubic :: Double -> Double
+        easeOutCubic progress =
+          1 - ((1 - progress) ^ (3 :: Int))
+
+        animateTrayExtentTo tray targetVisibleCount = do
+          modifyIORef' animationSerialRef (+ 1)
+          animationSerial <- readIORef animationSerialRef
+          writeIORef animationActiveRef True
+          children <- Gtk.containerGetChildren tray
+          forM_ children Gtk.widgetShow
+          startExtent <- allocatedTrayClipperExtent
+          targetExtent <- preferredTrayExtentForCount tray children targetVisibleCount
+          let durationMs = prioritizedCollapsibleSNITrayHoverAnimationDurationMs
+          if durationMs == 0 || startExtent == targetExtent
+            then do
+              setTrayClipperExtent targetExtent
+              writeIORef animationActiveRef False
+              void $ refreshTray tray
+            else do
+              startTime <- GLib.getMonotonicTime
+              let durationUs = fromIntegral durationMs * 1000 :: Int64
+                  extentAt now =
+                    let elapsed = max 0 (now - startTime)
+                        progress =
+                          min
+                            1
+                            (fromIntegral elapsed / fromIntegral durationUs :: Double)
+                        eased = easeOutCubic progress
+                     in round $
+                          fromIntegral startExtent
+                            + (fromIntegral (targetExtent - startExtent) * eased :: Double)
+              void $
+                GLib.timeoutAdd GLib.PRIORITY_DEFAULT 16 $ do
+                  currentSerial <- readIORef animationSerialRef
+                  if currentSerial /= animationSerial
+                    then return False
+                    else do
+                      now <- GLib.getMonotonicTime
+                      setTrayClipperExtent (extentAt now)
+                      if now - startTime >= durationUs
+                        then do
+                          setTrayClipperExtent targetExtent
+                          writeIORef animationActiveRef False
+                          void $ refreshTray tray
+                          return False
+                        else return True
+
         setHoverExpanded shouldExpand = do
           wasHoverExpanded <- readIORef hoverExpandedRef
           writeIORef hoverExpandedRef shouldExpand
@@ -1018,8 +1108,10 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
             Nothing -> return ()
             Just tray ->
               when (wasHoverExpanded /= shouldExpand) $
-                void $
-                  refreshTray tray
+                do
+                  children <- Gtk.containerGetChildren tray
+                  targetVisibleCount <- computeNaturalVisibleCount (length children)
+                  animateTrayExtentTo tray targetVisibleCount
 
         scheduleHoverExpanded shouldExpand delayMs = do
           modifyIORef' hoverSerialRef (+ 1)
@@ -1037,6 +1129,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
 
         refreshTray tray = do
           effectiveExpanded <- getEffectiveExpanded
+          animationActive <- readIORef animationActiveRef
           orderedInfos <- readIORef orderedInfosRef
           reorderTrayChildrenByIdentities tray (map itemStableIdentity orderedInfos)
           children <- Gtk.containerGetChildren tray
@@ -1074,20 +1167,24 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
           childIdentities <- mapM Tray.getTrayItemIdentity children
           prioritizedTrayLog DEBUG $
             printf
-              "Prioritized tray rendered order expanded=%s visible=%d hidden=%d total=%d children=[%s]"
+              "Prioritized tray rendered order expanded=%s animating=%s visible=%d hidden=%d total=%d children=[%s]"
               (show effectiveExpanded)
+              (show animationActive)
               visibleCount
               hiddenCount
               totalCount
               (intercalate " | " (zipWith describeChildIdentity [0 :: Int ..] childIdentities))
 
           forM_ (zip [0 :: Int ..] children) $ \(childIndex, child) -> do
-            let shouldShow = childIndex < visibleCount
+            let shouldShow = animationActive || childIndex < visibleCount
             isVisible <- Gtk.widgetGetVisible child
             when (isVisible /= shouldShow) $
               if shouldShow
                 then Gtk.widgetShow child
                 else Gtk.widgetHide child
+          unless animationActive $ do
+            visibleExtent <- preferredTrayExtentForCount tray children visibleCount
+            setTrayClipperExtent visibleExtent
           writeIORef hiddenCountRef hiddenCount
 
           if hiddenCount > 0
@@ -1222,7 +1319,8 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
 
     _ <- updateOrderedInfos True
     tray <- buildTrayForPrioritizedWrapper
-    Gtk.boxPackStart trayContainer tray False False 0
+    Gtk.containerAdd trayClipper tray
+    Gtk.boxPackStart trayContainer trayClipper False False 0
     writeIORef trayRef (Just tray)
     installUpdateHandler
     Gtk.widgetShow tray
