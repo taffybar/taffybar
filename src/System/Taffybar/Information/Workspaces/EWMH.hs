@@ -315,7 +315,8 @@ getWindowInfo activeWindow urgentWindows window = do
         windowPosition = wPosition,
         windowUrgent = window `elem` urgentWindows,
         windowActive = Just window == activeWindow,
-        windowMinimized = wMinimized
+        windowMinimized = wMinimized,
+        windowPinned = False
       }
 
 getWindowPosition :: X11Window -> X11Property (Maybe (Int, Int))

@@ -15,7 +15,8 @@ mkX11Window wid minimized pos =
       windowPosition = pos,
       windowUrgent = False,
       windowActive = False,
-      windowMinimized = minimized
+      windowMinimized = minimized,
+      windowPinned = False
     }
 
 mkWorkspace :: Int -> String -> WorkspaceViewState -> [WindowInfo] -> WorkspaceInfo

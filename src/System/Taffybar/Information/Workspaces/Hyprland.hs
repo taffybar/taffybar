@@ -98,6 +98,7 @@ isRelevantHyprlandWorkspaceEvent line =
                  "movewindow",
                  "movewindowv2",
                  "moveworkspace",
+                 "pin",
                  "renameworkspace",
                  "createworkspace",
                  "destroyworkspace",
@@ -359,5 +360,6 @@ windowFromClient activeAddr client =
           windowPosition = HyprTypes.hyprClientAt client,
           windowUrgent = HyprTypes.hyprClientUrgent client,
           windowActive = active,
-          windowMinimized = minimized
+          windowMinimized = minimized,
+          windowPinned = HyprTypes.hyprClientPinned client
         }

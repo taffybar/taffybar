@@ -105,6 +105,7 @@ data HyprlandClientInfo = HyprlandClientInfo
     hyprClientHidden :: Bool,
     hyprClientMapped :: Bool,
     hyprClientUrgent :: Bool,
+    hyprClientPinned :: Bool,
     hyprClientAt :: Maybe (Int, Int)
   }
   deriving (Show, Eq)
@@ -123,6 +124,7 @@ instance FromJSON HyprlandClientInfo where
       <*> v .:? "hidden" .!= False
       <*> v .:? "mapped" .!= True
       <*> v .:? "urgent" .!= False
+      <*> v .:? "pinned" .!= False
       <*> pure at
 
 -- | Result from @hyprctl -j activeworkspace@.

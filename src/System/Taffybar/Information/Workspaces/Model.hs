@@ -112,7 +112,8 @@ data WindowInfo = WindowInfo
     windowPosition :: Maybe (Int, Int),
     windowUrgent :: Bool,
     windowActive :: Bool,
-    windowMinimized :: Bool
+    windowMinimized :: Bool,
+    windowPinned :: Bool
   }
   deriving (Eq, Show)
 

@@ -568,9 +568,13 @@ updateIconWidget iconWidget windowData = do
     liftIO $
       iconForceUpdate iconWidget
   let statusString = maybe "inactive" getWindowStatusString windowData
+      stateClasses =
+        case windowData of
+          Just windowInfo | windowPinned windowInfo -> [statusString, "pinned"]
+          _ -> [statusString]
   updateWidgetClasses
     (iconContainer iconWidget)
-    [statusString]
+    stateClasses
     windowIconStatusClasses
 
 windowIconPixbufKey :: WindowInfo -> (WindowIdentity, [T.Text])
@@ -578,7 +582,7 @@ windowIconPixbufKey windowInfo =
   (windowIdentity windowInfo, windowClassHints windowInfo)
 
 windowIconStatusClasses :: [T.Text]
-windowIconStatusClasses = ["active", "urgent", "minimized", "normal", "inactive"]
+windowIconStatusClasses = ["active", "urgent", "minimized", "normal", "inactive", "pinned"]
 
 getWindowStatusString :: WindowInfo -> T.Text
 getWindowStatusString windowInfo =
