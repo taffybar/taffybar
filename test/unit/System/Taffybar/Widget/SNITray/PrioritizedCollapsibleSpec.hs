@@ -1,15 +1,15 @@
 module System.Taffybar.Widget.SNITray.PrioritizedCollapsibleSpec (spec) where
 
-import qualified Data.Map.Strict as M
 import DBus (busName_, formatBusName, objectPath_)
-import qualified StatusNotifier.Host.Service as H
+import Data.Map.Strict qualified as M
+import StatusNotifier.Host.Service qualified as H
 import System.Taffybar.Widget.SNITray.PrioritizedCollapsible
 import Test.Hspec
 
 spec :: Spec
 spec =
   describe "sortedInfosByPriority" $ do
-    it "uses D-Bus address before dynamic metadata for equal priorities" $ do
+    it "uses stable metadata before D-Bus address for equal priorities" $ do
       let beta =
             testItem
               ":1.1"
@@ -34,9 +34,9 @@ spec =
               (const Nothing)
               [beta, alpha]
 
-      map H.iconTitle sorted `shouldBe` ["Zeta", "Alpha"]
+      map H.iconTitle sorted `shouldBe` ["Alpha", "Zeta"]
 
-    it "uses D-Bus address before process keys" $ do
+    it "uses process keys before D-Bus address" $ do
       let zeta =
             testItem
               ":1.1"
@@ -66,7 +66,7 @@ spec =
               processKey
               [zeta, alpha]
 
-      map H.iconTitle sorted `shouldBe` ["Zeta", "Alpha"]
+      map H.iconTitle sorted `shouldBe` ["Alpha", "Zeta"]
 
     it "keeps priority ahead of the semantic tie-breaker" $ do
       let beta =

@@ -19,7 +19,7 @@ module System.Taffybar.Widget.SNITray.PrioritizedCollapsible
 where
 
 import Control.Applicative ((<|>))
-import Control.Monad (filterM, forM_, guard, void, when)
+import Control.Monad (forM_, guard, void, when)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import qualified DBus as D
@@ -34,7 +34,7 @@ import Data.Char (isAlphaNum, isDigit, toLower)
 import Data.Foldable (traverse_)
 import Data.IORef
 import Data.Int (Int32)
-import Data.List (isPrefixOf, sortOn, stripPrefix)
+import Data.List (intercalate, isPrefixOf, sortOn, stripPrefix)
 import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybeToList)
 import Data.Ord (Down (..))
@@ -46,7 +46,7 @@ import qualified Data.Yaml as Y
 import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
-import Graphics.UI.GIGtkStrut (StrutAlignment (End))
+import Graphics.UI.GIGtkStrut (StrutAlignment (Beginning))
 import qualified StatusNotifier.Host.Service as H
 import StatusNotifier.Tray
 import qualified StatusNotifier.Tray as Tray
@@ -166,8 +166,6 @@ data PrioritizedCollapsibleSNITrayParams = PrioritizedCollapsibleSNITrayParams
     prioritizedCollapsibleSNITrayHoverExpandDelayMs :: Word32,
     -- | Delay before hover expansion collapses again.
     prioritizedCollapsibleSNITrayHoverCollapseDelayMs :: Word32,
-    -- | Time between per-icon reveal steps while hover expanding/collapsing.
-    prioritizedCollapsibleSNITrayHoverAnimationStepMs :: Word32,
     -- | Label renderer for the priority-edit-mode toggle.
     --
     -- Argument: @editing@.
@@ -194,7 +192,6 @@ defaultPrioritizedCollapsibleSNITrayParams =
       prioritizedCollapsibleSNITrayHoverExpand = False,
       prioritizedCollapsibleSNITrayHoverExpandDelayMs = 120,
       prioritizedCollapsibleSNITrayHoverCollapseDelayMs = 500,
-      prioritizedCollapsibleSNITrayHoverAnimationStepMs = 24,
       prioritizedCollapsibleSNITrayPriorityModeLabel = defaultPrioritizedCollapsibleSNITrayPriorityModeLabel
     }
 
@@ -367,8 +364,7 @@ itemOrderingKey :: Maybe String -> H.ItemInfo -> [(Bool, String)]
 itemOrderingKey maybeProcessKey info =
   map
     orderingComponent
-    [ Just (itemDBusAddress info),
-      maybeProcessKey,
+    [ maybeProcessKey,
       itemIdOrderingToken info,
       nonEmptyString (H.iconName info),
       nonEmptyString (H.iconTitle info),
@@ -376,7 +372,7 @@ itemOrderingKey maybeProcessKey info =
       itemServiceNameOrderingToken info,
       show <$> H.menuPath info,
       Just (show (H.itemServicePath info)),
-      Just (itemStableIdentity info)
+      Just (itemDBusAddress info)
     ]
 
 sharedItemIdPrefixIconNameKey :: H.ItemInfo -> Maybe String
@@ -525,34 +521,40 @@ itemPriorityFromMap priorityMin priorityMax defaultPriority priorities maybeProc
           mapMaybe (`M.lookup` priorities) (priorityLookupKeyCandidates maybeProcessKey info)
    in clampPriority (fromMaybe defaultPriority matchedPriority)
 
-itemIdentityMatcher :: H.ItemInfo -> Tray.TrayItemMatcher
-itemIdentityMatcher info =
-  let stableIdentity = itemStableIdentity info
-   in mkTrayItemMatcher
-        ("priority:identity:" <> stableIdentity)
-        (\candidate -> itemStableIdentity candidate == stableIdentity)
+formatMaybe :: Maybe String -> String
+formatMaybe = fromMaybe "-"
 
-priorityMatchersFromMapAndItems ::
-  Bool ->
-  Int ->
-  Int ->
-  Int ->
-  SNIPriorityMap ->
+describeItemForOrder ::
+  (H.ItemInfo -> Int) ->
+  (H.ItemInfo -> Maybe String) ->
+  H.ItemInfo ->
+  String
+describeItemForOrder priorityForInfo processKeyForInfo info =
+  printf
+    "p=%d process=%s itemId=%s icon=%s title=%s category=%s service=%s path=%s"
+    (priorityForInfo info)
+    (formatMaybe $ processKeyForInfo info)
+    (formatMaybe $ H.itemId info)
+    (H.iconName info)
+    (H.iconTitle info)
+    (formatMaybe $ H.itemCategory info)
+    (D.formatBusName $ H.itemServiceName info)
+    (D.formatObjectPath $ H.itemServicePath info)
+
+describeOrderedInfos ::
+  (H.ItemInfo -> Int) ->
   (H.ItemInfo -> Maybe String) ->
   [H.ItemInfo] ->
-  [Tray.TrayItemMatcher]
-priorityMatchersFromMapAndItems highPriorityFirstInMatcherOrder priorityMin priorityMax defaultPriority priorities processKeyForInfo infos =
-  let sortedInfos =
-        sortedInfosByPriority
-          highPriorityFirstInMatcherOrder
-          priorityMin
-          priorityMax
-          defaultPriority
-          priorities
-          processKeyForInfo
-          infos
-      fallbackMatcher = mkTrayItemMatcher "priority:identity:fallback" (const True)
-   in map itemIdentityMatcher sortedInfos ++ [fallbackMatcher]
+  String
+describeOrderedInfos priorityForInfo processKeyForInfo infos =
+  intercalate
+    " | "
+    [ printf
+        "%d:{%s}"
+        index
+        (describeItemForOrder priorityForInfo processKeyForInfo info)
+    | (index, info) <- zip [0 :: Int ..] infos
+    ]
 
 sortedInfosByPriority ::
   Bool ->
@@ -563,7 +565,7 @@ sortedInfosByPriority ::
   (H.ItemInfo -> Maybe String) ->
   [H.ItemInfo] ->
   [H.ItemInfo]
-sortedInfosByPriority highPriorityFirstInMatcherOrder priorityMin priorityMax defaultPriority priorities processKeyForInfo infos =
+sortedInfosByPriority highPriorityFirstInTrayOrder priorityMin priorityMax defaultPriority priorities processKeyForInfo infos =
   let itemPriority info =
         itemPriorityFromMap
           priorityMin
@@ -573,12 +575,10 @@ sortedInfosByPriority highPriorityFirstInMatcherOrder priorityMin priorityMax de
           (processKeyForInfo info)
           info
       prioritySortKey info =
-        if highPriorityFirstInMatcherOrder
+        if highPriorityFirstInTrayOrder
           then negate (itemPriority info)
           else itemPriority info
-   in -- Matchers may need to be reversed to keep higher numeric priorities on the
-      -- visual left when the tray is end-aligned.
-      sortOn
+   in sortOn
         (\info -> (prioritySortKey info, itemOrderingKey (processKeyForInfo info) info))
         infos
 
@@ -806,10 +806,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
         defaultPriority = clampPriority prioritizedCollapsibleSNITrayDefaultPriority
         visibilityThreshold = clampPriority <$> prioritizedCollapsibleSNITrayVisibilityThreshold
         trayOrientation' = trayOrientation sniTrayTrayParams
-        highPriorityFirstInMatcherOrder =
-          case trayAlignment sniTrayTrayParams of
-            End -> False
-            _ -> True
+        highPriorityFirstInTrayOrder = True
 
     statePath <- resolveSNIPriorityStateFile prioritizedCollapsibleSNITrayPriorityStateFile
     persistedPriorityFile <- loadSNIPriorityFileFromFile statePath
@@ -831,8 +828,6 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     hoverExpandedRef <- newIORef False
     hoverInsideRef <- newIORef False
     hoverSerialRef <- newIORef (0 :: Int)
-    animationSerialRef <- newIORef (0 :: Int)
-    animationVisibleCountRef <- newIORef Nothing
     priorityEditModeRef <- newIORef prioritizedCollapsibleSNITrayStartPriorityEditMode
     maxVisibleIconsRef <- newIORef initialMaxVisibleIcons
     visibilityThresholdRef <- newIORef initialVisibilityThreshold
@@ -894,9 +889,17 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
           when recomputeProcessKeys $
             writeIORef processDisambiguationKeysRef processKeyMap
           priorities <- readIORef prioritiesRef
-          let orderedInfos =
+          let priorityForInfo info =
+                itemPriorityFromMap
+                  priorityMin
+                  priorityMax
+                  defaultPriority
+                  priorities
+                  (processKeyForInfoFromMap processKeyMap info)
+                  info
+              orderedInfos =
                 sortedInfosByPriority
-                  highPriorityFirstInMatcherOrder
+                  highPriorityFirstInTrayOrder
                   priorityMin
                   priorityMax
                   defaultPriority
@@ -904,6 +907,12 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                   (processKeyForInfoFromMap processKeyMap)
                   infos
           writeIORef orderedInfosRef orderedInfos
+          prioritizedTrayLog DEBUG $
+            printf
+              "Prioritized tray computed order recomputeProcessKeys=%s count=%d order=[%s]"
+              (show recomputeProcessKeys)
+              (length orderedInfos)
+              (describeOrderedInfos priorityForInfo (processKeyForInfoFromMap processKeyMap) orderedInfos)
           return orderedInfos
 
         scheduleRefresh recomputeProcessKeys waitForExactChildCount updateType = do
@@ -1001,57 +1010,16 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
               then totalCount
               else collapsedVisibleCount
 
-        animateVisibleCountTo tray targetVisibleCount = do
-          modifyIORef' animationSerialRef (+ 1)
-          animationSerial <- readIORef animationSerialRef
-          children <- Gtk.containerGetChildren tray
-          visibleChildren <- filterM Gtk.widgetGetVisible children
-          let totalCount = length children
-              startVisibleCount = length visibleChildren
-              clampedTarget = max 0 (min totalCount targetVisibleCount)
-              step
-                | clampedTarget > startVisibleCount = 1
-                | clampedTarget < startVisibleCount = -1
-                | otherwise = 0
-          if step == 0
-            then do
-              writeIORef animationVisibleCountRef Nothing
-              void $ refreshTray tray
-            else do
-              currentVisibleCountRef <- newIORef startVisibleCount
-              void $
-                GLib.timeoutAdd
-                  GLib.PRIORITY_DEFAULT
-                  (max 1 prioritizedCollapsibleSNITrayHoverAnimationStepMs)
-                  $ do
-                    currentSerial <- readIORef animationSerialRef
-                    if currentSerial /= animationSerial
-                      then return False
-                      else do
-                        currentVisibleCount <- readIORef currentVisibleCountRef
-                        let nextVisibleCount = currentVisibleCount + step
-                        writeIORef currentVisibleCountRef nextVisibleCount
-                        writeIORef animationVisibleCountRef (Just nextVisibleCount)
-                        void $ refreshTray tray
-                        if nextVisibleCount == clampedTarget
-                          then do
-                            writeIORef animationVisibleCountRef Nothing
-                            void $ refreshTray tray
-                            return False
-                          else return True
-
         setHoverExpanded shouldExpand = do
           wasHoverExpanded <- readIORef hoverExpandedRef
           writeIORef hoverExpandedRef shouldExpand
           maybeTray <- readIORef trayRef
           case maybeTray of
             Nothing -> return ()
-            Just tray -> do
-              children <- Gtk.containerGetChildren tray
-              targetVisibleCount <- computeNaturalVisibleCount (length children)
-              if wasHoverExpanded == shouldExpand
-                then void $ refreshTray tray
-                else animateVisibleCountTo tray targetVisibleCount
+            Just tray ->
+              when (wasHoverExpanded /= shouldExpand) $
+                void $
+                  refreshTray tray
 
         scheduleHoverExpanded shouldExpand delayMs = do
           modifyIORef' hoverSerialRef (+ 1)
@@ -1069,22 +1037,49 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
 
         refreshTray tray = do
           effectiveExpanded <- getEffectiveExpanded
-          animationVisibleCount <- readIORef animationVisibleCountRef
           orderedInfos <- readIORef orderedInfosRef
           reorderTrayChildrenByIdentities tray (map itemStableIdentity orderedInfos)
           children <- Gtk.containerGetChildren tray
 
           naturalVisibleCount <- computeNaturalVisibleCount (length children)
+          priorities <- readIORef prioritiesRef
+          processKeyMap <- readIORef processDisambiguationKeysRef
           let totalCount = length children
               visibleCount =
-                max
-                  0
-                  ( min
-                      totalCount
-                      (fromMaybe naturalVisibleCount animationVisibleCount)
-                  )
+                max 0 (min totalCount naturalVisibleCount)
               hiddenCount = max 0 (totalCount - visibleCount)
               hiddenCountText = T.pack (show hiddenCount)
+              priorityForInfo info =
+                itemPriorityFromMap
+                  priorityMin
+                  priorityMax
+                  defaultPriority
+                  priorities
+                  (processKeyForInfoFromMap processKeyMap info)
+                  info
+              orderedInfoByIdentity =
+                M.fromList [(itemStableIdentity info, info) | info <- orderedInfos]
+              describeChildIdentity index maybeIdentity =
+                case maybeIdentity >>= (`M.lookup` orderedInfoByIdentity) of
+                  Just info ->
+                    printf
+                      "%d:{%s}"
+                      index
+                      (describeItemForOrder priorityForInfo (processKeyForInfoFromMap processKeyMap) info)
+                  Nothing ->
+                    printf
+                      "%d:{identity=%s}"
+                      index
+                      (formatMaybe maybeIdentity)
+          childIdentities <- mapM Tray.getTrayItemIdentity children
+          prioritizedTrayLog DEBUG $
+            printf
+              "Prioritized tray rendered order expanded=%s visible=%d hidden=%d total=%d children=[%s]"
+              (show effectiveExpanded)
+              visibleCount
+              hiddenCount
+              totalCount
+              (intercalate " | " (zipWith describeChildIdentity [0 :: Int ..] childIdentities))
 
           forM_ (zip [0 :: Int ..] children) $ \(childIndex, child) -> do
             let shouldShow = childIndex < visibleCount
@@ -1146,20 +1141,8 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                   (hashUnique handlerId)
               writeIORef updateHandlerRef (Just handlerId)
 
-        buildTrayWithPriorities priorities processKeyMap infos = do
-          let priorityConfig =
-                sniTrayPriorityConfig
-                  { trayPriorityMatchers =
-                      priorityMatchersFromMapAndItems
-                        highPriorityFirstInMatcherOrder
-                        priorityMin
-                        priorityMax
-                        defaultPriority
-                        priorities
-                        (processKeyForInfoFromMap processKeyMap)
-                        infos
-                  }
-              baseHooks = trayEventHooks sniTrayTrayParams
+        buildTrayForPrioritizedWrapper = do
+          let baseHooks = trayEventHooks sniTrayTrayParams
               baseClickHook = trayClickHook baseHooks
               combinedClickHook clickContext = do
                 editMode <- readIORef priorityEditModeRef
@@ -1171,12 +1154,16 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                     Just clickHook -> clickHook clickContext
                     Nothing -> return UseDefaultClickAction
               trayParams =
+                -- This wrapper owns ordering and visibility. Keep the inner
+                -- tray as a widget factory with straightforward child packing.
                 sniTrayTrayParams
-                  { trayEventHooks =
+                  { trayAlignment = Beginning,
+                    trayPriorityConfig = Tray.defaultTrayPriorityConfig,
+                    trayEventHooks =
                       baseHooks {trayClickHook = Just combinedClickHook},
                     trayShowNewIconsImmediately = False
                   }
-          tray <- buildTray host client trayParams {trayPriorityConfig = priorityConfig}
+          tray <- buildTray host client trayParams
           _ <- widgetSetClassGI tray "sni-tray"
           return tray
 
@@ -1233,10 +1220,8 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                 H.removeUpdateHandler host handlerId
             )
 
-    orderedInfos <- updateOrderedInfos True
-    priorities <- readIORef prioritiesRef
-    processKeyMap <- readIORef processDisambiguationKeysRef
-    tray <- buildTrayWithPriorities priorities processKeyMap orderedInfos
+    _ <- updateOrderedInfos True
+    tray <- buildTrayForPrioritizedWrapper
     Gtk.boxPackStart trayContainer tray False False 0
     writeIORef trayRef (Just tray)
     installUpdateHandler
