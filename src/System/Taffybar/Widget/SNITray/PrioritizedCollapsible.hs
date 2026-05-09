@@ -194,7 +194,7 @@ defaultPrioritizedCollapsibleSNITrayParams =
       prioritizedCollapsibleSNITrayHoverExpand = False,
       prioritizedCollapsibleSNITrayHoverExpandDelayMs = 120,
       prioritizedCollapsibleSNITrayHoverCollapseDelayMs = 500,
-      prioritizedCollapsibleSNITrayHoverAnimationDurationMs = 180,
+      prioritizedCollapsibleSNITrayHoverAnimationDurationMs = 320,
       prioritizedCollapsibleSNITrayPriorityModeLabel = defaultPrioritizedCollapsibleSNITrayPriorityModeLabel
     }
 
