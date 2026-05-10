@@ -21,7 +21,7 @@ module System.Taffybar.Information.Workspaces.Hyprland
     applySpecialWorkspaceWindowTargets,
     specialWorkspaceWindowsToNamed,
     specialWorkspaceWindowsToMinimized,
-    sortHyprlandWorkspaces,
+    sortWorkspaceInfos,
     defaultHyprlandWorkspaceState,
     isRelevantHyprlandWorkspaceEvent,
     getHyprlandWorkspaceStateAndEventChansAndVar,
@@ -286,7 +286,6 @@ buildHyprlandWorkspaceSnapshot = do
        in return $ if T.null address then Nothing else Just address
 
   let windowsByWorkspace = collectWorkspaceWindows activeWindowAddress clients
-      sortedWorkspaces = sortHyprlandWorkspaces workspaces
       visibleWorkspaceIds =
         [ HyprTypes.hyprWorkspaceRefId wsRef
         | monitor <- monitors,
@@ -324,23 +323,21 @@ buildHyprlandWorkspaceSnapshot = do
                 workspaceIsSpecial = isSpecialWorkspace wsId wsName,
                 workspaceWindows = wsWindows
               }
-  return (clientsOk, map toWorkspace sortedWorkspaces)
+  return (clientsOk, sortWorkspaceInfos $ map toWorkspace workspaces)
 
 isSpecialWorkspace :: Int -> T.Text -> Bool
 isSpecialWorkspace wsId wsName =
   let lowered = T.toLower wsName
    in wsId < 0 || T.isPrefixOf "special" lowered
 
-sortHyprlandWorkspaces ::
-  [HyprTypes.HyprlandWorkspaceInfo] ->
-  [HyprTypes.HyprlandWorkspaceInfo]
-sortHyprlandWorkspaces =
+sortWorkspaceInfos :: [WorkspaceInfo] -> [WorkspaceInfo]
+sortWorkspaceInfos =
   sortOn $ \workspace ->
-    ( isSpecialWorkspace
-        (HyprTypes.hyprWorkspaceId workspace)
-        (HyprTypes.hyprWorkspaceName workspace),
-      HyprTypes.hyprWorkspaceId workspace
-    )
+    let identity = workspaceIdentity workspace
+     in ( workspaceIsSpecial workspace,
+          fromMaybe maxBound $ workspaceNumericId identity,
+          workspaceName identity
+        )
 
 workspaceInfoName :: WorkspaceInfo -> T.Text
 workspaceInfoName =

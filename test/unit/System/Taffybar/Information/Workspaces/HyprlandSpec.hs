@@ -1,12 +1,9 @@
 module System.Taffybar.Information.Workspaces.HyprlandSpec (spec) where
 
 import Data.Text qualified as T
-import System.Taffybar.Information.Hyprland.Types
-  ( HyprlandWorkspaceInfo (..),
-  )
 import System.Taffybar.Information.Workspaces.Hyprland
   ( applySpecialWorkspaceWindowTargets,
-    sortHyprlandWorkspaces,
+    sortWorkspaceInfos,
     specialWorkspaceWindowsToMinimized,
   )
 import System.Taffybar.Information.Workspaces.Model
@@ -54,14 +51,18 @@ workspaceByName name workspaces =
 
 spec :: Spec
 spec = do
-  describe "sortHyprlandWorkspaces" $
+  describe "sortWorkspaceInfos" $
     it "orders normal numeric workspaces before special workspaces" $ do
-      let specialMinimized = HyprlandWorkspaceInfo (-98) "special:minimized" Nothing (Just 1)
-          specialScratch = HyprlandWorkspaceInfo (-99) "special:scratchpad" Nothing (Just 1)
-          normal1 = HyprlandWorkspaceInfo 1 "1" (Just "DP-1") (Just 1)
-          normal2 = HyprlandWorkspaceInfo 2 "2" (Just "DP-1") (Just 0)
+      let specialMinimized =
+            mkWorkspace (Just (-98)) "special:minimized" WorkspaceHidden True []
+          specialScratch =
+            mkWorkspace (Just (-99)) "special:scratchpad" WorkspaceHidden True []
+          normal1 =
+            mkWorkspace (Just 1) "1" WorkspaceActive False []
+          normal2 =
+            mkWorkspace (Just 2) "2" WorkspaceEmpty False []
 
-      sortHyprlandWorkspaces [specialMinimized, normal2, specialScratch, normal1]
+      sortWorkspaceInfos [specialMinimized, normal2, specialScratch, normal1]
         `shouldBe` [normal1, normal2, specialScratch, specialMinimized]
 
   describe "applySpecialWorkspaceWindowTargets" $ do
