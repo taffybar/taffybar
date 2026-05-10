@@ -73,7 +73,9 @@ import System.Taffybar.Information.Workspaces.EWMH
     workspaceUpdateEvents,
   )
 import System.Taffybar.Information.Workspaces.Hyprland
-  ( getHyprlandWorkspaceStateChanAndVar,
+  ( HyprlandWorkspaceProviderConfig,
+    defaultHyprlandWorkspaceProviderConfig,
+    getHyprlandWorkspaceStateChanAndVarWith,
   )
 import System.Taffybar.Information.Workspaces.Model
 import System.Taffybar.Information.Workspaces.Support
@@ -139,6 +141,7 @@ data WorkspacesConfig = WorkspacesConfig
     labelSetter :: WorkspaceInfo -> TaffyIO String,
     showWorkspaceFn :: WorkspaceInfo -> Bool,
     iconSort :: [WindowInfo] -> TaffyIO [WindowInfo],
+    hyprlandWorkspaceProviderConfig :: HyprlandWorkspaceProviderConfig,
     urgentWorkspaceState :: Bool,
     onWorkspaceClick :: WorkspaceInfo -> TaffyIO (),
     onWindowClick :: WindowInfo -> TaffyIO ()
@@ -241,11 +244,11 @@ defaultEWMHWorkspaceStateSource ::
 defaultEWMHWorkspaceStateSource =
   getEWMHWorkspaceStateChanAndVarWith defaultChannelEWMHWorkspaceProviderConfig
 
-autoWorkspaceStateSource :: TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnapshot)
-autoWorkspaceStateSource = do
+autoWorkspaceStateSource :: WorkspacesConfig -> TaffyIO (TChan WorkspaceSnapshot, MV.MVar WorkspaceSnapshot)
+autoWorkspaceStateSource cfg = do
   backendType <- asks backend
   case backendType of
-    BackendWayland -> getHyprlandWorkspaceStateChanAndVar
+    BackendWayland -> getHyprlandWorkspaceStateChanAndVarWith (hyprlandWorkspaceProviderConfig cfg)
     BackendX11 -> defaultEWMHWorkspaceStateSource
 
 defaultWorkspacesConfig :: WorkspacesConfig
@@ -260,6 +263,7 @@ defaultWorkspacesConfig =
       labelSetter = return . T.unpack . workspaceName . workspaceIdentity,
       showWorkspaceFn = \ws -> hideEmpty ws && not (workspaceIsSpecial ws),
       iconSort = pure . sortWindowsByPosition,
+      hyprlandWorkspaceProviderConfig = defaultHyprlandWorkspaceProviderConfig,
       urgentWorkspaceState = False,
       onWorkspaceClick = defaultOnWorkspaceClick,
       onWindowClick = defaultOnWindowClick
@@ -321,7 +325,7 @@ workspacesNew cfg = do
   cont <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal (fromIntegral $ widgetGap cfg)
   _ <- widgetSetClassGI cont "workspaces"
   cacheVar <- liftIO $ MV.newMVar (WorkspaceCache M.empty [] [] 0)
-  (chan, snapshotVar) <- autoWorkspaceStateSource
+  (chan, snapshotVar) <- autoWorkspaceStateSource cfg
   initialSnapshot <- liftIO $ MV.readMVar snapshotVar
   renderWorkspaces cfg cont cacheVar initialSnapshot
   _ <-

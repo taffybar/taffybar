@@ -16,7 +16,12 @@
 -- Shared Hyprland workspace-state provider using a broadcast channel + state MVar.
 module System.Taffybar.Information.Workspaces.Hyprland
   ( HyprlandWorkspaceProviderConfig (..),
+    HyprlandSpecialWorkspaceWindowTarget (..),
     defaultHyprlandWorkspaceProviderConfig,
+    applySpecialWorkspaceWindowTargets,
+    specialWorkspaceWindowsToNamed,
+    specialWorkspaceWindowsToMinimized,
+    sortHyprlandWorkspaces,
     defaultHyprlandWorkspaceState,
     isRelevantHyprlandWorkspaceEvent,
     getHyprlandWorkspaceStateAndEventChansAndVar,
@@ -42,7 +47,7 @@ import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.STM (atomically)
 import Data.Either (isRight)
 import qualified Data.Foldable as F
-import Data.List (sortOn)
+import Data.List (nub, sortOn)
 import qualified Data.Map.Strict as M
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
 import qualified Data.Text as T
@@ -56,14 +61,23 @@ import System.Taffybar.Information.Workspaces.Model
 
 data HyprlandWorkspaceProviderConfig = HyprlandWorkspaceProviderConfig
   { workspaceSnapshotGetter :: TaffyIO (Bool, [WorkspaceInfo]),
-    workspaceEventFilter :: T.Text -> Bool
+    workspaceEventFilter :: T.Text -> Bool,
+    specialWorkspaceWindowTarget ::
+      WorkspaceInfo ->
+      Maybe HyprlandSpecialWorkspaceWindowTarget
+  }
+
+data HyprlandSpecialWorkspaceWindowTarget = HyprlandSpecialWorkspaceWindowTarget
+  { targetWorkspaceName :: T.Text,
+    targetWindowModifier :: WindowInfo -> WindowInfo
   }
 
 defaultHyprlandWorkspaceProviderConfig :: HyprlandWorkspaceProviderConfig
 defaultHyprlandWorkspaceProviderConfig =
   HyprlandWorkspaceProviderConfig
     { workspaceSnapshotGetter = buildHyprlandWorkspaceSnapshot,
-      workspaceEventFilter = isRelevantHyprlandWorkspaceEvent
+      workspaceEventFilter = isRelevantHyprlandWorkspaceEvent,
+      specialWorkspaceWindowTarget = const Nothing
     }
 
 defaultHyprlandWorkspaceState :: WorkspaceSnapshot
@@ -211,12 +225,16 @@ refreshHyprlandWorkspaceState ::
   TaffyIO ()
 refreshHyprlandWorkspaceState cfg stateChan workspaceEventChan var = do
   previous <- liftIO $ readMVar var
-  (complete, workspaces) <-
+  (complete, rawWorkspaces) <-
     workspaceSnapshotGetter cfg
       `catchAny` \err -> do
         wLog WARNING $ "Hyprland workspace snapshot update failed: " <> show err
         return (False, snapshotWorkspaces previous)
-  let next =
+  let workspaces =
+        applySpecialWorkspaceWindowTargets
+          (specialWorkspaceWindowTarget cfg)
+          rawWorkspaces
+      next =
         WorkspaceSnapshot
           { snapshotBackend = WorkspaceBackendHyprland,
             snapshotRevision = snapshotRevision previous + 1,
@@ -268,7 +286,7 @@ buildHyprlandWorkspaceSnapshot = do
        in return $ if T.null address then Nothing else Just address
 
   let windowsByWorkspace = collectWorkspaceWindows activeWindowAddress clients
-      sortedWorkspaces = sortOn HyprTypes.hyprWorkspaceId workspaces
+      sortedWorkspaces = sortHyprlandWorkspaces workspaces
       visibleWorkspaceIds =
         [ HyprTypes.hyprWorkspaceRefId wsRef
         | monitor <- monitors,
@@ -312,6 +330,122 @@ isSpecialWorkspace :: Int -> T.Text -> Bool
 isSpecialWorkspace wsId wsName =
   let lowered = T.toLower wsName
    in wsId < 0 || T.isPrefixOf "special" lowered
+
+sortHyprlandWorkspaces ::
+  [HyprTypes.HyprlandWorkspaceInfo] ->
+  [HyprTypes.HyprlandWorkspaceInfo]
+sortHyprlandWorkspaces =
+  sortOn $ \workspace ->
+    ( isSpecialWorkspace
+        (HyprTypes.hyprWorkspaceId workspace)
+        (HyprTypes.hyprWorkspaceName workspace),
+      HyprTypes.hyprWorkspaceId workspace
+    )
+
+workspaceInfoName :: WorkspaceInfo -> T.Text
+workspaceInfoName =
+  workspaceName . workspaceIdentity
+
+workspaceInfoIsMinimized :: WorkspaceInfo -> Bool
+workspaceInfoIsMinimized workspace =
+  let name = T.toLower $ workspaceInfoName workspace
+   in name == "minimized" || name == "special:minimized"
+
+specialWorkspaceWindowsToNamed ::
+  T.Text ->
+  (WindowInfo -> WindowInfo) ->
+  WorkspaceInfo ->
+  Maybe HyprlandSpecialWorkspaceWindowTarget
+specialWorkspaceWindowsToNamed targetName modifyWindow workspace
+  | workspaceIsSpecial workspace && workspaceInfoName workspace /= targetName =
+      Just $
+        HyprlandSpecialWorkspaceWindowTarget
+          { targetWorkspaceName = targetName,
+            targetWindowModifier = modifyWindow
+          }
+  | otherwise = Nothing
+
+specialWorkspaceWindowsToMinimized ::
+  WorkspaceInfo ->
+  Maybe HyprlandSpecialWorkspaceWindowTarget
+specialWorkspaceWindowsToMinimized workspace
+  | workspaceIsSpecial workspace && not (workspaceInfoIsMinimized workspace) =
+      Just $
+        HyprlandSpecialWorkspaceWindowTarget
+          { targetWorkspaceName = "special:minimized",
+            targetWindowModifier = \window -> window {windowMinimized = True}
+          }
+  | otherwise = Nothing
+
+applySpecialWorkspaceWindowTargets ::
+  (WorkspaceInfo -> Maybe HyprlandSpecialWorkspaceWindowTarget) ->
+  [WorkspaceInfo] ->
+  [WorkspaceInfo]
+applySpecialWorkspaceWindowTargets targetForWorkspace workspaces =
+  map addTargetWindows withMissingTargets
+  where
+    workspaceWasMoved workspace =
+      workspaceIdentity workspace `elem` movedSourceIdentities
+    sourceName workspace = workspaceName $ workspaceIdentity workspace
+    moves =
+      [ (workspaceIdentity workspace, targetWorkspaceName target, movedWindows)
+      | workspace <- workspaces,
+        Just target <- [targetForWorkspace workspace],
+        targetWorkspaceName target /= sourceName workspace,
+        let movedWindows = map (targetWindowModifier target) (workspaceWindows workspace),
+        not (null movedWindows)
+      ]
+    movedSourceIdentities =
+      [sourceIdentity | (sourceIdentity, _, _) <- moves]
+    targetNamesInOrder =
+      nub [targetName | (_, targetName, _) <- moves]
+    targetWindowsByName =
+      M.fromListWith
+        (flip (++))
+        [(targetName, movedWindows) | (_, targetName, movedWindows) <- moves]
+    clearMovedSource workspace
+      | workspaceWasMoved workspace =
+          workspace
+            { workspaceState = WorkspaceEmpty,
+              workspaceHasUrgentWindow = False,
+              workspaceWindows = []
+            }
+      | otherwise = workspace
+    baseWorkspaces = map clearMovedSource workspaces
+    existingNames = map sourceName baseWorkspaces
+    withMissingTargets =
+      baseWorkspaces
+        ++ [ emptyTargetWorkspace targetName
+           | targetName <- targetNamesInOrder,
+             targetName `notElem` existingNames
+           ]
+    emptyTargetWorkspace targetName =
+      WorkspaceInfo
+        { workspaceIdentity =
+            WorkspaceIdentity
+              { workspaceNumericId = Nothing,
+                workspaceName = targetName
+              },
+          workspaceState = WorkspaceEmpty,
+          workspaceHasUrgentWindow = False,
+          workspaceIsSpecial = True,
+          workspaceWindows = []
+        }
+    addTargetWindows workspace =
+      let addedWindows = M.findWithDefault [] (sourceName workspace) targetWindowsByName
+       in if null addedWindows
+            then workspace
+            else
+              workspace
+                { workspaceState =
+                    if workspaceState workspace == WorkspaceEmpty
+                      then WorkspaceHidden
+                      else workspaceState workspace,
+                  workspaceHasUrgentWindow =
+                    workspaceHasUrgentWindow workspace
+                      || any windowUrgent addedWindows,
+                  workspaceWindows = workspaceWindows workspace ++ addedWindows
+                }
 
 collectWorkspaceWindows ::
   Maybe T.Text ->

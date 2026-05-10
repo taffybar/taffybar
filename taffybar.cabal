@@ -381,6 +381,7 @@ test-suite unit
                , System.Taffybar.Information.CryptoSpec
                , System.Taffybar.Information.LayoutSpec
                , System.Taffybar.Information.Workspaces.EWMHSpec
+               , System.Taffybar.Information.Workspaces.HyprlandSpec
                , System.Taffybar.Information.X11DesktopInfoSpec
                , System.Taffybar.Information.WakeupSpec
                , System.Taffybar.SimpleConfigSpec
