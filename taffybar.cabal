@@ -145,6 +145,7 @@ library
                  , System.Taffybar.Information.Bluetooth
                  , System.Taffybar.Information.CPU2
                  , System.Taffybar.Information.Chrome
+                 , System.Taffybar.Information.ChromeWindowInfo
                  , System.Taffybar.Information.Crypto
                  , System.Taffybar.Information.DiskIO
                  , System.Taffybar.Information.DiskUsage
@@ -169,6 +170,7 @@ library
                  , System.Taffybar.Information.Workspaces.EWMH
                  , System.Taffybar.Information.Workspaces.Hyprland
                  , System.Taffybar.Information.Workspaces.Model
+                 , System.Taffybar.Information.Workspaces.Refresh
                  , System.Taffybar.Information.Wakeup
                  , System.Taffybar.Information.Wlsunset
                  , System.Taffybar.Information.X11DesktopInfo

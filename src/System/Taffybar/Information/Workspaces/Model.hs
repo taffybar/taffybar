@@ -24,6 +24,9 @@ module System.Taffybar.Information.Workspaces.Model
     WorkspaceInfo (..),
     WindowIdentity (..),
     WindowInfo (..),
+    WorkspacesRefreshTarget (..),
+    bumpWorkspaceRefreshTarget,
+    preserveWorkspaceUpdateRevisions,
   )
 where
 
@@ -90,6 +93,7 @@ data WorkspaceIdentity = WorkspaceIdentity
 -- | Backend-neutral workspace information.
 data WorkspaceInfo = WorkspaceInfo
   { workspaceIdentity :: WorkspaceIdentity,
+    workspaceUpdateRevision :: Word64,
     workspaceState :: WorkspaceViewState,
     workspaceHasUrgentWindow :: Bool,
     workspaceIsSpecial :: Bool,
@@ -105,6 +109,7 @@ data WindowIdentity
 -- | Backend-neutral window information.
 data WindowInfo = WindowInfo
   { windowIdentity :: WindowIdentity,
+    windowUpdateRevision :: Word64,
     windowTitle :: Text,
     -- | Ordered class/app-id hints used for icon lookup.
     windowClassHints :: [Text],
@@ -116,6 +121,69 @@ data WindowInfo = WindowInfo
     windowPinned :: Bool
   }
   deriving (Eq, Show)
+
+data WorkspacesRefreshTarget
+  = RefreshAllWorkspaces
+  | RefreshWorkspace WorkspaceIdentity
+  | RefreshWindow WindowIdentity
+  deriving (Eq, Show)
+
+bumpWorkspaceRefreshTarget :: WorkspacesRefreshTarget -> WorkspaceSnapshot -> WorkspaceSnapshot
+bumpWorkspaceRefreshTarget target snapshot =
+  snapshot {snapshotWorkspaces = map bumpWorkspaceForTarget (snapshotWorkspaces snapshot)}
+  where
+    bumpWorkspaceRevision workspace =
+      workspace {workspaceUpdateRevision = workspaceUpdateRevision workspace + 1}
+    bumpWindowRevision window =
+      window {windowUpdateRevision = windowUpdateRevision window + 1}
+    bumpWorkspaceAndWindows workspace =
+      bumpWorkspaceRevision
+        workspace
+          { workspaceWindows = map bumpWindowRevision (workspaceWindows workspace)
+          }
+    bumpWindowForTarget targetWindow window
+      | windowIdentity window == targetWindow = bumpWindowRevision window
+      | otherwise = window
+    bumpWorkspaceForTarget workspace =
+      case target of
+        RefreshAllWorkspaces -> bumpWorkspaceAndWindows workspace
+        RefreshWorkspace targetWorkspace
+          | workspaceIdentity workspace == targetWorkspace -> bumpWorkspaceAndWindows workspace
+          | otherwise -> workspace
+        RefreshWindow targetWindow ->
+          workspace {workspaceWindows = map (bumpWindowForTarget targetWindow) (workspaceWindows workspace)}
+
+preserveWorkspaceUpdateRevisions :: WorkspaceSnapshot -> WorkspaceSnapshot -> WorkspaceSnapshot
+preserveWorkspaceUpdateRevisions previous next =
+  next {snapshotWorkspaces = map preserveWorkspaceRevision (snapshotWorkspaces next)}
+  where
+    previousWorkspaces =
+      M.fromList
+        [ (workspaceIdentity workspace, workspace)
+        | workspace <- snapshotWorkspaces previous
+        ]
+    previousWindows =
+      M.fromList
+        [ (windowIdentity window, window)
+        | workspace <- snapshotWorkspaces previous,
+          window <- workspaceWindows workspace
+        ]
+    preserveWindowRevision window =
+      case M.lookup (windowIdentity window) previousWindows of
+        Just previousWindow ->
+          window {windowUpdateRevision = windowUpdateRevision previousWindow}
+        Nothing -> window
+    preserveWorkspaceRevision workspace =
+      let withWindows =
+            workspace
+              { workspaceWindows = map preserveWindowRevision (workspaceWindows workspace)
+              }
+       in case M.lookup (workspaceIdentity workspace) previousWorkspaces of
+            Just previousWorkspace ->
+              withWindows
+                { workspaceUpdateRevision = workspaceUpdateRevision previousWorkspace
+                }
+            Nothing -> withWindows
 
 -- | Produce incremental events that describe the change from an old snapshot to
 -- a new one.

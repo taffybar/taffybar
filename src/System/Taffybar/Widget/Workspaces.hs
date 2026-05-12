@@ -301,6 +301,9 @@ defaultWidgetBuilder cfg wsInfo = do
           if needsIconUpdate
             then updateWorkspaceIcons cfg wsRef iconsBox currentIcons newWs
             else return currentIcons
+        when forceIcons $
+          liftIO $
+            forM_ updatedIcons iconForceUpdate
         liftIO $ writeIORef iconsRef updatedIcons
         liftIO $ writeIORef lastWorkspaceRef newWs
       controller =
@@ -581,9 +584,9 @@ updateIconWidget iconWidget windowData = do
     stateClasses
     windowIconStatusClasses
 
-windowIconPixbufKey :: WindowInfo -> (WindowIdentity, [T.Text])
+windowIconPixbufKey :: WindowInfo -> (WindowIdentity, Word64, [T.Text], T.Text)
 windowIconPixbufKey windowInfo =
-  (windowIdentity windowInfo, windowClassHints windowInfo)
+  (windowIdentity windowInfo, windowUpdateRevision windowInfo, windowClassHints windowInfo, windowTitle windowInfo)
 
 windowIconStatusClasses :: [T.Text]
 windowIconStatusClasses = ["active", "urgent", "minimized", "normal", "inactive", "pinned"]

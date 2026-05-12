@@ -69,6 +69,7 @@ import System.Taffybar.Information.EWMHDesktopInfo
   )
 import System.Taffybar.Information.SafeX11 (safeGetGeometry)
 import System.Taffybar.Information.Workspaces.Model
+import System.Taffybar.Information.Workspaces.Refresh (workspaceRefreshRequestLoop)
 import System.Taffybar.Information.X11DesktopInfo (X11Property, X11Window, getDisplay)
 import qualified System.Taffybar.Information.X11DesktopInfo as X11
 
@@ -168,6 +169,7 @@ buildEWMHWorkspaceStateChanVar cfg = do
   eventChan <- liftIO newBroadcastTChanIO
   stateVar <- liftIO $ newMVar defaultEWMHWorkspaceState
   taffyFork $ ewmhWorkspaceStateLoop cfg stateChan eventChan stateVar
+  taffyFork $ workspaceRefreshRequestLoop stateChan eventChan stateVar
   return $ EWMHWorkspaceStateChanVar (stateChan, eventChan, stateVar)
 
 ewmhWorkspaceStateLoop ::
@@ -223,12 +225,13 @@ refreshEWMHWorkspaceState cfg stateChan eventChan stateVar = do
         return (False, snapshotWorkspaces previous)
   let nextRevision = snapshotRevision previous + 1
       next =
-        WorkspaceSnapshot
-          { snapshotBackend = WorkspaceBackendEWMH,
-            snapshotRevision = nextRevision,
-            snapshotWindowDataComplete = complete,
-            snapshotWorkspaces = workspaces
-          }
+        preserveWorkspaceUpdateRevisions previous $
+          WorkspaceSnapshot
+            { snapshotBackend = WorkspaceBackendEWMH,
+              snapshotRevision = nextRevision,
+              snapshotWindowDataComplete = complete,
+              snapshotWorkspaces = workspaces
+            }
       eventBatch =
         WorkspaceEventBatch
           { eventBatchBackend = WorkspaceBackendEWMH,
@@ -277,6 +280,7 @@ collectEWMHWorkspaceSnapshot = do
                   { workspaceNumericId = Just idx,
                     workspaceName = T.pack name
                   },
+              workspaceUpdateRevision = 0,
               workspaceState = wsViewState,
               workspaceHasUrgentWindow = any windowUrgent windowsInfo,
               workspaceIsSpecial = isSpecialWorkspaceName name,
@@ -310,6 +314,7 @@ getWindowInfo activeWindow urgentWindows window = do
   return
     WindowInfo
       { windowIdentity = X11WindowIdentity (fromIntegral window),
+        windowUpdateRevision = 0,
         windowTitle = T.pack wTitle,
         windowClassHints = map T.pack $ parseWindowClasses wClass,
         windowPosition = wPosition,

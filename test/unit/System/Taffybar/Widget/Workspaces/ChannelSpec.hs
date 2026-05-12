@@ -10,6 +10,7 @@ mkX11Window :: Word64 -> Bool -> Maybe (Int, Int) -> WindowInfo
 mkX11Window wid minimized pos =
   WindowInfo
     { windowIdentity = X11WindowIdentity wid,
+      windowUpdateRevision = 0,
       windowTitle = T.pack (show wid),
       windowClassHints = [],
       windowPosition = pos,
@@ -27,6 +28,7 @@ mkWorkspace idx name state windows =
           { workspaceNumericId = Just idx,
             workspaceName = T.pack name
           },
+      workspaceUpdateRevision = 0,
       workspaceState = state,
       workspaceHasUrgentWindow = any windowUrgent windows,
       workspaceIsSpecial = False,
@@ -77,3 +79,27 @@ spec = do
                 [WindowAdded newW2, WindowChanged newW1]
             ]
       diffWorkspaceSnapshots oldSnap newSnap `shouldBe` expectedEvents
+
+    it "bumps update revisions for targeted window refreshes" $ do
+      let w1 = mkX11Window 1 False (Just (0, 0))
+          w2 = mkX11Window 2 False (Just (50, 50))
+          ws1 = mkWorkspace 1 "1" WorkspaceActive [w1, w2]
+          snap = mkSnapshot 10 [ws1]
+          refreshed = bumpWorkspaceRefreshTarget (RefreshWindow $ X11WindowIdentity 2) snap
+          refreshedRevisions =
+            concatMap
+              (map windowUpdateRevision . workspaceWindows)
+              (snapshotWorkspaces refreshed)
+      refreshedRevisions `shouldBe` [0, 1]
+
+    it "preserves update revisions across backend snapshots" $ do
+      let oldW1 = (mkX11Window 1 False (Just (0, 0))) {windowUpdateRevision = 3}
+          oldWs1 = (mkWorkspace 1 "1" WorkspaceActive [oldW1]) {workspaceUpdateRevision = 4}
+          previous = mkSnapshot 10 [oldWs1]
+          newW1 = (mkX11Window 1 False (Just (5, 5))) {windowUpdateRevision = 0}
+          newWs1 = (mkWorkspace 1 "1" WorkspaceHidden [newW1]) {workspaceUpdateRevision = 0}
+          next = preserveWorkspaceUpdateRevisions previous $ mkSnapshot 11 [newWs1]
+          preservedWorkspaces = snapshotWorkspaces next
+          preservedWindows = concatMap workspaceWindows preservedWorkspaces
+      map workspaceUpdateRevision preservedWorkspaces `shouldBe` [4]
+      map windowUpdateRevision preservedWindows `shouldBe` [3]
