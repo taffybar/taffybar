@@ -14,7 +14,7 @@ final: prev: let
     fontDirectories = [ pkgs.dejavu_fonts ];
   };
   wirePlumberIntrospectionEnv = ''
-    export PKG_CONFIG_PATH=${pkgs.wireplumber.dev}/lib/pkgconfig:${pkgs.pipewire.dev}/lib/pkgconfig:''${PKG_CONFIG_PATH:-}
+    export PKG_CONFIG_PATH=${pkgs.wireplumber.dev}/lib/pkgconfig:${pkgs.pipewire.dev}/lib/pkgconfig:${pkgs.libsysprof-capture}/lib/pkgconfig:${pkgs.pcre2.dev}/lib/pkgconfig:${pkgs.util-linux.dev}/lib/pkgconfig:${pkgs.libselinux.dev}/lib/pkgconfig:${pkgs.libsepol.dev}/lib/pkgconfig:''${PKG_CONFIG_PATH:-}
     export GI_GIR_PATH=${pkgs.wireplumber.dev}/share/gir-1.0:''${GI_GIR_PATH:-}
     export GI_TYPELIB_PATH=${pkgs.wireplumber}/lib/girepository-1.0:${pkgs.glib.out}/lib/girepository-1.0:''${GI_TYPELIB_PATH:-}
     export XDG_DATA_DIRS=${pkgs.wireplumber.dev}/share:''${XDG_DATA_DIRS:-}
@@ -36,6 +36,11 @@ final: prev: let
     gi-wireplumber = lib.pipe super.gi-wireplumber [
       dontHaddock
       (overrideCabal (drv: {
+        # Keep WirePlumber available to Cabal through pkg-config without
+        # propagating its full runtime closure into downstream configure checks.
+        libraryPkgconfigDepends = [];
+        librarySystemDepends = [];
+        libraryToolDepends = (drv.libraryToolDepends or []) ++ [ pkgs.pkg-config ];
         preConfigure = ''
           ${drv.preConfigure or ""}
           ${wirePlumberIntrospectionEnv}
