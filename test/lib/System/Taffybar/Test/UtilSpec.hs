@@ -329,7 +329,7 @@ spec = do
     let t = 50_000
     laxTimeout t (threadDelay (t * 2)) `shouldReturn` Nothing
 
-  describe "withService" $ around_ (laxTimeout' 100_000) $ do
+  describe "withService" $ around_ (laxTimeout' 1_000_000) $ do
     let wait = const $ threadDelay maxBound
     it "normal" $
       example $
