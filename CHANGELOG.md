@@ -1,3 +1,10 @@
+# 7.2.2
+
+## Packaging
+
+* Allow `QuickCheck-2.16` in the test library and test suite so Stackage
+  Nightly can build taffybar with its current package set.
+
 # 7.2.1
 
 ## Fixes

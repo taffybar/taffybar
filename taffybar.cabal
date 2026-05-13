@@ -1,6 +1,6 @@
 cabal-version: 3.4
 name: taffybar
-version: 7.2.1
+version: 7.2.2
 synopsis: A desktop bar similar to xmobar, but with more GUI
 description: Taffybar is a desktop status bar with GTK widgets for window
   manager state, system information, tray icons, and custom user modules.
@@ -376,7 +376,7 @@ library testlib
                , unix
                , unliftio >= 0.2 && < 0.3
                , unliftio-core >= 0.2 && < 0.3
-               , QuickCheck >= 2 && < 2.16
+               , QuickCheck >= 2 && < 2.17
   build-tool-depends: hspec-discover:hspec-discover == 2.*
 
 test-suite unit
@@ -418,7 +418,7 @@ test-suite unit
                , unix
                , unliftio
                , transformers
-               , QuickCheck
+               , QuickCheck >= 2 && < 2.17
   build-tool-depends: hspec-discover:hspec-discover == 2.*
                    , taffybar:taffybar-test-wm
                    , taffybar:taffybar-appearance-snap
