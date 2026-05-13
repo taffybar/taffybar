@@ -1,0 +1,22 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"https://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+ <interface name="org.imalison.ChromeWindowInfo">
+  <method name="GetLastPayload">
+   <arg type="s" name="payload_json" direction="out"/>
+  </method>
+  <method name="GetWindowPayloads">
+   <arg type="s" name="payloads_json" direction="out"/>
+  </method>
+  <method name="GetSchema">
+   <arg type="s" name="schema" direction="out"/>
+  </method>
+  <signal name="Updated">
+   <arg type="s" name="payload_json"/>
+  </signal>
+  <signal name="WindowUpdated">
+   <arg type="s" name="window_id"/>
+   <arg type="s" name="payload_json"/>
+  </signal>
+ </interface>
+</node>

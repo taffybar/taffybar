@@ -14,6 +14,7 @@ data-files:
   taffybar.css
   icons/*.svg
 extra-source-files:
+  dbus-xml/org.imalison.ChromeWindowInfo.xml
   dbus-xml/org.PulseAudio.ServerLookup1.xml
   dbus-xml/org.PulseAudio.Core1.xml
   dbus-xml/org.PulseAudio.Core1.Device.xml
@@ -248,6 +249,7 @@ library
     exposed-modules: System.Taffybar.Support.PagerHints
 
   other-modules: Paths_taffybar
+               , System.Taffybar.DBus.Client.ChromeWindowInfo
                , System.Taffybar.DBus.Client.Login1Manager
                , System.Taffybar.DBus.Client.MPRIS2
                , System.Taffybar.DBus.Client.NetworkManager

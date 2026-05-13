@@ -8,6 +8,26 @@ import DBus.Generation
 import Language.Haskell.TH
 import System.Taffybar.DBus.Client.Util
 
+-- | The bus name for chrome-favicon-dbus.
+chromeWindowInfoBusName :: BusName
+chromeWindowInfoBusName = "org.imalison.ChromeWindowInfo"
+
+-- | The object path exposed by chrome-favicon-dbus.
+chromeWindowInfoObjectPath :: ObjectPath
+chromeWindowInfoObjectPath = "/org/imalison/ChromeWindowInfo"
+
+-- | The interface name exposed by chrome-favicon-dbus.
+chromeWindowInfoInterfaceName :: InterfaceName
+chromeWindowInfoInterfaceName = "org.imalison.ChromeWindowInfo"
+
+chromeWindowInfoGenerationParams :: GenerationParams
+chromeWindowInfoGenerationParams =
+  defaultGenerationParams
+    { genTakeSignalErrorHandler = True,
+      genBusName = Just chromeWindowInfoBusName,
+      genObjectPath = Just chromeWindowInfoObjectPath
+    }
+
 playerGenerationParams :: GenerationParams
 playerGenerationParams =
   defaultGenerationParams

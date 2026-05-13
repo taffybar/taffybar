@@ -14,6 +14,7 @@ import qualified DBus.Client as DBus
 import qualified Data.Text as T
 import System.Log.Logger (Priority (..), logM)
 import System.Taffybar.Context (TaffyIO, getStateDefault, sessionDBusClient)
+import qualified System.Taffybar.DBus.Client.ChromeWindowInfo as ChromeWindowInfoDBus
 import System.Taffybar.Information.Workspaces.Model
   ( WindowIdentity (..),
     WorkspacesRefreshTarget (..),
@@ -55,25 +56,27 @@ registerChromeWindowInfoSignals ::
   (WorkspacesRefreshTarget -> IO ()) ->
   IO ()
 registerChromeWindowInfoSignals client requestRefresh = do
-  _ <- DBus.addMatch client windowUpdatedRule (emitWindowRefresh requestRefresh)
-  return ()
-  where
-    baseRule =
+  _ <-
+    ChromeWindowInfoDBus.registerForWindowUpdated
+      client
       DBus.matchAny
-        { DBus.matchPath = Just "/org/imalison/ChromeWindowInfo",
-          DBus.matchInterface = Just "org.imalison.ChromeWindowInfo"
-        }
-    windowUpdatedRule = baseRule {DBus.matchMember = Just "WindowUpdated"}
+      (emitWindowRefresh requestRefresh)
+      logMalformedWindowUpdatedSignal
+  return ()
 
-emitWindowRefresh :: (WorkspacesRefreshTarget -> IO ()) -> D.Signal -> IO ()
-emitWindowRefresh requestRefresh signal = do
-  let target =
-        case D.signalBody signal of
-          windowIdVariant : _
-            | Just windowId <- D.fromVariant windowIdVariant ->
-                RefreshWindow $ HyprlandWindowIdentity $ normalizeHyprlandWindowId windowId
-          _ -> RefreshAllWorkspaces
-  requestRefresh target
+emitWindowRefresh :: (WorkspacesRefreshTarget -> IO ()) -> D.Signal -> String -> String -> IO ()
+emitWindowRefresh requestRefresh _signal windowId _payload =
+  requestRefresh $
+    RefreshWindow $
+      HyprlandWindowIdentity $
+        normalizeHyprlandWindowId $
+          T.pack windowId
+
+logMalformedWindowUpdatedSignal :: D.Signal -> IO ()
+logMalformedWindowUpdatedSignal signal =
+  chromeWindowInfoLog
+    WARNING
+    ("Ignoring malformed ChromeWindowInfo WindowUpdated signal: " <> show (D.signalBody signal))
 
 chromeWindowInfoLog :: Priority -> String -> IO ()
 chromeWindowInfoLog =
