@@ -56,7 +56,7 @@ import qualified Data.GI.Base.GValue as GValue
 import qualified Data.GI.Base.GVariant as GVariant
 import qualified Data.GI.Base.ManagedPtr as ManagedPtr
 import Data.IORef
-import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
+import Data.Maybe (catMaybes, fromMaybe, listToMaybe, mapMaybe)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -229,7 +229,8 @@ monitorWirePlumberInfo nodeSpec chan var = do
             rememberSignal ref = modifyIORef' connectedSignalRefs (ref :)
 
             rememberObject object maybeNode maybeMetadata =
-              modifyIORef' connectedObjectRefs $
+              modifyIORef'
+                connectedObjectRefs
                 (WirePlumberObjectRefs object maybeNode maybeMetadata :)
 
             connectNode object = do
@@ -266,7 +267,7 @@ monitorWirePlumberInfo nodeSpec chan var = do
           connectObject object
           refresh
 
-        _ <- ObjectManager.onObjectManagerObjectRemoved manager $ \_object -> refresh
+        _ <- ObjectManager.onObjectManagerObjectRemoved manager $ const refresh
         _ <- ObjectManager.onObjectManagerObjectsChanged manager refresh
 
         Core.coreInstallObjectManager core manager
@@ -369,8 +370,8 @@ readWirePlumberInfoFromObjectRefs ::
   IO (Maybe WirePlumberInfo)
 readWirePlumberInfoFromObjectRefs refs nodeSpec =
   ( do
-      let metadata = catMaybes $ map wirePlumberMetadataRef refs
-          nodes = catMaybes $ map wirePlumberNodeRef refs
+      let metadata = mapMaybe wirePlumberMetadataRef refs
+          nodes = mapMaybe wirePlumberNodeRef refs
       selectedNode <- selectNode metadata nodes (parseNodeSpec nodeSpec)
       maybe (pure Nothing) (fmap Just . readNodeInfo) selectedNode
   )

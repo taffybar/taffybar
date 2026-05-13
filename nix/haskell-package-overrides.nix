@@ -36,10 +36,6 @@ final: prev: let
     gi-wireplumber = lib.pipe super.gi-wireplumber [
       dontHaddock
       (overrideCabal (drv: {
-        libraryPkgconfigDepends =
-          (drv.libraryPkgconfigDepends or []) ++ [ pkgs.wireplumber ];
-        librarySystemDepends =
-          (drv.librarySystemDepends or []) ++ [ pkgs.wireplumber ];
         preConfigure = ''
           ${drv.preConfigure or ""}
           ${wirePlumberIntrospectionEnv}
