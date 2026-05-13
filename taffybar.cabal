@@ -83,10 +83,12 @@ library
                , gi-gdkpixbuf >=2.0.6 && <2.1
                , gi-gdkx113 >=3.0.17 && < 4
                , gi-glib
+               , gi-gobject
                , gi-gtk-layer-shell >= 0.1.7
                , gi-gtk3 >= 3.0.44 && < 4
                , gi-gtk-hs >= 0.3.17 && < 0.4
                , gi-pango
+               , gi-wireplumber
                , gtk-scaling-image >= 0.1.0.0 && < 0.2
                , gtk-sni-tray >= 0.2.1.1
                , gtk-strut >= 0.1.4.0
@@ -135,6 +137,7 @@ library
                  , System.Taffybar.Example
                  , System.Taffybar.Hyprland
                  , System.Taffybar.Hooks
+                 , System.Taffybar.Information.Audio
                  , System.Taffybar.Information.Hyprland
                  , System.Taffybar.Information.HyprlandWorkspaceHistory
                  , System.Taffybar.Information.PulseAudio
@@ -181,6 +184,7 @@ library
                  , System.Taffybar.SimpleConfig
                  , System.Taffybar.Util
                  , System.Taffybar.Widget
+                 , System.Taffybar.Widget.Audio
                  , System.Taffybar.Widget.PulseAudio
                  , System.Taffybar.Widget.AnthropicUsage
                  , System.Taffybar.Widget.ASUS

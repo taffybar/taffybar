@@ -35,6 +35,7 @@ module System.Taffybar.Information.PulseAudio
     getPulseAudioInfoChanFor,
     getPulseAudioInfoStateFor,
     connectPulseAudio,
+    pulseAudioAvailable,
     togglePulseAudioMute,
     adjustPulseAudioVolume,
   )
@@ -412,6 +413,13 @@ connectPulseAudio = do
         Left (_ :: SomeException) -> return Nothing
         Right client -> return (Just client)
 
+pulseAudioAvailable :: IO Bool
+pulseAudioAvailable = do
+  mClient <- connectPulseAudio
+  case mClient of
+    Nothing -> pure False
+    Just client -> disconnect client >> pure True
+
 withPulseAudio :: (Client -> IO a) -> IO (Maybe a)
 withPulseAudio action = do
   mClient <- connectPulseAudio
@@ -469,7 +477,7 @@ getServerLookupAddress client = do
       paServerLookupInterfaceName
   case propsResult of
     Left err -> do
-      audioLogF WARNING "Failed to read PulseAudio ServerLookup1 properties: %s" err
+      audioLogF DEBUG "Failed to read PulseAudio ServerLookup1 properties: %s" err
       return Nothing
     Right props -> case readDictMaybe props "Address" of
       Just addr | not (null addr) -> return (Just addr)
