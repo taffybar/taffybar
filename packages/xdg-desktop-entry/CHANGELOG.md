@@ -1,5 +1,9 @@
 # Revision history for xdg-desktop-entry
 
+## 0.1.1.5 -- 2026-05-13
+
+* Clean up parser and test warnings for newer GHC releases.
+
 ## 0.1.1.4 -- 2026-03-15
 
 * Relax `transformers` upper bound to support `0.6.x`, including GHC 9.12.4 RC snapshots.

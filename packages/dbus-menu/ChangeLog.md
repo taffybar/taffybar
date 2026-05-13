@@ -1,5 +1,9 @@
 # Changelog for dbus-menu
 
+## 0.1.3.3 - 2026-05-13
+
+* Refresh generated setup metadata and formatting for the monorepo release.
+
 ## 0.1.3.2
 
 * Relax `template-haskell` upper bound to `< 2.24` to support GHC 9.12.

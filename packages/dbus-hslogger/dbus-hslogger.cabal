@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           dbus-hslogger
-version:        0.1.1.0
+version:        0.1.1.1
 synopsis:       Expose a dbus server to control hslogger
 description:    Please see the README on Github at <https://github.com/taffybar/dbus-hslogger#readme>
 category:       System
@@ -19,6 +19,7 @@ license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
+    ChangeLog.md
 
 source-repository head
   type: git

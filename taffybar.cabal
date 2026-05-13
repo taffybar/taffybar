@@ -1,7 +1,9 @@
 cabal-version: 3.4
 name: taffybar
-version: 7.1.0
+version: 7.2.0
 synopsis: A desktop bar similar to xmobar, but with more GUI
+description: Taffybar is a desktop status bar with GTK widgets for window
+  manager state, system information, tray icons, and custom user modules.
 license: BSD-3-Clause
 license-file: LICENSE
 author: Ivan Malison
@@ -59,70 +61,70 @@ library
     MonoLocalBinds
 
   build-depends: HStringTemplate >= 0.8 && < 0.9
-               , X11 >= 1.5.0.1
-               , aeson
-               , ansi-terminal
-               , bytestring
-               , conduit
-               , containers
-               , data-default
-               , dbus >= 1.2.11 && < 2.0.0
-               , dbus-hslogger >= 0.1.1.0 && < 0.2.0.0
-               , dbus-menu >= 0.1.3.2
-               , directory
-               , disk-free-space >= 0.1.0.1
+               , X11 >= 1.5.0.1 && < 1.11
+               , aeson >= 1.4 && < 2.3
+               , ansi-terminal >= 0.10 && < 1.2
+               , bytestring >= 0.10 && < 0.13
+               , conduit >= 1.3 && < 1.4
+               , containers >= 0.5 && < 0.8
+               , data-default >= 0.7 && < 0.9
+               , dbus >= 1.2.11 && < 2
+               , dbus-hslogger >= 0.1.1.1 && < 0.2
+               , dbus-menu >= 0.1.3.3 && < 0.2
+               , directory >= 1.3 && < 1.4
+               , disk-free-space >= 0.1.0.1 && < 0.2
                , dyre >= 0.9.0 && < 0.10
-               , either >= 4.0.0.0
-               , enclosed-exceptions >= 1.0.0.1
-               , filepath
+               , either >= 4.0.0.0 && < 5.1
+               , enclosed-exceptions >= 1.0.0.1 && < 1.1
+               , filepath >= 1.4 && < 1.6
                , fsnotify >= 0.4 && < 0.5
-               , monad-control
-               , gi-cairo-connector
-               , gi-cairo-render
-                , gi-gdk3 >=3.0.30 && <3.1
+               , monad-control >= 1.0 && < 1.1
+               , gi-cairo-connector >= 0.1 && < 0.2
+               , gi-cairo-render >= 0.1 && < 0.2
+               , gi-gdk3 >=3.0.30 && <3.1
                , gi-gdkpixbuf >=2.0.6 && <2.1
                , gi-gdkx113 >=3.0.17 && < 4
-               , gi-glib
-               , gi-gobject
-               , gi-gtk-layer-shell >= 0.1.7
+               , gi-glib >= 2.0 && < 2.1
+               , gi-gobject >= 2.0 && < 2.1
+               , gi-gtk-layer-shell >= 0.1.7 && < 0.2
                , gi-gtk3 >= 3.0.44 && < 4
                , gi-gtk-hs >= 0.3.17 && < 0.4
-               , gi-pango
-               , gi-wireplumber
-               , gtk-scaling-image >= 0.1.0.0 && < 0.2
-               , gtk-sni-tray >= 0.2.1.1
-               , gtk-strut >= 0.1.4.0
-               , haskell-gi-base >= 0.24
-               , hslogger
-               , http-conduit
-               , http-client >= 0.5
-               , http-client-tls
-               , http-types
-               , multimap >= 1.2.1
-               , network
-               , parsec >= 3.1
-               , process >= 1.0.1.1
-               , rate-limit >= 1.1.1
-               , regex-compat
+               , gi-pango >= 1.0 && < 1.1
+               , gi-wireplumber >= 0.5.14.1 && < 0.6
+               , gtk-scaling-image >= 0.1.0.1 && < 0.2
+               , gtk-sni-tray >= 0.2.1.2 && < 0.3
+               , gtk-strut >= 0.1.4.1 && < 0.2
+               , haskell-gi-base >= 0.24 && < 0.27
+               , hslogger >= 1.2 && < 1.4
+               , http-conduit >= 2.3 && < 2.4
+               , http-client >= 0.5 && < 0.8
+               , http-client-tls >= 0.3 && < 0.4
+               , http-types >= 0.12 && < 0.13
+               , multimap >= 1.2.1 && < 1.3
+               , network >= 3.1 && < 3.3
+               , parsec >= 3.1 && < 3.2
+               , process >= 1.0.1.1 && < 1.7
+               , rate-limit >= 1.1.1 && < 1.5
+               , regex-compat >= 0.95 && < 0.96
                , safe >= 0.3 && < 1
                , scotty >= 0.20 && < 0.31
-               , split >= 0.1.4.2
-               , status-notifier-item >= 0.3.2.13
-               , stm
-               , template-haskell
-               , text
-               , time >= 1.9 && < 2.0
+               , split >= 0.1.4.2 && < 0.3
+               , status-notifier-item >= 0.3.2.14 && < 0.4
+               , stm >= 2.5 && < 2.6
+               , template-haskell >= 2.17 && < 2.24
+               , text >= 1.2 && < 2.2
+               , time >= 1.9 && < 2
                , time-locale-compat >= 0.1 && < 0.2
-               , time-units >= 1.0.0
-               , transformers >= 0.3.0.0
-               , tuple >= 0.3.0.2
-               , unix
-               , utf8-string
-               , xdg-desktop-entry >= 0.1.1.4
+               , time-units >= 1.0.0 && < 1.1
+               , transformers >= 0.3.0.0 && < 0.7
+               , tuple >= 0.3.0.2 && < 0.4
+               , unix >= 2.7 && < 2.9
+               , utf8-string >= 1.0 && < 1.1
+               , xdg-desktop-entry >= 0.1.1.5 && < 0.2
                , xdg-basedir >= 0.2 && < 0.3
-               , xml
-               , xml-helpers
-               , yaml
+               , xml >= 1.3 && < 1.4
+               , xml-helpers >= 1.0 && < 1.1
+               , yaml >= 0.11 && < 0.12
 
   hs-source-dirs: src
   pkgconfig-depends: gtk+-3.0
@@ -249,7 +251,7 @@ library
                  , System.Taffybar.WindowIcon
 
   if flag(Deprecated-Pager-Hints)
-    build-depends: xmonad
+    build-depends: xmonad >= 0.17 && < 0.19
     exposed-modules: System.Taffybar.Support.PagerHints
 
   other-modules: Paths_taffybar
@@ -281,11 +283,11 @@ library
 executable taffybar
   import: haskell, exe
   build-depends: data-default
-               , dhall
+               , dhall >= 1.40 && < 1.43
                , directory
                , gi-gtk3
                , hslogger
-               , optparse-applicative
+               , optparse-applicative >= 0.17 && < 0.20
                , taffybar
                , text
 
@@ -301,14 +303,14 @@ executable taffybar-test-wm
   import: haskell, exe
   hs-source-dirs: app
   main-is: TestWM.hs
-  build-depends: xmonad
-               , xmonad-contrib
+  build-depends: xmonad >= 0.17 && < 0.19
+               , xmonad-contrib >= 0.17 && < 0.19
 
 executable taffybar-appearance-snap
   import: haskell, exe
   hs-source-dirs: app
   main-is: AppearanceSnap.hs
-  build-depends: JuicyPixels
+  build-depends: JuicyPixels >= 3.3 && < 3.4
                , X11
                , bytestring
                , data-default
@@ -321,15 +323,15 @@ executable taffybar-appearance-snap
                , taffybar
                , text
                , transformers
-               , typed-process
+               , typed-process >= 0.2 && < 0.3
                , unix
-               , unliftio
+               , unliftio >= 0.2 && < 0.3
 
 executable taffybar-appearance-snap-hyprland
   import: haskell, exe
   hs-source-dirs: app
   main-is: AppearanceSnapHyprland.hs
-  build-depends: JuicyPixels
+  build-depends: JuicyPixels >= 3.3 && < 3.4
                , bytestring
                , data-default
                , directory
@@ -338,9 +340,9 @@ executable taffybar-appearance-snap-hyprland
                , gtk-strut
                , taffybar
                , text
-               , typed-process
+               , typed-process >= 0.2 && < 0.3
                , unix
-               , unliftio
+               , unliftio >= 0.2 && < 0.3
                , transformers
 
 common test
@@ -359,22 +361,22 @@ library testlib
                  , System.Taffybar.Test.DBusSpec
                  , System.Taffybar.Test.UtilSpec
                  , System.Taffybar.Test.XvfbSpec
-  build-depends: attoparsec
+  build-depends: attoparsec >= 0.13 && < 0.15
                , bytestring
                , containers
                , data-default
                , dbus
-               , extra
+               , extra >= 1.7 && < 1.9
                , filepath
                , hslogger
-               , hspec
+               , hspec >= 2.8 && < 3
                , taffybar
                , text
-               , typed-process
+               , typed-process >= 0.2 && < 0.3
                , unix
-               , unliftio
-               , unliftio-core
-               , QuickCheck >= 2
+               , unliftio >= 0.2 && < 0.3
+               , unliftio-core >= 0.2 && < 0.3
+               , QuickCheck >= 2 && < 2.16
   build-tool-depends: hspec-discover:hspec-discover == 2.*
 
 test-suite unit

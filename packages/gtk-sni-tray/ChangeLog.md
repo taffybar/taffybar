@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.2.1.2 - 2026-05-13
+- Clean up compiler warnings in the standalone executable and tray modules.
+- Require refreshed companion packages:
+  `dbus-menu >= 0.1.3.3`, `gtk-scaling-image >= 0.1.0.1`,
+  `gtk-strut >= 0.1.4.1`, and `status-notifier-item >= 0.3.2.14`.
+
 ## 0.2.1.1
 
 - Require `status-notifier-item >= 0.3.2.13` so tray consumers pick up the

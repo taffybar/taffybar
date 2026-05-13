@@ -1,6 +1,6 @@
 cabal-version:       2.4
 name:                xdg-desktop-entry
-version:             0.1.1.4
+version:             0.1.1.5
 synopsis:            Parse files conforming to the xdg desktop entry spec
 description:         Parse files conforming to the xdg desktop entry spec.
 bug-reports:         https://github.com/taffybar/taffybar/issues

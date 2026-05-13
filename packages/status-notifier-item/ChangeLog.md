@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.3.2.14 - 2026-05-13
+- Clean up generated DBus client, service, and watcher code for newer compiler
+  warning compatibility.
+- Keep watcher startup behavior unchanged after reverting an experimental
+  synchronous startup path.
+
 ## 0.3.2.13 - 2026-03-30
 - Host: suppress no-op property update notifications when a signal arrives but
   the refreshed item value is unchanged, avoiding redundant tray updates.

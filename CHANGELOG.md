@@ -1,3 +1,30 @@
+# 7.2.0
+
+## New Features
+
+* Add the OmniMenu widget and supporting desktop-entry parsing updates.
+* Add WirePlumber-backed audio information and expose it through the audio
+  widget fallback path.
+* Add Hyprland workspace history ordering, pinned-window tracking, special
+  workspace remapping, and external workspace icon refresh support.
+* Use the generated ChromeWindowInfo DBus client.
+
+## Fixes
+
+* Prefer live Hyprland backends over stale X11/Wayland environment state.
+* Improve Hyprland lifecycle recovery, workspace redraws, workspace sorting,
+  and workspace icon activation.
+* Fix HiDPI scaled-image rendering and normalize menu icon sizing.
+* Stabilize SNI tray ordering and prioritized tray hover expansion.
+* Clean up Stan/compiler diagnostics across the monorepo.
+
+## Packaging
+
+* Bump companion-package lower bounds for the refreshed monorepo package
+  releases.
+* Add and depend on `gi-wireplumber >= 0.5.14.1`.
+* Bump the package version to 7.2.0.
+
 # 7.1.0
 
 ## New Features
