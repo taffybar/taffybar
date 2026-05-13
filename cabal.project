@@ -8,6 +8,7 @@ packages:
   ./packages/status-notifier-item
   ./packages/dbus-menu
   ./packages/dbus-hslogger
+  ./packages/gi-wireplumber
 
 program-options
   ghc-options: -fwrite-ide-info

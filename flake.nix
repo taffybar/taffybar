@@ -41,6 +41,7 @@
             gtk-scaling-image = ./packages/gtk-scaling-image;
             gtk-strut = ./packages/gtk-strut;
             gtk-sni-tray = ./packages/gtk-sni-tray;
+            gi-wireplumber = ./packages/gi-wireplumber;
             status-notifier-item = ./packages/status-notifier-item;
             xdg-desktop-entry = ./packages/xdg-desktop-entry;
             inherit xmonad xmonad-contrib;
@@ -92,6 +93,7 @@
       gtk-scaling-image = pkgs.haskellPackages."gtk-scaling-image";
       gtk-sni-tray = pkgs.haskellPackages."gtk-sni-tray";
       gtk-strut = pkgs.haskellPackages."gtk-strut";
+      gi-wireplumber = pkgs.haskellPackages."gi-wireplumber";
       status-notifier-item = pkgs.haskellPackages."status-notifier-item";
       dbus-menu = pkgs.haskellPackages."dbus-menu";
       dbus-hslogger = pkgs.haskellPackages."dbus-hslogger";

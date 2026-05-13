@@ -13,6 +13,12 @@ final: prev: let
   fontsConf = pkgs.makeFontsConf {
     fontDirectories = [ pkgs.dejavu_fonts ];
   };
+  wirePlumberIntrospectionEnv = ''
+    export PKG_CONFIG_PATH=${pkgs.wireplumber.dev}/lib/pkgconfig:${pkgs.pipewire.dev}/lib/pkgconfig:''${PKG_CONFIG_PATH:-}
+    export GI_GIR_PATH=${pkgs.wireplumber.dev}/share/gir-1.0:''${GI_GIR_PATH:-}
+    export GI_TYPELIB_PATH=${pkgs.wireplumber}/lib/girepository-1.0:${pkgs.glib.out}/lib/girepository-1.0:''${GI_TYPELIB_PATH:-}
+    export XDG_DATA_DIRS=${pkgs.wireplumber.dev}/share:''${XDG_DATA_DIRS:-}
+  '';
 
   # Add further customization of haskellPackages here
   configuration = with haskellLib; self: super: {
@@ -25,6 +31,20 @@ final: prev: let
       # Note: The `-optc` flag must be passed as part of the same argument,
       # i.e. `-optc-Wno-error=...` (not `-optc=-Wno-error=...`).
       (appendConfigureFlags ["--ghc-option=-optc-Wno-error=deprecated-declarations"])
+    ];
+
+    gi-wireplumber = lib.pipe super.gi-wireplumber [
+      dontHaddock
+      (overrideCabal (drv: {
+        libraryPkgconfigDepends =
+          (drv.libraryPkgconfigDepends or []) ++ [ pkgs.wireplumber ];
+        librarySystemDepends =
+          (drv.librarySystemDepends or []) ++ [ pkgs.wireplumber ];
+        preConfigure = ''
+          ${drv.preConfigure or ""}
+          ${wirePlumberIntrospectionEnv}
+        '';
+      }))
     ];
 
     taffybar = lib.pipe super.taffybar [
@@ -58,6 +78,7 @@ final: prev: let
           export LD_LIBRARY_PATH=${lib.makeLibraryPath [ pkgs.zlib ]}:$LD_LIBRARY_PATH
           export FONTCONFIG_FILE=${fontsConf}
           export FONTCONFIG_PATH=${pkgs.fontconfig.out}/etc/fonts
+          ${wirePlumberIntrospectionEnv}
         '';
       }))
 
