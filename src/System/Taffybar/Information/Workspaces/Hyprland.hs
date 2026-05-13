@@ -58,6 +58,7 @@ import qualified System.Taffybar.Information.Hyprland as Hypr
 import qualified System.Taffybar.Information.Hyprland.API as HyprAPI
 import qualified System.Taffybar.Information.Hyprland.Types as HyprTypes
 import System.Taffybar.Information.Workspaces.Model
+import System.Taffybar.Information.Workspaces.Refresh (workspaceRefreshRequestLoop)
 
 data HyprlandWorkspaceProviderConfig = HyprlandWorkspaceProviderConfig
   { workspaceSnapshotGetter :: TaffyIO (Bool, [WorkspaceInfo]),
@@ -190,6 +191,7 @@ buildHyprlandWorkspaceStateChanVar cfg = do
   eventChan <- liftIO newBroadcastTChanIO
   var <- liftIO $ newMVar defaultHyprlandWorkspaceState
   taffyFork $ hyprlandWorkspaceStateLoop cfg stateChan eventChan var
+  taffyFork $ workspaceRefreshRequestLoop stateChan eventChan var
   return $ HyprlandWorkspaceStateChanVar (stateChan, eventChan, var)
 
 hyprlandWorkspaceStateLoop ::
@@ -235,12 +237,13 @@ refreshHyprlandWorkspaceState cfg stateChan workspaceEventChan var = do
           (specialWorkspaceWindowTarget cfg)
           rawWorkspaces
       next =
-        WorkspaceSnapshot
-          { snapshotBackend = WorkspaceBackendHyprland,
-            snapshotRevision = snapshotRevision previous + 1,
-            snapshotWindowDataComplete = complete,
-            snapshotWorkspaces = workspaces
-          }
+        preserveWorkspaceUpdateRevisions previous $
+          WorkspaceSnapshot
+            { snapshotBackend = WorkspaceBackendHyprland,
+              snapshotRevision = snapshotRevision previous + 1,
+              snapshotWindowDataComplete = complete,
+              snapshotWorkspaces = workspaces
+            }
       eventBatch =
         WorkspaceEventBatch
           { eventBatchBackend = snapshotBackend next,
@@ -318,6 +321,7 @@ buildHyprlandWorkspaceSnapshot = do
                     { workspaceNumericId = Just wsId,
                       workspaceName = wsName
                     },
+                workspaceUpdateRevision = 0,
                 workspaceState = wsState,
                 workspaceHasUrgentWindow = any windowUrgent wsWindows,
                 workspaceIsSpecial = isSpecialWorkspace wsId wsName,
@@ -423,6 +427,7 @@ applySpecialWorkspaceWindowTargets targetForWorkspace workspaces =
               { workspaceNumericId = Nothing,
                 workspaceName = targetName
               },
+          workspaceUpdateRevision = 0,
           workspaceState = WorkspaceEmpty,
           workspaceHasUrgentWindow = False,
           workspaceIsSpecial = True,
@@ -482,6 +487,7 @@ windowFromClient activeAddr client =
           || clientIsOnMinimizedWorkspace client
    in WindowInfo
         { windowIdentity = HyprlandWindowIdentity (HyprTypes.hyprClientAddress client),
+          windowUpdateRevision = 0,
           windowTitle = title,
           windowClassHints =
             catMaybes

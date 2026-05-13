@@ -13,6 +13,7 @@ mkWindow :: T.Text -> Bool -> WindowInfo
 mkWindow title minimized =
   WindowInfo
     { windowIdentity = HyprlandWindowIdentity title,
+      windowUpdateRevision = 0,
       windowTitle = title,
       windowClassHints = [],
       windowPosition = Nothing,
@@ -36,6 +37,7 @@ mkWorkspace idx name state special windows =
           { workspaceNumericId = idx,
             workspaceName = name
           },
+      workspaceUpdateRevision = 0,
       workspaceState = state,
       workspaceHasUrgentWindow = any windowUrgent windows,
       workspaceIsSpecial = special,
