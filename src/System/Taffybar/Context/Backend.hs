@@ -33,8 +33,9 @@ import Control.Exception.Enclosed (catchAny)
 import Control.Monad
 import Data.Char (toLower)
 import Data.GI.Base (castTo)
-import Data.List (isInfixOf, isPrefixOf, isSuffixOf)
-import Data.Maybe (isJust)
+import Data.List (isInfixOf, isPrefixOf, isSuffixOf, sortOn)
+import Data.Maybe (fromMaybe, isJust, listToMaybe)
+import Data.Ord (Down (..))
 import qualified Data.Text as T
 import qualified GI.Gdk as Gdk
 import qualified GI.GdkX11.Objects.X11Display as GdkX11
@@ -44,6 +45,7 @@ import System.Environment (lookupEnv, setEnv, unsetEnv)
 import System.FilePath ((</>))
 import System.Log.Logger (Priority (..), logM)
 import System.Posix.Files (getFileStatus, isSocket)
+import Text.Read (readMaybe)
 
 logIO :: Priority -> String -> IO ()
 logIO = logM "System.Taffybar.Context.Backend"
@@ -91,12 +93,20 @@ discoverHyprlandSignature runtime = do
     then pure Nothing
     else do
       entries <- listDirectory hyprDir
-      go hyprDir entries
-  where
-    go _ [] = pure Nothing
-    go hyprDir (e : es) = do
-      isSig <- isLiveHyprlandSignature (hyprDir </> e)
-      if isSig then pure (Just e) else go hyprDir es
+      liveEntries <- filterM (isLiveHyprlandSignature . (hyprDir </>)) entries
+      pure $ listToMaybe $ sortOn hyprlandSignatureSortKey liveEntries
+
+hyprlandSignatureSortKey :: String -> (Down Integer, Down String)
+hyprlandSignatureSortKey signature =
+  ( Down $ fromMaybe (-1) $ hyprlandSignatureStartTime signature,
+    Down signature
+  )
+
+hyprlandSignatureStartTime :: String -> Maybe Integer
+hyprlandSignatureStartTime signature =
+  case drop 1 $ dropWhile (/= '_') signature of
+    "" -> Nothing
+    rest -> readMaybe $ takeWhile (/= '_') rest
 
 isSocketPath :: FilePath -> IO Bool
 isSocketPath path =
@@ -177,6 +187,8 @@ prepareBackendEnvironment = do
   rawWaylandDisplay <- lookupEnv "WAYLAND_DISPLAY"
 
   let hasDisplay = envIsNonEmpty mDisplay
+      explicitlyRequestedX11 =
+        envIsX11GdkBackend mGdkBackend
 
   currentWaylandOk <- case mRuntime of
     Just runtime -> waylandSocketAvailable runtime rawWaylandDisplay
@@ -184,25 +196,27 @@ prepareBackendEnvironment = do
   currentHyprlandOk <- case mRuntime of
     Just runtime -> hyprlandSignatureAvailable runtime rawHyprlandSignature
     Nothing -> pure False
+  discoveredHyprlandSignature <- case mRuntime of
+    Just runtime | not explicitlyRequestedX11 -> discoverHyprlandSignature runtime
+    _ -> pure Nothing
 
-  let explicitlyRequestedX11 =
-        envIsX11GdkBackend mGdkBackend
+  let hasHyprlandEvidence =
+        currentHyprlandOk
+          || envIsNonEmpty rawHyprlandSignature
+          || envIsNonEmpty discoveredHyprlandSignature
+          || envContainsWaylandDesktop mCurrentDesktop
+          || envContainsWaylandDesktop mDesktopSession
       staleSessionTypeClaimsX11 =
         mSessionType == Just "x11"
           && hasDisplay
           && not currentWaylandOk
-          && not currentHyprlandOk
-          && not (envContainsWaylandDesktop mCurrentDesktop)
-          && not (envContainsWaylandDesktop mDesktopSession)
+          && not hasHyprlandEvidence
       explicitX11Session =
         explicitlyRequestedX11 || staleSessionTypeClaimsX11
       processContextExpectsWayland =
         currentWaylandOk
-          || currentHyprlandOk
           || mSessionType == Just "wayland"
-          || envIsNonEmpty rawHyprlandSignature
-          || envContainsWaylandDesktop mCurrentDesktop
-          || envContainsWaylandDesktop mDesktopSession
+          || hasHyprlandEvidence
       shouldDiscoverAmbientWayland =
         not explicitX11Session && (processContextExpectsWayland || not hasDisplay)
 
@@ -243,8 +257,7 @@ prepareBackendEnvironment = do
       (Just runtime, val) -> do
         currentOk <- hyprlandSignatureAvailable runtime val
         unless currentOk $ do
-          mSig <- discoverHyprlandSignature runtime
-          case mSig of
+          case discoveredHyprlandSignature of
             Just sig -> do
               logIO INFO $ "Discovered Hyprland signature: " ++ sig
               setEnv "HYPRLAND_INSTANCE_SIGNATURE" sig
