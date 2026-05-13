@@ -248,8 +248,12 @@ monitorWirePlumberInfo nodeSpec chan var = do
               maybeMetadata <- ManagedPtr.castTo Metadata.Metadata object
               forM_ maybeMetadata $ \metadata -> do
                 handler <-
-                  Metadata.onMetadataChanged metadata $ \subject key _type _value ->
-                    when (subject == 0 && key `elem` defaultMetadataKeys) refresh
+                  Metadata.onMetadataChanged metadata $ \subject maybeKey _type _value ->
+                    when
+                      ( subject == 0
+                          && maybe False (`elem` defaultMetadataKeys) maybeKey
+                      )
+                      refresh
                 rememberSignal handler
               pure maybeMetadata
 

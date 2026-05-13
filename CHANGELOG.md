@@ -1,3 +1,17 @@
+# 7.2.1
+
+## Fixes
+
+* Mark WirePlumber metadata-changed signal string parameters as nullable in the
+  generated GI bindings, preventing crashes when WirePlumber emits NULL
+  metadata values while clearing defaults.
+
+## Packaging
+
+* Bump the package version to 7.2.1.
+* Require `gi-wireplumber >= 0.5.14.2` for the nullable
+  metadata-changed signal binding.
+
 # 7.2.0
 
 ## New Features

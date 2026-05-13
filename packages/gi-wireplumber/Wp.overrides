@@ -1,0 +1,7 @@
+namespace Wp
+
+# WirePlumber clears metadata by emitting the changed signal with NULL
+# string arguments, but the GIR does not currently mark them nullable.
+set-attr Wp/Metadata/changed/@parameters/p0 nullable 1
+set-attr Wp/Metadata/changed/@parameters/p1 nullable 1
+set-attr Wp/Metadata/changed/@parameters/p2 nullable 1
