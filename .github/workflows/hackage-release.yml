@@ -13,7 +13,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: hackage-release-${{ inputs.tag || github.ref_name }}
@@ -110,3 +110,13 @@ jobs:
           docs_tarball="$(find dist-newstyle -name "$PACKAGE-$VERSION-docs.tar.gz" -print -quit)"
           test -n "$docs_tarball"
           nix develop --command cabal upload --documentation --publish "$docs_tarball" --token="$HACKAGE_TOKEN"
+
+      - name: Update latest release branch
+        if: github.event_name == 'push' && steps.release.outputs.package == 'taffybar'
+        run: |
+          expected="$(git ls-remote origin refs/heads/latest-release | cut -f1)"
+          if [ -n "$expected" ]; then
+            git push origin HEAD:refs/heads/latest-release --force-with-lease=refs/heads/latest-release:"$expected"
+          else
+            git push origin HEAD:refs/heads/latest-release
+          fi
