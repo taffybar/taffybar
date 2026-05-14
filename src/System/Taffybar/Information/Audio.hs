@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -44,11 +45,15 @@ import Control.Monad (forever, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Data.Proxy (Proxy (..))
+#ifdef WITH_WIREPLUMBER
 import qualified Data.Text as T
+#endif
 import GHC.TypeLits (KnownSymbol, SomeSymbol (..), Symbol, someSymbolVal, symbolVal)
 import System.Taffybar.Context (TaffyIO)
 import qualified System.Taffybar.Information.PulseAudio as PulseAudio
+#ifdef WITH_WIREPLUMBER
 import qualified System.Taffybar.Information.WirePlumber as WirePlumber
+#endif
 
 data AudioBackend
   = PulseAudioBackend
@@ -74,18 +79,26 @@ newtype AudioInfoChanVar (a :: Symbol)
 
 audioBackendAvailable :: IO AudioBackend
 audioBackendAvailable = do
+#ifdef WITH_WIREPLUMBER
   pulseAvailable <- PulseAudio.pulseAudioAvailable
   pure $
     if pulseAvailable
       then PulseAudioBackend
       else WirePlumberBackend
+#else
+  pure PulseAudioBackend
+#endif
 
 getAudioInfo :: String -> String -> IO (Maybe AudioInfo)
 getAudioInfo pulseSink wirePlumberNode = do
   backend <- audioBackendAvailable
   case backend of
     PulseAudioBackend -> fmap fromPulseAudioInfo <$> PulseAudio.getPulseAudioInfo pulseSink
+#ifdef WITH_WIREPLUMBER
     WirePlumberBackend -> fmap fromWirePlumberInfo <$> WirePlumber.getWirePlumberInfo wirePlumberNode
+#else
+    WirePlumberBackend -> wirePlumberNode `seq` pure Nothing
+#endif
 
 getAudioInfoChan :: String -> String -> TaffyIO (TChan (Maybe AudioInfo))
 getAudioInfoChan pulseSink wirePlumberNode =
@@ -122,23 +135,35 @@ getAudioInfoChanVarFor = do
     PulseAudioBackend -> do
       (pulseChan, pulseVar) <- PulseAudio.getPulseAudioInfoChanAndVar pulseSink
       buildMappedChanVar fromPulseAudioInfo pulseChan pulseVar
+#ifdef WITH_WIREPLUMBER
     WirePlumberBackend -> do
       (wireChan, wireVar) <- WirePlumber.getWirePlumberInfoChanAndVar wirePlumberNode
       buildMappedChanVar fromWirePlumberInfo wireChan wireVar
+#else
+    WirePlumberBackend -> liftIO $ wirePlumberNode `seq` buildUnavailableChanVar
+#endif
 
 toggleAudioMute :: String -> String -> IO Bool
 toggleAudioMute pulseSink wirePlumberNode = do
   backend <- audioBackendAvailable
   case backend of
     PulseAudioBackend -> PulseAudio.togglePulseAudioMute pulseSink
+#ifdef WITH_WIREPLUMBER
     WirePlumberBackend -> WirePlumber.toggleWirePlumberMute wirePlumberNode
+#else
+    WirePlumberBackend -> wirePlumberNode `seq` pure False
+#endif
 
 adjustAudioVolume :: String -> String -> Int -> IO Bool
 adjustAudioVolume pulseSink wirePlumberNode deltaPercent = do
   backend <- audioBackendAvailable
   case backend of
     PulseAudioBackend -> PulseAudio.adjustPulseAudioVolume pulseSink deltaPercent
+#ifdef WITH_WIREPLUMBER
     WirePlumberBackend -> WirePlumber.adjustWirePlumberVolume wirePlumberNode deltaPercent
+#else
+    WirePlumberBackend -> wirePlumberNode `seq` pure False
+#endif
 
 pulseSinkToWirePlumberNode :: String -> String
 pulseSinkToWirePlumberNode "" = defaultAudioWirePlumberNode
@@ -167,6 +192,15 @@ buildMappedChanVar convert backendChan backendVar = do
             writeTChan chan info
     pure $ AudioInfoChanVar (chan, var)
 
+#ifndef WITH_WIREPLUMBER
+buildUnavailableChanVar :: IO (AudioInfoChanVar a)
+buildUnavailableChanVar = do
+  chan <- newBroadcastTChanIO
+  var <- newMVar Nothing
+  atomically $ writeTChan chan Nothing
+  pure $ AudioInfoChanVar (chan, var)
+#endif
+
 fromPulseAudioInfo :: PulseAudio.PulseAudioInfo -> AudioInfo
 fromPulseAudioInfo info =
   AudioInfo
@@ -176,6 +210,7 @@ fromPulseAudioInfo info =
       audioBackend = PulseAudioBackend
     }
 
+#ifdef WITH_WIREPLUMBER
 fromWirePlumberInfo :: WirePlumber.WirePlumberInfo -> AudioInfo
 fromWirePlumberInfo info =
   AudioInfo
@@ -184,6 +219,7 @@ fromWirePlumberInfo info =
       audioNodeName = T.unpack $ WirePlumber.wirePlumberNodeName info,
       audioBackend = WirePlumberBackend
     }
+#endif
 
 encodeAudioSpecs :: String -> String -> String
 encodeAudioSpecs pulseSink wirePlumberNode = pulseSink ++ "\n" ++ wirePlumberNode

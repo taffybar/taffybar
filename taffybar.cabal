@@ -1,6 +1,6 @@
 cabal-version: 3.4
 name: taffybar
-version: 7.2.2
+version: 7.2.3
 synopsis: A desktop bar similar to xmobar, but with more GUI
 description: Taffybar is a desktop status bar with GTK widgets for window
   manager state, system information, tray icons, and custom user modules.
@@ -38,6 +38,11 @@ extra-doc-files:
 
 flag Deprecated-Pager-Hints
   description: Enables the deprecated System.Taffybar.Support.PagerHints module, which has been moved to xmonad-contrib.
+
+flag wireplumber
+  description: Enables WirePlumber/PipeWire audio support.
+  default: True
+  manual: True
 
 common haskell
   default-extensions:
@@ -90,7 +95,6 @@ library
                , gi-gtk3 >= 3.0.44 && < 4
                , gi-gtk-hs >= 0.3.17 && < 0.4
                , gi-pango >= 1.0 && < 1.1
-               , gi-wireplumber >= 0.5.14.2 && < 0.6
                , gtk-scaling-image >= 0.1.0.1 && < 0.2
                , gtk-sni-tray >= 0.2.1.2 && < 0.3
                , gtk-strut >= 0.1.4.1 && < 0.2
@@ -143,7 +147,6 @@ library
                  , System.Taffybar.Information.Hyprland
                  , System.Taffybar.Information.HyprlandWorkspaceHistory
                  , System.Taffybar.Information.PulseAudio
-                 , System.Taffybar.Information.WirePlumber
                  , System.Taffybar.Information.AnthropicUsage
                  , System.Taffybar.Information.Backlight
                  , System.Taffybar.Information.ASUS
@@ -243,7 +246,6 @@ library
                  , System.Taffybar.Widget.Weather
                  , System.Taffybar.Widget.Windows
                  , System.Taffybar.Widget.Workspaces
-                 , System.Taffybar.Widget.WirePlumber
                  , System.Taffybar.Widget.Wlsunset
                  , System.Taffybar.Widget.WttrIn
                  , System.Taffybar.Widget.XDGMenu.Menu
@@ -253,6 +255,12 @@ library
   if flag(Deprecated-Pager-Hints)
     build-depends: xmonad >= 0.17 && < 0.19
     exposed-modules: System.Taffybar.Support.PagerHints
+
+  if flag(wireplumber)
+    build-depends: gi-wireplumber >= 0.5.14.2 && < 0.6
+    cpp-options: -DWITH_WIREPLUMBER
+    exposed-modules: System.Taffybar.Information.WirePlumber
+                   , System.Taffybar.Widget.WirePlumber
 
   other-modules: Paths_taffybar
                , System.Taffybar.DBus.Client.ChromeWindowInfo

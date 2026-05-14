@@ -1,3 +1,11 @@
+# 7.2.3
+
+## Packaging
+
+* Add a `wireplumber` flag, enabled by default, so package sets without
+  WirePlumber 0.5 development libraries can disable the WirePlumber-backed
+  audio modules and still build taffybar.
+
 # 7.2.2
 
 ## Packaging
