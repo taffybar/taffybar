@@ -51,7 +51,7 @@ jobs:
           PACKAGE: ${{ steps.release.outputs.package }}
           SDIST: ${{ steps.release.outputs.sdist }}
         run: |
-          nix develop --command cabal sdist "$PACKAGE" --output-directory=dist-sdist
+          nix develop --command cabal sdist "pkg:$PACKAGE" --output-directory=dist-sdist
           test -f "$SDIST"
 
       - name: Check whether package is already published
@@ -78,7 +78,7 @@ jobs:
       - name: Build Hackage documentation
         env:
           PACKAGE: ${{ steps.release.outputs.package }}
-        run: nix develop --command cabal haddock "$PACKAGE" --haddock-for-hackage
+        run: nix develop --command cabal haddock "pkg:$PACKAGE" --haddock-for-hackage
 
       - name: Check whether documentation is already published
         id: published-docs
