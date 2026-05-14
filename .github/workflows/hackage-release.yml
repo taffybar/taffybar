@@ -23,6 +23,9 @@ jobs:
   publish:
     name: Publish ${{ inputs.tag || github.ref_name }} to Hackage
     runs-on: ubuntu-latest
+    env:
+      NIX_CONFIG: |
+        accept-flake-config = true
     steps:
       - uses: actions/checkout@v6
         with:
@@ -74,6 +77,9 @@ jobs:
           HACKAGE_TOKEN: ${{ secrets.HACKAGE_TOKEN }}
           SDIST: ${{ steps.release.outputs.sdist }}
         run: nix develop --command cabal upload --publish "$SDIST" --token="$HACKAGE_TOKEN"
+
+      - name: Update Cabal package index
+        run: nix develop --command cabal update
 
       - name: Build Hackage documentation
         env:
