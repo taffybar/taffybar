@@ -84,7 +84,7 @@ jobs:
       - name: Build Hackage documentation
         env:
           PACKAGE: ${{ steps.release.outputs.package }}
-        run: nix develop --command cabal haddock "pkg:$PACKAGE" --haddock-for-hackage
+        run: nix develop --command cabal haddock "lib:$PACKAGE" --haddock-for-hackage
 
       - name: Check whether documentation is already published
         id: published-docs
