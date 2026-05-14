@@ -1,0 +1,106 @@
+name: Hackage Release
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "*-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to publish to Hackage"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hackage-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish ${{ inputs.tag || github.ref_name }} to Hackage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Resolve release tag
+        id: release
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: .github/scripts/resolve-hackage-release.sh "$TAG" | tee "$GITHUB_OUTPUT"
+
+      - name: Build selected package
+        env:
+          PACKAGE: ${{ steps.release.outputs.package }}
+        run: nix build --print-build-logs ".#$PACKAGE"
+
+      - name: Check package metadata
+        env:
+          PACKAGE_DIR: ${{ steps.release.outputs.package_dir }}
+        run: nix develop --command bash -euo pipefail -c "cd \"$PACKAGE_DIR\" && cabal check"
+
+      - name: Build source distribution
+        env:
+          PACKAGE: ${{ steps.release.outputs.package }}
+          SDIST: ${{ steps.release.outputs.sdist }}
+        run: |
+          nix develop --command cabal sdist "$PACKAGE" --output-directory=dist-sdist
+          test -f "$SDIST"
+
+      - name: Check whether package is already published
+        id: published
+        env:
+          PACKAGE: ${{ steps.release.outputs.package }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          if curl --fail --silent --show-error --location --output /dev/null \
+            "https://hackage.haskell.org/package/$PACKAGE-$VERSION/$PACKAGE.cabal"
+          then
+            echo "source_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "source_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload source distribution to Hackage
+        if: steps.published.outputs.source_exists == 'false'
+        env:
+          HACKAGE_TOKEN: ${{ secrets.HACKAGE_TOKEN }}
+          SDIST: ${{ steps.release.outputs.sdist }}
+        run: nix develop --command cabal upload --publish "$SDIST" --token="$HACKAGE_TOKEN"
+
+      - name: Build Hackage documentation
+        env:
+          PACKAGE: ${{ steps.release.outputs.package }}
+        run: nix develop --command cabal haddock "$PACKAGE" --haddock-for-hackage
+
+      - name: Check whether documentation is already published
+        id: published-docs
+        env:
+          PACKAGE: ${{ steps.release.outputs.package }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          if curl --fail --silent --show-error --location --output /dev/null \
+            "https://hackage.haskell.org/package/$PACKAGE-$VERSION/docs/"
+          then
+            echo "docs_exist=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_exist=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload documentation to Hackage
+        if: steps.published-docs.outputs.docs_exist == 'false'
+        env:
+          HACKAGE_TOKEN: ${{ secrets.HACKAGE_TOKEN }}
+          PACKAGE: ${{ steps.release.outputs.package }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          docs_tarball="$(find dist-newstyle -name "$PACKAGE-$VERSION-docs.tar.gz" -print -quit)"
+          test -n "$docs_tarball"
+          nix develop --command cabal upload --documentation --publish "$docs_tarball" --token="$HACKAGE_TOKEN"
