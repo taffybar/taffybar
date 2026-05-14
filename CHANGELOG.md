@@ -1,3 +1,10 @@
+# 7.2.4
+
+## Packaging
+
+* Release through the repository's GitHub Actions Hackage workflow, including
+  generated Haddock documentation upload.
+
 # 7.2.3
 
 ## Packaging
