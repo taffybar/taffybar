@@ -14,4 +14,5 @@ cabal.sandbox.config
 /.hspec
 /.hspec-failures
 .worktrees/
+/scratch/
 /packages/gi-wireplumber/GI/
