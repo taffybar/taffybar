@@ -20,7 +20,9 @@ jobs:
         with:
           ref: "${{ (inputs.tag != null) && format('refs/tags/{0}', inputs.tag) || '' }}"
       - uses: "DeterminateSystems/determinate-nix-action@v3"
-      - uses: "DeterminateSystems/flakehub-push@v6"
+      - id: "flakehub_push"
+        continue-on-error: true
+        uses: "DeterminateSystems/flakehub-push@v6"
         with:
           visibility: "public"
           name: "taffybar/taffybar"
@@ -29,3 +31,13 @@ jobs:
           # packaging, which makes flake inventory evaluation fail in this
           # publish job. Skip inventory collection but still publish releases.
           my-flake-is-too-big: true
+      - name: "Report skipped FlakeHub publish"
+        if: "${{ steps.flakehub_push.outcome == 'failure' }}"
+        run: |
+          {
+            echo "## FlakeHub publish skipped"
+            echo
+            echo "The release tag was created, but FlakeHub publish failed."
+            echo "This job is non-blocking because FlakeHub authentication depends on external organization setup."
+            echo "Re-run this workflow manually after FlakeHub authentication is available."
+          } >> "$GITHUB_STEP_SUMMARY"
