@@ -678,7 +678,36 @@ showPriorityControlsMenu ::
   IO () ->
   IO () ->
   IO ()
-showPriorityControlsMenu
+showPriorityControlsMenu anchor priorityMin priorityMax alwaysShowExpandControl priorityModeLabel expandedRef priorityEditModeRef hiddenCountRef maxVisibleRef thresholdRef =
+  showPriorityControlsMenuWithExplicitCollapse
+    anchor
+    priorityMin
+    priorityMax
+    alwaysShowExpandControl
+    priorityModeLabel
+    expandedRef
+    priorityEditModeRef
+    hiddenCountRef
+    maxVisibleRef
+    thresholdRef
+    (return ())
+
+showPriorityControlsMenuWithExplicitCollapse ::
+  Gtk.EventBox ->
+  Int ->
+  Int ->
+  Bool ->
+  (Bool -> T.Text) ->
+  IORef Bool ->
+  IORef Bool ->
+  IORef Int ->
+  IORef Int ->
+  IORef (Maybe Int) ->
+  IO () ->
+  IO () ->
+  IO () ->
+  IO ()
+showPriorityControlsMenuWithExplicitCollapse
   anchor
   priorityMin
   priorityMax
@@ -689,6 +718,7 @@ showPriorityControlsMenu
   hiddenCountRef
   maxVisibleRef
   thresholdRef
+  onExplicitCollapse
   onControlStateChanged
   onSettingsChanged = do
     currentEvent <- Gtk.getCurrentEvent
@@ -710,7 +740,9 @@ showPriorityControlsMenu
               else "Show all tray icons"
       expandItem <- Gtk.menuItemNewWithLabel expandLabel
       void $ Gtk.onMenuItemActivate expandItem $ do
-        modifyIORef' expandedRef not
+        let newExpanded = not currentExpanded
+        writeIORef expandedRef newExpanded
+        unless newExpanded onExplicitCollapse
         onControlStateChanged
       Gtk.menuShellAppend menu expandItem
 
@@ -1127,6 +1159,12 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                 (setHoverExpanded shouldExpand)
               return False
 
+        cancelHoverExpansion = do
+          modifyIORef' hoverSerialRef (+ 1)
+          writeIORef hoverExpandedRef False
+          modifyIORef' animationSerialRef (+ 1)
+          writeIORef animationActiveRef False
+
         refreshTray tray = do
           effectiveExpanded <- getEffectiveExpanded
           animationActive <- readIORef animationActiveRef
@@ -1269,7 +1307,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
       button <- Gdk.getEventButtonButton event
       if eventType == Gdk.EventTypeButtonPress && button == 1
         then do
-          showPriorityControlsMenu
+          showPriorityControlsMenuWithExplicitCollapse
             settingsToggle
             priorityMin
             priorityMax
@@ -1280,6 +1318,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
             hiddenCountRef
             maxVisibleIconsRef
             visibilityThresholdRef
+            cancelHoverExpansion
             (refreshPriorityModeToggle >> void refresh)
             (persistCurrentState >> scheduleRefresh False False H.ToolTipUpdated)
           return True
