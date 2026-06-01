@@ -69,20 +69,17 @@ getActiveMonitorNumberX11 = do
   display <- MaybeT Gdk.displayGetDefault
   seat <- lift $ Gdk.displayGetDefaultSeat display
   device <- MaybeT $ Gdk.seatGetPointer seat
-  lift $ do
-    (_, x, y) <- Gdk.deviceGetPosition device
-    Gdk.displayGetMonitorAtPoint display x y >>= getMonitorNumber
+  (_, x, y) <- lift $ Gdk.deviceGetPosition device
+  monitor <- MaybeT $ getMonitorAtPoint display x y
+  lift $ getMonitorNumber monitor
 
 getActiveMonitorNumberWayland :: Context -> MaybeT IO Int
 getActiveMonitorNumberWayland ctx = do
   (x, y) <- MaybeT $ getFocusedMonitorPosition (hyprlandClient ctx)
   display <- MaybeT Gdk.displayGetDefault
   monitor <-
-    lift $
-      Gdk.displayGetMonitorAtPoint
-        display
-        (fromIntegral x)
-        (fromIntegral y)
+    MaybeT $
+      getMonitorAtPoint display (fromIntegral x) (fromIntegral y)
   lift $ getMonitorNumber monitor
 
 getMonitorNumber :: Gdk.Monitor -> IO Int

@@ -58,6 +58,7 @@ module System.Taffybar.Context
     -- * X11
     runX11,
     runX11Def,
+    getMonitorAtPoint,
 
     -- ** Event subscription
     subscribeToAll,
@@ -77,7 +78,7 @@ import Control.Arrow ((&&&), (***))
 import Control.Concurrent (forkIO, threadDelay)
 import qualified Control.Concurrent.MVar as MV
 import Control.Concurrent.STM.TChan (TChan, readTChan)
-import Control.Exception (SomeException, try)
+import Control.Exception (SomeException, catch, try)
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad
 import Control.Monad.IO.Class
@@ -90,7 +91,7 @@ import qualified DBus.Client as DBus
 import Data.Char (toLower)
 import Data.Data
 import Data.Default (Default (..))
-import Data.GI.Base (castTo)
+import Data.GI.Base (UnexpectedNullPointerReturn (..), castTo)
 import Data.IORef
 import Data.Int
 import Data.List
@@ -621,20 +622,27 @@ getPointerMonitor display = runMaybeT $ do
   seat <- lift $ GI.Gdk.displayGetDefaultSeat display
   pointer <- MaybeT $ GI.Gdk.seatGetPointer seat
   (_, x, y) <- lift $ GI.Gdk.deviceGetPosition pointer
-  MaybeT $ Just <$> GI.Gdk.displayGetMonitorAtPoint display x y
+  MaybeT $ getMonitorAtPoint display x y
+
+getMonitorAtPoint :: GI.Gdk.Display -> Int32 -> Int32 -> IO (Maybe GI.Gdk.Monitor)
+getMonitorAtPoint display x y =
+  catch
+    (Just <$> GI.Gdk.displayGetMonitorAtPoint display x y)
+    $ \unexpectedNull -> do
+      logIO WARNING $
+        printf
+          "displayGetMonitorAtPoint returned null for point (%d, %d): %s"
+          x
+          y
+          (T.unpack $ nullPtrErrorMsg unexpectedNull)
+      pure Nothing
 
 getFocusedMonitorX11 :: Context -> IO (Maybe GI.Gdk.Monitor)
 getFocusedMonitorX11 context = runMaybeT $ do
   display <- MaybeT GI.Gdk.displayGetDefault
   maybeCenterPoint <- lift $ runReaderT getActiveWindowCenterPoint context
   case maybeCenterPoint of
-    Just (x, y) ->
-      MaybeT $
-        Just
-          <$> GI.Gdk.displayGetMonitorAtPoint
-            display
-            (fromIntegral x)
-            (fromIntegral y)
+    Just (x, y) -> MaybeT $ getMonitorAtPoint display (fromIntegral x) (fromIntegral y)
     Nothing -> MaybeT $ getPointerMonitor display
 
 getFocusedMonitorWayland :: Context -> IO (Maybe GI.Gdk.Monitor)
@@ -642,13 +650,7 @@ getFocusedMonitorWayland context = runMaybeT $ do
   display <- MaybeT GI.Gdk.displayGetDefault
   maybeFocusedMonitorPosition <- lift $ getFocusedMonitorPosition (hyprlandClient context)
   case maybeFocusedMonitorPosition of
-    Just (x, y) ->
-      MaybeT $
-        Just
-          <$> GI.Gdk.displayGetMonitorAtPoint
-            display
-            (fromIntegral x)
-            (fromIntegral y)
+    Just (x, y) -> MaybeT $ getMonitorAtPoint display (fromIntegral x) (fromIntegral y)
     Nothing -> MaybeT $ getPointerMonitor display
 
 withHyprlandEventChan :: Context -> IO HyprlandEventChan
