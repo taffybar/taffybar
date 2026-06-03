@@ -212,13 +212,29 @@ getIconPixbufFromByteString width height byteString
   | width <= 0 || height <= 0 = do
       trayLogger WARNING $ printf "Invalid icon dimensions: %dx%d" width height
       return Nothing
+  | BS.length byteString < expectedLength = do
+      trayLogger WARNING $
+        printf
+          "Invalid icon payload length for dimensions %dx%d: got %d bytes, expected at least %d"
+          width
+          height
+          (BS.length byteString)
+          expectedLength
+      return Nothing
   | otherwise = catchGErrorsAsNothing $ do
       trayLogger DEBUG "Getting Pixbuf from bytestring"
       bytes <- bytesNew $ Just byteString
       let bytesPerPixel = 4
           rowStride = width * bytesPerPixel
           sampleBits = 8
-      pixbufNewFromBytes bytes ColorspaceRgb True sampleBits width height rowStride
+      pixbuf <- pixbufNewFromBytes bytes ColorspaceRgb True sampleBits width height rowStride
+      -- The pixbuf returned by pixbufNewFromBytes is backed by immutable GBytes.
+      -- Return a private copy so later overlay composition or caller transforms
+      -- never write into SNI-owned byte storage.
+      fromMaybe pixbuf <$> Gdk.pixbufCopy pixbuf
+  where
+    expectedLength =
+      fromIntegral width * fromIntegral height * 4
 
 data ItemContext = ItemContext
   { contextName :: DBusTypes.BusName,
@@ -913,6 +929,7 @@ buildTray
           updateHandler _ _ = return ()
 
           maybeAddOverlayToPixbuf size info pixbuf = do
+            destination <- fromMaybe pixbuf <$> Gdk.pixbufCopy pixbuf
             _ <- runMaybeT $ do
               let overlayHeight = floor (fromIntegral size * overlayScale)
               overlayPixbuf <-
@@ -922,11 +939,11 @@ buildTray
               lift $ do
                 actualOHeight <- getPixbufHeight overlayPixbuf
                 actualOWidth <- getPixbufWidth overlayPixbuf
-                _mainHeight <- getPixbufHeight pixbuf
-                _mainWidth <- getPixbufWidth pixbuf
+                _mainHeight <- getPixbufHeight destination
+                _mainWidth <- getPixbufWidth destination
                 pixbufComposite
                   overlayPixbuf
-                  pixbuf
+                  destination
                   0
                   0
                   actualOWidth
@@ -937,7 +954,7 @@ buildTray
                   1.0
                   InterpTypeBilinear
                   255
-            return pixbuf
+            return destination
 
           getScaledPixBufFromInfo size info =
             getPixBufFromInfo size info
