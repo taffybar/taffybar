@@ -111,28 +111,37 @@ jobs:
           test -n "$docs_tarball"
           nix develop --command cabal upload --documentation --publish "$docs_tarball" --token="$HACKAGE_TOKEN"
 
-      - name: Extract GitHub release notes
-        if: steps.release.outputs.package == 'taffybar'
+      - name: Write GitHub release notes
         env:
+          PACKAGE: ${{ steps.release.outputs.package }}
           VERSION: ${{ steps.release.outputs.version }}
+          PACKAGE_DIR: ${{ steps.release.outputs.package_dir }}
         run: |
-          awk -v version="$VERSION" '
-            $0 == "# " version { in_section = 1; found = 1; next }
-            in_section && /^# / { exit }
-            in_section { print }
-            END { if (!found) exit 1 }
-          ' CHANGELOG.md | sed '/./,$!d' > release-notes.md
-          test -s release-notes.md
+          .github/scripts/extract-github-release-notes.sh "$PACKAGE" "$VERSION" "$PACKAGE_DIR" > release-notes.md
 
       - name: Create or update GitHub release
-        if: steps.release.outputs.package == 'taffybar'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release.outputs.tag }}
+          PACKAGE: ${{ steps.release.outputs.package }}
           VERSION: ${{ steps.release.outputs.version }}
         run: |
+          title="$PACKAGE $VERSION"
+
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "taffybar $VERSION" --notes-file release-notes.md
+            gh release edit "$TAG" --title "$title" --notes-file release-notes.md
+            if [[ "$PACKAGE" == "taffybar" ]]; then
+              gh release edit "$TAG" --latest
+            fi
           else
-            gh release create "$TAG" --verify-tag --title "taffybar $VERSION" --notes-file release-notes.md
+            latest_flag=(--latest=false)
+            if [[ "$PACKAGE" == "taffybar" ]]; then
+              latest_flag=(--latest)
+            fi
+
+            gh release create "$TAG" \
+              --verify-tag \
+              --title "$title" \
+              --notes-file release-notes.md \
+              "${latest_flag[@]}"
           fi
