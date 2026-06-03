@@ -206,13 +206,16 @@ simpleTaffybar :: SimpleTaffyConfig -> IO ()
 simpleTaffybar conf = startTaffybar $ toTaffybarConfig conf
 
 getMonitorCount :: IO Int
-getMonitorCount =
+getMonitorCount = do
+  maybeDisplay <- displayGetDefault
   fromIntegral
-    <$> ( screenGetDefault
-            >>= maybe
-              (return 0)
-              (screenGetDisplay >=> displayGetNMonitors)
-        )
+    <$> case maybeDisplay of
+      Just display -> displayGetNMonitors display
+      Nothing ->
+        screenGetDefault
+          >>= maybe
+            (return 0)
+            (screenGetDisplay >=> displayGetNMonitors)
 
 -- | Supply this value for 'monitorsAction' to display the taffybar window on
 -- all monitors.
