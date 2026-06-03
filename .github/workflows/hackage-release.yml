@@ -111,12 +111,28 @@ jobs:
           test -n "$docs_tarball"
           nix develop --command cabal upload --documentation --publish "$docs_tarball" --token="$HACKAGE_TOKEN"
 
-      - name: Update latest release branch
-        if: github.event_name == 'push' && steps.release.outputs.package == 'taffybar'
+      - name: Extract GitHub release notes
+        if: steps.release.outputs.package == 'taffybar'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
-          expected="$(git ls-remote origin refs/heads/latest-release | cut -f1)"
-          if [ -n "$expected" ]; then
-            git push origin HEAD:refs/heads/latest-release --force-with-lease=refs/heads/latest-release:"$expected"
+          awk -v version="$VERSION" '
+            $0 == "# " version { in_section = 1; found = 1; next }
+            in_section && /^# / { exit }
+            in_section { print }
+            END { if (!found) exit 1 }
+          ' CHANGELOG.md | sed '/./,$!d' > release-notes.md
+          test -s release-notes.md
+
+      - name: Create or update GitHub release
+        if: steps.release.outputs.package == 'taffybar'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "taffybar $VERSION" --notes-file release-notes.md
           else
-            git push origin HEAD:refs/heads/latest-release
+            gh release create "$TAG" --verify-tag --title "taffybar $VERSION" --notes-file release-notes.md
           fi
