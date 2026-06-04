@@ -17,10 +17,6 @@ module System.Taffybar.Hooks
   ( module System.Taffybar.DBus,
     module System.Taffybar.Hooks,
     module System.Taffybar.LogLevels,
-    ChromeTabImageData (..),
-    getChromeTabImageDataChannel,
-    getChromeTabImageDataTable,
-    getX11WindowToChromeTabId,
     refreshBatteriesOnPropChange,
   )
 where
@@ -43,7 +39,6 @@ import System.Log.Logger
 import System.Taffybar.Context
 import System.Taffybar.DBus
 import System.Taffybar.Information.Battery
-import System.Taffybar.Information.Chrome
 import System.Taffybar.Information.Network
 import System.Taffybar.LogFormatter
 import System.Taffybar.LogLevels

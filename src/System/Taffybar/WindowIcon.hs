@@ -5,7 +5,6 @@
 -- desktop entries, icon themes, and browser tab image hooks.
 module System.Taffybar.WindowIcon where
 
-import Control.Concurrent
 import qualified Control.Concurrent.MVar as MV
 import Control.Monad
 import Control.Monad.IO.Class
@@ -33,7 +32,6 @@ import System.Environment.XDG.DesktopEntry
 import System.Log.Logger
 import System.Taffybar.Context
 import System.Taffybar.Hooks
-import System.Taffybar.Information.Chrome
 import System.Taffybar.Information.EWMHDesktopInfo
 import System.Taffybar.Information.SafeX11 (Event (PropertyEvent))
 import System.Taffybar.Information.X11DesktopInfo
@@ -271,11 +269,3 @@ getCachedWindowIconFromClasses size klass =
   getCachedWindowIcon
     (ClassIconCacheKey size klass)
     (liftIO $ getWindowIconFromClasses size klass)
-
--- | Resolve a window icon from cached Chrome tab image data.
-getPixBufFromChromeData :: X11Window -> TaffyIO (Maybe Gdk.Pixbuf)
-getPixBufFromChromeData window = do
-  imageData <- getChromeTabImageDataTable >>= lift . readMVar
-  X11WindowToChromeTabId x11LookupMapVar <- getX11WindowToChromeTabId
-  x11LookupMap <- lift $ readMVar x11LookupMapVar
-  return $ tabImageData <$> (M.lookup window x11LookupMap >>= flip M.lookup imageData)

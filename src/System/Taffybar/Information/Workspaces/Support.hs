@@ -23,7 +23,6 @@ module System.Taffybar.Information.Workspaces.Support
     getWindowIconPixbufFromDesktopEntry,
     getWindowIconPixbufFromClass,
     getWindowIconPixbufByClassHints,
-    getWindowIconPixbufFromChrome,
     getWindowIconPixbufFromEWMH,
     defaultGetWindowIconPixbuf,
     unscaledDefaultGetWindowIconPixbuf,
@@ -63,7 +62,6 @@ import System.Taffybar.WindowIcon
   ( getCachedIconPixBufFromEWMH,
     getCachedWindowIconFromClasses,
     getCachedWindowIconFromDesktopEntryByClasses,
-    getPixBufFromChromeData,
   )
 
 type WindowIconPixbufGetter = Int32 -> WindowInfo -> TaffyIO (Maybe Gdk.Pixbuf)
@@ -124,12 +122,6 @@ getWindowIconPixbufFromClass = handleIconGetterException $ \size winInfo ->
 
 getWindowIconPixbufByClassHints :: WindowIconPixbufGetter
 getWindowIconPixbufByClassHints = getWindowIconPixbufFromClassHints
-
-getWindowIconPixbufFromChrome :: WindowIconPixbufGetter
-getWindowIconPixbufFromChrome _ windowData =
-  case windowIdentity windowData of
-    X11WindowIdentity wid -> getPixBufFromChromeData (fromIntegral wid)
-    HyprlandWindowIdentity _ -> pure Nothing
 
 getWindowIconPixbufFromEWMH :: WindowIconPixbufGetter
 getWindowIconPixbufFromEWMH = handleIconGetterException $ \size windowData ->

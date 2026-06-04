@@ -111,7 +111,6 @@ library
                , rate-limit >= 1.1.1 && < 1.5
                , regex-compat >= 0.95 && < 0.96
                , safe >= 0.3 && < 1
-               , scotty >= 0.20 && < 0.31
                , split >= 0.1.4.2 && < 0.3
                , status-notifier-item >= 0.3.2.14 && < 0.4
                , stm >= 2.5 && < 2.6
@@ -153,7 +152,6 @@ library
                  , System.Taffybar.Information.Battery
                  , System.Taffybar.Information.Bluetooth
                  , System.Taffybar.Information.CPU2
-                 , System.Taffybar.Information.Chrome
                  , System.Taffybar.Information.ChromeWindowInfo
                  , System.Taffybar.Information.Crypto
                  , System.Taffybar.Information.DiskIO
