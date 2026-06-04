@@ -1,0 +1,44 @@
+name: Unreleased Commit Badges
+
+on:
+  push:
+    branches: [master]
+    tags:
+      - "v*"
+      - "*-v*"
+  release:
+    types: [published, edited, deleted]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: unreleased-commit-badges
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish badge endpoint JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Generate badge endpoint JSON
+        run: .github/scripts/generate-unreleased-badges.sh "$RUNNER_TEMP/badges"
+
+      - name: Publish badges branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout --orphan badges
+          git rm -rf .
+          cp -R "$RUNNER_TEMP/badges"/. .
+          touch .nojekyll
+          git add .
+          git commit -m "Update unreleased commit badges"
+          git push --force origin badges
