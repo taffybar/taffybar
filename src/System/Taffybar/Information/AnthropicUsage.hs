@@ -26,16 +26,18 @@ import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM (atomically, orElse)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, try)
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson
 import Data.Aeson.Types (Parser)
+import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Data.List (sortOn)
 import qualified Data.List as List
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -52,11 +54,24 @@ import System.FilePath (takeExtension, (</>))
 import System.Log.Logger (Priority (WARNING), logM)
 import System.Taffybar.Context (TaffyIO, getStateDefault)
 import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
+import Text.Read (readMaybe)
 
 data AnthropicUsageConfig = AnthropicUsageConfig
-  { anthropicUsagePollInterval :: Double,
+  { -- | How often the poll loop wakes. Drives the cheap local transcript read;
+    -- the rate-limited OAuth endpoint is governed separately by
+    -- 'anthropicUsageOAuthMinInterval' and the backoff state, so this can be
+    -- set low for snappy local token counts without abusing the endpoint.
+    anthropicUsagePollInterval :: Double,
     anthropicUsageEndpoint :: String,
     anthropicUsageUserAgent :: String,
+    -- | Minimum spacing between successful OAuth endpoint fetches. Even if the
+    -- poll loop wakes more often, the endpoint is not hit again until this much
+    -- time has elapsed since the last success.
+    anthropicUsageOAuthMinInterval :: NominalDiffTime,
+    -- | Upper bound on the exponential backoff applied after failed OAuth
+    -- fetches (429s, auth errors, network errors). A server-supplied
+    -- @Retry-After@ longer than this is still honored.
+    anthropicUsageOAuthMaxBackoff :: NominalDiffTime,
     anthropicUsageStatePath :: Maybe FilePath,
     anthropicUsageCredentialsPath :: Maybe FilePath,
     anthropicUsageProjectsPath :: Maybe FilePath,
@@ -71,6 +86,8 @@ defaultAnthropicUsageConfig =
     { anthropicUsagePollInterval = 60 * 5,
       anthropicUsageEndpoint = "https://api.anthropic.com/api/oauth/usage",
       anthropicUsageUserAgent = "taffybar-anthropic-usage",
+      anthropicUsageOAuthMinInterval = 60 * 5,
+      anthropicUsageOAuthMaxBackoff = 60 * 60,
       anthropicUsageStatePath = Nothing,
       anthropicUsageCredentialsPath = Nothing,
       anthropicUsageProjectsPath = Nothing,
@@ -202,6 +219,37 @@ instance FromJSON AnthropicOAuthUsage where
       <$> o .:? "five_hour"
       <*> o .:? "seven_day"
 
+-- | Persistent state for OAuth endpoint polling, carried across poll
+-- iterations so we can space out and back off endpoint requests independently
+-- of the (cheap, local) transcript reads.
+data OAuthFetchState = OAuthFetchState
+  { -- | Earliest time we are allowed to hit the endpoint again. 'Nothing'
+    -- means "fetch on next poll".
+    oauthNextAllowedFetch :: Maybe UTCTime,
+    -- | Consecutive failures, used to grow the exponential backoff.
+    oauthConsecutiveFailures :: Int,
+    -- | Last successful response, shown while we are within a backoff/spacing
+    -- window so the widget keeps real utilization instead of dropping to the
+    -- transcript-derived fallback.
+    oauthLastGood :: Maybe AnthropicOAuthUsage,
+    -- | Access token used on the last attempt. A changed token (e.g. after
+    -- Claude Code refreshes its credentials) bypasses the backoff so a
+    -- recovered token is picked up immediately rather than after a long wait.
+    oauthLastTriedToken :: Maybe T.Text
+  }
+
+emptyOAuthFetchState :: OAuthFetchState
+emptyOAuthFetchState = OAuthFetchState Nothing 0 Nothing Nothing
+
+-- | Outcome of a single HTTP attempt against the OAuth usage endpoint.
+data OAuthFetchResult
+  = -- | 2xx with a decodable body.
+    OAuthFetchSuccess AnthropicOAuthUsage
+  | -- | HTTP 429, with the parsed @Retry-After@ delay when present.
+    OAuthFetchRateLimited (Maybe NominalDiffTime)
+  | -- | Any other non-success (auth error, 5xx, decode failure, network error).
+    OAuthFetchError
+
 data AnthropicState = AnthropicState
   { anthropicStateHasAvailableSubscription :: Maybe Bool,
     anthropicStateExtraUsageDisabledReason :: Maybe T.Text,
@@ -271,12 +319,19 @@ instance FromJSON AnthropicUsageTotals where
           anthropicUsageEstimatedCostUSD = Nothing
         }
 
+-- | One-shot snapshot with no persistent backoff state. Convenience for
+-- callers and tests; the poll loop uses 'getAnthropicUsageInfoWith' so backoff
+-- and last-good caching survive across iterations.
 getAnthropicUsageInfo :: AnthropicUsageConfig -> IO AnthropicUsageInfo
-getAnthropicUsageInfo config = do
+getAnthropicUsageInfo config =
+  newIORef emptyOAuthFetchState >>= getAnthropicUsageInfoWith config
+
+getAnthropicUsageInfoWith :: AnthropicUsageConfig -> IORef OAuthFetchState -> IO AnthropicUsageInfo
+getAnthropicUsageInfoWith config oauthStateRef = do
   now <- getCurrentTime
   credentials <- decodeFileIfExists =<< maybe defaultClaudeCredentialsPath return (anthropicUsageCredentialsPath config)
   metadata <- readAnthropicUsageMetadata config credentials
-  oauthUsage <- fetchAnthropicOAuthUsage config (credentials >>= anthropicCredentialsAccessToken)
+  oauthUsage <- fetchAnthropicOAuthUsageWithBackoff config oauthStateRef now (credentials >>= anthropicCredentialsAccessToken)
   entries <- readAnthropicTranscriptEntries config now
   let fiveHourWindow =
         applyOAuthWindow (oauthUsage >>= anthropicOAuthFiveHour) $
@@ -307,8 +362,12 @@ getAnthropicUsageInfo config = do
       }
 
 updateAnthropicUsage :: AnthropicUsageConfig -> IO AnthropicUsageSnapshot
-updateAnthropicUsage config = do
-  result <- try $ getAnthropicUsageInfo config
+updateAnthropicUsage config =
+  newIORef emptyOAuthFetchState >>= updateAnthropicUsageWith config
+
+updateAnthropicUsageWith :: AnthropicUsageConfig -> IORef OAuthFetchState -> IO AnthropicUsageSnapshot
+updateAnthropicUsageWith config oauthStateRef = do
+  result <- try $ getAnthropicUsageInfoWith config oauthStateRef
   case result of
     Right info -> return $ AnthropicUsageAvailable info
     Left (err :: SomeException) -> do
@@ -328,12 +387,65 @@ readAnthropicUsageMetadata config credentials = do
         anthropicMetadataOrganizationName = state >>= anthropicStateOrganizationName
       }
 
--- | Fetch utilization from the OAuth usage endpoint. Failures (no token,
--- network down, unexpected response) degrade to 'Nothing' so the widget falls
--- back to transcript-derived token counts.
-fetchAnthropicOAuthUsage :: AnthropicUsageConfig -> Maybe T.Text -> IO (Maybe AnthropicOAuthUsage)
-fetchAnthropicOAuthUsage _ Nothing = return Nothing
-fetchAnthropicOAuthUsage config (Just token) = do
+-- | Fetch utilization from the OAuth usage endpoint, honoring a persistent
+-- backoff carried in the 'IORef'. Returns the value to display: a fresh
+-- response on success, or the last good response while spacing out / backing
+-- off, or 'Nothing' when nothing is cached (the widget then falls back to
+-- transcript-derived token counts).
+--
+-- The endpoint is rate-limited, so we (a) never hit it more often than
+-- 'anthropicUsageOAuthMinInterval' after a success, (b) apply exponential
+-- backoff (honoring a server @Retry-After@) after failures, and (c) bypass the
+-- backoff when the access token changes, so a refreshed credential recovers
+-- immediately instead of after the full backoff.
+fetchAnthropicOAuthUsageWithBackoff ::
+  AnthropicUsageConfig ->
+  IORef OAuthFetchState ->
+  UTCTime ->
+  Maybe T.Text ->
+  IO (Maybe AnthropicOAuthUsage)
+fetchAnthropicOAuthUsageWithBackoff _ _ _ Nothing = return Nothing
+fetchAnthropicOAuthUsageWithBackoff config oauthStateRef now (Just token) = do
+  st <- readIORef oauthStateRef
+  let tokenChanged = oauthLastTriedToken st /= Just token
+      withinBackoff = maybe False (now <) (oauthNextAllowedFetch st)
+      -- A changed token restarts the failure schedule from scratch.
+      priorFailures = if tokenChanged then 0 else oauthConsecutiveFailures st
+  if withinBackoff && not tokenChanged
+    then return (oauthLastGood st)
+    else do
+      outcome <- performOAuthFetch config token
+      case outcome of
+        OAuthFetchSuccess usage -> do
+          writeIORef oauthStateRef $
+            st
+              { oauthConsecutiveFailures = 0,
+                oauthLastGood = Just usage,
+                oauthLastTriedToken = Just token,
+                oauthNextAllowedFetch =
+                  Just (addUTCTime (anthropicUsageOAuthMinInterval config) now)
+              }
+          return (Just usage)
+        OAuthFetchRateLimited retryAfter ->
+          backOff st (priorFailures + 1) retryAfter
+        OAuthFetchError ->
+          backOff st (priorFailures + 1) Nothing
+  where
+    backOff st failures retryAfter = do
+      let delay = oauthBackoffDelay config failures retryAfter
+      writeIORef oauthStateRef $
+        st
+          { oauthConsecutiveFailures = failures,
+            oauthLastTriedToken = Just token,
+            oauthNextAllowedFetch = Just (addUTCTime delay now)
+          }
+      return (oauthLastGood st)
+
+-- | A single HTTP attempt against the OAuth usage endpoint, classified into an
+-- 'OAuthFetchResult'. Network and decode errors are logged and reported as
+-- 'OAuthFetchError'.
+performOAuthFetch :: AnthropicUsageConfig -> T.Text -> IO OAuthFetchResult
+performOAuthFetch config token = do
   result <- try $ do
     request0 <- parseRequest $ anthropicUsageEndpoint config
     let request =
@@ -342,16 +454,53 @@ fetchAnthropicOAuthUsage config (Just token) = do
               setRequestHeader "Accept" ["application/json"] $
                 setRequestHeader "User-Agent" [TE.encodeUtf8 (T.pack (anthropicUsageUserAgent config))] request0
     response <- httpLBS request
-    let statusCode = getResponseStatusCode response
-        body = getResponseBody response
-    if statusCode >= 200 && statusCode < 300
-      then either fail return $ eitherDecode body
-      else fail $ "Anthropic usage endpoint returned HTTP " <> show statusCode
+    return
+      ( getResponseStatusCode response,
+        getResponseHeader "Retry-After" response,
+        getResponseBody response
+      )
   case result of
-    Right usage -> return $ Just usage
     Left (err :: SomeException) -> do
       logM logName WARNING $ "Anthropic OAuth usage fetch failed: " <> show err
-      return Nothing
+      return OAuthFetchError
+    Right (statusCode, retryAfterHeaders, body)
+      | statusCode >= 200 && statusCode < 300 ->
+          case eitherDecode body of
+            Right usage -> return (OAuthFetchSuccess usage)
+            Left err -> do
+              logM logName WARNING $ "Anthropic OAuth usage decode failed: " <> err
+              return OAuthFetchError
+      | statusCode == 429 -> do
+          let retryAfter = parseRetryAfter retryAfterHeaders
+          logM logName WARNING $
+            "Anthropic usage endpoint returned HTTP 429"
+              <> maybe
+                ""
+                (\s -> "; Retry-After " <> show (round s :: Integer) <> "s")
+                retryAfter
+          return (OAuthFetchRateLimited retryAfter)
+      | otherwise -> do
+          logM logName WARNING $ "Anthropic usage endpoint returned HTTP " <> show statusCode
+          return OAuthFetchError
+
+-- | Exponential backoff that doubles from the configured min interval and is
+-- capped at the configured max, but is never shorter than a server-supplied
+-- @Retry-After@.
+oauthBackoffDelay :: AnthropicUsageConfig -> Int -> Maybe NominalDiffTime -> NominalDiffTime
+oauthBackoffDelay config failures retryAfter =
+  max (fromMaybe 0 retryAfter) capped
+  where
+    base = anthropicUsageOAuthMinInterval config
+    shift = min (max 0 (failures - 1)) 6
+    capped = min (anthropicUsageOAuthMaxBackoff config) (base * fromInteger (2 ^ shift))
+
+-- | Parse a @Retry-After@ header expressed as integer delta-seconds. The
+-- HTTP-date form is not handled and falls back to exponential backoff.
+parseRetryAfter :: [BS8.ByteString] -> Maybe NominalDiffTime
+parseRetryAfter headers = do
+  raw <- listToMaybe headers
+  seconds <- readMaybe (BS8.unpack raw) :: Maybe Integer
+  if seconds >= 0 then Just (fromInteger seconds) else Nothing
 
 applyOAuthWindow :: Maybe AnthropicOAuthWindow -> AnthropicUsageWindow -> AnthropicUsageWindow
 applyOAuthWindow Nothing window = window
@@ -555,7 +704,10 @@ setupAnthropicUsageChanVar :: AnthropicUsageConfig -> TaffyIO AnthropicUsageChan
 setupAnthropicUsageChanVar config = getStateDefault $ do
   chan <- liftIO newBroadcastTChanIO
   refreshChan <- liftIO newTChanIO
-  initial <- liftIO $ updateAnthropicUsage config
+  -- Persistent OAuth backoff/last-good state, shared by the initial fetch and
+  -- every poll iteration so spacing and backoff survive across wakeups.
+  oauthStateRef <- liftIO $ newIORef emptyOAuthFetchState
+  initial <- liftIO $ updateAnthropicUsageWith config oauthStateRef
   var <- liftIO $ newMVar initial
   wakeupChan <- getWakeupChannelForDelay (anthropicUsagePollInterval config)
   ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
@@ -566,16 +718,17 @@ setupAnthropicUsageChanVar config = getStateDefault $ do
           atomically $
             void (readTChan refreshChan)
               `orElse` void (readTChan ourWakeupChan)
-          refreshAnthropicUsageState config chan var
+          refreshAnthropicUsageState config oauthStateRef chan var
   return $ AnthropicUsageChanVar (chan, var, refreshChan)
 
 refreshAnthropicUsageState ::
   AnthropicUsageConfig ->
+  IORef OAuthFetchState ->
   TChan AnthropicUsageSnapshot ->
   MVar AnthropicUsageSnapshot ->
   IO ()
-refreshAnthropicUsageState config chan var = do
-  snapshot <- updateAnthropicUsage config
+refreshAnthropicUsageState config oauthStateRef chan var = do
+  snapshot <- updateAnthropicUsageWith config oauthStateRef
   void $ swapMVar var snapshot
   atomically $ writeTChan chan snapshot
 
