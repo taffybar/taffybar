@@ -26,7 +26,6 @@ import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM (atomically, orElse)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, try)
 import Control.Monad (forever, void)
@@ -35,6 +34,7 @@ import Data.Aeson
 import Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy.Char8 as LBS
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (sortOn)
 import qualified Data.List as List
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
