@@ -27,6 +27,8 @@ module System.Taffybar.SimpleConfig
     toTaffybarConfig,
     useAllMonitors,
     usePrimaryMonitor,
+    withPriority,
+    setWidgetPriority,
     StrutSize,
     pattern ExactSize,
     pattern ScreenRatio,
@@ -48,6 +50,7 @@ import System.Taffybar
 import System.Taffybar.Context hiding (BarConfig (..), TaffybarConfig (..))
 import qualified System.Taffybar.Context as BC (BarConfig (..), TaffybarConfig (..))
 import System.Taffybar.Util
+import System.Taffybar.WidgetPriority (setWidgetPriority, withPriority)
 
 -- | Size of a bar strut reservation. This is an alias for
 -- 'Graphics.UI.GIGtkStrut.StrutSize'.

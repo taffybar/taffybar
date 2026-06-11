@@ -143,6 +143,7 @@ import System.Taffybar.Information.Wakeup.Manager
 import System.Taffybar.Information.X11DesktopInfo
 import System.Taffybar.Util
 import System.Taffybar.Widget.Util
+import System.Taffybar.WidgetPriority (defaultDynamicHidingConfig, setupDynamicHiding)
 import System.Taffybar.Window.FocusedMonitor
   ( FocusedMonitorHooks (..),
     setupFocusedMonitorClassUpdates,
@@ -746,20 +747,29 @@ buildBarWindow context barConfig = do
             addToStart count widget = do
               _ <- addIndexedClass "left" count widget
               Gtk.boxPackStart box widget False False 0
+              return widget
             addToEnd count widget = do
               _ <- addIndexedClass "right" count widget
               _ <- addEndPaletteClasses count widget
               Gtk.boxPackEnd box widget False False 0
+              return widget
             addToCenter count widget = do
               _ <- addIndexedClass "center" count widget
               Gtk.boxPackStart centerBox widget False False 0
+              return widget
 
         logIO DEBUG "Building start widgets"
-        mapM_ (addWidgetWith addToStart) $ zip [1 ..] (startWidgets barConfig)
+        builtStart <- mapM (addWidgetWith addToStart) $ zip [1 ..] (startWidgets barConfig)
         logIO DEBUG "Building center widgets"
-        mapM_ (addWidgetWith addToCenter) $ zip [1 ..] (centerWidgets barConfig)
+        builtCenter <- mapM (addWidgetWith addToCenter) $ zip [1 ..] (centerWidgets barConfig)
         logIO DEBUG "Building end widgets"
-        mapM_ (addWidgetWith addToEnd) $ zip [1 ..] (endWidgets barConfig)
+        builtEnd <- mapM (addWidgetWith addToEnd) $ zip [1 ..] (endWidgets barConfig)
+
+        setupDynamicHiding
+          defaultDynamicHidingConfig
+          (widgetSpacing barConfig)
+          box
+          (builtStart ++ builtCenter ++ builtEnd)
 
         return [box, centerBox]
       Just levels -> do
@@ -802,20 +812,29 @@ buildBarWindow context barConfig = do
                   addToStart count widget = do
                     _ <- addIndexedClass "left" count widget
                     Gtk.boxPackStart box widget False False 0
+                    return widget
                   addToEnd count widget = do
                     _ <- addIndexedClass "right" count widget
                     _ <- addEndPaletteClasses count widget
                     Gtk.boxPackEnd box widget False False 0
+                    return widget
                   addToCenter count widget = do
                     _ <- addIndexedClass "center" count widget
                     Gtk.boxPackStart centerBox widget False False 0
+                    return widget
 
               logIO DEBUG $ printf "Building level %d start widgets" (levelCount :: Int)
-              mapM_ (addWidgetWith addToStart) $ zip [1 ..] starts
+              builtStart <- mapM (addWidgetWith addToStart) $ zip [1 ..] starts
               logIO DEBUG $ printf "Building level %d center widgets" (levelCount :: Int)
-              mapM_ (addWidgetWith addToCenter) $ zip [1 ..] centers
+              builtCenter <- mapM (addWidgetWith addToCenter) $ zip [1 ..] centers
               logIO DEBUG $ printf "Building level %d end widgets" (levelCount :: Int)
-              mapM_ (addWidgetWith addToEnd) $ zip [1 ..] ends
+              builtEnd <- mapM (addWidgetWith addToEnd) $ zip [1 ..] ends
+
+              setupDynamicHiding
+                defaultDynamicHidingConfig
+                (widgetSpacing barConfig)
+                box
+                (builtStart ++ builtCenter ++ builtEnd)
 
               return (box, centerBox)
 
