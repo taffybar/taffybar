@@ -2,6 +2,16 @@
 
 ## Features
 
+* Add `System.Taffybar.WidgetPriority`, which supports priority-based dynamic
+  hiding of bar widgets when the bar runs out of horizontal space. Wrapping a
+  widget constructor with `withPriority` (re-exported from
+  `System.Taffybar.SimpleConfig`) marks it as hideable; when the natural
+  widths of the bar's widgets exceed the available width, prioritized widgets
+  are hidden lowest-priority-first and shown again (with a hysteresis margin)
+  when space frees up. Widgets without a priority are never hidden, and bars
+  with no prioritized widgets behave exactly as before. Hidden widgets get the
+  `priority-hidden` CSS class.
+
 * The Anthropic usage widget now reports rate-limit utilization percentages
   and reset times from the OAuth usage endpoint that Claude Code itself polls,
   authenticated with the access token from Claude Code's local credentials
