@@ -2,10 +2,11 @@
 
 -- | Shared Claude Code subscription usage information.
 --
--- Claude Code currently stores local transcript JSONL files under
--- @~/.claude/projects@. This module derives usage from those local transcripts
--- and reads subscription metadata from Claude Code's local state files. It does
--- not call an Anthropic billing endpoint.
+-- Rate-limit utilization percentages and reset times come from the OAuth usage
+-- endpoint that Claude Code itself polls, authenticated with the access token
+-- from Claude Code's local credentials file. Token totals are still derived
+-- from the local transcript JSONL files under @~/.claude/projects@, and serve
+-- as a fallback display when the endpoint is unreachable.
 module System.Taffybar.Information.AnthropicUsage
   ( AnthropicUsageConfig (..),
     defaultAnthropicUsageConfig,
@@ -37,7 +38,9 @@ import qualified Data.List as List
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import Data.Time.Clock
+import Network.HTTP.Simple
 import System.Directory
   ( doesDirectoryExist,
     doesFileExist,
@@ -52,6 +55,8 @@ import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 
 data AnthropicUsageConfig = AnthropicUsageConfig
   { anthropicUsagePollInterval :: Double,
+    anthropicUsageEndpoint :: String,
+    anthropicUsageUserAgent :: String,
     anthropicUsageStatePath :: Maybe FilePath,
     anthropicUsageCredentialsPath :: Maybe FilePath,
     anthropicUsageProjectsPath :: Maybe FilePath,
@@ -64,6 +69,8 @@ defaultAnthropicUsageConfig :: AnthropicUsageConfig
 defaultAnthropicUsageConfig =
   AnthropicUsageConfig
     { anthropicUsagePollInterval = 60 * 5,
+      anthropicUsageEndpoint = "https://api.anthropic.com/api/oauth/usage",
+      anthropicUsageUserAgent = "taffybar-anthropic-usage",
       anthropicUsageStatePath = Nothing,
       anthropicUsageCredentialsPath = Nothing,
       anthropicUsageProjectsPath = Nothing,
@@ -94,6 +101,8 @@ data AnthropicUsageWindow = AnthropicUsageWindow
     anthropicUsageWindowStart :: UTCTime,
     anthropicUsageWindowEnd :: UTCTime,
     anthropicUsageWindowBudgetTokens :: Maybe Int,
+    -- | Used percentage reported by the OAuth usage endpoint, when available.
+    anthropicUsageWindowUtilizationPercent :: Maybe Double,
     anthropicUsageWindowTotals :: AnthropicUsageTotals
   }
   deriving (Eq, Show)
@@ -148,14 +157,15 @@ data AnthropicUsageMetadata = AnthropicUsageMetadata
 
 data AnthropicCredentials = AnthropicCredentials
   { anthropicCredentialsSubscriptionType :: Maybe T.Text,
-    anthropicCredentialsRateLimitTier :: Maybe T.Text
+    anthropicCredentialsRateLimitTier :: Maybe T.Text,
+    anthropicCredentialsAccessToken :: Maybe T.Text
   }
 
 instance FromJSON AnthropicCredentials where
   parseJSON = withObject "AnthropicCredentials" $ \root -> do
     oauth <- root .:? "claudeAiOauth"
     case oauth of
-      Nothing -> return $ AnthropicCredentials Nothing Nothing
+      Nothing -> return $ AnthropicCredentials Nothing Nothing Nothing
       Just value ->
         withObject
           "ClaudeAiOauth"
@@ -163,8 +173,34 @@ instance FromJSON AnthropicCredentials where
               AnthropicCredentials
                 <$> o .:? "subscriptionType"
                 <*> o .:? "rateLimitTier"
+                <*> o .:? "accessToken"
           )
           value
+
+-- | Window utilization as reported by the OAuth usage endpoint.
+data AnthropicOAuthWindow = AnthropicOAuthWindow
+  { anthropicOAuthWindowUtilization :: Maybe Double,
+    anthropicOAuthWindowResetsAt :: Maybe UTCTime
+  }
+  deriving (Eq, Show)
+
+instance FromJSON AnthropicOAuthWindow where
+  parseJSON = withObject "AnthropicOAuthWindow" $ \o ->
+    AnthropicOAuthWindow
+      <$> o .:? "utilization"
+      <*> o .:? "resets_at"
+
+data AnthropicOAuthUsage = AnthropicOAuthUsage
+  { anthropicOAuthFiveHour :: Maybe AnthropicOAuthWindow,
+    anthropicOAuthSevenDay :: Maybe AnthropicOAuthWindow
+  }
+  deriving (Eq, Show)
+
+instance FromJSON AnthropicOAuthUsage where
+  parseJSON = withObject "AnthropicOAuthUsage" $ \o ->
+    AnthropicOAuthUsage
+      <$> o .:? "five_hour"
+      <*> o .:? "seven_day"
 
 data AnthropicState = AnthropicState
   { anthropicStateHasAvailableSubscription :: Maybe Bool,
@@ -238,22 +274,26 @@ instance FromJSON AnthropicUsageTotals where
 getAnthropicUsageInfo :: AnthropicUsageConfig -> IO AnthropicUsageInfo
 getAnthropicUsageInfo config = do
   now <- getCurrentTime
-  metadata <- readAnthropicUsageMetadata config
+  credentials <- decodeFileIfExists =<< maybe defaultClaudeCredentialsPath return (anthropicUsageCredentialsPath config)
+  metadata <- readAnthropicUsageMetadata config credentials
+  oauthUsage <- fetchAnthropicOAuthUsage config (credentials >>= anthropicCredentialsAccessToken)
   entries <- readAnthropicTranscriptEntries config now
   let fiveHourWindow =
-        buildActiveBlockWindow
-          now
-          "5h"
-          (5 * 60 * 60)
-          (anthropicUsageFiveHourBudgetTokens config)
-          entries
+        applyOAuthWindow (oauthUsage >>= anthropicOAuthFiveHour) $
+          buildActiveBlockWindow
+            now
+            "5h"
+            (5 * 60 * 60)
+            (anthropicUsageFiveHourBudgetTokens config)
+            entries
       weeklyWindow =
-        buildRollingWindow
-          now
-          "7d"
-          (7 * 24 * 60 * 60)
-          (anthropicUsageWeeklyBudgetTokens config)
-          entries
+        applyOAuthWindow (oauthUsage >>= anthropicOAuthSevenDay) $
+          buildRollingWindow
+            now
+            "7d"
+            (7 * 24 * 60 * 60)
+            (anthropicUsageWeeklyBudgetTokens config)
+            entries
   return $
     AnthropicUsageInfo
       { anthropicUsageGeneratedAt = now,
@@ -276,9 +316,8 @@ updateAnthropicUsage config = do
       logM logName WARNING $ "Anthropic usage update failed: " <> show err
       return $ AnthropicUsageUnavailable message
 
-readAnthropicUsageMetadata :: AnthropicUsageConfig -> IO AnthropicUsageMetadata
-readAnthropicUsageMetadata config = do
-  credentials <- decodeFileIfExists =<< maybe defaultClaudeCredentialsPath return (anthropicUsageCredentialsPath config)
+readAnthropicUsageMetadata :: AnthropicUsageConfig -> Maybe AnthropicCredentials -> IO AnthropicUsageMetadata
+readAnthropicUsageMetadata config credentials = do
   state <- decodeFileIfExists =<< maybe defaultClaudeStatePath return (anthropicUsageStatePath config)
   return $
     AnthropicUsageMetadata
@@ -288,6 +327,40 @@ readAnthropicUsageMetadata config = do
         anthropicMetadataExtraUsageDisabledReason = state >>= anthropicStateExtraUsageDisabledReason,
         anthropicMetadataOrganizationName = state >>= anthropicStateOrganizationName
       }
+
+-- | Fetch utilization from the OAuth usage endpoint. Failures (no token,
+-- network down, unexpected response) degrade to 'Nothing' so the widget falls
+-- back to transcript-derived token counts.
+fetchAnthropicOAuthUsage :: AnthropicUsageConfig -> Maybe T.Text -> IO (Maybe AnthropicOAuthUsage)
+fetchAnthropicOAuthUsage _ Nothing = return Nothing
+fetchAnthropicOAuthUsage config (Just token) = do
+  result <- try $ do
+    request0 <- parseRequest $ anthropicUsageEndpoint config
+    let request =
+          setRequestHeader "Authorization" ["Bearer " <> TE.encodeUtf8 token] $
+            setRequestHeader "anthropic-beta" ["oauth-2025-04-20"] $
+              setRequestHeader "Accept" ["application/json"] $
+                setRequestHeader "User-Agent" [TE.encodeUtf8 (T.pack (anthropicUsageUserAgent config))] request0
+    response <- httpLBS request
+    let statusCode = getResponseStatusCode response
+        body = getResponseBody response
+    if statusCode >= 200 && statusCode < 300
+      then either fail return $ eitherDecode body
+      else fail $ "Anthropic usage endpoint returned HTTP " <> show statusCode
+  case result of
+    Right usage -> return $ Just usage
+    Left (err :: SomeException) -> do
+      logM logName WARNING $ "Anthropic OAuth usage fetch failed: " <> show err
+      return Nothing
+
+applyOAuthWindow :: Maybe AnthropicOAuthWindow -> AnthropicUsageWindow -> AnthropicUsageWindow
+applyOAuthWindow Nothing window = window
+applyOAuthWindow (Just oauthWindow) window =
+  window
+    { anthropicUsageWindowUtilizationPercent = anthropicOAuthWindowUtilization oauthWindow,
+      anthropicUsageWindowEnd =
+        fromMaybe (anthropicUsageWindowEnd window) (anthropicOAuthWindowResetsAt oauthWindow)
+    }
 
 decodeFileIfExists :: (FromJSON a) => FilePath -> IO (Maybe a)
 decodeFileIfExists path = do
@@ -402,6 +475,7 @@ buildActiveBlockWindow now name duration budget entries =
           anthropicUsageWindowStart = now,
           anthropicUsageWindowEnd = addUTCTime duration now,
           anthropicUsageWindowBudgetTokens = budget,
+          anthropicUsageWindowUtilizationPercent = Nothing,
           anthropicUsageWindowTotals = mempty
         }
     Just (start, blockEntries) ->
@@ -410,6 +484,7 @@ buildActiveBlockWindow now name duration budget entries =
           anthropicUsageWindowStart = start,
           anthropicUsageWindowEnd = addUTCTime duration start,
           anthropicUsageWindowBudgetTokens = budget,
+          anthropicUsageWindowUtilizationPercent = Nothing,
           anthropicUsageWindowTotals = foldMap transcriptUsageTotals blockEntries
         }
 
@@ -446,6 +521,7 @@ buildRollingWindow now name duration budget entries =
           anthropicUsageWindowStart = windowStart,
           anthropicUsageWindowEnd = windowEnd,
           anthropicUsageWindowBudgetTokens = budget,
+          anthropicUsageWindowUtilizationPercent = Nothing,
           anthropicUsageWindowTotals = foldMap transcriptUsageTotals windowEntries
         }
 

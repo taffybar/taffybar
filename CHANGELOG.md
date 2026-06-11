@@ -1,3 +1,14 @@
+# Unreleased
+
+## Features
+
+* The Anthropic usage widget now reports rate-limit utilization percentages
+  and reset times from the OAuth usage endpoint that Claude Code itself polls,
+  authenticated with the access token from Claude Code's local credentials
+  file. Window labels display clean percentages (matching the OpenAI usage
+  widget) whenever the endpoint is reachable, falling back to the existing
+  transcript-derived token counts otherwise.
+
 # 7.2.4
 
 ## Packaging

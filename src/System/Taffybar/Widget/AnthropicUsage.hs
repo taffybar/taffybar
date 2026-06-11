@@ -495,9 +495,16 @@ formatWindowLabel displayMode window =
 
 formatWindowValue :: AnthropicUsageDisplayMode -> AnthropicUsageWindow -> T.Text
 formatWindowValue displayMode window =
-  case anthropicUsageWindowBudgetTokens window of
-    Nothing -> formatCount $ displayTokens displayMode window
-    Just budget -> T.pack $ printf "%d%%" $ displayPercent displayMode budget window
+  case anthropicUsageWindowUtilizationPercent window of
+    Just utilization -> T.pack $ printf "%d%%" $ utilizationPercent displayMode utilization
+    Nothing ->
+      case anthropicUsageWindowBudgetTokens window of
+        Nothing -> formatCount $ displayTokens displayMode window
+        Just budget -> T.pack $ printf "%d%%" $ displayPercent displayMode budget window
+
+utilizationPercent :: AnthropicUsageDisplayMode -> Double -> Int
+utilizationPercent AnthropicUsageDisplayUsed utilization = round utilization
+utilizationPercent AnthropicUsageDisplayRemaining utilization = max 0 (100 - round utilization)
 
 formatWindowValueWithIndicator :: AnthropicUsageDisplayMode -> AnthropicUsageWindow -> T.Text
 formatWindowValueWithIndicator displayMode window =
