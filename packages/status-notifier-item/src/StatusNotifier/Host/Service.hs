@@ -182,6 +182,17 @@ data Host = Host
   }
   deriving (Typeable)
 
+-- | How long to wait for a single item's properties when building its
+-- 'ItemInfo' before treating the item as unresponsive.
+itemBuildTimeout :: Int
+itemBuildTimeout = 5 * 1000000
+
+-- | How long to wait for the watcher to answer before giving up on a call. A
+-- watcher stuck in its own startup can own the bus name without servicing
+-- requests.
+watcherCallTimeout :: Int
+watcherCallTimeout = 5 * 1000000
+
 build :: Params -> IO (Maybe Host)
 build
   Params
@@ -253,7 +264,13 @@ build
           let (bus, maybePath) = splitServiceName name
            in (busName_ bus, objectPath_ <$> maybePath)
 
-        buildItemInfo name = runExceptT $ do
+        -- Bound the full item property fetch: a wedged item process that owns
+        -- its bus name but never services its connection would otherwise
+        -- block the host (and with it the entire tray build) forever.
+        buildItemInfo name =
+          callWithTimeout itemBuildTimeout $ buildItemInfoUnbounded name
+
+        buildItemInfoUnbounded name = runExceptT $ do
           let (itemBusName, maybePath) = parseServiceName name
           itemPath <- case maybePath of
             Just parsedPath -> return parsedPath
@@ -431,7 +448,9 @@ build
               maxRetries :: Int
               maxRetries = 20
               fetchWatcherItems retries = do
-                watcherItemsResult <- W.getRegisteredStatusNotifierItems client
+                watcherItemsResult <-
+                  callWithTimeout watcherCallTimeout $
+                    W.getRegisteredStatusNotifierItems client
                 case watcherItemsResult of
                   Right watcherItems -> return $ Right watcherItems
                   Left err ->
@@ -643,9 +662,9 @@ build
                 itemInfos <- createAll serviceNames
                 let newMap = Map.fromList $ map (itemServiceName &&& id) itemInfos
                     resultMap = Map.union itemInfoMap newMap
-                W.registerStatusNotifierHost client busName
+                callWithTimeout watcherCallTimeout (W.registerStatusNotifierHost client busName)
                   >>= either logErrorAndShutdown (const $ return (resultMap, True))
-          W.getRegisteredStatusNotifierItems client
+          callWithTimeout watcherCallTimeout (W.getRegisteredStatusNotifierItems client)
             >>= either logErrorAndShutdown finishInitialization
 
         startWatcherIfNeeded = do

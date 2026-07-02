@@ -29,6 +29,11 @@ import System.IO.Unsafe
 import System.Log.Logger
 import Text.Printf
 
+-- | How long to wait for a cached item to answer introspection during
+-- startup validation before dropping it.
+persistedItemValidationTimeout :: Int
+persistedItemValidationTimeout = 2 * 1000000
+
 buildWatcher :: WatcherParams -> IO (Interface, IO RequestNameReply)
 buildWatcher
   WatcherParams
@@ -160,8 +165,13 @@ buildWatcher
                       (renderServiceName item)
                   return Nothing
                 Just validOwner -> do
+                  -- Bound the introspection call: a wedged item process that
+                  -- owns its bus name but never services its connection would
+                  -- otherwise block watcher startup forever, before the
+                  -- watcher object is even exported.
                   objectResult <-
-                    getInterfaceAt client (serviceName item) (servicePath item)
+                    callWithTimeout persistedItemValidationTimeout $
+                      getInterfaceAt client (serviceName item) (servicePath item)
                   case objectResult of
                     Right (Just objectInfo)
                       | hasStatusNotifierItemInterface objectInfo ->

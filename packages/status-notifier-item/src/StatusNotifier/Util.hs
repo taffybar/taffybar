@@ -4,6 +4,7 @@ module StatusNotifier.Util where
 
 import Control.Arrow
 import Control.Lens
+import DBus (methodError)
 import DBus.Client
 import qualified DBus.Generation as G
 import qualified DBus.Internal.Message as M
@@ -21,6 +22,21 @@ import Language.Haskell.TH
 import StatusNotifier.TH
 import System.ByteOrder (fromBigEndian)
 import System.Log.Logger
+import System.Timeout (timeout)
+
+-- | Run a DBus call with an upper bound on how long it may block. An
+-- unresponsive peer (a process that owns a bus name but never services its
+-- connection) otherwise blocks callers indefinitely, since the dbus library
+-- does not time out calls on its own. On timeout, the call resolves to a
+-- 'M.MethodError' so existing error handling drops the peer gracefully.
+callWithTimeout ::
+  Int ->
+  IO (Either M.MethodError a) ->
+  IO (Either M.MethodError a)
+callWithTimeout micros action =
+  fromMaybe (Left timeoutError) <$> timeout micros action
+  where
+    timeoutError = methodError (T.Serial 0) errorFailed
 
 splitServiceName :: String -> (String, Maybe String)
 splitServiceName name =
