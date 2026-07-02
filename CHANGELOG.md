@@ -1,5 +1,7 @@
 # Unreleased
 
+# 7.2.5
+
 ## Features
 
 * Add `System.Taffybar.WidgetPriority`, which supports priority-based dynamic
@@ -18,6 +20,14 @@
   file. Window labels display clean percentages (matching the OpenAI usage
   widget) whenever the endpoint is reachable, falling back to the existing
   transcript-derived token counts otherwise.
+
+## Fixes
+
+* Require `status-notifier-item >= 0.3.2.15` and `gtk-sni-tray >= 0.2.1.3`,
+  which bound the DBus calls made during SNI tray host and watcher startup. A
+  single unresponsive tray item (a process that owns its `StatusNotifierItem`
+  bus name but never services its connection) could previously hang the tray
+  widget build, and with it the entire bar, indefinitely.
 
 # 7.2.4
 

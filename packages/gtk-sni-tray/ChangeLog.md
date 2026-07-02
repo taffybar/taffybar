@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.1.3 - 2026-07-02
+- Require `status-notifier-item >= 0.3.2.15` so tray consumers pick up the
+  startup timeouts that prevent a single unresponsive tray item from hanging
+  the SNI host (and any tray built from it) indefinitely.
+
 ## 0.2.1.2 - 2026-05-13
 - Clean up compiler warnings in the standalone executable and tray modules.
 - Require refreshed companion packages:

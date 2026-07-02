@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.3.2.15 - 2026-07-02
+- Bound every DBus call made during host and watcher startup with a timeout so
+  a single unresponsive item (a process that owns its `StatusNotifierItem` bus
+  name but never services its connection) can no longer hang startup
+  indefinitely. Previously such an item would block `Host.build` (and any tray
+  UI built from it) and the watcher's cache-validation pass forever, since the
+  `dbus` library does not time out method calls on its own.
+- Watcher: bound the per-item introspection performed while validating cached
+  items during startup; unresponsive items are dropped instead of blocking the
+  watcher before it exports its object.
+- Host: bound the per-item property fetch in `buildItemInfo` and the
+  `RegisterStatusNotifierHost`/`RegisteredStatusNotifierItems` watcher calls.
+
 ## 0.3.2.14 - 2026-05-13
 - Clean up generated DBus client, service, and watcher code for newer compiler
   warning compatibility.
