@@ -27,7 +27,7 @@ import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM (atomically, orElse)
 import Control.Concurrent.STM.TChan
-import Control.Exception (SomeException, try)
+import Control.Exception (SomeException, evaluate, try)
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson
@@ -37,6 +37,7 @@ import qualified Data.ByteString.Lazy.Char8 as LBS
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (sortOn)
 import qualified Data.List as List
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -46,6 +47,7 @@ import Network.HTTP.Simple
 import System.Directory
   ( doesDirectoryExist,
     doesFileExist,
+    getFileSize,
     getHomeDirectory,
     getModificationTime,
     listDirectory,
@@ -276,6 +278,23 @@ data TranscriptUsageEntry = TranscriptUsageEntry
   }
   deriving (Eq, Show)
 
+-- | Cached extraction result for a single transcript file, keyed by the
+-- file's modification time and size. Only the extracted usage entries are
+-- retained, never file contents, so the cache stays small even though the
+-- underlying transcripts can be large.
+data TranscriptFileCacheEntry = TranscriptFileCacheEntry
+  { transcriptCacheModified :: UTCTime,
+    transcriptCacheSize :: Integer,
+    transcriptCacheEntries :: [TranscriptUsageEntry]
+  }
+
+-- | Per-file cache of transcript extractions, carried across poll iterations
+-- so unchanged files are not re-read and re-parsed on every poll.
+type TranscriptFileCache = Map.Map FilePath TranscriptFileCacheEntry
+
+emptyTranscriptFileCache :: TranscriptFileCache
+emptyTranscriptFileCache = Map.empty
+
 data TranscriptJSON = TranscriptJSON
   { transcriptJSONTimestamp :: Maybe UTCTime,
     transcriptJSONRequestId :: Maybe T.Text,
@@ -319,20 +338,23 @@ instance FromJSON AnthropicUsageTotals where
           anthropicUsageEstimatedCostUSD = Nothing
         }
 
--- | One-shot snapshot with no persistent backoff state. Convenience for
--- callers and tests; the poll loop uses 'getAnthropicUsageInfoWith' so backoff
--- and last-good caching survive across iterations.
+-- | One-shot snapshot with no persistent backoff or transcript cache state.
+-- Convenience for callers and tests; the poll loop uses
+-- 'getAnthropicUsageInfoWith' so backoff, last-good caching, and the per-file
+-- transcript cache survive across iterations.
 getAnthropicUsageInfo :: AnthropicUsageConfig -> IO AnthropicUsageInfo
-getAnthropicUsageInfo config =
-  newIORef emptyOAuthFetchState >>= getAnthropicUsageInfoWith config
+getAnthropicUsageInfo config = do
+  oauthStateRef <- newIORef emptyOAuthFetchState
+  transcriptCacheRef <- newIORef emptyTranscriptFileCache
+  getAnthropicUsageInfoWith config oauthStateRef transcriptCacheRef
 
-getAnthropicUsageInfoWith :: AnthropicUsageConfig -> IORef OAuthFetchState -> IO AnthropicUsageInfo
-getAnthropicUsageInfoWith config oauthStateRef = do
+getAnthropicUsageInfoWith :: AnthropicUsageConfig -> IORef OAuthFetchState -> IORef TranscriptFileCache -> IO AnthropicUsageInfo
+getAnthropicUsageInfoWith config oauthStateRef transcriptCacheRef = do
   now <- getCurrentTime
   credentials <- decodeFileIfExists =<< maybe defaultClaudeCredentialsPath return (anthropicUsageCredentialsPath config)
   metadata <- readAnthropicUsageMetadata config credentials
   oauthUsage <- fetchAnthropicOAuthUsageWithBackoff config oauthStateRef now (credentials >>= anthropicCredentialsAccessToken)
-  entries <- readAnthropicTranscriptEntries config now
+  entries <- readAnthropicTranscriptEntries config transcriptCacheRef now
   let fiveHourWindow =
         applyOAuthWindow (oauthUsage >>= anthropicOAuthFiveHour) $
           buildActiveBlockWindow
@@ -362,12 +384,14 @@ getAnthropicUsageInfoWith config oauthStateRef = do
       }
 
 updateAnthropicUsage :: AnthropicUsageConfig -> IO AnthropicUsageSnapshot
-updateAnthropicUsage config =
-  newIORef emptyOAuthFetchState >>= updateAnthropicUsageWith config
+updateAnthropicUsage config = do
+  oauthStateRef <- newIORef emptyOAuthFetchState
+  transcriptCacheRef <- newIORef emptyTranscriptFileCache
+  updateAnthropicUsageWith config oauthStateRef transcriptCacheRef
 
-updateAnthropicUsageWith :: AnthropicUsageConfig -> IORef OAuthFetchState -> IO AnthropicUsageSnapshot
-updateAnthropicUsageWith config oauthStateRef = do
-  result <- try $ getAnthropicUsageInfoWith config oauthStateRef
+updateAnthropicUsageWith :: AnthropicUsageConfig -> IORef OAuthFetchState -> IORef TranscriptFileCache -> IO AnthropicUsageSnapshot
+updateAnthropicUsageWith config oauthStateRef transcriptCacheRef = do
+  result <- try $ getAnthropicUsageInfoWith config oauthStateRef transcriptCacheRef
   case result of
     Right info -> return $ AnthropicUsageAvailable info
     Left (err :: SomeException) -> do
@@ -537,17 +561,24 @@ defaultClaudeProjectsPath = do
   home <- getHomeDirectory
   return $ home </> ".claude" </> "projects"
 
-readAnthropicTranscriptEntries :: AnthropicUsageConfig -> UTCTime -> IO [TranscriptUsageEntry]
-readAnthropicTranscriptEntries config now = do
+readAnthropicTranscriptEntries :: AnthropicUsageConfig -> IORef TranscriptFileCache -> UTCTime -> IO [TranscriptUsageEntry]
+readAnthropicTranscriptEntries config transcriptCacheRef now = do
   projectsPath <- maybe defaultClaudeProjectsPath return (anthropicUsageProjectsPath config)
   exists <- doesDirectoryExist projectsPath
   if not exists
-    then return []
+    then do
+      writeIORef transcriptCacheRef emptyTranscriptFileCache
+      return []
     else do
       files <- jsonlFilesModifiedSince (addUTCTime (negate $ anthropicUsageFileLookbackSeconds config) now) projectsPath
-      dedupeTranscriptEntries . concat <$> mapM readTranscriptFile files
+      cache <- readIORef transcriptCacheRef
+      cachedFiles <- mapM (readTranscriptFileCached cache) files
+      -- Rebuilding the map from this poll's scan evicts entries for files
+      -- that disappeared or aged out of the lookback window.
+      writeIORef transcriptCacheRef $ Map.fromList cachedFiles
+      return $ dedupeTranscriptEntries $ concatMap (transcriptCacheEntries . snd) cachedFiles
 
-jsonlFilesModifiedSince :: UTCTime -> FilePath -> IO [FilePath]
+jsonlFilesModifiedSince :: UTCTime -> FilePath -> IO [(FilePath, UTCTime)]
 jsonlFilesModifiedSince cutoff path = do
   entries <- listDirectory path
   concat
@@ -562,10 +593,48 @@ jsonlFilesModifiedSince cutoff path = do
               if isFile && takeExtension child == ".jsonl"
                 then do
                   modified <- getModificationTime child
-                  return [child | modified >= cutoff]
+                  return [(child, modified) | modified >= cutoff]
                 else return []
       )
       entries
+
+-- | Return the cached extraction for a file when its modification time and
+-- size are both unchanged, re-reading and re-parsing it otherwise. Freshly
+-- parsed entries are forced before caching so no lingering thunks retain the
+-- file's parsed contents.
+readTranscriptFileCached ::
+  TranscriptFileCache ->
+  (FilePath, UTCTime) ->
+  IO (FilePath, TranscriptFileCacheEntry)
+readTranscriptFileCached cache (path, modified) = do
+  size <- getFileSize path
+  case Map.lookup path cache of
+    Just cached
+      | transcriptCacheModified cached == modified,
+        transcriptCacheSize cached == size ->
+          return (path, cached)
+    _ -> do
+      entries <- readTranscriptFile path
+      mapM_ (evaluate . forceUsageEntry) entries
+      return (path, TranscriptFileCacheEntry modified size entries)
+
+-- | Fully evaluate an extracted entry so values held in the cache do not
+-- retain thunks referencing the transcript file's parsed JSON.
+forceUsageEntry :: TranscriptUsageEntry -> ()
+forceUsageEntry
+  ( TranscriptUsageEntry
+      timestamp
+      requestId
+      (AnthropicUsageTotals requests input cacheCreation cacheRead output cost)
+    ) =
+    timestamp `seq`
+      requestId `seq`
+        requests `seq`
+          input `seq`
+            cacheCreation `seq`
+              cacheRead `seq`
+                output `seq`
+                  maybe () (`seq` ()) cost
 
 readTranscriptFile :: FilePath -> IO [TranscriptUsageEntry]
 readTranscriptFile path = do
@@ -707,7 +776,10 @@ setupAnthropicUsageChanVar config = getStateDefault $ do
   -- Persistent OAuth backoff/last-good state, shared by the initial fetch and
   -- every poll iteration so spacing and backoff survive across wakeups.
   oauthStateRef <- liftIO $ newIORef emptyOAuthFetchState
-  initial <- liftIO $ updateAnthropicUsageWith config oauthStateRef
+  -- Per-file transcript extraction cache, shared across poll iterations so
+  -- unchanged transcript files are not re-read and re-parsed on every poll.
+  transcriptCacheRef <- liftIO $ newIORef emptyTranscriptFileCache
+  initial <- liftIO $ updateAnthropicUsageWith config oauthStateRef transcriptCacheRef
   var <- liftIO $ newMVar initial
   wakeupChan <- getWakeupChannelForDelay (anthropicUsagePollInterval config)
   ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
@@ -718,17 +790,18 @@ setupAnthropicUsageChanVar config = getStateDefault $ do
           atomically $
             void (readTChan refreshChan)
               `orElse` void (readTChan ourWakeupChan)
-          refreshAnthropicUsageState config oauthStateRef chan var
+          refreshAnthropicUsageState config oauthStateRef transcriptCacheRef chan var
   return $ AnthropicUsageChanVar (chan, var, refreshChan)
 
 refreshAnthropicUsageState ::
   AnthropicUsageConfig ->
   IORef OAuthFetchState ->
+  IORef TranscriptFileCache ->
   TChan AnthropicUsageSnapshot ->
   MVar AnthropicUsageSnapshot ->
   IO ()
-refreshAnthropicUsageState config oauthStateRef chan var = do
-  snapshot <- updateAnthropicUsageWith config oauthStateRef
+refreshAnthropicUsageState config oauthStateRef transcriptCacheRef chan var = do
+  snapshot <- updateAnthropicUsageWith config oauthStateRef transcriptCacheRef
   void $ swapMVar var snapshot
   atomically $ writeTChan chan snapshot
 
