@@ -460,6 +460,10 @@ readNodeInfo node = do
         wirePlumberNodeName = nodeName
       }
 
+-- | Read the "Props" params of a node as key/value pairs.
+--
+-- The returned pods are deep copies (see 'spaPodGetPropertyNoFree'), so they
+-- stay valid after the params iterators and their pods are garbage collected.
 readNodeProps :: Node.Node -> IO [(Text, SpaPod.SpaPod)]
 readNodeProps node = do
   maybeParams <- PipewireObject.pipewireObjectEnumParamsSync node "Props" Nothing
@@ -467,14 +471,26 @@ readNodeProps node = do
     Nothing -> pure []
     Just params -> do
       pods <- catMaybes <$> iteratorValues @(Maybe SpaPod.SpaPod) params
-      fmap concat $
-        forM pods $ \pod -> do
-          iterator <- SpaPod.spaPodNewIterator pod
-          props <- catMaybes <$> iteratorValues @(Maybe SpaPod.SpaPod) iterator
-          fmap catMaybes $
-            forM props $ \propPod -> do
-              (ok, key, value) <- spaPodGetPropertyNoFree propPod
-              pure $ if ok then Just (key, value) else Nothing
+      keyValues <-
+        fmap concat $
+          forM pods $ \pod -> do
+            iterator <- SpaPod.spaPodNewIterator pod
+            props <- catMaybes <$> iteratorValues @(Maybe SpaPod.SpaPod) iterator
+            propKeyValues <-
+              fmap catMaybes $
+                forM props $ \propPod -> do
+                  (ok, key, value) <- spaPodGetPropertyNoFree propPod
+                  pure $ if ok then Just (key, value) else Nothing
+            -- The property pods yielded by the iterator wrap data owned by
+            -- the parent pod, so keep the parent (and the iterator, which
+            -- holds a reference to it) alive until all of them were read.
+            mapM_ ManagedPtr.touchManagedPtr props
+            ManagedPtr.touchManagedPtr iterator
+            ManagedPtr.touchManagedPtr pod
+            pure propKeyValues
+      mapM_ ManagedPtr.touchManagedPtr pods
+      ManagedPtr.touchManagedPtr params
+      pure keyValues
 
 spaPodGetPropertyNoFree :: SpaPod.SpaPod -> IO (Bool, Text, SpaPod.SpaPod)
 spaPodGetPropertyNoFree pod =
@@ -488,7 +504,10 @@ spaPodGetPropertyNoFree pod =
           if keyPtrValue == nullPtr
             then pure ""
             else T.pack <$> peekCString keyPtrValue
-        value <- ManagedPtr.wrapBoxed SpaPod.SpaPod valuePtrValue
+        wrapped <- ManagedPtr.wrapBoxed SpaPod.SpaPod valuePtrValue
+        -- wp_spa_pod_get_property returns a wrap pod whose data borrows from
+        -- the property pod, so deep copy it before it can outlive its parent.
+        value <- SpaPod.spaPodCopy wrapped
         pure (result /= 0, key, value)
 
 metadataFindNoFree :: Metadata.Metadata -> Word32 -> Text -> IO (Maybe (Text, Text))
@@ -509,12 +528,16 @@ metadataFindNoFree metadata subject key =
             pure $ Just (value, type_)
 
 podArrayChildNumber :: SpaPod.SpaPod -> IO (Maybe Double)
-podArrayChildNumber pod =
-  do
-    isArray <- SpaPod.spaPodIsArray pod
+podArrayChildNumber pod = do
+  isArray <- SpaPod.spaPodIsArray pod
+  result <-
     if isArray
       then SpaPod.spaPodGetArrayChild pod >>= podNumber
       else podNumber pod
+  -- wp_spa_pod_get_array_child returns a wrap pod whose data borrows from
+  -- the array pod, so keep the array pod alive while the child is read.
+  ManagedPtr.touchManagedPtr pod
+  pure result
 
 podNumber :: SpaPod.SpaPod -> IO (Maybe Double)
 podNumber pod = do
