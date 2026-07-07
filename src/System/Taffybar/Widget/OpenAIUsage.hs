@@ -25,7 +25,7 @@ where
 
 import Control.Concurrent (ThreadId, forkIO, killThread)
 import Control.Concurrent.MVar (MVar, newMVar, readMVar, swapMVar)
-import Control.Concurrent.STM (atomically, newTVarIO, readTVarIO, writeTVar)
+import Control.Concurrent.STM (atomically, newTVarIO, readTVarIO, swapTVar)
 import Control.Concurrent.STM.TChan (TChan, dupTChan, newBroadcastTChanIO, readTChan, writeTChan)
 import Control.Monad (forM_, forever, void)
 import Control.Monad.IO.Class (liftIO)
@@ -228,16 +228,21 @@ wrapOpenAIUsageMenu klass child config parts = do
       initialSnapshot
   menuVar <- newTVarIO menu
 
-  let rebuildMenu snapshot =
-        buildUsageMenu
-          ebox
-          config
-          (openAIUsageLabel parts)
-          (openAIUsageLabelDisplayState parts)
-          (openAIUsageLabelSnapshotVar parts)
-          (openAIUsageLabelRefreshNow parts)
-          snapshot
-          >>= atomically . writeTVar menuVar
+  let rebuildMenu snapshot = do
+        newMenu <-
+          buildUsageMenu
+            ebox
+            config
+            (openAIUsageLabel parts)
+            (openAIUsageLabelDisplayState parts)
+            (openAIUsageLabelSnapshotVar parts)
+            (openAIUsageLabelRefreshNow parts)
+            snapshot
+        oldMenu <- atomically $ swapTVar menuVar newMenu
+        -- Attached menus hold a GObject reference, so the replaced menu
+        -- must be destroyed explicitly or it (and its item tree) leaks on
+        -- every usage snapshot.
+        Gtk.widgetDestroy oldMenu
 
   void $ Gtk.onWidgetRealize ebox $ do
     menuThread <-
