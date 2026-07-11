@@ -199,6 +199,13 @@ anthropicUsageLabelPartsNewWith config = do
     updateLabelFromState config label displayState initialSnapshot
 
     void $ Gtk.onWidgetRealize label $ do
+      -- The usage listener only runs while the label is realized (e.g. the
+      -- visible page of a GtkStack), so broadcasts that arrived while the
+      -- widget was hidden were missed. Re-sync from the shared state before
+      -- listening so the label does not show a stale snapshot.
+      currentSnapshot <- runReaderT (getAnthropicUsageState infoConfig) ctx
+      void $ swapMVar snapshotVar currentSnapshot
+      updateLabelFromState config label displayState currentSnapshot
       usageThread <- forkUsageListener config label displayState snapshotVar usageChan
       modeThread <- forkDisplayModeListener config label displayState snapshotVar
       void $ Gtk.onWidgetUnrealize label $ do
