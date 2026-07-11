@@ -151,13 +151,11 @@ anthropicUsageStackPartsNewWith :: AnthropicUsageStackConfig -> TaffyIO (Gtk.Wid
 anthropicUsageStackPartsNewWith config = do
   fiveHourParts <- anthropicUsageLabelPartsNewWith $ windowLabelConfig AnthropicUsageFiveHourWindow config
   weeklyParts <- anthropicUsageLabelPartsNewWith $ windowLabelConfig AnthropicUsageWeeklyWindow config
-  scopedParts <- anthropicUsageLabelPartsNewWith $ windowLabelConfig AnthropicUsageScopedWeeklyWindow config
   liftIO $ do
     box <- Gtk.boxNew Gtk.OrientationVertical 0
     _ <- widgetSetClassGI box "anthropic-usage-stack"
     Gtk.boxPackStart box (anthropicUsageLabelWidget fiveHourParts) False False 0
     Gtk.boxPackStart box (anthropicUsageLabelWidget weeklyParts) False False 0
-    Gtk.boxPackStart box (anthropicUsageLabelWidget scopedParts) False False 0
     Gtk.widgetShowAll box
     widget <- Gtk.toWidget box
     return (widget, fiveHourParts)
@@ -320,20 +318,34 @@ toggleDisplayMode AnthropicUsageDisplayRemaining = AnthropicUsageDisplayUsed
 formatAnthropicUsageSummaryLabel :: AnthropicUsageDisplayMode -> AnthropicUsageInfo -> T.Text
 formatAnthropicUsageSummaryLabel displayMode info =
   let windows =
-        T.intercalate " " $
+        T.intercalate
+          " "
           [ formatWindowLabel displayMode (anthropicUsageFiveHourWindow info),
-            formatWindowLabel displayMode (anthropicUsageWeeklyWindow info)
+            formatWeeklyWithScopedLabel displayMode info
           ]
-            <> maybe
-              []
-              (\window -> [formatWindowLabel displayMode window])
-              (anthropicUsageScopedWeeklyWindow info)
       unavailable = anthropicUsageHasAvailableSubscription info == Just False
    in (if unavailable then "Claude ! " else "Claude ") <> windows
 
 formatAnthropicUsageWindowLabel :: AnthropicUsageWindowSelector -> AnthropicUsageDisplayMode -> AnthropicUsageInfo -> T.Text
+formatAnthropicUsageWindowLabel AnthropicUsageWeeklyWindow displayMode info =
+  formatWeeklyWithScopedLabel displayMode info
 formatAnthropicUsageWindowLabel selector displayMode info =
   maybe "" (formatWindowLabel displayMode) (selectedWindow selector info)
+
+-- | The weekly label with the per-model weekly limit folded in when present,
+-- e.g. @7d 65%·F45%r@, so the scoped window does not need its own row.
+formatWeeklyWithScopedLabel :: AnthropicUsageDisplayMode -> AnthropicUsageInfo -> T.Text
+formatWeeklyWithScopedLabel displayMode info =
+  let weekly = anthropicUsageWeeklyWindow info
+      scopedPart window =
+        "·"
+          <> T.toUpper (T.take 1 (anthropicUsageWindowName window))
+          <> formatWindowValue displayMode window
+   in anthropicUsageWindowName weekly
+        <> " "
+        <> formatWindowValue displayMode weekly
+        <> maybe "" scopedPart (anthropicUsageScopedWeeklyWindow info)
+        <> displayModeIndicator displayMode
 
 formatAnthropicUsageTooltip :: AnthropicUsageDisplayMode -> AnthropicUsageSnapshot -> Maybe T.Text
 formatAnthropicUsageTooltip displayMode snapshot =
