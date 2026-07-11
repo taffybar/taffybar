@@ -111,7 +111,12 @@ data AnthropicUsageInfo = AnthropicUsageInfo
     anthropicUsageExtraUsageDisabledReason :: Maybe T.Text,
     anthropicUsageOrganizationName :: Maybe T.Text,
     anthropicUsageFiveHourWindow :: AnthropicUsageWindow,
-    anthropicUsageWeeklyWindow :: AnthropicUsageWindow
+    anthropicUsageWeeklyWindow :: AnthropicUsageWindow,
+    -- | Weekly limit scoped to a single model (currently \"Fable\"), reported
+    -- separately by the OAuth usage endpoint. 'Nothing' when the plan has no
+    -- such per-model weekly bucket. The window's name carries the model's
+    -- display name so the label reads e.g. @Fable 22%@.
+    anthropicUsageScopedWeeklyWindow :: Maybe AnthropicUsageWindow
   }
   deriving (Eq, Show)
 
@@ -209,9 +214,42 @@ instance FromJSON AnthropicOAuthWindow where
       <$> o .:? "utilization"
       <*> o .:? "resets_at"
 
+-- | A single entry from the OAuth usage endpoint's @limits@ array. Used to
+-- surface the per-model @weekly_scoped@ limit (e.g. Fable), which has no
+-- dedicated top-level field.
+data AnthropicOAuthLimit = AnthropicOAuthLimit
+  { anthropicOAuthLimitKind :: Maybe T.Text,
+    anthropicOAuthLimitPercent :: Maybe Double,
+    anthropicOAuthLimitResetsAt :: Maybe UTCTime,
+    -- | @scope.model.display_name@, when the limit is scoped to a model.
+    anthropicOAuthLimitScopeModel :: Maybe T.Text
+  }
+  deriving (Eq, Show)
+
+instance FromJSON AnthropicOAuthLimit where
+  parseJSON = withObject "AnthropicOAuthLimit" $ \o -> do
+    scope <- o .:? "scope"
+    scopeModel <-
+      maybe
+        (return Nothing)
+        ( withObject "Scope" $ \s -> do
+            model <- s .:? "model"
+            maybe
+              (return Nothing)
+              (withObject "Model" (.:? "display_name"))
+              model
+        )
+        scope
+    AnthropicOAuthLimit
+      <$> o .:? "kind"
+      <*> o .:? "percent"
+      <*> o .:? "resets_at"
+      <*> pure scopeModel
+
 data AnthropicOAuthUsage = AnthropicOAuthUsage
   { anthropicOAuthFiveHour :: Maybe AnthropicOAuthWindow,
-    anthropicOAuthSevenDay :: Maybe AnthropicOAuthWindow
+    anthropicOAuthSevenDay :: Maybe AnthropicOAuthWindow,
+    anthropicOAuthLimits :: [AnthropicOAuthLimit]
   }
   deriving (Eq, Show)
 
@@ -220,6 +258,7 @@ instance FromJSON AnthropicOAuthUsage where
     AnthropicOAuthUsage
       <$> o .:? "five_hour"
       <*> o .:? "seven_day"
+      <*> o .:? "limits" .!= []
 
 -- | Persistent state for OAuth endpoint polling, carried across poll
 -- iterations so we can space out and back off endpoint requests independently
@@ -371,6 +410,9 @@ getAnthropicUsageInfoWith config oauthStateRef transcriptCacheRef = do
             (7 * 24 * 60 * 60)
             (anthropicUsageWeeklyBudgetTokens config)
             entries
+      scopedWeeklyWindow =
+        buildScopedWeeklyWindow now
+          <$> (oauthUsage >>= findScopedWeeklyLimit)
   return $
     AnthropicUsageInfo
       { anthropicUsageGeneratedAt = now,
@@ -380,7 +422,8 @@ getAnthropicUsageInfoWith config oauthStateRef transcriptCacheRef = do
         anthropicUsageExtraUsageDisabledReason = anthropicMetadataExtraUsageDisabledReason metadata,
         anthropicUsageOrganizationName = anthropicMetadataOrganizationName metadata,
         anthropicUsageFiveHourWindow = fiveHourWindow,
-        anthropicUsageWeeklyWindow = weeklyWindow
+        anthropicUsageWeeklyWindow = weeklyWindow,
+        anthropicUsageScopedWeeklyWindow = scopedWeeklyWindow
       }
 
 updateAnthropicUsage :: AnthropicUsageConfig -> IO AnthropicUsageSnapshot
@@ -525,6 +568,38 @@ parseRetryAfter headers = do
   raw <- listToMaybe headers
   seconds <- readMaybe (BS8.unpack raw) :: Maybe Integer
   if seconds >= 0 then Just (fromInteger seconds) else Nothing
+
+-- | The first @weekly_scoped@ limit from the endpoint's @limits@ array, i.e.
+-- the per-model weekly bucket (currently Fable). Only limits carrying a model
+-- scope are considered, so an unscoped @weekly_scoped@ entry is ignored.
+findScopedWeeklyLimit :: AnthropicOAuthUsage -> Maybe AnthropicOAuthLimit
+findScopedWeeklyLimit usage =
+  listToMaybe
+    [ limit
+      | limit <- anthropicOAuthLimits usage,
+        anthropicOAuthLimitKind limit == Just "weekly_scoped",
+        Just _ <- [anthropicOAuthLimitScopeModel limit]
+    ]
+
+-- | Build a display window for a per-model weekly limit. There is no
+-- transcript-derived fallback for these, so the window is populated purely
+-- from the endpoint: the model display name becomes the window name and the
+-- reported percent becomes the utilization. The start is derived by walking
+-- back a week from the reset time so menu durations read sensibly.
+buildScopedWeeklyWindow :: UTCTime -> AnthropicOAuthLimit -> AnthropicUsageWindow
+buildScopedWeeklyWindow now limit =
+  AnthropicUsageWindow
+    { anthropicUsageWindowName = fromMaybe "scoped" (anthropicOAuthLimitScopeModel limit),
+      anthropicUsageWindowStart =
+        maybe now (addUTCTime (negate weekSeconds)) resetsAt,
+      anthropicUsageWindowEnd = fromMaybe (addUTCTime weekSeconds now) resetsAt,
+      anthropicUsageWindowBudgetTokens = Nothing,
+      anthropicUsageWindowUtilizationPercent = anthropicOAuthLimitPercent limit,
+      anthropicUsageWindowTotals = mempty
+    }
+  where
+    resetsAt = anthropicOAuthLimitResetsAt limit
+    weekSeconds = 7 * 24 * 60 * 60
 
 applyOAuthWindow :: Maybe AnthropicOAuthWindow -> AnthropicUsageWindow -> AnthropicUsageWindow
 applyOAuthWindow Nothing window = window
