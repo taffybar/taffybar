@@ -72,6 +72,9 @@ data AnthropicUsageLabelConfig = AnthropicUsageLabelConfig
 data AnthropicUsageWindowSelector
   = AnthropicUsageFiveHourWindow
   | AnthropicUsageWeeklyWindow
+  | -- | Per-model weekly limit (currently Fable). Absent for plans without one,
+    -- in which case the label renders empty.
+    AnthropicUsageScopedWeeklyWindow
   deriving (Eq, Show)
 
 data AnthropicUsageStackConfig = AnthropicUsageStackConfig
@@ -148,11 +151,13 @@ anthropicUsageStackPartsNewWith :: AnthropicUsageStackConfig -> TaffyIO (Gtk.Wid
 anthropicUsageStackPartsNewWith config = do
   fiveHourParts <- anthropicUsageLabelPartsNewWith $ windowLabelConfig AnthropicUsageFiveHourWindow config
   weeklyParts <- anthropicUsageLabelPartsNewWith $ windowLabelConfig AnthropicUsageWeeklyWindow config
+  scopedParts <- anthropicUsageLabelPartsNewWith $ windowLabelConfig AnthropicUsageScopedWeeklyWindow config
   liftIO $ do
     box <- Gtk.boxNew Gtk.OrientationVertical 0
     _ <- widgetSetClassGI box "anthropic-usage-stack"
     Gtk.boxPackStart box (anthropicUsageLabelWidget fiveHourParts) False False 0
     Gtk.boxPackStart box (anthropicUsageLabelWidget weeklyParts) False False 0
+    Gtk.boxPackStart box (anthropicUsageLabelWidget scopedParts) False False 0
     Gtk.widgetShowAll box
     widget <- Gtk.toWidget box
     return (widget, fiveHourParts)
@@ -185,6 +190,11 @@ anthropicUsageLabelPartsNewWith config = do
     label <- Gtk.labelNew (Just (anthropicUsageLabelFallbackText config))
     snapshotVar <- newMVar initialSnapshot
     let refreshNow = runReaderT (forceAnthropicUsageRefresh infoConfig) ctx
+    -- Visibility is driven by 'updateLabelFromState': a formatter returning
+    -- empty text (e.g. the scoped per-model window when the plan has none)
+    -- hides the label entirely instead of leaving an empty row, and
+    -- no-show-all keeps ancestor 'widgetShowAll' calls from re-showing it.
+    Gtk.widgetSetNoShowAll label True
     _ <- widgetSetClassGI label (anthropicUsageLabelClass config)
     updateLabelFromState config label displayState initialSnapshot
 
@@ -280,6 +290,7 @@ updateLabelFromState config label displayState snapshot = do
   postGUIASync $ do
     Gtk.labelSetText label labelText
     Gtk.widgetSetTooltipText label tooltipText
+    Gtk.widgetSetVisible label (not (T.null labelText))
 
 formatSnapshotLabel :: AnthropicUsageLabelConfig -> AnthropicUsageDisplayMode -> AnthropicUsageSnapshot -> T.Text
 formatSnapshotLabel config mode snapshot =
@@ -302,17 +313,20 @@ toggleDisplayMode AnthropicUsageDisplayRemaining = AnthropicUsageDisplayUsed
 formatAnthropicUsageSummaryLabel :: AnthropicUsageDisplayMode -> AnthropicUsageInfo -> T.Text
 formatAnthropicUsageSummaryLabel displayMode info =
   let windows =
-        T.intercalate
-          " "
+        T.intercalate " " $
           [ formatWindowLabel displayMode (anthropicUsageFiveHourWindow info),
             formatWindowLabel displayMode (anthropicUsageWeeklyWindow info)
           ]
+            <> maybe
+              []
+              (\window -> [formatWindowLabel displayMode window])
+              (anthropicUsageScopedWeeklyWindow info)
       unavailable = anthropicUsageHasAvailableSubscription info == Just False
    in (if unavailable then "Claude ! " else "Claude ") <> windows
 
 formatAnthropicUsageWindowLabel :: AnthropicUsageWindowSelector -> AnthropicUsageDisplayMode -> AnthropicUsageInfo -> T.Text
 formatAnthropicUsageWindowLabel selector displayMode info =
-  formatWindowLabel displayMode (selectedWindow selector info)
+  maybe "" (formatWindowLabel displayMode) (selectedWindow selector info)
 
 formatAnthropicUsageTooltip :: AnthropicUsageDisplayMode -> AnthropicUsageSnapshot -> Maybe T.Text
 formatAnthropicUsageTooltip displayMode snapshot =
@@ -328,6 +342,12 @@ formatAnthropicUsageTooltip displayMode snapshot =
               Just $ "Display: " <> displayModeText displayMode,
               Just $ "5h: " <> formatWindow displayMode (anthropicUsageGeneratedAt info) (anthropicUsageFiveHourWindow info),
               Just $ "7d: " <> formatWindow displayMode (anthropicUsageGeneratedAt info) (anthropicUsageWeeklyWindow info),
+              ( \window ->
+                  anthropicUsageWindowName window
+                    <> ": "
+                    <> formatWindow displayMode (anthropicUsageGeneratedAt info) window
+              )
+                <$> anthropicUsageScopedWeeklyWindow info,
               formatSubscriptionStatus info,
               ("Extra usage disabled: " <>) <$> anthropicUsageExtraUsageDisabledReason info
             ]
@@ -438,6 +458,11 @@ appendSnapshotMenuItems menu displayMode (AnthropicUsageAvailable info) = do
     menu
     "7d Window"
     (formatWindowMenuLines displayMode (anthropicUsageGeneratedAt info) (anthropicUsageWeeklyWindow info))
+  forM_ (anthropicUsageScopedWeeklyWindow info) $ \window ->
+    appendMenuSection
+      menu
+      (anthropicUsageWindowName window <> " Window")
+      (formatWindowMenuLines displayMode (anthropicUsageGeneratedAt info) window)
   appendMenuSection
     menu
     "Extra Usage"
@@ -551,9 +576,10 @@ displayModeIndicator :: AnthropicUsageDisplayMode -> T.Text
 displayModeIndicator AnthropicUsageDisplayUsed = "u"
 displayModeIndicator AnthropicUsageDisplayRemaining = "r"
 
-selectedWindow :: AnthropicUsageWindowSelector -> AnthropicUsageInfo -> AnthropicUsageWindow
-selectedWindow AnthropicUsageFiveHourWindow = anthropicUsageFiveHourWindow
-selectedWindow AnthropicUsageWeeklyWindow = anthropicUsageWeeklyWindow
+selectedWindow :: AnthropicUsageWindowSelector -> AnthropicUsageInfo -> Maybe AnthropicUsageWindow
+selectedWindow AnthropicUsageFiveHourWindow = Just . anthropicUsageFiveHourWindow
+selectedWindow AnthropicUsageWeeklyWindow = Just . anthropicUsageWeeklyWindow
+selectedWindow AnthropicUsageScopedWeeklyWindow = anthropicUsageScopedWeeklyWindow
 
 formatDuration :: Int -> T.Text
 formatDuration seconds
