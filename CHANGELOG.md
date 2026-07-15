@@ -1,5 +1,10 @@
 # Unreleased
 
+## Features
+
+* Add NVIDIA GPU temperature information and a configurable polling widget
+  backed by `nvidia-smi`.
+
 # 7.2.5
 
 ## Features
