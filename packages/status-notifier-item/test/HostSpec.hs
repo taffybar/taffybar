@@ -33,6 +33,49 @@ import TestSupport
 
 spec :: Spec
 spec = around withIsolatedSessionBus $ do
+  describe "logicalDuplicateKey" $ do
+    it "normalizes generated Ayatana identities so duplicate app instances collapse" $ \() -> do
+      let localSendItem token =
+            ItemInfo
+              { itemServiceName = busName_ ("org.test.LocalSend." <> token),
+                itemServicePath = objectPath_ ("/org/ayatana/NotificationItem/" <> token),
+                itemId = Just token,
+                itemStatus = Just "Active",
+                itemCategory = Just "ApplicationStatus",
+                itemToolTip = Nothing,
+                iconTitle = "localsend_app",
+                iconName = "/nix/store/example-localsend/logo.png",
+                overlayIconName = Nothing,
+                iconThemePath = Nothing,
+                iconPixmaps = [],
+                overlayIconPixmaps = [],
+                menuPath = Just $ objectPath_ ("/org/ayatana/NotificationItem/" <> token <> "/Menu"),
+                itemIsMenu = True
+              }
+      logicalDuplicateKey (localSendItem "generatedA")
+        `shouldBe` logicalDuplicateKey (localSendItem "generatedB")
+
+    it "retains non-Ayatana item ids as part of logical identity" $ \() -> do
+      let itemWithId itemIdValue =
+            ItemInfo
+              { itemServiceName = busName_ "org.test.RegularItem",
+                itemServicePath = objectPath_ defaultPath,
+                itemId = Just itemIdValue,
+                itemStatus = Just "Active",
+                itemCategory = Just "ApplicationStatus",
+                itemToolTip = Nothing,
+                iconTitle = "shared-title",
+                iconName = "shared-icon",
+                overlayIconName = Nothing,
+                iconThemePath = Nothing,
+                iconPixmaps = [],
+                overlayIconPixmaps = [],
+                menuPath = Nothing,
+                itemIsMenu = False
+              }
+      logicalDuplicateKey (itemWithId "first")
+        `shouldNotBe` logicalDuplicateKey (itemWithId "second")
+
   describe "StatusNotifier.Host.Service integration" $ do
     it "receives ItemAdded then ItemRemoved for a registered item" $ \() -> do
       _watcher <- startWatcher

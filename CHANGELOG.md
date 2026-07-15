@@ -1,9 +1,15 @@
-# Unreleased
+# 7.2.6
 
 ## Features
 
 * Add NVIDIA GPU temperature information and a configurable polling widget
   backed by `nvidia-smi`.
+
+## Fixes
+
+* Require `status-notifier-item >= 0.3.2.16` and `gtk-sni-tray >= 0.2.1.4`,
+  which collapse duplicate Ayatana tray items even when an application uses a
+  freshly generated item identity for every instance.
 
 # 7.2.5
 

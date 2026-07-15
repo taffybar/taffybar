@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           status-notifier-item
-version:        0.3.2.15
+version:        0.3.2.16
 synopsis:       A wrapper over the StatusNotifierItem/libappindicator dbus specification
 description:    Please see the README on Github at <https://github.com/taffybar/status-notifier-item#readme>
 category:       Desktop

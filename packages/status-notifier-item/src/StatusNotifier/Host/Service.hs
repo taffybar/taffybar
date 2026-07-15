@@ -23,6 +23,7 @@ import qualified Data.ByteString as BS
 import Data.Coerce
 import Data.Either
 import Data.Int
+import Data.List (stripPrefix)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.String
@@ -133,14 +134,31 @@ normalizeOptionalString value
 
 logicalDuplicateKey :: ItemInfo -> Maybe LogicalDuplicateKey
 logicalDuplicateKey ItemInfo {..} =
-  let key =
+  let generatedAyatanaIdentity = do
+        suffix <- stripPrefix "/org/ayatana/NotificationItem/" (coerce itemServicePath :: String)
+        normalizedId <- itemId >>= normalizeOptionalString
+        itemMenuPath <- menuPath
+        guard $ normalizedId == suffix
+        guard $ (coerce itemMenuPath :: String) == (coerce itemServicePath :: String) <> "/Menu"
+        pure ()
+      hasGeneratedAyatanaIdentity = isJust generatedAyatanaIdentity
+      key =
         LogicalDuplicateKey
-          { duplicateItemId = itemId >>= normalizeOptionalString,
+          { duplicateItemId =
+              if hasGeneratedAyatanaIdentity
+                then Nothing
+                else itemId >>= normalizeOptionalString,
             duplicateIconTitle = normalizeOptionalString iconTitle,
             duplicateIconName = normalizeOptionalString iconName,
             duplicateCategory = itemCategory >>= normalizeOptionalString,
-            duplicateMenuPath = menuPath,
-            duplicatePath = itemServicePath,
+            duplicateMenuPath =
+              if hasGeneratedAyatanaIdentity
+                then Nothing
+                else menuPath,
+            duplicatePath =
+              if hasGeneratedAyatanaIdentity
+                then objectPath_ "/org/ayatana/NotificationItem"
+                else itemServicePath,
             duplicateIsMenu = itemIsMenu
           }
       hasStableIdentity =
