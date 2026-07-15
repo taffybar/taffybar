@@ -7,6 +7,9 @@
 
 ## Fixes
 
+* Show Codex's temporarily disabled 5-hour usage limit as unlimited while
+  keeping its remaining 7-day window in the weekly row.
+
 * Require `status-notifier-item >= 0.3.2.16` and `gtk-sni-tray >= 0.2.1.4`,
   which collapse duplicate Ayatana tray items even when an application uses a
   freshly generated item identity for every instance.
