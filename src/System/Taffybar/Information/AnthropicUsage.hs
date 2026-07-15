@@ -576,9 +576,9 @@ findScopedWeeklyLimit :: AnthropicOAuthUsage -> Maybe AnthropicOAuthLimit
 findScopedWeeklyLimit usage =
   listToMaybe
     [ limit
-      | limit <- anthropicOAuthLimits usage,
-        anthropicOAuthLimitKind limit == Just "weekly_scoped",
-        Just _ <- [anthropicOAuthLimitScopeModel limit]
+    | limit <- anthropicOAuthLimits usage,
+      anthropicOAuthLimitKind limit == Just "weekly_scoped",
+      Just _ <- [anthropicOAuthLimitScopeModel limit]
     ]
 
 -- | Build a display window for a per-model weekly limit. There is no
