@@ -30,7 +30,7 @@ import Control.Concurrent.STM.TChan (TChan, dupTChan, newBroadcastTChanIO, readT
 import Control.Monad (forM_, forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask, runReaderT)
-import Data.Maybe (catMaybes, fromMaybe, isJust, mapMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, mapMaybe)
 import qualified Data.Text as T
 import qualified GI.GLib as GLib
 import qualified GI.Gtk as Gtk
@@ -359,16 +359,23 @@ formatOpenAIUsageSummaryLabel displayMode info =
       windows =
         T.intercalate
           " "
-          [ fromMaybeText "5h" $ formatWindowLabel displayMode "5h" <$> openAIUsagePrimaryWindow limit,
-            fromMaybeText "7d" $ formatWindowLabel displayMode "7d" <$> openAIUsageSecondaryWindow limit
+          [ formatSelectedWindowLabel OpenAIUsagePrimaryWindow displayMode limit,
+            formatSelectedWindowLabel OpenAIUsageSecondaryWindow displayMode limit
           ]
       reached = openAIUsageLimitReached limit || isJust (openAIUsageReachedType info)
    in (if reached then "AI ! " else "AI ") <> windows
 
 formatOpenAIUsageWindowLabel :: OpenAIUsageWindowSelector -> OpenAIUsageDisplayMode -> OpenAIUsageInfo -> T.Text
 formatOpenAIUsageWindowLabel selector displayMode info =
-  case selectedWindow selector (openAIUsageRateLimit info) of
-    Nothing -> windowSelectorFallbackName selector <> " n/a"
+  formatSelectedWindowLabel selector displayMode (openAIUsageRateLimit info)
+
+formatSelectedWindowLabel :: OpenAIUsageWindowSelector -> OpenAIUsageDisplayMode -> OpenAIUsageRateLimit -> T.Text
+formatSelectedWindowLabel selector displayMode limit =
+  case selectedWindow selector limit of
+    Nothing
+      | selector == OpenAIUsagePrimaryWindow && shortLimitDisabled limit ->
+          windowSelectorFallbackName selector <> " ∞"
+      | otherwise -> windowSelectorFallbackName selector <> " n/a"
     Just window -> formatWindowLabel displayMode (windowSelectorFallbackName selector) window
 
 formatOpenAIUsageTooltip :: OpenAIUsageDisplayMode -> OpenAIUsageSnapshot -> Maybe T.Text
@@ -484,14 +491,15 @@ appendMenuSection menu title items = do
 
 formatRateLimitMenuLines :: OpenAIUsageDisplayMode -> OpenAIUsageRateLimit -> [T.Text]
 formatRateLimitMenuLines displayMode limit =
-  catMaybes
-    [ formatWindowMenuLine displayMode "5h" <$> openAIUsagePrimaryWindow limit,
-      formatWindowMenuLine displayMode "7d" <$> openAIUsageSecondaryWindow limit
-    ]
+  ["5h: unlimited" | shortLimitDisabled limit]
+    <> catMaybes
+      [ formatWindowMenuLine displayMode "5h" <$> selectedWindow OpenAIUsagePrimaryWindow limit,
+        formatWindowMenuLine displayMode "7d" <$> selectedWindow OpenAIUsageSecondaryWindow limit
+      ]
     <> concat
       ( catMaybes
-          [ formatWindowTokenMenuLines "5h" <$> openAIUsagePrimaryWindow limit,
-            formatWindowTokenMenuLines "7d" <$> openAIUsageSecondaryWindow limit
+          [ formatWindowTokenMenuLines "5h" <$> selectedWindow OpenAIUsagePrimaryWindow limit,
+            formatWindowTokenMenuLines "7d" <$> selectedWindow OpenAIUsageSecondaryWindow limit
           ]
       )
     <> [formatRateLimitStatus limit]
@@ -541,11 +549,12 @@ formatRateLimit displayMode limit =
   let windows =
         T.intercalate
           ", "
-          ( mapMaybe
-              (uncurry (formatWindow displayMode))
-              [ ("short", openAIUsagePrimaryWindow limit),
-                ("long", openAIUsageSecondaryWindow limit)
-              ]
+          ( ["5h unlimited" | shortLimitDisabled limit]
+              <> mapMaybe
+                (uncurry (formatWindow displayMode))
+                [ ("short", selectedWindow OpenAIUsagePrimaryWindow limit),
+                  ("long", selectedWindow OpenAIUsageSecondaryWindow limit)
+                ]
           )
       status
         | openAIUsageLimitReached limit = "reached"
@@ -624,8 +633,29 @@ formatCount count
   | otherwise = T.pack $ show count
 
 selectedWindow :: OpenAIUsageWindowSelector -> OpenAIUsageRateLimit -> Maybe OpenAIUsageWindow
-selectedWindow OpenAIUsagePrimaryWindow = openAIUsagePrimaryWindow
-selectedWindow OpenAIUsageSecondaryWindow = openAIUsageSecondaryWindow
+selectedWindow OpenAIUsagePrimaryWindow limit
+  | primaryWindowIsLong limit && isNothing (openAIUsageSecondaryWindow limit) = Nothing
+  | otherwise = openAIUsagePrimaryWindow limit
+selectedWindow OpenAIUsageSecondaryWindow limit =
+  case openAIUsageSecondaryWindow limit of
+    Just window -> Just window
+    Nothing
+      | primaryWindowIsLong limit -> openAIUsagePrimaryWindow limit
+      | otherwise -> Nothing
+
+-- Codex temporarily omits the 5-hour window when that limit is disabled. In
+-- that state the 7-day window moves into the API's primary slot instead of
+-- leaving a placeholder there, so identify the window by its duration before
+-- assigning it to the widget's semantic 5-hour and 7-day rows.
+primaryWindowIsLong :: OpenAIUsageRateLimit -> Bool
+primaryWindowIsLong limit =
+  case openAIUsagePrimaryWindow limit >>= openAIUsageWindowDurationSeconds of
+    Just duration -> duration >= 24 * 60 * 60
+    Nothing -> False
+
+shortLimitDisabled :: OpenAIUsageRateLimit -> Bool
+shortLimitDisabled limit =
+  primaryWindowIsLong limit && isNothing (openAIUsageSecondaryWindow limit)
 
 windowSelectorFallbackName :: OpenAIUsageWindowSelector -> T.Text
 windowSelectorFallbackName OpenAIUsagePrimaryWindow = "5h"
