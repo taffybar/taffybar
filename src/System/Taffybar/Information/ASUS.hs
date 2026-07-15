@@ -24,8 +24,11 @@ module System.Taffybar.Information.ASUS
     getASUSInfoState,
     cycleASUSProfile,
     setASUSProfile,
+    setASUSACProfile,
+    setASUSBatteryProfile,
     asusProfileToString,
     asusProfileFromUInt,
+    asusProfileToUInt,
   )
 where
 
@@ -63,6 +66,12 @@ data ASUSPlatformProfile = Quiet | Performance | Balanced
 -- | Combined ASUS platform info with CPU state.
 data ASUSInfo = ASUSInfo
   { asusProfile :: ASUSPlatformProfile,
+    -- | Profile selected automatically while connected to AC power
+    asusACProfile :: ASUSPlatformProfile,
+    -- | Profile selected automatically while running on battery power
+    asusBatteryProfile :: ASUSPlatformProfile,
+    -- | Whether the machine is currently connected to AC power
+    asusOnACPower :: Bool,
     -- | Average CPU frequency across all cores
     asusCpuFreqGHz :: Double,
     -- | CPU package temperature in Celsius
@@ -96,23 +105,26 @@ asusProfileToString Quiet = "Quiet"
 asusProfileToString Balanced = "Balanced"
 asusProfileToString Performance = "Performance"
 
--- | Parse profile from asusd uint32: 0=Quiet, 1=Performance, 2=Balanced.
+-- | Parse profile from asusd uint32: 0=Balanced, 1=Performance, 2=Quiet.
 asusProfileFromUInt :: Word32 -> Maybe ASUSPlatformProfile
-asusProfileFromUInt 0 = Just Quiet
+asusProfileFromUInt 0 = Just Balanced
 asusProfileFromUInt 1 = Just Performance
-asusProfileFromUInt 2 = Just Balanced
+asusProfileFromUInt 2 = Just Quiet
 asusProfileFromUInt _ = Nothing
 
 asusProfileToUInt :: ASUSPlatformProfile -> Word32
-asusProfileToUInt Quiet = 0
+asusProfileToUInt Balanced = 0
 asusProfileToUInt Performance = 1
-asusProfileToUInt Balanced = 2
+asusProfileToUInt Quiet = 2
 
 -- | Default info when asusd is unavailable.
 unknownASUSInfo :: ASUSInfo
 unknownASUSInfo =
   ASUSInfo
     { asusProfile = Balanced,
+      asusACProfile = Performance,
+      asusBatteryProfile = Balanced,
+      asusOnACPower = False,
       asusCpuFreqGHz = 0,
       asusCpuTempC = 0
     }
@@ -139,31 +151,53 @@ getProperties client = runExceptT $ do
       maybeToEither dummyMethodError $
         listToMaybe (methodReturnBody reply) >>= fromVariant
 
--- | Read current platform profile from DBus.
-readProfileFromClient :: Client -> IO ASUSPlatformProfile
-readProfileFromClient client = do
+-- | Read the live, AC, and battery platform profiles from DBus.
+readProfilesFromClient ::
+  Client ->
+  IO (ASUSPlatformProfile, ASUSPlatformProfile, ASUSPlatformProfile)
+readProfilesFromClient client = do
   propsResult <- getProperties client
   case propsResult of
     Left err -> do
       asusLogF WARNING "Failed to read ASUS properties: %s" err
-      return Balanced
-    Right props ->
-      let profileVal = readDictMaybe props "PlatformProfile" :: Maybe Word32
-       in return $ fromMaybe Balanced (profileVal >>= asusProfileFromUInt)
+      return (Balanced, Performance, Balanced)
+    Right props -> do
+      let readProfile key fallback =
+            fromMaybe fallback $
+              (readDictMaybe props key :: Maybe Word32) >>= asusProfileFromUInt
+      return
+        ( readProfile "PlatformProfile" Balanced,
+          readProfile "PlatformProfileOnAc" Performance,
+          readProfile "PlatformProfileOnBattery" Balanced
+        )
 
--- | Set the ASUS platform profile via DBus property.
-setASUSProfile :: Client -> ASUSPlatformProfile -> IO (Either MethodError ())
-setASUSProfile client profile = do
+-- | Set one of the ASUS platform profile properties.
+setASUSProfileProperty ::
+  Client -> MemberName -> ASUSPlatformProfile -> IO (Either MethodError ())
+setASUSProfileProperty client propertyMember profile = do
   result <-
     setProperty
       client
-      (methodCall asusObjectPath asusInterfaceName "PlatformProfile")
+      (methodCall asusObjectPath asusInterfaceName propertyMember)
         { methodCallDestination = Just asusBusName
         }
       (toVariant (asusProfileToUInt profile))
   return $ case result of
     Left err -> Left err
     Right _ -> Right ()
+
+-- | Set the ASUS platform profile via DBus property.
+setASUSProfile :: Client -> ASUSPlatformProfile -> IO (Either MethodError ())
+setASUSProfile client = setASUSProfileProperty client "PlatformProfile"
+
+-- | Set the profile that asusd applies while connected to AC power.
+setASUSACProfile :: Client -> ASUSPlatformProfile -> IO (Either MethodError ())
+setASUSACProfile client = setASUSProfileProperty client "PlatformProfileOnAc"
+
+-- | Set the profile that asusd applies while running on battery power.
+setASUSBatteryProfile :: Client -> ASUSPlatformProfile -> IO (Either MethodError ())
+setASUSBatteryProfile client =
+  setASUSProfileProperty client "PlatformProfileOnBattery"
 
 -- | Cycle to the next profile by calling the NextPlatformProfile method.
 cycleASUSProfile :: Client -> IO (Either MethodError ())
@@ -178,6 +212,31 @@ cycleASUSProfile client = do
     Right _ -> Right ()
 
 -- sysfs CPU frequency reading
+
+-- | Check whether any mains power supply is currently online.
+readOnACPower :: IO Bool
+readOnACPower = do
+  let powerSupplyDir = "/sys/class/power_supply"
+  exists <- doesDirectoryExist powerSupplyDir
+  if not exists
+    then return False
+    else do
+      entries <- listDirectory powerSupplyDir
+      statuses <- forM entries $ \entry -> do
+        let supplyDir = powerSupplyDir </> entry
+        supplyType <- readPowerSupplyFile $ supplyDir </> "type"
+        online <- readPowerSupplyFile $ supplyDir </> "online"
+        return $ supplyType == Just "Mains" && online == Just "1"
+      return $ or statuses
+  where
+    readPowerSupplyFile path = do
+      exists' <- doesFileExist path
+      if not exists'
+        then return Nothing
+        else do
+          result <- try $ readAsciiFileStrict path :: IO (Either SomeException String)
+          return $ either (const Nothing) (Just . strip) result
+    strip = reverse . dropWhile (`elem` [' ', '\n', '\r', '\t']) . reverse
 
 -- | Read average CPU frequency in GHz from sysfs.
 readCpuFreqGHz :: IO Double
@@ -269,12 +328,16 @@ getASUSInfo = asks systemDBusClient >>= liftIO . getASUSInfoFromClient
 -- | Get current ASUS info from a DBus client.
 getASUSInfoFromClient :: Client -> IO ASUSInfo
 getASUSInfoFromClient client = do
-  profile <- readProfileFromClient client
+  (profile, acProfile, batteryProfile) <- readProfilesFromClient client
+  onACPower <- readOnACPower
   freq <- readCpuFreqGHz
   temp <- readCpuTempC
   return
     ASUSInfo
       { asusProfile = profile,
+        asusACProfile = acProfile,
+        asusBatteryProfile = batteryProfile,
+        asusOnACPower = onACPower,
         asusCpuFreqGHz = freq,
         asusCpuTempC = temp
       }
