@@ -22,15 +22,24 @@ module System.Taffybar.Information.Temperature
     readAllTemperatures,
     readTemperaturesFrom,
     convertTemperature,
+    getTemperatureInfoChan,
+    getTemperatureInfoState,
   )
 where
 
+import Control.Concurrent (forkIO)
+import Control.Concurrent.MVar
+import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, try)
-import Control.Monad (forM)
+import Control.Monad (forM, forever, void)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.STM (atomically)
 import Data.List (sortOn)
 import Data.Maybe (catMaybes, fromMaybe)
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath ((</>))
+import System.Taffybar.Context (TaffyIO, getStateDefault)
+import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 import Text.Read (readMaybe)
 
 -- | Temperature unit for display
@@ -193,3 +202,35 @@ readTemperaturesFrom :: [ThermalSensor] -> IO [TemperatureInfo]
 readTemperaturesFrom sensors = do
   temps <- forM sensors readSensorTemperature
   return $ catMaybes temps
+
+newtype TemperatureInfoChanVar
+  = TemperatureInfoChanVar (TChan [TemperatureInfo], MVar [TemperatureInfo])
+
+-- | Get a shared broadcast channel containing all discovered temperature
+-- readings. The first call starts one producer for the process; subsequent
+-- calls reuse it, so the interval from the first call wins.
+getTemperatureInfoChan :: Double -> TaffyIO (TChan [TemperatureInfo])
+getTemperatureInfoChan interval = do
+  TemperatureInfoChanVar (chan, _) <- setupTemperatureInfoChanVar interval
+  pure chan
+
+-- | Read the latest snapshot cached by 'getTemperatureInfoChan'.
+getTemperatureInfoState :: Double -> TaffyIO [TemperatureInfo]
+getTemperatureInfoState interval = do
+  TemperatureInfoChanVar (_, var) <- setupTemperatureInfoChanVar interval
+  liftIO $ readMVar var
+
+setupTemperatureInfoChanVar :: Double -> TaffyIO TemperatureInfoChanVar
+setupTemperatureInfoChanVar interval = do
+  wakeupChan <- getWakeupChannelForDelay $ max 0.000001 interval
+  ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
+  getStateDefault $ liftIO $ do
+    initialInfo <- readAllTemperatures
+    chan <- newBroadcastTChanIO
+    var <- newMVar initialInfo
+    void $ forkIO $ forever $ do
+      void $ atomically $ readTChan ourWakeupChan
+      info <- readAllTemperatures
+      void $ swapMVar var info
+      atomically $ writeTChan chan info
+    pure $ TemperatureInfoChanVar (chan, var)

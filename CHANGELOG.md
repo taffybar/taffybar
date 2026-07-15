@@ -4,6 +4,12 @@
 
 * Add NVIDIA GPU temperature information and a configurable polling widget
   backed by `nvidia-smi`.
+* Add shared channel-backed producers and channel-driven widget variants for
+  sysfs and NVIDIA temperature snapshots.
+* Enrich NVIDIA temperature tooltips with target and memory temperatures,
+  thermal headroom, utilization, VRAM, power, fan, and performance-state
+  readings. Sysfs temperature widgets can now include additional sensors in
+  the tooltip without changing the compact label's aggregation.
 
 ## Fixes
 

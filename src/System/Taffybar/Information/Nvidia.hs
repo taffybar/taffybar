@@ -11,22 +11,160 @@
 --
 -- NVIDIA GPU information obtained from @nvidia-smi@.
 module System.Taffybar.Information.Nvidia
-  ( NvidiaGpuTemperature (..),
+  ( NvidiaGpuInfo (..),
+    parseNvidiaGpuInfo,
+    readNvidiaGpuInfo,
+    readNvidiaGpuInfoWith,
+    getNvidiaGpuInfoChan,
+    getNvidiaGpuInfoChanWith,
+    getNvidiaGpuInfoState,
+    getNvidiaGpuInfoStateWith,
+    NvidiaGpuTemperature (..),
     parseNvidiaGpuTemperatures,
     readNvidiaGpuTemperatures,
     readNvidiaGpuTemperaturesWith,
   )
 where
 
+import Control.Concurrent (forkIO)
+import Control.Concurrent.MVar
+import Control.Concurrent.STM.TChan
 import Control.Exception (IOException, try)
+import Control.Monad (forever, void)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.STM (atomically)
 import Data.List (sortOn)
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (readProcessWithExitCode)
+import System.Taffybar.Context (TaffyIO, getStateDefault)
+import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 import Text.Read (readMaybe)
+import Text.XML.Light
+
+-- | A complete snapshot for one NVIDIA GPU.
+--
+-- Fields that @nvidia-smi@ reports as unavailable are represented by
+-- 'Nothing'. Temperatures are in Celsius, power values are in watts, and
+-- utilization and fan readings are percentages.
+data NvidiaGpuInfo = NvidiaGpuInfo
+  { nvidiaInfoIndex :: !Int,
+    nvidiaInfoName :: !T.Text,
+    nvidiaInfoTemperatureCelsius :: !(Maybe Double),
+    nvidiaInfoMemoryTemperatureCelsius :: !(Maybe Double),
+    nvidiaInfoTargetTemperatureCelsius :: !(Maybe Double),
+    -- | Remaining temperature headroom before the target temperature.
+    nvidiaInfoThermalHeadroomCelsius :: !(Maybe Double),
+    nvidiaInfoFanSpeedPercent :: !(Maybe Double),
+    nvidiaInfoGpuUtilizationPercent :: !(Maybe Double),
+    nvidiaInfoMemoryUtilizationPercent :: !(Maybe Double),
+    nvidiaInfoMemoryUsedMiB :: !(Maybe Double),
+    nvidiaInfoMemoryTotalMiB :: !(Maybe Double),
+    nvidiaInfoPowerDrawWatts :: !(Maybe Double),
+    nvidiaInfoPowerLimitWatts :: !(Maybe Double),
+    nvidiaInfoPerformanceState :: !(Maybe T.Text)
+  }
+  deriving (Eq, Show)
+
+-- | Parse the XML produced by @nvidia-smi -q -x@.
+parseNvidiaGpuInfo :: T.Text -> [NvidiaGpuInfo]
+parseNvidiaGpuInfo contents =
+  maybe [] (sortOn nvidiaInfoIndex . mapMaybe parseGpu . findElements (unqual "gpu")) $
+    parseXMLDoc $
+      T.unpack contents
+  where
+    parseGpu gpu = do
+      index <- readElement ["minor_number"] gpu
+      name <- elementText ["product_name"] gpu
+      pure
+        NvidiaGpuInfo
+          { nvidiaInfoIndex = index,
+            nvidiaInfoName = name,
+            nvidiaInfoTemperatureCelsius = readElement ["temperature", "gpu_temp"] gpu,
+            nvidiaInfoMemoryTemperatureCelsius = readElement ["temperature", "memory_temp"] gpu,
+            nvidiaInfoTargetTemperatureCelsius = readElement ["temperature", "gpu_target_temperature"] gpu,
+            nvidiaInfoThermalHeadroomCelsius = readElement ["temperature", "gpu_temp_tlimit"] gpu,
+            nvidiaInfoFanSpeedPercent = readElement ["fan_speed"] gpu,
+            nvidiaInfoGpuUtilizationPercent = readElement ["utilization", "gpu_util"] gpu,
+            nvidiaInfoMemoryUtilizationPercent = readElement ["utilization", "memory_util"] gpu,
+            nvidiaInfoMemoryUsedMiB = readElement ["fb_memory_usage", "used"] gpu,
+            nvidiaInfoMemoryTotalMiB = readElement ["fb_memory_usage", "total"] gpu,
+            nvidiaInfoPowerDrawWatts =
+              firstElement
+                [ ["gpu_power_readings", "average_power_draw"],
+                  ["gpu_power_readings", "instant_power_draw"],
+                  ["power_readings", "power_draw"]
+                ]
+                gpu,
+            nvidiaInfoPowerLimitWatts =
+              firstElement
+                [ ["gpu_power_readings", "current_power_limit"],
+                  ["gpu_power_readings", "requested_power_limit"],
+                  ["power_readings", "power_limit"]
+                ]
+                gpu,
+            nvidiaInfoPerformanceState = availableElementText ["performance_state"] gpu
+          }
+
+-- | Read a rich snapshot using @nvidia-smi@ from @PATH@.
+readNvidiaGpuInfo :: IO [NvidiaGpuInfo]
+readNvidiaGpuInfo = readNvidiaGpuInfoWith "nvidia-smi"
+
+-- | Read a rich snapshot using the supplied @nvidia-smi@ executable.
+-- Returns an empty list when the command is missing or exits unsuccessfully.
+readNvidiaGpuInfoWith :: FilePath -> IO [NvidiaGpuInfo]
+readNvidiaGpuInfoWith command = do
+  result <- runNvidiaSmi command ["-q", "-x"]
+  pure $ case result of
+    Just output -> parseNvidiaGpuInfo $ T.pack output
+    Nothing -> []
+
+newtype NvidiaGpuInfoChanVar
+  = NvidiaGpuInfoChanVar (TChan [NvidiaGpuInfo], MVar [NvidiaGpuInfo])
+
+-- | Get a shared broadcast channel of rich NVIDIA snapshots.
+--
+-- The first call starts one polling producer for the process; subsequent calls
+-- reuse it. Consequently, the command and interval from the first call win.
+getNvidiaGpuInfoChan :: Double -> TaffyIO (TChan [NvidiaGpuInfo])
+getNvidiaGpuInfoChan = getNvidiaGpuInfoChanWith "nvidia-smi"
+
+-- | Like 'getNvidiaGpuInfoChan', using a supplied @nvidia-smi@ executable.
+getNvidiaGpuInfoChanWith :: FilePath -> Double -> TaffyIO (TChan [NvidiaGpuInfo])
+getNvidiaGpuInfoChanWith command interval = do
+  NvidiaGpuInfoChanVar (chan, _) <- setupNvidiaGpuInfoChanVar command interval
+  pure chan
+
+-- | Read the latest snapshot cached by 'getNvidiaGpuInfoChan'.
+getNvidiaGpuInfoState :: Double -> TaffyIO [NvidiaGpuInfo]
+getNvidiaGpuInfoState = getNvidiaGpuInfoStateWith "nvidia-smi"
+
+-- | Like 'getNvidiaGpuInfoState', using a supplied @nvidia-smi@ executable.
+getNvidiaGpuInfoStateWith :: FilePath -> Double -> TaffyIO [NvidiaGpuInfo]
+getNvidiaGpuInfoStateWith command interval = do
+  NvidiaGpuInfoChanVar (_, var) <- setupNvidiaGpuInfoChanVar command interval
+  liftIO $ readMVar var
+
+setupNvidiaGpuInfoChanVar :: FilePath -> Double -> TaffyIO NvidiaGpuInfoChanVar
+setupNvidiaGpuInfoChanVar command interval = do
+  wakeupChan <- getWakeupChannelForDelay $ max 0.000001 interval
+  ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
+  getStateDefault $ liftIO $ do
+    initialInfo <- readNvidiaGpuInfoWith command
+    chan <- newBroadcastTChanIO
+    var <- newMVar initialInfo
+    void $ forkIO $ forever $ do
+      void $ atomically $ readTChan ourWakeupChan
+      info <- readNvidiaGpuInfoWith command
+      void $ swapMVar var info
+      atomically $ writeTChan chan info
+    pure $ NvidiaGpuInfoChanVar (chan, var)
 
 -- | A temperature reported for one NVIDIA GPU.
+--
+-- This small compatibility type is retained for callers that only need the
+-- current core temperature. New code should prefer 'NvidiaGpuInfo'.
 data NvidiaGpuTemperature = NvidiaGpuTemperature
   { nvidiaGpuIndex :: Int,
     nvidiaGpuTemperatureCelsius :: Double
@@ -47,24 +185,52 @@ parseNvidiaGpuTemperatures =
             <*> readMaybe (T.unpack temperatureText)
         _ -> Nothing
 
--- | Read temperatures using @nvidia-smi@ from @PATH@.
--- Returns an empty list when the command is missing or exits unsuccessfully.
+-- | Read core temperatures using @nvidia-smi@ from @PATH@.
 readNvidiaGpuTemperatures :: IO [NvidiaGpuTemperature]
 readNvidiaGpuTemperatures = readNvidiaGpuTemperaturesWith "nvidia-smi"
 
--- | Read temperatures using the supplied @nvidia-smi@ executable.
+-- | Read core temperatures using the supplied @nvidia-smi@ executable.
 readNvidiaGpuTemperaturesWith :: FilePath -> IO [NvidiaGpuTemperature]
 readNvidiaGpuTemperaturesWith command = do
   result <-
-    try
-      ( readProcessWithExitCode
-          command
-          [ "--query-gpu=index,temperature.gpu",
-            "--format=csv,noheader,nounits"
-          ]
-          ""
-      ) ::
+    runNvidiaSmi
+      command
+      [ "--query-gpu=index,temperature.gpu",
+        "--format=csv,noheader,nounits"
+      ]
+  pure $ maybe [] (parseNvidiaGpuTemperatures . T.pack) result
+
+runNvidiaSmi :: FilePath -> [String] -> IO (Maybe String)
+runNvidiaSmi command arguments = do
+  result <-
+    try (readProcessWithExitCode command arguments "") ::
       IO (Either IOException (ExitCode, String, String))
   pure $ case result of
-    Right (ExitSuccess, output, _) -> parseNvidiaGpuTemperatures $ T.pack output
-    _ -> []
+    Right (ExitSuccess, output, _) -> Just output
+    _ -> Nothing
+
+elementAt :: [String] -> Element -> Maybe Element
+elementAt [] element = Just element
+elementAt (name : rest) element =
+  findChild (unqual name) element >>= elementAt rest
+
+elementText :: [String] -> Element -> Maybe T.Text
+elementText path element = T.strip . T.pack . strContent <$> elementAt path element
+
+availableElementText :: [String] -> Element -> Maybe T.Text
+availableElementText path element = do
+  value <- elementText path element
+  if value `elem` ["", "N/A", "[N/A]"] then Nothing else Just value
+
+readElement :: (Read a) => [String] -> Element -> Maybe a
+readElement path element = do
+  value <- availableElementText path element
+  case reads $ T.unpack value of
+    [(number, _)] -> Just number
+    _ -> Nothing
+
+firstElement :: (Read a) => [[String]] -> Element -> Maybe a
+firstElement paths element =
+  case mapMaybe (`readElement` element) paths of
+    value : _ -> Just value
+    [] -> Nothing
