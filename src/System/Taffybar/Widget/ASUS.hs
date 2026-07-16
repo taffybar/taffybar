@@ -17,8 +17,8 @@
 -- ASUS platform profile along with CPU frequency and temperature.
 --
 -- Displays: @\<icon\> \<freq\> \<temp\>@, e.g. @nf-icon 3.2GHz 72°C@.
--- Left-click opens separate AC and battery profile menus; right-click cycles
--- the live profile.
+-- Left-click opens one menu with separate AC and battery profile sections;
+-- right-click cycles the live profile.
 module System.Taffybar.Widget.ASUS
   ( ASUSWidgetConfig (..),
     defaultASUSWidgetConfig,
@@ -30,10 +30,10 @@ where
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
-import Data.Default (Default (..))
-import qualified Data.Text as T
 import DBus (MethodError)
 import DBus.Client (Client)
+import Data.Default (Default (..))
+import qualified Data.Text as T
 import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
@@ -208,7 +208,7 @@ showProfileMenu ctx ebox = do
   separator <- Gtk.separatorMenuItemNew
   Gtk.menuShellAppend menu separator
 
-  appendProfileSubmenu
+  appendProfileSection
     ctx
     menu
     "AC profile"
@@ -216,7 +216,11 @@ showProfileMenu ctx ebox = do
     (asusACProfile currentInfo)
     (asusOnACPower currentInfo)
     setASUSACProfile
-  appendProfileSubmenu
+
+  sectionSeparator <- Gtk.separatorMenuItemNew
+  Gtk.menuShellAppend menu sectionSeparator
+
+  appendProfileSection
     ctx
     menu
     "Battery profile"
@@ -235,9 +239,10 @@ showProfileMenu ctx ebox = do
   Gtk.widgetShowAll menu
   Gtk.menuPopupAtPointer menu currentEvent
 
--- | Add a submenu for one source-specific default profile. When the source is
--- currently active, changing its default also changes the live profile.
-appendProfileSubmenu ::
+-- | Add a visible section for one source-specific default profile. When the
+-- source is currently active, changing its default also changes the live
+-- profile.
+appendProfileSection ::
   Context ->
   Gtk.Menu ->
   T.Text ->
@@ -246,7 +251,7 @@ appendProfileSubmenu ::
   Bool ->
   (Client -> ASUSPlatformProfile -> IO (Either MethodError ())) ->
   IO ()
-appendProfileSubmenu
+appendProfileSection
   ctx
   menu
   labelText
@@ -254,38 +259,36 @@ appendProfileSubmenu
   selectedProfile
   sourceIsActive
   setter = do
-  let activeSuffix = if sourceIsActive then " (active)" else ""
-      submenuLabel =
-        labelText
-          <> ": "
-          <> asusProfileToString selectedProfile
-          <> activeSuffix
-      profiles = [Quiet, Balanced, Performance]
+    let activeSuffix = if sourceIsActive then " (active)" else ""
+        sectionLabel =
+          labelText
+            <> ": "
+            <> asusProfileToString selectedProfile
+            <> activeSuffix
+        profiles = [Quiet, Balanced, Performance]
 
-  parentItem <- Gtk.menuItemNewWithLabel submenuLabel
-  submenu <- Gtk.menuNew
-  Gtk.menuItemSetSubmenu parentItem (Just submenu)
+    headerItem <- Gtk.menuItemNewWithLabel sectionLabel
+    Gtk.widgetSetSensitive headerItem False
+    Gtk.menuShellAppend menu headerItem
 
-  forM_ profiles $ \profile -> do
-    let prefix = if profile == selectedProfile then "\x2713 " else "   "
-        itemLabel = prefix <> asusProfileToString profile
-    item <- Gtk.menuItemNewWithLabel itemLabel
-    void $ Gtk.onMenuItemActivate item $ do
-      let client = systemDBusClient ctx
-      savedResult <- setter client profile
-      case savedResult of
-        Left err ->
-          asusLogF WARNING "Failed to set saved ASUS profile: %s" (show err)
-        Right () -> do
-          -- asusd applies any AC/battery default immediately, even if that
-          -- power source is inactive. Keep the current source on its existing
-          -- profile when editing the other source's default.
-          let profileToApply = if sourceIsActive then profile else liveProfile
-          activeResult <- setASUSProfile client profileToApply
-          case activeResult of
-            Left err ->
-              asusLogF WARNING "Failed to apply active ASUS profile: %s" (show err)
-            Right () -> return ()
-    Gtk.menuShellAppend submenu item
-
-  Gtk.menuShellAppend menu parentItem
+    forM_ profiles $ \profile -> do
+      let prefix = if profile == selectedProfile then "  \x2713 " else "     "
+          itemLabel = prefix <> asusProfileToString profile
+      item <- Gtk.menuItemNewWithLabel itemLabel
+      Gtk.menuShellAppend menu item
+      void $ Gtk.onMenuItemActivate item $ do
+        let client = systemDBusClient ctx
+        savedResult <- setter client profile
+        case savedResult of
+          Left err ->
+            asusLogF WARNING "Failed to set saved ASUS profile: %s" (show err)
+          Right () -> do
+            -- asusd applies any AC/battery default immediately, even if that
+            -- power source is inactive. Keep the current source on its existing
+            -- profile when editing the other source's default.
+            let profileToApply = if sourceIsActive then profile else liveProfile
+            activeResult <- setASUSProfile client profileToApply
+            case activeResult of
+              Left err ->
+                asusLogF WARNING "Failed to apply active ASUS profile: %s" (show err)
+              Right () -> return ()
