@@ -2,6 +2,7 @@
 
 module System.Taffybar.Widget.AnthropicUsageSpec (spec) where
 
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import System.Taffybar.Information.AnthropicUsage
@@ -63,7 +64,7 @@ usageWindow name resetTime =
   AnthropicUsageWindow
     { anthropicUsageWindowName = name,
       anthropicUsageWindowStart = read "2026-07-12 12:00:00 UTC",
-      anthropicUsageWindowEnd = maybe (read "2026-07-19 12:00:00 UTC") id resetTime,
+      anthropicUsageWindowEnd = fromMaybe (read "2026-07-19 12:00:00 UTC") resetTime,
       anthropicUsageWindowResetAt = resetTime,
       anthropicUsageWindowBudgetTokens = Nothing,
       anthropicUsageWindowUtilizationPercent = Just 65,
