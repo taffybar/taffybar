@@ -84,6 +84,8 @@
 	padding-left: 4px;
 	padding-right: 4px;
 	margin-left: 3px;
+	opacity: 0.6;
+	transition: opacity .15s ease, background-color .2s ease, border-color .2s ease;
 }
 
 .sni-tray-expand-toggle:hover,
@@ -91,10 +93,22 @@
 .sni-tray-settings-toggle:hover {
 	background-color: rgba(255, 255, 255, 0.15);
 	border-color: rgba(255, 255, 255, 0.30);
+	opacity: 1;
 }
 
 .sni-tray-overflow-count-label {
 	min-width: 12px;
+	font-size: 90%;
+	padding: 0 2px;
+}
+
+.sni-tray-collapsible {
+	border-radius: 6px;
+	transition: background-color .25s ease;
+}
+
+.sni-tray-collapsible-expanded {
+	background-color: rgba(255, 255, 255, 0.06);
 }
 
 .sni-tray-edit-toggle-active,

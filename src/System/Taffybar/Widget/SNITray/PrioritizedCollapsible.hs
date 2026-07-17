@@ -813,6 +813,40 @@ showPriorityControlsMenuWithExplicitCollapse
     Gtk.widgetShowAll menu
     Gtk.menuPopupAtPointer menu currentEvent
 
+-- | State machine for the polled hover-expand mechanism.
+--
+-- The pointer position is polled directly (see 'pointerWithinWidget') rather
+-- than inferred from crossing events, so synthetic crossing events (grabs,
+-- child transitions) cannot corrupt hover state. Timestamps are
+-- 'GLib.getMonotonicTime' microseconds.
+data HoverPollState
+  = HoverIdle
+  | HoverPendingExpand Int64
+  | HoverExpanded
+  | HoverPendingCollapse Int64
+
+-- | Return whether the pointer is currently within the bounds of the widget's
+-- window, measured directly from GDK rather than inferred from crossing events.
+--
+-- This is used as ground truth to resynchronize hover state that can be
+-- corrupted by synthetic crossing events (grabs, child transitions).
+pointerWithinWidget :: (Gtk.IsWidget w) => w -> IO Bool
+pointerWithinWidget widget = do
+  maybeWindow <- Gtk.widgetGetWindow widget
+  case maybeWindow of
+    Nothing -> return False
+    Just window -> do
+      display <- Gdk.windowGetDisplay window
+      seat <- Gdk.displayGetDefaultSeat display
+      maybePointer <- Gdk.seatGetPointer seat
+      case maybePointer of
+        Nothing -> return False
+        Just pointer -> do
+          (_, x, y, _) <- Gdk.windowGetDevicePosition window pointer
+          width <- Gdk.windowGetWidth window
+          height <- Gdk.windowGetHeight window
+          return (x >= 0 && y >= 0 && x < width && y < height)
+
 -- | Build a collapsible StatusNotifierItem tray with priority editing controls
 -- and persisted priority state.
 sniTrayPrioritizedCollapsibleNew :: TaffyIO Gtk.Widget
@@ -861,8 +895,8 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
     prioritiesRef <- newIORef persistedPriorities
     expandedRef <- newIORef collapsibleSNITrayStartExpanded
     hoverExpandedRef <- newIORef False
-    hoverInsideRef <- newIORef False
-    hoverSerialRef <- newIORef (0 :: Int)
+    hoverPollStateRef <- newIORef HoverIdle
+    hoverPollActiveRef <- newIORef False
     animationSerialRef <- newIORef (0 :: Int)
     animationActiveRef <- newIORef False
     priorityEditModeRef <- newIORef prioritizedCollapsibleSNITrayStartPriorityEditMode
@@ -1145,22 +1179,69 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
                   targetVisibleCount <- computeNaturalVisibleCount (length children)
                   animateTrayExtentTo tray targetVisibleCount
 
-        scheduleHoverExpanded shouldExpand delayMs = do
-          modifyIORef' hoverSerialRef (+ 1)
-          hoverSerial <- readIORef hoverSerialRef
-          void $
-            GLib.timeoutAdd GLib.PRIORITY_DEFAULT delayMs $ do
-              currentSerial <- readIORef hoverSerialRef
-              hoverInside <- readIORef hoverInsideRef
-              when
-                ( currentSerial == hoverSerial
-                    && hoverInside == shouldExpand
-                )
-                (setHoverExpanded shouldExpand)
-              return False
+        hoverPollIntervalMs = 100 :: Word32
+
+        engageHoverPoll = do
+          state <- readIORef hoverPollStateRef
+          case state of
+            HoverIdle -> do
+              now <- GLib.getMonotonicTime
+              writeIORef hoverPollStateRef (HoverPendingExpand now)
+            _ -> return ()
+          pollActive <- readIORef hoverPollActiveRef
+          unless pollActive $ do
+            writeIORef hoverPollActiveRef True
+            void $
+              GLib.timeoutAdd GLib.PRIORITY_DEFAULT hoverPollIntervalMs $ do
+                keepPolling <- stepHoverPoll
+                unless keepPolling $ writeIORef hoverPollActiveRef False
+                return keepPolling
+
+        stepHoverPoll = do
+          state <- readIORef hoverPollStateRef
+          now <- GLib.getMonotonicTime
+          let expandDelayUs =
+                fromIntegral prioritizedCollapsibleSNITrayHoverExpandDelayMs * 1000 :: Int64
+              collapseDelayUs =
+                fromIntegral prioritizedCollapsibleSNITrayHoverCollapseDelayMs * 1000 :: Int64
+          case state of
+            HoverIdle -> return False
+            HoverPendingExpand since -> do
+              inside <- pointerWithinWidget outerEventBox
+              if not inside
+                then do
+                  writeIORef hoverPollStateRef HoverIdle
+                  return False
+                else
+                  if now - since >= expandDelayUs
+                    then do
+                      setHoverExpanded True
+                      writeIORef hoverPollStateRef HoverExpanded
+                      return True
+                    else return True
+            HoverExpanded -> do
+              inside <- pointerWithinWidget outerEventBox
+              if inside
+                then return True
+                else do
+                  writeIORef hoverPollStateRef (HoverPendingCollapse now)
+                  return True
+            HoverPendingCollapse since -> do
+              inside <- pointerWithinWidget outerEventBox
+              if inside
+                then do
+                  writeIORef hoverPollStateRef HoverExpanded
+                  return True
+                else
+                  if now - since >= collapseDelayUs
+                    then do
+                      setHoverExpanded False
+                      writeIORef hoverPollStateRef HoverIdle
+                      return False
+                    else return True
 
         cancelHoverExpansion = do
-          modifyIORef' hoverSerialRef (+ 1)
+          writeIORef hoverPollStateRef HoverIdle
           writeIORef hoverExpandedRef False
           modifyIORef' animationSerialRef (+ 1)
           writeIORef animationActiveRef False
@@ -1179,7 +1260,7 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
               visibleCount =
                 max 0 (min totalCount naturalVisibleCount)
               hiddenCount = max 0 (totalCount - visibleCount)
-              hiddenCountText = T.pack (show hiddenCount)
+              hiddenCountText = T.pack ('+' : show hiddenCount)
               priorityForInfo info =
                 itemPriorityFromMap
                   priorityMin
@@ -1325,22 +1406,9 @@ sniTrayPrioritizedCollapsibleNewFromHostParams PrioritizedCollapsibleSNITrayPara
         else return False
 
     when prioritizedCollapsibleSNITrayHoverExpand $ do
-      Gtk.widgetAddEvents
-        outerEventBox
-        [ Gdk.EventMaskEnterNotifyMask,
-          Gdk.EventMaskLeaveNotifyMask
-        ]
       Gtk.widgetAddEvents settingsToggle [Gdk.EventMaskEnterNotifyMask]
-      _ <- Gtk.onWidgetEnterNotifyEvent outerEventBox $ \_event -> do
-        writeIORef hoverInsideRef True
-        return False
-      _ <- Gtk.onWidgetLeaveNotifyEvent outerEventBox $ \_event -> do
-        writeIORef hoverInsideRef False
-        scheduleHoverExpanded False prioritizedCollapsibleSNITrayHoverCollapseDelayMs
-        return False
       _ <- Gtk.onWidgetEnterNotifyEvent settingsToggle $ \_event -> do
-        writeIORef hoverInsideRef True
-        scheduleHoverExpanded True prioritizedCollapsibleSNITrayHoverExpandDelayMs
+        engageHoverPoll
         return False
       return ()
 
