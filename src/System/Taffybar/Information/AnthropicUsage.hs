@@ -616,15 +616,26 @@ applyOAuthWindow (Just oauthWindow) window =
       anthropicUsageWindowResetAt = anthropicOAuthWindowResetsAt oauthWindow
     }
 
+-- | Decode a JSON file, treating an unreadable or unparseable file the same
+-- as an absent one. Claude Code rewrites its state files in place, so a poll
+-- can catch them mid-write; a failed read of optional metadata must degrade
+-- to 'Nothing' rather than throw and blank the whole usage snapshot.
 decodeFileIfExists :: (FromJSON a) => FilePath -> IO (Maybe a)
 decodeFileIfExists path = do
   exists <- doesFileExist path
   if exists
     then do
-      bytes <- LBS.readFile path
-      case eitherDecode bytes of
-        Right value -> return $ Just value
-        Left err -> fail $ "Unable to parse " <> path <> ": " <> err
+      result <- try $ do
+        bytes <- LBS.readFile path
+        evaluate $ eitherDecode bytes
+      case result of
+        Right (Right value) -> return $ Just value
+        Right (Left err) -> do
+          logM logName WARNING $ "Unable to parse " <> path <> ": " <> err
+          return Nothing
+        Left (err :: SomeException) -> do
+          logM logName WARNING $ "Unable to read " <> path <> ": " <> show err
+          return Nothing
     else return Nothing
 
 defaultClaudeStatePath :: IO FilePath
