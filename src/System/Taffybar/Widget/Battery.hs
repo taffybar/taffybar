@@ -54,7 +54,8 @@ data BatteryWidgetInfo = BWI
   { seconds :: Maybe Int64,
     percent :: Int,
     status :: String,
-    watts :: Double
+    watts :: Double,
+    signedWatts :: Double
   }
   deriving (Eq, Show)
 
@@ -87,7 +88,11 @@ getBatteryWidgetInfo info =
         { seconds = battTime,
           percent = battPctNum,
           status = battStatus,
-          watts = batteryEnergyRate info
+          watts = batteryEnergyRate info,
+          signedWatts = case batteryState info of
+            BatteryStateCharging -> batteryEnergyRate info
+            BatteryStateDischarging -> negate $ batteryEnergyRate info
+            _ -> 0
         }
 
 -- | Given (maybe summarized) battery info and format: provides the string to display
@@ -99,10 +104,16 @@ formatBattInfo info fmt =
           [ ("percentage", (show . percent) info),
             ("time", formatDuration (seconds info)),
             ("status", status info),
-            ("watts", printf "%.1f" (watts info))
+            ("watts", printf "%.1f" (watts info)),
+            ("signedWatts", formatSignedWatts $ signedWatts info)
           ]
           tpl
    in render tpl'
+
+formatSignedWatts :: Double -> String
+formatSignedWatts value
+  | value > 0 = printf "+%.1f" value
+  | otherwise = printf "%.1f" value
 
 -- | Format battery information using the placeholders accepted by
 -- 'textBatteryNew'.
@@ -113,7 +124,8 @@ formatBatteryInfo = formatBattInfo . getBatteryWidgetInfo
 -- string where $percentage$ is replaced with the percentage of battery
 -- remaining and $time$ is replaced with the time until the battery is fully
 -- charged/discharged. $status$ is replaced with the charging state and $watts$
--- is replaced with the current energy rate in watts.
+-- is replaced with the current energy rate in watts. $signedWatts$ is positive
+-- while charging and negative while discharging.
 textBatteryNew :: String -> TaffyIO Widget
 textBatteryNew format = textBatteryNewWithLabelAction labelSetter
   where
