@@ -12,6 +12,8 @@
   the tooltip without changing the compact label's aggregation.
 * Show the current day of Claude's 7-day usage window in the Anthropic usage
   widget when the OAuth endpoint reports a reset timestamp.
+* Show the current day of Codex's 7-day usage window in the OpenAI usage widget
+  when the usage endpoint reports an authoritative reset timestamp.
 * Allow text battery widgets to display UPower's current energy rate with the
   @$watts$@ placeholder or as battery input/output with @$signedWatts$@, and
   refresh the value on UPower sampling updates.

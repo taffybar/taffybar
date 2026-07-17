@@ -32,6 +32,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask, runReaderT)
 import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, mapMaybe)
 import qualified Data.Text as T
+import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime)
 import qualified GI.GLib as GLib
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO, getStateDefault)
@@ -376,7 +377,32 @@ formatSelectedWindowLabel selector displayMode limit =
       | selector == OpenAIUsagePrimaryWindow && shortLimitDisabled limit ->
           windowSelectorFallbackName selector <> " ∞"
       | otherwise -> windowSelectorFallbackName selector <> " n/a"
-    Just window -> formatWindowLabel displayMode (windowSelectorFallbackName selector) window
+    Just window ->
+      formatWindowLabel displayMode (windowSelectorFallbackName selector) window
+        <> weeklyWindowDaySuffix selector window
+
+-- | The current day of the semantic weekly window, matching the Anthropic
+-- widget's @N/7@ indicator. OpenAI reports both an absolute @reset_at@ and the
+-- remaining seconds at the time of the response; together they recover the
+-- snapshot time without consulting the clock while rendering the label.
+weeklyWindowDaySuffix :: OpenAIUsageWindowSelector -> OpenAIUsageWindow -> T.Text
+weeklyWindowDaySuffix OpenAIUsagePrimaryWindow _ = ""
+weeklyWindowDaySuffix OpenAIUsageSecondaryWindow window =
+  fromMaybe "" $ do
+    resetAt <- openAIUsageResetAt window
+    resetAfter <- openAIUsageResetAfterSeconds window
+    let snapshotAt = addUTCTime (negate $ fromIntegral resetAfter) resetAt
+    return $ " " <> formatWeeklyWindowDay snapshotAt resetAt
+
+formatWeeklyWindowDay :: UTCTime -> UTCTime -> T.Text
+formatWeeklyWindowDay snapshotAt resetAt =
+  T.pack $ printf "%d/7" day
+  where
+    secondsPerDay = 24 * 60 * 60
+    windowStart = addUTCTime (negate $ 7 * secondsPerDay) resetAt
+    elapsedPeriods = diffUTCTime snapshotAt windowStart / secondsPerDay
+    day :: Int
+    day = max 0 $ min 7 $ ceiling elapsedPeriods
 
 formatOpenAIUsageTooltip :: OpenAIUsageDisplayMode -> OpenAIUsageSnapshot -> Maybe T.Text
 formatOpenAIUsageTooltip displayMode snapshot =

@@ -23,11 +23,27 @@ spec =
       formatOpenAIUsageWindowLabel OpenAIUsageSecondaryWindow OpenAIUsageDisplayRemaining normalInfo
         `shouldBe` "7d 83%r"
 
+    it "shows the current day of seven when the API supplies an authoritative reset time" $ do
+      formatOpenAIUsageWindowLabel OpenAIUsageSecondaryWindow OpenAIUsageDisplayRemaining infoWithReset
+        `shouldBe` "7d 83%r 3/7"
+      formatOpenAIUsageSummaryLabel OpenAIUsageDisplayRemaining infoWithReset
+        `shouldBe` "AI 5h 75%r 7d 83%r 3/7"
+
+    it "keeps the window day on the weekly row when the 5-hour limit is omitted" $
+      formatOpenAIUsageWindowLabel OpenAIUsageSecondaryWindow OpenAIUsageDisplayUsed weeklyOnlyInfoWithReset
+        `shouldBe` "7d 17%u 3/7"
+
 weeklyOnlyInfo :: OpenAIUsageInfo
 weeklyOnlyInfo = usageInfo weeklyWindow Nothing
 
 normalInfo :: OpenAIUsageInfo
 normalInfo = usageInfo fiveHourWindow (Just weeklyWindow)
+
+infoWithReset :: OpenAIUsageInfo
+infoWithReset = usageInfo fiveHourWindow (Just weeklyWindowWithReset)
+
+weeklyOnlyInfoWithReset :: OpenAIUsageInfo
+weeklyOnlyInfoWithReset = usageInfo weeklyWindowWithReset Nothing
 
 usageInfo :: OpenAIUsageWindow -> Maybe OpenAIUsageWindow -> OpenAIUsageInfo
 usageInfo primary secondary =
@@ -50,6 +66,13 @@ fiveHourWindow = usageWindow 25 (5 * 60 * 60)
 
 weeklyWindow :: OpenAIUsageWindow
 weeklyWindow = usageWindow 17 (7 * 24 * 60 * 60)
+
+weeklyWindowWithReset :: OpenAIUsageWindow
+weeklyWindowWithReset =
+  weeklyWindow
+    { openAIUsageResetAfterSeconds = Just (4 * 24 * 60 * 60),
+      openAIUsageResetAt = Just $ read "2026-07-22 12:00:00 UTC"
+    }
 
 usageWindow :: Int -> Int -> OpenAIUsageWindow
 usageWindow usedPercent duration =
