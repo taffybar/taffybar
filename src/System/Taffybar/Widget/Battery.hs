@@ -24,6 +24,7 @@ module System.Taffybar.Widget.Battery
     BatteryClassesConfig (..),
     defaultBatteryClassesConfig,
     setBatteryStateClasses,
+    formatBatteryInfo,
     textBatteryNew,
     textBatteryNewWithLabelAction,
   )
@@ -52,7 +53,8 @@ import Text.StringTemplate
 data BatteryWidgetInfo = BWI
   { seconds :: Maybe Int64,
     percent :: Int,
-    status :: String
+    status :: String,
+    watts :: Double
   }
   deriving (Eq, Show)
 
@@ -81,7 +83,12 @@ getBatteryWidgetInfo info =
           BatteryStateCharging -> "Charging"
           BatteryStateDischarging -> "Discharging"
           _ -> "✔"
-   in BWI {seconds = battTime, percent = battPctNum, status = battStatus}
+   in BWI
+        { seconds = battTime,
+          percent = battPctNum,
+          status = battStatus,
+          watts = batteryEnergyRate info
+        }
 
 -- | Given (maybe summarized) battery info and format: provides the string to display
 formatBattInfo :: BatteryWidgetInfo -> String -> T.Text
@@ -91,22 +98,29 @@ formatBattInfo info fmt =
         setManyAttrib
           [ ("percentage", (show . percent) info),
             ("time", formatDuration (seconds info)),
-            ("status", status info)
+            ("status", status info),
+            ("watts", printf "%.1f" (watts info))
           ]
           tpl
    in render tpl'
 
+-- | Format battery information using the placeholders accepted by
+-- 'textBatteryNew'.
+formatBatteryInfo :: BatteryInfo -> String -> T.Text
+formatBatteryInfo = formatBattInfo . getBatteryWidgetInfo
+
 -- | A simple textual battery widget. The displayed format is specified format
 -- string where $percentage$ is replaced with the percentage of battery
 -- remaining and $time$ is replaced with the time until the battery is fully
--- charged/discharged.
+-- charged/discharged. $status$ is replaced with the charging state and $watts$
+-- is replaced with the current energy rate in watts.
 textBatteryNew :: String -> TaffyIO Widget
 textBatteryNew format = textBatteryNewWithLabelAction labelSetter
   where
     labelSetter label info = do
       setBatteryStateClasses def label info
       labelSetMarkup label $
-        formatBattInfo (getBatteryWidgetInfo info) format
+        formatBatteryInfo info format
 
 -- | CSS-threshold configuration for battery level classes.
 data BatteryClassesConfig = BatteryClassesConfig

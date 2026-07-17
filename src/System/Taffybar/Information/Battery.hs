@@ -198,7 +198,8 @@ getDisplayBatteryInfo = do
 
 -- | Default set of UPower properties that trigger display-battery refreshes.
 defaultMonitorDisplayBatteryProperties :: [String]
-defaultMonitorDisplayBatteryProperties = ["IconName", "State", "Percentage"]
+defaultMonitorDisplayBatteryProperties =
+  ["IconName", "State", "Percentage", "EnergyRate"]
 
 -- | Start the monitoring of the display battery, and setup the associated
 -- channel and mvar for the current state.
