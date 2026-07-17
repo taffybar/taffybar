@@ -407,6 +407,8 @@ test-suite unit
                , System.Taffybar.Information.WakeupSpec
                , System.Taffybar.SimpleConfigSpec
                , System.Taffybar.WidgetPrioritySpec
+               , System.Taffybar.Widget.AnthropicUsageSpec
+               , System.Taffybar.Widget.BatterySpec
                , System.Taffybar.Widget.OpenAIUsageSpec
                , System.Taffybar.Widget.SNITray.PrioritizedCollapsibleSpec
                , System.Taffybar.Widget.Workspaces.ChannelSpec
@@ -427,6 +429,7 @@ test-suite unit
                , status-notifier-item
                , taffybar
                , taffybar:testlib
+               , time
                , typed-process
                , unix
                , unliftio

@@ -10,6 +10,10 @@
   thermal headroom, utilization, VRAM, power, fan, and performance-state
   readings. Sysfs temperature widgets can now include additional sensors in
   the tooltip without changing the compact label's aggregation.
+* Show the current day of Claude's 7-day usage window in the Anthropic usage
+  widget when the OAuth endpoint reports a reset timestamp.
+* Allow text battery widgets to display UPower's current energy rate in watts
+  with the @$watts$@ format placeholder.
 
 ## Fixes
 

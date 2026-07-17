@@ -124,6 +124,10 @@ data AnthropicUsageWindow = AnthropicUsageWindow
   { anthropicUsageWindowName :: T.Text,
     anthropicUsageWindowStart :: UTCTime,
     anthropicUsageWindowEnd :: UTCTime,
+    -- | Authoritative reset time reported by the OAuth usage endpoint. The
+    -- fallback transcript windows synthesize an end time, but do not claim to
+    -- know when Claude's server-side limit resets.
+    anthropicUsageWindowResetAt :: Maybe UTCTime,
     anthropicUsageWindowBudgetTokens :: Maybe Int,
     -- | Used percentage reported by the OAuth usage endpoint, when available.
     anthropicUsageWindowUtilizationPercent :: Maybe Double,
@@ -593,6 +597,7 @@ buildScopedWeeklyWindow now limit =
       anthropicUsageWindowStart =
         maybe now (addUTCTime (negate weekSeconds)) resetsAt,
       anthropicUsageWindowEnd = fromMaybe (addUTCTime weekSeconds now) resetsAt,
+      anthropicUsageWindowResetAt = resetsAt,
       anthropicUsageWindowBudgetTokens = Nothing,
       anthropicUsageWindowUtilizationPercent = anthropicOAuthLimitPercent limit,
       anthropicUsageWindowTotals = mempty
@@ -607,7 +612,8 @@ applyOAuthWindow (Just oauthWindow) window =
   window
     { anthropicUsageWindowUtilizationPercent = anthropicOAuthWindowUtilization oauthWindow,
       anthropicUsageWindowEnd =
-        fromMaybe (anthropicUsageWindowEnd window) (anthropicOAuthWindowResetsAt oauthWindow)
+        fromMaybe (anthropicUsageWindowEnd window) (anthropicOAuthWindowResetsAt oauthWindow),
+      anthropicUsageWindowResetAt = anthropicOAuthWindowResetsAt oauthWindow
     }
 
 decodeFileIfExists :: (FromJSON a) => FilePath -> IO (Maybe a)
@@ -767,6 +773,7 @@ buildActiveBlockWindow now name duration budget entries =
         { anthropicUsageWindowName = name,
           anthropicUsageWindowStart = now,
           anthropicUsageWindowEnd = addUTCTime duration now,
+          anthropicUsageWindowResetAt = Nothing,
           anthropicUsageWindowBudgetTokens = budget,
           anthropicUsageWindowUtilizationPercent = Nothing,
           anthropicUsageWindowTotals = mempty
@@ -776,6 +783,7 @@ buildActiveBlockWindow now name duration budget entries =
         { anthropicUsageWindowName = name,
           anthropicUsageWindowStart = start,
           anthropicUsageWindowEnd = addUTCTime duration start,
+          anthropicUsageWindowResetAt = Nothing,
           anthropicUsageWindowBudgetTokens = budget,
           anthropicUsageWindowUtilizationPercent = Nothing,
           anthropicUsageWindowTotals = foldMap transcriptUsageTotals blockEntries
@@ -813,6 +821,7 @@ buildRollingWindow now name duration budget entries =
         { anthropicUsageWindowName = name,
           anthropicUsageWindowStart = windowStart,
           anthropicUsageWindowEnd = windowEnd,
+          anthropicUsageWindowResetAt = Nothing,
           anthropicUsageWindowBudgetTokens = budget,
           anthropicUsageWindowUtilizationPercent = Nothing,
           anthropicUsageWindowTotals = foldMap transcriptUsageTotals windowEntries

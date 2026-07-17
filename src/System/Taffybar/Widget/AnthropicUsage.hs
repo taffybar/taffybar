@@ -333,7 +333,9 @@ formatAnthropicUsageWindowLabel selector displayMode info =
   maybe "" (formatWindowLabel displayMode) (selectedWindow selector info)
 
 -- | The weekly label with the per-model weekly limit folded in when present,
--- e.g. @7d 65%·F45%r@, so the scoped window does not need its own row.
+-- e.g. @7d 65%·F45%r 3/7@, so the scoped window does not need its own row.
+-- The final value is the current day of the server-reported reset window and
+-- is omitted when only the transcript-derived fallback window is available.
 formatWeeklyWithScopedLabel :: AnthropicUsageDisplayMode -> AnthropicUsageInfo -> T.Text
 formatWeeklyWithScopedLabel displayMode info =
   let weekly = anthropicUsageWeeklyWindow info
@@ -346,6 +348,17 @@ formatWeeklyWithScopedLabel displayMode info =
         <> formatWindowValue displayMode weekly
         <> maybe "" scopedPart (anthropicUsageScopedWeeklyWindow info)
         <> displayModeIndicator displayMode
+        <> maybe "" ((" " <>) . formatWeeklyWindowDay (anthropicUsageGeneratedAt info)) (anthropicUsageWindowResetAt weekly)
+
+formatWeeklyWindowDay :: UTCTime -> UTCTime -> T.Text
+formatWeeklyWindowDay generatedAt resetAt =
+  T.pack $ printf "%d/7" day
+  where
+    secondsPerDay = 24 * 60 * 60
+    windowStart = addUTCTime (negate $ 7 * secondsPerDay) resetAt
+    elapsedPeriods = diffUTCTime generatedAt windowStart / secondsPerDay
+    day :: Int
+    day = max 0 $ min 7 $ ceiling elapsedPeriods
 
 formatAnthropicUsageTooltip :: AnthropicUsageDisplayMode -> AnthropicUsageSnapshot -> Maybe T.Text
 formatAnthropicUsageTooltip displayMode snapshot =
