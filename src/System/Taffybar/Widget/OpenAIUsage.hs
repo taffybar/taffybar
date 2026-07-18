@@ -378,25 +378,27 @@ formatSelectedWindowLabel selector displayMode limit =
           windowSelectorFallbackName selector <> " ∞"
       | otherwise -> windowSelectorFallbackName selector <> " n/a"
     Just window ->
-      formatWindowLabel displayMode (windowSelectorFallbackName selector) window
-        <> weeklyWindowDaySuffix selector window
+      case weeklyWindowDay selector window of
+        Just day -> formatWindowValueWithIndicator displayMode window <> " " <> day
+        Nothing -> formatWindowLabel displayMode (windowSelectorFallbackName selector) window
 
 -- | The current day of the semantic weekly window, matching the Anthropic
--- widget's @N/7@ indicator. OpenAI reports both an absolute @reset_at@ and the
--- remaining seconds at the time of the response; together they recover the
--- snapshot time without consulting the clock while rendering the label.
-weeklyWindowDaySuffix :: OpenAIUsageWindowSelector -> OpenAIUsageWindow -> T.Text
-weeklyWindowDaySuffix OpenAIUsagePrimaryWindow _ = ""
-weeklyWindowDaySuffix OpenAIUsageSecondaryWindow window =
-  fromMaybe "" $ do
-    resetAt <- openAIUsageResetAt window
-    resetAfter <- openAIUsageResetAfterSeconds window
-    let snapshotAt = addUTCTime (negate $ fromIntegral resetAfter) resetAt
-    return $ " " <> formatWeeklyWindowDay snapshotAt resetAt
+-- widget's @N/7@ indicator. The indicator already identifies the weekly row,
+-- so omit the redundant @7d@ prefix when it is available. OpenAI reports both
+-- an absolute @reset_at@ and the remaining seconds at the time of the response;
+-- together they recover the snapshot time without consulting the clock while
+-- rendering the label.
+weeklyWindowDay :: OpenAIUsageWindowSelector -> OpenAIUsageWindow -> Maybe T.Text
+weeklyWindowDay OpenAIUsagePrimaryWindow _ = Nothing
+weeklyWindowDay OpenAIUsageSecondaryWindow window = do
+  resetAt <- openAIUsageResetAt window
+  resetAfter <- openAIUsageResetAfterSeconds window
+  let snapshotAt = addUTCTime (negate $ fromIntegral resetAfter) resetAt
+  return $ formatWeeklyWindowDay snapshotAt resetAt
 
 formatWeeklyWindowDay :: UTCTime -> UTCTime -> T.Text
 formatWeeklyWindowDay snapshotAt resetAt =
-  T.pack $ printf "%d/7" day
+  T.pack $ printf "%d/7d" day
   where
     secondsPerDay = 24 * 60 * 60
     windowStart = addUTCTime (negate $ 7 * secondsPerDay) resetAt

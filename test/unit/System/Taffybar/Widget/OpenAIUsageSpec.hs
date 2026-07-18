@@ -25,13 +25,13 @@ spec =
 
     it "shows the current day of seven when the API supplies an authoritative reset time" $ do
       formatOpenAIUsageWindowLabel OpenAIUsageSecondaryWindow OpenAIUsageDisplayRemaining infoWithReset
-        `shouldBe` "7d 83%r 3/7"
+        `shouldBe` "83%r 3/7d"
       formatOpenAIUsageSummaryLabel OpenAIUsageDisplayRemaining infoWithReset
-        `shouldBe` "AI 5h 75%r 7d 83%r 3/7"
+        `shouldBe` "AI 5h 75%r 83%r 3/7d"
 
     it "keeps the window day on the weekly row when the 5-hour limit is omitted" $
       formatOpenAIUsageWindowLabel OpenAIUsageSecondaryWindow OpenAIUsageDisplayUsed weeklyOnlyInfoWithReset
-        `shouldBe` "7d 17%u 3/7"
+        `shouldBe` "17%u 3/7d"
 
 weeklyOnlyInfo :: OpenAIUsageInfo
 weeklyOnlyInfo = usageInfo weeklyWindow Nothing
