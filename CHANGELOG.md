@@ -14,6 +14,9 @@
   widget when the OAuth endpoint reports a reset timestamp.
 * Show the current day of Codex's 7-day usage window as a compact @N/7d@ value in
   the OpenAI usage widget when the endpoint reports an authoritative reset.
+* Let OpenAI and Anthropic usage stacks render structured window-label parts
+  with caller-supplied functions, so configurations can control ordering and
+  separators without duplicating widget or usage-calculation internals.
 * Allow text battery widgets to display UPower's current energy rate with the
   @$watts$@ placeholder or as battery input/output with @$signedWatts$@, and
   refresh the value on UPower sampling updates.

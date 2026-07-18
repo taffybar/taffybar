@@ -4,6 +4,7 @@ module System.Taffybar.Widget.OpenAIUsageSpec (spec) where
 
 import System.Taffybar.Information.OpenAIUsage
 import System.Taffybar.Widget.OpenAIUsage
+import System.Taffybar.Widget.Util (UsageWindowLabelParts (..), UsageWindowPosition (..))
 import Test.Hspec
 
 spec :: Spec
@@ -32,6 +33,10 @@ spec =
     it "keeps the window day on the weekly row when the 5-hour limit is omitted" $
       formatOpenAIUsageWindowLabel OpenAIUsageSecondaryWindow OpenAIUsageDisplayUsed weeklyOnlyInfoWithReset
         `shouldBe` "17%u 3/7d"
+
+    it "exposes semantic label parts for configurable renderers" $
+      openAIUsageWindowLabelParts OpenAIUsageSecondaryWindow OpenAIUsageDisplayRemaining infoWithReset
+        `shouldBe` UsageWindowLabelParts "7d" "83%r" (Just $ UsageWindowPosition 3 7)
 
 weeklyOnlyInfo :: OpenAIUsageInfo
 weeklyOnlyInfo = usageInfo weeklyWindow Nothing

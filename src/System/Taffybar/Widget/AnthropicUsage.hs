@@ -18,6 +18,8 @@ module System.Taffybar.Widget.AnthropicUsage
     anthropicUsageStackNewWith,
     anthropicUsageNew,
     anthropicUsageNewWith,
+    defaultAnthropicUsageWindowLabelRenderer,
+    anthropicUsageWindowLabelParts,
     formatAnthropicUsageWindowLabel,
     formatAnthropicUsageSummaryLabel,
   )
@@ -38,7 +40,12 @@ import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO, getStateDefault)
 import System.Taffybar.Information.AnthropicUsage
 import System.Taffybar.Util (postGUIASync)
-import System.Taffybar.Widget.Util (buildIconLabelBox, widgetSetClassGI)
+import System.Taffybar.Widget.Util
+  ( UsageWindowLabelParts (..),
+    UsageWindowPosition (..),
+    buildIconLabelBox,
+    widgetSetClassGI,
+  )
 import Text.Printf (printf)
 
 data AnthropicUsageDisplayMode
@@ -80,7 +87,14 @@ data AnthropicUsageWindowSelector
 data AnthropicUsageStackConfig = AnthropicUsageStackConfig
   { anthropicUsageStackInfoConfig :: AnthropicUsageConfig,
     anthropicUsageStackDefaultDisplayMode :: AnthropicUsageDisplayMode,
-    anthropicUsageStackFallbackText :: T.Text
+    anthropicUsageStackFallbackText :: T.Text,
+    -- | Arrange the semantic pieces of each stack row. This controls label
+    -- order and separators without requiring callers to rebuild the stack,
+    -- menu, refresh handling, or usage calculations.
+    anthropicUsageStackLabelRenderer ::
+      AnthropicUsageWindowSelector ->
+      UsageWindowLabelParts ->
+      T.Text
   }
 
 defaultAnthropicUsageLabelConfig :: AnthropicUsageLabelConfig
@@ -100,7 +114,8 @@ defaultAnthropicUsageStackConfig =
   AnthropicUsageStackConfig
     { anthropicUsageStackInfoConfig = defaultAnthropicUsageConfig,
       anthropicUsageStackDefaultDisplayMode = AnthropicUsageDisplayUsed,
-      anthropicUsageStackFallbackText = "n/a"
+      anthropicUsageStackFallbackText = "n/a",
+      anthropicUsageStackLabelRenderer = defaultAnthropicUsageWindowLabelRenderer
     }
 
 anthropicUsageNew :: TaffyIO Gtk.Widget
@@ -167,7 +182,9 @@ windowLabelConfig selector stackConfig =
       anthropicUsageLabelDefaultDisplayMode = anthropicUsageStackDefaultDisplayMode stackConfig,
       anthropicUsageLabelFallbackText = anthropicUsageStackFallbackText stackConfig,
       anthropicUsageLabelClass = "anthropic-usage-window-label",
-      anthropicUsageLabelFormatter = formatAnthropicUsageWindowLabel selector,
+      anthropicUsageLabelFormatter = \displayMode info ->
+        anthropicUsageStackLabelRenderer stackConfig selector $
+          anthropicUsageWindowLabelParts selector displayMode info,
       anthropicUsageLabelUnavailableFormatter = const (anthropicUsageStackFallbackText stackConfig)
     }
 
@@ -327,38 +344,80 @@ formatAnthropicUsageSummaryLabel displayMode info =
    in (if unavailable then "Claude ! " else "Claude ") <> windows
 
 formatAnthropicUsageWindowLabel :: AnthropicUsageWindowSelector -> AnthropicUsageDisplayMode -> AnthropicUsageInfo -> T.Text
-formatAnthropicUsageWindowLabel AnthropicUsageWeeklyWindow displayMode info =
-  formatWeeklyWithScopedLabel displayMode info
 formatAnthropicUsageWindowLabel selector displayMode info =
-  maybe "" (formatWindowLabel displayMode) (selectedWindow selector info)
+  defaultAnthropicUsageWindowLabelRenderer selector $
+    anthropicUsageWindowLabelParts selector displayMode info
+
+-- | Compute the semantic pieces of a window label independently of their
+-- presentation order. The weekly value includes the scoped model limit so a
+-- renderer can move the complete value without reconstructing it.
+anthropicUsageWindowLabelParts ::
+  AnthropicUsageWindowSelector ->
+  AnthropicUsageDisplayMode ->
+  AnthropicUsageInfo ->
+  UsageWindowLabelParts
+anthropicUsageWindowLabelParts AnthropicUsageWeeklyWindow displayMode info =
+  let weekly = anthropicUsageWeeklyWindow info
+   in UsageWindowLabelParts
+        (anthropicUsageWindowName weekly)
+        (formatWeeklyWithScopedValue displayMode info)
+        (usageWindowPosition (anthropicUsageGeneratedAt info) <$> anthropicUsageWindowResetAt weekly)
+anthropicUsageWindowLabelParts selector displayMode info =
+  case selectedWindow selector info of
+    Nothing -> UsageWindowLabelParts "" "" Nothing
+    Just window ->
+      UsageWindowLabelParts
+        (anthropicUsageWindowName window)
+        (formatWindowValueWithIndicator displayMode window)
+        Nothing
+
+-- | Preserve the historical Anthropic layout by default: window name, value,
+-- then an optional reset-window position.
+defaultAnthropicUsageWindowLabelRenderer ::
+  AnthropicUsageWindowSelector ->
+  UsageWindowLabelParts ->
+  T.Text
+defaultAnthropicUsageWindowLabelRenderer _ parts
+  | T.null (usageWindowLabelName parts) && T.null (usageWindowLabelValue parts) = ""
+  | otherwise =
+      usageWindowLabelName parts
+        <> " "
+        <> usageWindowLabelValue parts
+        <> maybe "" ((" " <>) . formatUsageWindowPosition) (usageWindowLabelPosition parts)
 
 -- | The weekly label with the per-model weekly limit folded in when present,
--- e.g. @7d 65%·F45%r 3/7@, so the scoped window does not need its own row.
--- The final value is the current day of the server-reported reset window and
--- is omitted when only the transcript-derived fallback window is available.
+-- so the scoped window does not need its own row.
 formatWeeklyWithScopedLabel :: AnthropicUsageDisplayMode -> AnthropicUsageInfo -> T.Text
 formatWeeklyWithScopedLabel displayMode info =
+  defaultAnthropicUsageWindowLabelRenderer AnthropicUsageWeeklyWindow $
+    anthropicUsageWindowLabelParts AnthropicUsageWeeklyWindow displayMode info
+
+formatWeeklyWithScopedValue :: AnthropicUsageDisplayMode -> AnthropicUsageInfo -> T.Text
+formatWeeklyWithScopedValue displayMode info =
   let weekly = anthropicUsageWeeklyWindow info
       scopedPart window =
         "·"
           <> T.toUpper (T.take 1 (anthropicUsageWindowName window))
           <> formatWindowValue displayMode window
-   in anthropicUsageWindowName weekly
-        <> " "
-        <> formatWindowValue displayMode weekly
+   in formatWindowValue displayMode weekly
         <> maybe "" scopedPart (anthropicUsageScopedWeeklyWindow info)
         <> displayModeIndicator displayMode
-        <> maybe "" ((" " <>) . formatWeeklyWindowDay (anthropicUsageGeneratedAt info)) (anthropicUsageWindowResetAt weekly)
 
-formatWeeklyWindowDay :: UTCTime -> UTCTime -> T.Text
-formatWeeklyWindowDay generatedAt resetAt =
-  T.pack $ printf "%d/7" day
+usageWindowPosition :: UTCTime -> UTCTime -> UsageWindowPosition
+usageWindowPosition generatedAt resetAt =
+  UsageWindowPosition day 7
   where
     secondsPerDay = 24 * 60 * 60
     windowStart = addUTCTime (negate $ 7 * secondsPerDay) resetAt
     elapsedPeriods = diffUTCTime generatedAt windowStart / secondsPerDay
     day :: Int
     day = max 0 $ min 7 $ ceiling elapsedPeriods
+
+formatUsageWindowPosition :: UsageWindowPosition -> T.Text
+formatUsageWindowPosition position =
+  T.pack (show $ usageWindowPositionCurrent position)
+    <> "/"
+    <> T.pack (show $ usageWindowPositionTotal position)
 
 formatAnthropicUsageTooltip :: AnthropicUsageDisplayMode -> AnthropicUsageSnapshot -> Maybe T.Text
 formatAnthropicUsageTooltip displayMode snapshot =

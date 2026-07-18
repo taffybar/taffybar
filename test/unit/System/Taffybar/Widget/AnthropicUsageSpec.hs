@@ -7,6 +7,7 @@ import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import System.Taffybar.Information.AnthropicUsage
 import System.Taffybar.Widget.AnthropicUsage
+import System.Taffybar.Widget.Util (UsageWindowLabelParts (..), UsageWindowPosition (..))
 import Test.Hspec
 
 spec :: Spec
@@ -23,6 +24,10 @@ spec =
     it "omits the window day for a synthesized transcript fallback window" $
       formatAnthropicUsageWindowLabel AnthropicUsageWeeklyWindow AnthropicUsageDisplayRemaining infoWithoutReset
         `shouldBe` "7d 35%r"
+
+    it "exposes semantic label parts for configurable renderers" $
+      anthropicUsageWindowLabelParts AnthropicUsageWeeklyWindow AnthropicUsageDisplayRemaining infoWithReset
+        `shouldBe` UsageWindowLabelParts "7d" "35%·F35%r" (Just $ UsageWindowPosition 3 7)
 
 infoWithReset :: AnthropicUsageInfo
 infoWithReset =

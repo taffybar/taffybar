@@ -18,6 +18,8 @@ module System.Taffybar.Widget.OpenAIUsage
     openAIUsageStackNewWith,
     openAIUsageNew,
     openAIUsageNewWith,
+    defaultOpenAIUsageWindowLabelRenderer,
+    openAIUsageWindowLabelParts,
     formatOpenAIUsageWindowLabel,
     formatOpenAIUsageSummaryLabel,
   )
@@ -38,7 +40,12 @@ import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO, getStateDefault)
 import System.Taffybar.Information.OpenAIUsage
 import System.Taffybar.Util (postGUIASync)
-import System.Taffybar.Widget.Util (buildIconLabelBox, widgetSetClassGI)
+import System.Taffybar.Widget.Util
+  ( UsageWindowLabelParts (..),
+    UsageWindowPosition (..),
+    buildIconLabelBox,
+    widgetSetClassGI,
+  )
 import Text.Printf (printf)
 
 data OpenAIUsageDisplayMode
@@ -77,7 +84,14 @@ data OpenAIUsageWindowSelector
 data OpenAIUsageStackConfig = OpenAIUsageStackConfig
   { openAIUsageStackInfoConfig :: OpenAIUsageConfig,
     openAIUsageStackDefaultDisplayMode :: OpenAIUsageDisplayMode,
-    openAIUsageStackFallbackText :: T.Text
+    openAIUsageStackFallbackText :: T.Text,
+    -- | Arrange the semantic pieces of each stack row. This controls label
+    -- order and separators without requiring callers to rebuild the stack,
+    -- menu, refresh handling, or rate-limit calculations.
+    openAIUsageStackLabelRenderer ::
+      OpenAIUsageWindowSelector ->
+      UsageWindowLabelParts ->
+      T.Text
   }
 
 defaultOpenAIUsageLabelConfig :: OpenAIUsageLabelConfig
@@ -97,7 +111,8 @@ defaultOpenAIUsageStackConfig =
   OpenAIUsageStackConfig
     { openAIUsageStackInfoConfig = defaultOpenAIUsageConfig,
       openAIUsageStackDefaultDisplayMode = OpenAIUsageDisplayUsed,
-      openAIUsageStackFallbackText = "n/a"
+      openAIUsageStackFallbackText = "n/a",
+      openAIUsageStackLabelRenderer = defaultOpenAIUsageWindowLabelRenderer
     }
 
 openAIUsageNew :: TaffyIO Gtk.Widget
@@ -164,7 +179,9 @@ windowLabelConfig selector stackConfig =
       openAIUsageLabelDefaultDisplayMode = openAIUsageStackDefaultDisplayMode stackConfig,
       openAIUsageLabelFallbackText = openAIUsageStackFallbackText stackConfig,
       openAIUsageLabelClass = "openai-usage-window-label",
-      openAIUsageLabelFormatter = formatOpenAIUsageWindowLabel selector,
+      openAIUsageLabelFormatter = \displayMode info ->
+        openAIUsageStackLabelRenderer stackConfig selector $
+          openAIUsageWindowLabelParts selector displayMode info,
       openAIUsageLabelUnavailableFormatter = const (openAIUsageStackFallbackText stackConfig)
     }
 
@@ -360,51 +377,85 @@ formatOpenAIUsageSummaryLabel displayMode info =
       windows =
         T.intercalate
           " "
-          [ formatSelectedWindowLabel OpenAIUsagePrimaryWindow displayMode limit,
-            formatSelectedWindowLabel OpenAIUsageSecondaryWindow displayMode limit
+          [ formatOpenAIUsageWindowLabel OpenAIUsagePrimaryWindow displayMode info,
+            formatOpenAIUsageWindowLabel OpenAIUsageSecondaryWindow displayMode info
           ]
       reached = openAIUsageLimitReached limit || isJust (openAIUsageReachedType info)
    in (if reached then "AI ! " else "AI ") <> windows
 
 formatOpenAIUsageWindowLabel :: OpenAIUsageWindowSelector -> OpenAIUsageDisplayMode -> OpenAIUsageInfo -> T.Text
 formatOpenAIUsageWindowLabel selector displayMode info =
-  formatSelectedWindowLabel selector displayMode (openAIUsageRateLimit info)
+  defaultOpenAIUsageWindowLabelRenderer selector $
+    openAIUsageWindowLabelParts selector displayMode info
 
-formatSelectedWindowLabel :: OpenAIUsageWindowSelector -> OpenAIUsageDisplayMode -> OpenAIUsageRateLimit -> T.Text
-formatSelectedWindowLabel selector displayMode limit =
+-- | Compute the semantic pieces of a window label independently of their
+-- presentation order.
+openAIUsageWindowLabelParts ::
+  OpenAIUsageWindowSelector ->
+  OpenAIUsageDisplayMode ->
+  OpenAIUsageInfo ->
+  UsageWindowLabelParts
+openAIUsageWindowLabelParts selector displayMode info =
   case selectedWindow selector limit of
     Nothing
       | selector == OpenAIUsagePrimaryWindow && shortLimitDisabled limit ->
-          windowSelectorFallbackName selector <> " ∞"
-      | otherwise -> windowSelectorFallbackName selector <> " n/a"
+          parts (windowSelectorFallbackName selector) "∞" Nothing
+      | otherwise -> parts (windowSelectorFallbackName selector) "n/a" Nothing
     Just window ->
-      case weeklyWindowDay selector window of
-        Just day -> formatWindowValueWithIndicator displayMode window <> " " <> day
-        Nothing -> formatWindowLabel displayMode (windowSelectorFallbackName selector) window
+      parts
+        (formatWindowName (windowSelectorFallbackName selector) window)
+        (formatWindowValueWithIndicator displayMode window)
+        (weeklyWindowPosition selector window)
+  where
+    limit = openAIUsageRateLimit info
+    parts = UsageWindowLabelParts
+
+-- | Preserve the historical OpenAI layout by default: ordinary rows show the
+-- window name first, while an authoritative weekly position is shown after
+-- the value and replaces the redundant weekly name.
+defaultOpenAIUsageWindowLabelRenderer ::
+  OpenAIUsageWindowSelector ->
+  UsageWindowLabelParts ->
+  T.Text
+defaultOpenAIUsageWindowLabelRenderer _ parts =
+  case usageWindowLabelPosition parts of
+    Just position ->
+      usageWindowLabelValue parts
+        <> " "
+        <> formatUsageWindowPosition "d" position
+    Nothing ->
+      usageWindowLabelName parts
+        <> " "
+        <> usageWindowLabelValue parts
 
 -- | The current day of the semantic weekly window, matching the Anthropic
--- widget's @N/7@ indicator. The indicator already identifies the weekly row,
--- so omit the redundant @7d@ prefix when it is available. OpenAI reports both
--- an absolute @reset_at@ and the remaining seconds at the time of the response;
--- together they recover the snapshot time without consulting the clock while
--- rendering the label.
-weeklyWindowDay :: OpenAIUsageWindowSelector -> OpenAIUsageWindow -> Maybe T.Text
-weeklyWindowDay OpenAIUsagePrimaryWindow _ = Nothing
-weeklyWindowDay OpenAIUsageSecondaryWindow window = do
+-- widget's position indicator. OpenAI reports both an absolute @reset_at@ and
+-- the remaining seconds at the time of the response; together they recover
+-- the snapshot time without consulting the clock while rendering the label.
+weeklyWindowPosition :: OpenAIUsageWindowSelector -> OpenAIUsageWindow -> Maybe UsageWindowPosition
+weeklyWindowPosition OpenAIUsagePrimaryWindow _ = Nothing
+weeklyWindowPosition OpenAIUsageSecondaryWindow window = do
   resetAt <- openAIUsageResetAt window
   resetAfter <- openAIUsageResetAfterSeconds window
   let snapshotAt = addUTCTime (negate $ fromIntegral resetAfter) resetAt
-  return $ formatWeeklyWindowDay snapshotAt resetAt
+  return $ usageWindowPosition snapshotAt resetAt
 
-formatWeeklyWindowDay :: UTCTime -> UTCTime -> T.Text
-formatWeeklyWindowDay snapshotAt resetAt =
-  T.pack $ printf "%d/7d" day
+usageWindowPosition :: UTCTime -> UTCTime -> UsageWindowPosition
+usageWindowPosition snapshotAt resetAt =
+  UsageWindowPosition day 7
   where
     secondsPerDay = 24 * 60 * 60
     windowStart = addUTCTime (negate $ 7 * secondsPerDay) resetAt
     elapsedPeriods = diffUTCTime snapshotAt windowStart / secondsPerDay
     day :: Int
     day = max 0 $ min 7 $ ceiling elapsedPeriods
+
+formatUsageWindowPosition :: T.Text -> UsageWindowPosition -> T.Text
+formatUsageWindowPosition suffix position =
+  T.pack (show $ usageWindowPositionCurrent position)
+    <> "/"
+    <> T.pack (show $ usageWindowPositionTotal position)
+    <> suffix
 
 formatOpenAIUsageTooltip :: OpenAIUsageDisplayMode -> OpenAIUsageSnapshot -> Maybe T.Text
 formatOpenAIUsageTooltip displayMode snapshot =
@@ -602,12 +653,6 @@ formatWindow displayMode name (Just window) =
       <> formatWindowPercentSuffix displayMode window
       <> maybe "" ((" / " <>) . formatDuration) (openAIUsageWindowDurationSeconds window)
       <> maybe "" ((", resets in " <>) . formatDuration) (openAIUsageResetAfterSeconds window)
-
-formatWindowLabel :: OpenAIUsageDisplayMode -> T.Text -> OpenAIUsageWindow -> T.Text
-formatWindowLabel displayMode fallbackName window =
-  formatWindowName fallbackName window
-    <> " "
-    <> formatWindowValueWithIndicator displayMode window
 
 formatWindowName :: T.Text -> OpenAIUsageWindow -> T.Text
 formatWindowName fallbackName window =

@@ -41,6 +41,25 @@ import System.Log.Logger (Priority (..))
 import System.Taffybar.Util
 import Text.Printf
 
+-- | A position within a usage window, such as day 3 of a 7-day window.
+-- Keeping this semantic rather than preformatted lets widget configurations
+-- choose their own compactness, separators, and ordering.
+data UsageWindowPosition = UsageWindowPosition
+  { usageWindowPositionCurrent :: Int,
+    usageWindowPositionTotal :: Int
+  }
+  deriving (Eq, Show)
+
+-- | Preformatted semantic pieces of a usage-window label. Widget-specific
+-- code computes the values; callers can arrange them without duplicating the
+-- usage and reset-window calculations.
+data UsageWindowLabelParts = UsageWindowLabelParts
+  { usageWindowLabelName :: T.Text,
+    usageWindowLabelValue :: T.Text,
+    usageWindowLabelPosition :: Maybe UsageWindowPosition
+  }
+  deriving (Eq, Show)
+
 -- | Common record used for window icon widgets in workspace switchers.
 data WindowIconWidget a = WindowIconWidget
   { iconContainer :: Gtk.EventBox,
