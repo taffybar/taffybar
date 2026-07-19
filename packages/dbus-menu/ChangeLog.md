@@ -1,5 +1,12 @@
 # Changelog for dbus-menu
 
+## Unreleased
+
+* Reconcile submenu refreshes by DBusMenu item ID so compatible GTK menu
+  widgets survive asynchronous layout updates. This prevents a refresh from
+  destroying the pressed item before GTK delivers button release/activation.
+* Ignore stale refresh responses and responses for already-destroyed menus.
+
 ## 0.1.3.3 - 2026-05-13
 
 * Refresh generated setup metadata and formatting for the monorepo release.

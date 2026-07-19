@@ -31,6 +31,7 @@ library
       DBusMenu
       DBusMenu.Client
       DBusMenu.Client.Util
+      DBusMenu.Reconcile
   other-modules:
       Paths_dbus_menu
   hs-source-dirs:

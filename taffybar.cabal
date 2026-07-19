@@ -394,6 +394,7 @@ test-suite unit
   hs-source-dirs: test/unit
   main-is: unit-tests.hs
   other-modules: UnitSpec
+               , DBusMenuSpec
                , System.Taffybar.AuthSpec
                , System.Taffybar.AppearanceSpec
                , System.Taffybar.ContextSpec
@@ -417,6 +418,7 @@ test-suite unit
                , bytestring
                , containers
                , dbus
+               , dbus-menu
                , directory
                , JuicyPixels
                , filepath

@@ -24,22 +24,26 @@ module DBusMenu
     menuItemChildrenDisplay,
     menuItemToggleType,
     menuItemToggleState,
+    MenuItemKind (..),
+    MenuItemShape (..),
+    menuItemShape,
   )
 where
 
 import Control.Concurrent (forkIO)
 import Control.Exception.Enclosed (catchAny)
-import Control.Monad (forM_, void, when)
+import Control.Monad (forM, forM_, unless, void, when)
 import DBus
 import DBus.Client
 import qualified DBusMenu.Client as DM
+import DBusMenu.Reconcile (ReconcileAction (..), planReconciliation)
 import Data.Either (fromRight)
 import Data.GI.Base (unsafeCastTo)
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef, writeIORef)
 import Data.Int (Int32)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isNothing)
 import qualified Data.Text as T
 import Data.Word (Word32)
 import Foreign.Ptr (Ptr, nullPtr)
@@ -56,6 +60,7 @@ import qualified GI.GObject.Objects.Object as GObject
 import qualified GI.Gtk as Gtk
 import System.Log.Logger (Priority (..), logM)
 import Text.Printf
+import Text.Read (readMaybe)
 
 dbusMenuLogger :: Priority -> String -> IO ()
 dbusMenuLogger = logM "DBusMenu"
@@ -84,6 +89,22 @@ data LayoutNode = LayoutNode
   deriving (Eq, Show)
 
 type LayoutTuple = (Int32, Map String Variant, [Variant])
+
+data MenuItemKind
+  = NormalMenuItem
+  | SeparatorMenuItem
+  | CheckmarkMenuItem
+  | RadioMenuItem
+  deriving (Eq, Show)
+
+-- | The aspects of a DBusMenu item that determine its concrete GTK widget
+-- type and whether it owns a submenu. Items with equal shapes can be updated
+-- in place without invalidating an in-progress GTK click.
+data MenuItemShape = MenuItemShape
+  { menuItemKind :: MenuItemKind,
+    menuItemShapeHasSubmenu :: Bool
+  }
+  deriving (Eq, Show)
 
 -- | Menu-level click dispatch table.  Maps DBusMenu item IDs to their click
 -- actions.  The table is owned by the persistent 'Gtk.Menu' widget and
@@ -243,6 +264,18 @@ menuItemHasSubmenu :: LayoutNode -> Bool
 menuItemHasSubmenu n =
   menuItemChildrenDisplay n == Just "submenu" || not (null (lnChildren n))
 
+menuItemShape :: LayoutNode -> MenuItemShape
+menuItemShape node =
+  MenuItemShape
+    { menuItemKind = case menuItemType node of
+        Just "separator" -> SeparatorMenuItem
+        _ -> case menuItemToggleType node of
+          Just "checkmark" -> CheckmarkMenuItem
+          Just "radio" -> RadioMenuItem
+          _ -> NormalMenuItem,
+      menuItemShapeHasSubmenu = menuItemHasSubmenu node
+    }
+
 -- | The toggle type (e.g. @\"checkmark\"@, @\"radio\"@), if any.
 menuItemToggleType :: LayoutNode -> Maybe String
 menuItemToggleType = getPropS "toggle-type"
@@ -252,7 +285,11 @@ menuItemToggleState :: LayoutNode -> Maybe Int32
 menuItemToggleState = getPropI32 "toggle-state"
 
 -- | Populate a GTK Menu widget with items from a layout tree.
--- Clears any existing children first.
+--
+-- Existing items are reconciled by DBusMenu ID and retained whenever their
+-- GTK shape is compatible with the new layout. Keeping the same widget is
+-- important: GTK activates menu items on button release, so destroying an
+-- item between button press and release silently loses the click.
 --
 -- CSS classes applied to the menu: @dbusmenu-menu@
 populateGtkMenu :: Client -> BusName -> ObjectPath -> Gtk.Menu -> LayoutNode -> IO ()
@@ -266,13 +303,114 @@ populateGtkMenu' client dest path dispatch gtkMenu root = do
   gtkMenuW <- Gtk.toWidget gtkMenu
   addCssClass gtkMenuW "dbusmenu-menu"
 
-  -- Clear existing children (for refreshes, e.g. submenus).
   children <- Gtk.containerGetChildren gtkMenu
-  forM_ children Gtk.widgetDestroy
+  maybeExisting <- forM children getExistingMenuItem
+  forM_ (zip children maybeExisting) $ \(widget, managedItem) ->
+    when (isNothing managedItem) $
+      Gtk.widgetDestroy widget
+  let existing = catMaybes maybeExisting
+  let existingById = Map.fromList [(itemId, (widget, item, shape)) | (itemId, widget, item, shape) <- existing]
+      existingShapes = Map.map (\(_, _, shape) -> shape) existingById
+      desiredNodes = filter menuItemVisible (lnChildren root)
+      reconciliation =
+        planReconciliation
+          existingShapes
+          [(lnId node, menuItemShape node) | node <- desiredNodes]
 
-  forM_ (lnChildren root) $ \child -> when (menuItemVisible child) $ do
-    widget <- buildGtkMenuItem' client dest path dispatch gtkMenu child
-    Gtk.menuShellAppend gtkMenu widget
+  renderedItems <-
+    forM (zip desiredNodes reconciliation) $ \(node, action) -> do
+      let itemId = lnId node
+      case action of
+        ReuseItem _ -> do
+          let (_, existingItem, _) = existingById Map.! itemId
+          updateGtkMenuItem client dest path dispatch existingItem node
+          pure (itemId, existingItem, True)
+        BuildItem _ -> do
+          newItem <- buildGtkMenuItem' client dest path dispatch gtkMenu node
+          Gtk.menuShellAppend gtkMenu newItem
+          pure (itemId, newItem, False)
+
+  let retainedItems = [item | (_, item, True) <- renderedItems]
+  forM_ existing $ \(_, widget, item, _) ->
+    unless (item `elem` retainedItems) $
+      Gtk.widgetDestroy widget
+
+  remainingChildren <- Gtk.containerGetChildren gtkMenu
+  remainingIds <- catMaybes <$> forM remainingChildren getManagedMenuItemId
+  let desiredIds = [itemId | (itemId, _, _) <- renderedItems]
+  unless (remainingIds == desiredIds) $
+    forM_ (zip [0 ..] renderedItems) $ \(position, (_, item, _)) ->
+      Gtk.menuReorderChild gtkMenu item position
+
+getManagedMenuItemId :: Gtk.Widget -> IO (Maybe Int32)
+getManagedMenuItemId widget = do
+  name <- Gtk.widgetGetName widget
+  pure $ T.stripPrefix "dbusmenu-item-" name >>= readMaybe . T.unpack
+
+getExistingMenuItem :: Gtk.Widget -> IO (Maybe (Int32, Gtk.Widget, Gtk.MenuItem, MenuItemShape))
+getExistingMenuItem widget = do
+  maybeItemId <- getManagedMenuItemId widget
+  case maybeItemId of
+    Nothing -> pure Nothing
+    Just itemId -> do
+      item <- unsafeCastTo Gtk.MenuItem widget
+      shape <- getRenderedMenuItemShape widget
+      pure $ Just (itemId, widget, item, shape)
+
+getRenderedMenuItemShape :: Gtk.Widget -> IO MenuItemShape
+getRenderedMenuItemShape widget = do
+  context <- Gtk.widgetGetStyleContext widget
+  isSeparator <- Gtk.styleContextHasClass context "dbusmenu-separator"
+  isCheckmark <- Gtk.styleContextHasClass context "dbusmenu-checkmark"
+  isRadio <- Gtk.styleContextHasClass context "dbusmenu-radio"
+  hasSubmenu <- Gtk.styleContextHasClass context "dbusmenu-has-submenu"
+  let kind
+        | isSeparator = SeparatorMenuItem
+        | isCheckmark = CheckmarkMenuItem
+        | isRadio = RadioMenuItem
+        | otherwise = NormalMenuItem
+  pure $
+    MenuItemShape
+      { menuItemKind = kind,
+        menuItemShapeHasSubmenu = hasSubmenu
+      }
+
+setCssClass :: Gtk.StyleContext -> T.Text -> Bool -> IO ()
+setCssClass context cssClass enabled =
+  if enabled
+    then Gtk.styleContextAddClass context cssClass
+    else Gtk.styleContextRemoveClass context cssClass
+
+updateGtkMenuItem :: Client -> BusName -> ObjectPath -> ClickDispatch -> Gtk.MenuItem -> LayoutNode -> IO ()
+updateGtkMenuItem client dest path dispatch item node = do
+  let shape = menuItemShape node
+      itemId = lnId node
+      isChecked = menuItemToggleState node == Just 1
+  case menuItemKind shape of
+    SeparatorMenuItem -> pure ()
+    kind -> do
+      Gtk.menuItemSetLabel item (T.pack (menuItemLabel node))
+      Gtk.menuItemSetUseUnderline item True
+      case kind of
+        CheckmarkMenuItem -> updateCheckItem False isChecked
+        RadioMenuItem -> updateCheckItem True isChecked
+        _ -> pure ()
+
+  itemW <- Gtk.toWidget item
+  context <- Gtk.widgetGetStyleContext itemW
+  setCssClass context "dbusmenu-checked" isChecked
+  Gtk.widgetSetSensitive item (menuItemEnabled node)
+
+  unless (menuItemShapeHasSubmenu shape) $
+    atomicModifyIORef' dispatch $ \actions ->
+      ( Map.insert itemId (sendClicked client dest path itemId =<< Gtk.getCurrentEventTime) actions,
+        ()
+      )
+  where
+    updateCheckItem drawAsRadio active = do
+      checkItem <- unsafeCastTo Gtk.CheckMenuItem item
+      Gtk.checkMenuItemSetDrawAsRadio checkItem drawAsRadio
+      Gtk.checkMenuItemSetActive checkItem active
 
 -- | Build a single GTK MenuItem from a layout node.
 --
@@ -381,27 +519,43 @@ buildGtkMenuItem' client dest path dispatch _parentMenu node = do
       -- Populate with the eagerly-fetched layout so submenus are usable even if
       -- the service doesn't support/require lazy updates.
       populateGtkMenu' client dest path dispatch submenu node
-      loadedRef <- newIORef (not (null (lnChildren node)))
-      let refresh =
+      refreshGenerationRef <- newIORef (0 :: Int)
+      destroyedRef <- newIORef False
+      _ <- Gtk.onWidgetDestroy submenu $ writeIORef destroyedRef True
+      let refresh = do
+            loaded <- not . null <$> Gtk.containerGetChildren submenu
+            generation <-
+              atomicModifyIORef' refreshGenerationRef $ \current ->
+                let next = current + 1
+                 in (next, next)
             void $
               forkIO $
                 catchAny
                   ( do
-                      -- Run DBus calls on a forked thread to avoid blocking the GTK
-                      -- main loop (which would cause queued click events to be lost
-                      -- when populateGtkMenu rebuilds menu items).
+                      -- Keep DBus calls off the GTK main loop. Responses may
+                      -- arrive while the user is interacting with the menu, so
+                      -- the GTK update reconciles stable item widgets by ID.
                       needUpdate <- aboutToShow client dest path (lnId node)
-                      loaded <- readIORef loadedRef
                       when (needUpdate || not loaded) $ do
                         (_, layout) <- getLayout client dest path (lnId node) 1 layoutPropNames
-                        -- Post GTK updates back on the main thread.  Using
-                        -- PRIORITY_DEFAULT_IDLE ensures pending input events (clicks)
-                        -- are processed first.
-                        void $ GLib.idleAdd GLib.PRIORITY_DEFAULT_IDLE $ do
-                          populateGtkMenu' client dest path dispatch submenu layout
-                          writeIORef loadedRef True
-                          Gtk.widgetShowAll submenu
-                          return False
+                        void $
+                          GLib.idleAdd GLib.PRIORITY_DEFAULT_IDLE $
+                            catchAny
+                              ( do
+                                  currentGeneration <- readIORef refreshGenerationRef
+                                  destroyed <- readIORef destroyedRef
+                                  unless destroyed $ do
+                                    visible <- Gtk.widgetGetVisible submenu
+                                    when (generation == currentGeneration && visible) $ do
+                                      populateGtkMenu' client dest path dispatch submenu layout
+                                      Gtk.widgetShowAll submenu
+                                  return False
+                              )
+                              ( \err -> do
+                                  dbusMenuLogger WARNING $
+                                    printf "Submenu %d GTK reconciliation failed: %s" (lnId node) (show err)
+                                  return False
+                              )
                   )
                   ( dbusMenuLogger WARNING
                       . printf "Submenu %d refresh failed (stale ID?): %s" (lnId node)
