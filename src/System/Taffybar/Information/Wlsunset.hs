@@ -12,9 +12,9 @@
 -- Portability : unportable
 --
 -- This module provides process-level management of @wlsunset@, a
--- Wayland day\/night gamma adjustor. It polls for the running state of
--- the process and tracks mode cycling (auto → forced high temp →
--- forced low temp → auto) via @SIGUSR1@.
+-- Wayland day\/night gamma adjustor. While the process is running it uses
+-- @pidwait@\/pidfd notification for exit detection; slow polling is only used
+-- while waiting for an externally-started process to appear.
 module System.Taffybar.Information.Wlsunset
   ( -- * Types
     WlsunsetMode (..),
@@ -34,6 +34,7 @@ module System.Taffybar.Information.Wlsunset
   )
 where
 
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception.Enclosed (catchAny)
@@ -86,7 +87,8 @@ data WlsunsetConfig = WlsunsetConfig
     -- | Low (night) temperature in Kelvin. Used for display only.
     -- Should match the @-t@ flag passed to wlsunset (default 4000).
     wlsunsetLowTemp :: Int,
-    -- | How often (in seconds) to poll for process status.
+    -- | How often (in seconds) to look for an externally-started process while
+    -- no wlsunset instance is running.
     wlsunsetPollIntervalSec :: Int
   }
   deriving (Eq, Show)
@@ -97,7 +99,7 @@ instance Default WlsunsetConfig where
       { wlsunsetCommand = "wlsunset",
         wlsunsetHighTemp = 6500,
         wlsunsetLowTemp = 4000,
-        wlsunsetPollIntervalSec = 2
+        wlsunsetPollIntervalSec = 30
       }
 
 -- | Internal state bundle stored in 'contextState' via 'getStateDefault'.
@@ -170,21 +172,23 @@ monitorWlsunset cfg = do
   wakeupChan <- getWakeupChannelSeconds (max 1 (wlsunsetPollIntervalSec cfg))
   ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
   taffyFork $ do
-    wlsunsetLog DEBUG "Starting wlsunset polling loop"
+    wlsunsetLog DEBUG "Starting event-first wlsunset monitor"
     let loop = do
-          liftIO $ pollWlsunset chan stateVar
-          liftIO $ void $ atomically $ readTChan ourWakeupChan
+          isRunning <- liftIO $ pollWlsunset chan stateVar
+          if isRunning
+            then liftIO $ waitForWlsunsetExit (wlsunsetPollIntervalSec cfg)
+            else liftIO $ void $ atomically $ readTChan ourWakeupChan
           loop
     loop
   return (chan, stateVar, cfg)
 
 -- | A single poll iteration: check process status, update state, and
 -- broadcast if changed.
-pollWlsunset :: TChan WlsunsetState -> MVar WlsunsetState -> IO ()
+pollWlsunset :: TChan WlsunsetState -> MVar WlsunsetState -> IO Bool
 pollWlsunset chan var = do
   pids <- pgrepWlsunset
   let isRunning = not (null pids)
-  modifyMVar_ var $ \old -> do
+  modifyMVar var $ \old -> do
     let wasRunning = wlsunsetRunning old
         -- When the process freshly appears, reset mode to Auto.
         newMode
@@ -199,7 +203,14 @@ pollWlsunset chan var = do
     when (new /= old) $ do
       wlsunsetLogF DEBUG "Wlsunset state changed: %s" new
       atomically $ writeTChan chan new
-    return new
+    return (new, isRunning)
+
+-- | Block in procps' pidfd-based waiter until the current process exits.
+-- Falling back to the slow discovery loop is safe if pidwait is unavailable.
+waitForWlsunsetExit :: Int -> IO ()
+waitForWlsunsetExit fallbackIntervalSeconds =
+  void (readProcess "pidwait" ["-x", "wlsunset"] "")
+    `catchAny` (\_ -> threadDelay $ max 1 fallbackIntervalSeconds * 1000000)
 
 -- ---------------------------------------------------------------------------
 -- Actions
@@ -228,19 +239,25 @@ cycleWlsunsetMode cfg = do
 
 -- | Start the wlsunset process using the configured command.
 startWlsunset :: WlsunsetConfig -> TaffyIO ()
-startWlsunset cfg = liftIO $ do
-  wlsunsetLog DEBUG $ "Starting wlsunset: " ++ wlsunsetCommand cfg
-  void $ spawnCommand (wlsunsetCommand cfg)
+startWlsunset cfg = do
+  WlsunsetChanVar (chan, var, _) <- getWlsunsetChanVar cfg
+  liftIO $ do
+    wlsunsetLog DEBUG $ "Starting wlsunset: " ++ wlsunsetCommand cfg
+    void $ spawnCommand (wlsunsetCommand cfg)
+    setWlsunsetRunning chan var True
 
 -- | Stop wlsunset by sending @SIGTERM@ (signal 15) to all instances.
 stopWlsunset :: WlsunsetConfig -> TaffyIO ()
-stopWlsunset _cfg = liftIO $ do
-  pids <- pgrepWlsunset
-  case pids of
-    [] -> wlsunsetLog DEBUG "stopWlsunset: wlsunset not running"
-    _ -> do
-      wlsunsetLog DEBUG "Stopping wlsunset (SIGTERM)"
-      mapM_ (signalProcess 15) pids
+stopWlsunset cfg = do
+  WlsunsetChanVar (chan, var, _) <- getWlsunsetChanVar cfg
+  liftIO $ do
+    pids <- pgrepWlsunset
+    case pids of
+      [] -> wlsunsetLog DEBUG "stopWlsunset: wlsunset not running"
+      _ -> do
+        wlsunsetLog DEBUG "Stopping wlsunset (SIGTERM)"
+        mapM_ (signalProcess 15) pids
+    setWlsunsetRunning chan var False
 
 -- | Toggle wlsunset: stop it if running, start it if not.
 toggleWlsunset :: WlsunsetConfig -> TaffyIO ()
@@ -265,12 +282,24 @@ restartWlsunsetWithTemps cfg lowTemp highTemp = do
     modifyMVar_ var $ \old -> do
       let new =
             old
-              { wlsunsetMode = WlsunsetAuto,
+              { wlsunsetRunning = True,
+                wlsunsetMode = WlsunsetAuto,
                 wlsunsetEffectiveHighTemp = highTemp,
                 wlsunsetEffectiveLowTemp = lowTemp
               }
-      atomically $ writeTChan chan new
+      when (new /= old) $ atomically $ writeTChan chan new
       return new
+
+setWlsunsetRunning :: TChan WlsunsetState -> MVar WlsunsetState -> Bool -> IO ()
+setWlsunsetRunning chan var running =
+  modifyMVar_ var $ \old -> do
+    let new =
+          old
+            { wlsunsetRunning = running,
+              wlsunsetMode = if running then wlsunsetMode old else WlsunsetAuto
+            }
+    when (new /= old) $ atomically $ writeTChan chan new
+    pure new
 
 -- ---------------------------------------------------------------------------
 -- Command building
