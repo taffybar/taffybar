@@ -1,15 +1,20 @@
-# 7.2.6
+# 7.2.7
 
 ## Features
 
-* Add NVIDIA GPU temperature information and a configurable polling widget
-  backed by `nvidia-smi`.
 * Add shared channel-backed producers and channel-driven widget variants for
-  sysfs and NVIDIA temperature snapshots.
+  CPU load, CPU frequency, memory, sysfs temperature, and NVIDIA telemetry.
+* Add temporary coordinated wakeup subscriptions and let CPU graphs acquire a
+  fast shared sampling cadence while hovered, releasing it when the pointer
+  leaves.
+* Add a configurable CPU-frequency information source and compact widget with
+  average, range, and policy-count reporting.
 * Enrich NVIDIA temperature tooltips with target and memory temperatures,
   thermal headroom, utilization, VRAM, power, fan, and performance-state
   readings. Sysfs temperature widgets can now include additional sensors in
   the tooltip without changing the compact label's aggregation.
+* Add separate ASUS AC and battery power-profile controls and combine their
+  state into one menu.
 * Show the current day of Claude's 7-day usage window in the Anthropic usage
   widget when the OAuth endpoint reports a reset timestamp.
 * Show the current day of Codex's 7-day usage window as a compact @N/7d@ value in
@@ -20,11 +25,39 @@
 * Allow text battery widgets to display UPower's current energy rate with the
   @$watts$@ placeholder or as battery input/output with @$signedWatts$@, and
   refresh the value on UPower sampling updates.
+* Add polling-driven hover expansion and styling refinements to the prioritized
+  StatusNotifier tray.
+
+## Performance
+
+* Slow hardware telemetry defaults, share producers across widgets, align
+  periodic work through the coordinated wakeup scheduler, and suppress
+  unchanged channel updates.
+* Avoid invoking `nvidia-smi` while every detected NVIDIA device is
+  runtime-suspended.
+* Wait for wlsunset process-exit events instead of repeatedly polling process
+  state while it is running.
 
 ## Fixes
 
 * Show Codex's temporarily disabled 5-hour usage limit as unlimited while
   keeping its remaining 7-day window in the weekly row.
+* Tolerate unreadable or concurrently replaced Anthropic transcript and
+  credential files.
+
+## Packaging
+
+* Require `dbus-menu >= 0.1.3.4` for refresh reconciliation that preserves GTK
+  menu items across asynchronous layout updates.
+
+# 7.2.6
+
+## Features
+
+* Add NVIDIA GPU temperature information and a configurable polling widget
+  backed by `nvidia-smi`.
+
+## Fixes
 
 * Require `status-notifier-item >= 0.3.2.16` and `gtk-sni-tray >= 0.2.1.4`,
   which collapse duplicate Ayatana tray items even when an application uses a

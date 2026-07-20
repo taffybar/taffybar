@@ -1,6 +1,6 @@
 cabal-version: 3.4
 name: taffybar
-version: 7.2.6
+version: 7.2.7
 synopsis: A desktop bar similar to xmobar, but with more GUI
 description: Taffybar is a desktop status bar with GTK widgets for window
   manager state, system information, tray icons, and custom user modules.
@@ -75,7 +75,7 @@ library
                , data-default >= 0.7 && < 0.9
                , dbus >= 1.2.11 && < 2
                , dbus-hslogger >= 0.1.1.1 && < 0.2
-               , dbus-menu >= 0.1.3.3 && < 0.2
+               , dbus-menu >= 0.1.3.4 && < 0.2
                , directory >= 1.3 && < 1.4
                , disk-free-space >= 0.1.0.1 && < 0.2
                , dyre >= 0.9.0 && < 0.10
