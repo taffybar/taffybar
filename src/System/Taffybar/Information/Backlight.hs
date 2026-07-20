@@ -159,7 +159,8 @@ getBacklightInfoChanVarFor deviceOverride intervalSeconds =
     ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
     liftIO $ do
       chan <- newBroadcastTChanIO
-      var <- newMVar Nothing
+      initialInfo <- getBacklightInfo deviceOverride
+      var <- newMVar initialInfo
       _ <- forkIO $ monitorBacklightInfo deviceOverride intervalSeconds ourWakeupChan chan var
       pure $ BacklightInfoChanVar (chan, var)
 
