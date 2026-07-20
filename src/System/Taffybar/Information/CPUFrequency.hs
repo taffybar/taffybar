@@ -28,6 +28,7 @@ import Control.Monad (filterM, forever, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import qualified Data.ByteString.Char8 as BS8
+import Data.Either (fromRight)
 import Data.List (isPrefixOf, sort)
 import Data.Maybe (catMaybes, mapMaybe)
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
@@ -76,7 +77,7 @@ summarizeCPUFrequencies values =
 readCPUFrequencyInfo :: IO CPUFrequencyInfo
 readCPUFrequencyInfo = do
   result <- try readCPUFrequencyInfoUnsafe
-  pure $ either (const emptyCPUFrequencyInfo) id (result :: Either SomeException CPUFrequencyInfo)
+  pure $ fromRight emptyCPUFrequencyInfo (result :: Either SomeException CPUFrequencyInfo)
 
 readCPUFrequencyInfoUnsafe :: IO CPUFrequencyInfo
 readCPUFrequencyInfoUnsafe = do
@@ -100,7 +101,7 @@ discoverPolicyFrequencyPaths =
   discoverFrequencyPaths
     "/sys/devices/system/cpu/cpufreq"
     ("policy" `isPrefixOf`)
-    (\base entry -> base </> entry)
+    (</>)
 
 discoverCoreFrequencyPaths :: IO [[FilePath]]
 discoverCoreFrequencyPaths =

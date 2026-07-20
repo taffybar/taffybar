@@ -18,6 +18,7 @@ import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Default (Default (..))
 import Data.IORef (newIORef, readIORef, writeIORef)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO)
@@ -82,7 +83,7 @@ renderCPUFrequency info =
           printf
             "CPU clock average: %.2f GHz\nRange: %.2f-%.2f GHz\n%d frequency policies sampled"
             average
-            (maybe average id $ cpuFrequencyMinimumGHz info)
-            (maybe average id $ cpuFrequencyMaximumGHz info)
+            (fromMaybe average $ cpuFrequencyMinimumGHz info)
+            (fromMaybe average $ cpuFrequencyMaximumGHz info)
             (cpuFrequencySampleCount info)
       )

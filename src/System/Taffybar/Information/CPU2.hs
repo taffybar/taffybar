@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 
 -----------------------------------------------------------------------------
@@ -169,34 +170,32 @@ createCPULoadSource manager cpu baseIntervalNs fastIntervalNs = do
 
 acquireFastRefresh :: WakeupManager -> Word64 -> TChan () -> MVar FastRefreshState -> IO (IO ())
 acquireFastRefresh manager intervalNs refreshChannel stateVar = do
-  modifyMVar_ stateVar $ \state ->
-    case state of
-      FastRefreshActive count threadId subscription ->
-        pure $ FastRefreshActive (count + 1) threadId subscription
-      FastRefreshInactive -> do
-        logM cpuLoadLogPath DEBUG $ "Acquiring fast CPU refresh lease at " <> show intervalNs <> "ns"
-        subscription <- subscribeWakeupInterval manager intervalNs
-        ourChannel <- atomically $ dupTChan $ wakeupSubscriptionChannel subscription
-        threadId <-
-          forkIO $
-            forever $
-              atomically (readTChan ourChannel)
-                >> atomically (writeTChan refreshChannel ())
-        pure $ FastRefreshActive 1 threadId subscription
+  modifyMVar_ stateVar $ \case
+    FastRefreshActive count threadId subscription ->
+      pure $ FastRefreshActive (count + 1) threadId subscription
+    FastRefreshInactive -> do
+      logM cpuLoadLogPath DEBUG $ "Acquiring fast CPU refresh lease at " <> show intervalNs <> "ns"
+      subscription <- subscribeWakeupInterval manager intervalNs
+      ourChannel <- atomically $ dupTChan $ wakeupSubscriptionChannel subscription
+      threadId <-
+        forkIO $
+          forever $
+            atomically (readTChan ourChannel)
+              >> atomically (writeTChan refreshChannel ())
+      pure $ FastRefreshActive 1 threadId subscription
   releasedRef <- newIORef False
   pure $ do
     shouldRelease <- atomicModifyIORef' releasedRef $ \released -> (True, not released)
     when shouldRelease $
-      modifyMVar_ stateVar $ \state ->
-        case state of
-          FastRefreshInactive -> pure FastRefreshInactive
-          FastRefreshActive count threadId subscription
-            | count > 1 -> pure $ FastRefreshActive (count - 1) threadId subscription
-            | otherwise -> do
-                logM cpuLoadLogPath DEBUG $ "Releasing fast CPU refresh lease at " <> show intervalNs <> "ns"
-                killThread threadId
-                releaseWakeupSubscription subscription
-                pure FastRefreshInactive
+      modifyMVar_ stateVar $ \case
+        FastRefreshInactive -> pure FastRefreshInactive
+        FastRefreshActive count threadId subscription
+          | count > 1 -> pure $ FastRefreshActive (count - 1) threadId subscription
+          | otherwise -> do
+              logM cpuLoadLogPath DEBUG $ "Releasing fast CPU refresh lease at " <> show intervalNs <> "ns"
+              killThread threadId
+              releaseWakeupSubscription subscription
+              pure FastRefreshInactive
 
 drainTChan :: TChan a -> STM ()
 drainTChan chan = do

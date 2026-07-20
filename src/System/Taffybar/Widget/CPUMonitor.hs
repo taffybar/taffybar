@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 
 --------------------------------------------------------------------------------
 
@@ -21,6 +22,7 @@ module System.Taffybar.Widget.CPUMonitor where
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (atomicModifyIORef', newIORef)
+import Data.Maybe (fromMaybe)
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk
 import System.Taffybar.Context (TaffyIO)
@@ -79,12 +81,12 @@ cpuMonitorNewWithHover cfg interval hoverInterval cpu = do
             Just _ -> pure ()
             Nothing -> do
               release <- acquireCPULoadFastRefresh source
-              previous <- atomicModifyIORef' releaseRef $ \current -> (Just release, current)
-              maybe (pure ()) id previous
+              previous <- atomicModifyIORef' releaseRef (Just release,)
+              fromMaybe (pure ()) previous
 
         endFastRefresh = do
-          release <- atomicModifyIORef' releaseRef $ \current -> (Nothing, current)
-          maybe (pure ()) id release
+          release <- atomicModifyIORef' releaseRef (Nothing,)
+          fromMaybe (pure ()) release
 
     GI.Gtk.widgetAddEvents
       widget
