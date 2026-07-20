@@ -35,7 +35,7 @@ where
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, try)
-import Control.Monad (forM, forever, void)
+import Control.Monad (forM, forever, void, when)
 import Control.Monad.IO.Class
 import Control.Monad.STM (atomically)
 import Control.Monad.Trans.Class
@@ -55,6 +55,10 @@ import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath ((</>))
 import System.Log.Logger
 import System.Taffybar.Context
+import System.Taffybar.Information.CPUFrequency
+  ( cpuFrequencyAverageGHz,
+    readCPUFrequencyInfo,
+  )
 import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 import System.Taffybar.Util (logPrintF, maybeToEither)
 import Text.Read (readMaybe)
@@ -95,6 +99,9 @@ asusLogPath = "System.Taffybar.Information.ASUS"
 
 asusLogF :: (MonadIO m, Show t) => Priority -> String -> t -> m ()
 asusLogF = logPrintF asusLogPath
+
+defaultASUSPollIntervalSeconds :: Double
+defaultASUSPollIntervalSeconds = 10
 
 readAsciiFileStrict :: FilePath -> IO String
 readAsciiFileStrict = fmap BS8.unpack . BS8.readFile
@@ -211,8 +218,6 @@ cycleASUSProfile client = do
     Left err -> Left err
     Right _ -> Right ()
 
--- sysfs CPU frequency reading
-
 -- | Check whether any mains power supply is currently online.
 readOnACPower :: IO Bool
 readOnACPower = do
@@ -237,37 +242,6 @@ readOnACPower = do
           result <- try $ readAsciiFileStrict path :: IO (Either SomeException String)
           return $ either (const Nothing) (Just . strip) result
     strip = reverse . dropWhile (`elem` [' ', '\n', '\r', '\t']) . reverse
-
--- | Read average CPU frequency in GHz from sysfs.
-readCpuFreqGHz :: IO Double
-readCpuFreqGHz = do
-  let cpuDir = "/sys/devices/system/cpu"
-  exists <- doesDirectoryExist cpuDir
-  if not exists
-    then return 0
-    else do
-      entries <- listDirectory cpuDir
-      let cpuDirs = filter isCpuDir entries
-      freqs <- forM cpuDirs $ \cpu -> do
-        let freqPath = cpuDir </> cpu </> "cpufreq" </> "scaling_cur_freq"
-        readFreqFile freqPath
-      let validFreqs = catMaybes freqs
-      if null validFreqs
-        then return 0
-        else return $ (sum validFreqs / fromIntegral (length validFreqs)) / 1_000_000
-  where
-    isCpuDir name =
-      take 3 name == "cpu" && all (`elem` ("0123456789" :: String)) (drop 3 name)
-    readFreqFile path = do
-      exists' <- doesFileExist path
-      if not exists'
-        then return Nothing
-        else do
-          result <- try $ readAsciiFileStrict path :: IO (Either SomeException String)
-          case result of
-            Left _ -> return Nothing
-            Right s -> return $ fmap fromIntegral (readMaybe (strip s) :: Maybe Integer)
-    strip = dropWhile (== ' ') . reverse . dropWhile (== '\n') . reverse . dropWhile (== ' ')
 
 -- sysfs CPU temperature reading
 
@@ -329,16 +303,24 @@ getASUSInfo = asks systemDBusClient >>= liftIO . getASUSInfoFromClient
 getASUSInfoFromClient :: Client -> IO ASUSInfo
 getASUSInfoFromClient client = do
   (profile, acProfile, batteryProfile) <- readProfilesFromClient client
-  onACPower <- readOnACPower
-  freq <- readCpuFreqGHz
-  temp <- readCpuTempC
-  return
-    ASUSInfo
+  readASUSTelemetry
+    unknownASUSInfo
       { asusProfile = profile,
         asusACProfile = acProfile,
-        asusBatteryProfile = batteryProfile,
-        asusOnACPower = onACPower,
-        asusCpuFreqGHz = freq,
+        asusBatteryProfile = batteryProfile
+      }
+
+-- | Refresh telemetry that has no event interface while preserving the
+-- profile values maintained by the asusd PropertiesChanged subscription.
+readASUSTelemetry :: ASUSInfo -> IO ASUSInfo
+readASUSTelemetry old = do
+  onACPower <- readOnACPower
+  frequencyInfo <- readCPUFrequencyInfo
+  temp <- readCpuTempC
+  return
+    old
+      { asusOnACPower = onACPower,
+        asusCpuFreqGHz = fromMaybe 0 $ cpuFrequencyAverageGHz frequencyInfo,
         asusCpuTempC = temp
       }
 
@@ -367,20 +349,20 @@ monitorASUSInfo :: TaffyIO (TChan ASUSInfo, MVar ASUSInfo)
 monitorASUSInfo = do
   infoVar <- lift $ newMVar unknownASUSInfo
   chan <- liftIO newBroadcastTChanIO
-  wakeupChan <- getWakeupChannelForDelay (2 :: Double)
+  wakeupChan <- getWakeupChannelForDelay defaultASUSPollIntervalSeconds
   ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
   taffyFork $ do
     ctx <- ask
-    let updateInfo = updateASUSInfo chan infoVar
-        signalCallback _ _ _ _ = runReaderT updateInfo ctx
+    let updateProfiles = updateASUSInfo chan infoVar
+        signalCallback _ _ _ _ = runReaderT updateProfiles ctx
         waitForNextPoll = void $ atomically $ readTChan ourWakeupChan
     _ <- registerForASUSPropertiesChanged signalCallback
     -- Do an initial update
-    updateInfo
-    -- Then poll every 2 seconds for CPU freq/temp changes
+    updateProfiles
+    -- Profile changes are subscription-driven. Only sysfs telemetry is polled.
     lift $ forever $ do
       waitForNextPoll
-      runReaderT updateInfo ctx
+      updateASUSTelemetry chan infoVar
   return (chan, infoVar)
 
 registerForASUSPropertiesChanged ::
@@ -403,6 +385,26 @@ updateASUSInfo ::
   TaffyIO ()
 updateASUSInfo chan var = do
   info <- getASUSInfo
-  lift $ do
-    void $ swapMVar var info
-    atomically $ writeTChan chan info
+  lift $ publishASUSInfoIfChanged chan var info
+
+updateASUSTelemetry :: TChan ASUSInfo -> MVar ASUSInfo -> IO ()
+updateASUSTelemetry chan var = do
+  telemetry <- readASUSTelemetry =<< readMVar var
+  modifyMVar_ var $ \latest -> do
+    let info =
+          latest
+            { asusOnACPower = asusOnACPower telemetry,
+              asusCpuFreqGHz = asusCpuFreqGHz telemetry,
+              asusCpuTempC = asusCpuTempC telemetry
+            }
+    publishAgainst latest info
+  where
+    publishAgainst old info = do
+      when (info /= old) $ atomically $ writeTChan chan info
+      pure info
+
+publishASUSInfoIfChanged :: TChan ASUSInfo -> MVar ASUSInfo -> ASUSInfo -> IO ()
+publishASUSInfoIfChanged chan var info =
+  modifyMVar_ var $ \old -> do
+    when (info /= old) $ atomically $ writeTChan chan info
+    pure info

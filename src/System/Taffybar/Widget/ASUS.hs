@@ -33,6 +33,7 @@ import Control.Monad.Trans.Reader
 import DBus (MethodError)
 import DBus.Client (Client)
 import Data.Default (Default (..))
+import Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
@@ -96,8 +97,9 @@ asusWidgetNewWithConfig config = do
     Gtk.containerAdd ebox label
     styleCtx <- Gtk.widgetGetStyleContext ebox
     Gtk.styleContextAddClass styleCtx "asus-profile"
+    renderedRef <- newIORef Nothing
 
-    let updateWidget info = postGUIASync $ do
+    let updateWidget info = do
           let icon = getTextIcon config (asusProfile info)
               freqText =
                 if asusShowFreq config
@@ -108,9 +110,18 @@ asusWidgetNewWithConfig config = do
                   then T.pack $ printf " %.0f\x00B0C" (asusCpuTempC info)
                   else ""
               labelText = icon <> freqText <> tempText
-          Gtk.labelSetText label labelText
-          updateProfileClasses ebox info
-          updateTooltip ebox info
+              tooltipText = asusTooltipText info
+              rendered = (labelText, tooltipText, asusProfile info)
+          previous <- readIORef renderedRef
+          when (previous /= Just rendered) $ do
+            writeIORef renderedRef (Just rendered)
+            postGUIASync $ do
+              when (fmap (\(oldLabel, _, _) -> oldLabel) previous /= Just labelText) $
+                Gtk.labelSetText label labelText
+              when (fmap (\(_, _, oldProfile) -> oldProfile) previous /= Just (asusProfile info)) $
+                updateProfileClasses ebox info
+              when (fmap (\(_, oldTooltip, _) -> oldTooltip) previous /= Just tooltipText) $
+                Gtk.widgetSetTooltipText ebox (Just tooltipText)
 
     void $ Gtk.onWidgetRealize ebox $ do
       initialInfo <- runReaderT getASUSInfoState ctx
@@ -139,31 +150,28 @@ updateProfileClasses widget info = do
   mapM_ (Gtk.styleContextRemoveClass styleCtx) allClasses
   Gtk.styleContextAddClass styleCtx currentClass
 
--- | Update tooltip with current profile info.
-updateTooltip :: (Gtk.IsWidget w) => w -> ASUSInfo -> IO ()
-updateTooltip widget info = do
+asusTooltipText :: ASUSInfo -> T.Text
+asusTooltipText info =
   let profile = asusProfileToString (asusProfile info)
       acProfile = asusProfileToString (asusACProfile info)
       batteryProfile = asusProfileToString (asusBatteryProfile info)
       powerSource = if asusOnACPower info then "AC power" else "Battery power"
-      freqStr = T.pack $ printf "%.2f GHz" (asusCpuFreqGHz info)
-      tempStr = T.pack $ printf "%.1f\x00B0C" (asusCpuTempC info)
-      tooltipText =
-        "Active: "
-          <> profile
-          <> " ("
-          <> powerSource
-          <> ")\nAC profile: "
-          <> acProfile
-          <> "\nBattery profile: "
-          <> batteryProfile
-          <> "\nCPU Freq: "
-          <> freqStr
-          <> "\nCPU Temp: "
-          <> tempStr
-          <> "\n\nLeft click: configure profiles"
-          <> "\nRight click: cycle active profile"
-  Gtk.widgetSetTooltipText widget (Just tooltipText)
+      freqStr = T.pack $ printf "%.1f GHz" (asusCpuFreqGHz info)
+      tempStr = T.pack $ printf "%.0f\x00B0C" (asusCpuTempC info)
+   in "Active: "
+        <> profile
+        <> " ("
+        <> powerSource
+        <> ")\nAC profile: "
+        <> acProfile
+        <> "\nBattery profile: "
+        <> batteryProfile
+        <> "\nCPU Freq: "
+        <> freqStr
+        <> "\nCPU Temp: "
+        <> tempStr
+        <> "\n\nLeft click: configure profiles"
+        <> "\nRight click: cycle active profile"
 
 -- | Set up click handler: left-click opens profile menu, right-click cycles.
 setupClickHandler :: Context -> Gtk.EventBox -> IO ()
