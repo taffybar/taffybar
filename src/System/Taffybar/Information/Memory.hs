@@ -3,10 +3,20 @@
 module System.Taffybar.Information.Memory
   ( MemoryInfo (..),
     parseMeminfo,
+    getMemoryInfoChan,
+    getMemoryInfoState,
   )
 where
 
+import Control.Concurrent (forkIO)
+import Control.Concurrent.MVar (MVar, newMVar, readMVar, swapMVar)
+import Control.Concurrent.STM.TChan (TChan, dupTChan, newBroadcastTChanIO, readTChan, writeTChan)
+import Control.Monad (forever, void, when)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.STM (atomically)
 import qualified Data.ByteString.Char8 as BS8
+import System.Taffybar.Context (TaffyIO, getStateDefault)
+import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 import Text.Read (readMaybe)
 
 toMB :: String -> Double
@@ -33,6 +43,7 @@ data MemoryInfo = MemoryInfo
     memoryUsed :: Double, -- total - rest
     memoryUsedRatio :: Double -- used / total
   }
+  deriving (Eq, Show)
 
 emptyMemoryInfo :: MemoryInfo
 emptyMemoryInfo = MemoryInfo 0 0 0 0 0 0 0 0 0 0 0 0
@@ -75,3 +86,34 @@ parseMeminfo = do
         memorySwapUsed = swapUsed,
         memorySwapUsedRatio = swapUsedRatio
       }
+
+newtype MemoryInfoChanVar
+  = MemoryInfoChanVar (TChan MemoryInfo, MVar MemoryInfo)
+
+-- | Return the process-wide memory information stream. The first caller's
+-- interval wins; subsequent widgets share the same sampler.
+getMemoryInfoChan :: Double -> TaffyIO (TChan MemoryInfo)
+getMemoryInfoChan interval = do
+  MemoryInfoChanVar (chan, _) <- getMemoryInfoChanVar interval
+  pure chan
+
+-- | Read the latest snapshot from the shared memory sampler.
+getMemoryInfoState :: Double -> TaffyIO MemoryInfo
+getMemoryInfoState interval = do
+  MemoryInfoChanVar (_, var) <- getMemoryInfoChanVar interval
+  liftIO $ readMVar var
+
+getMemoryInfoChanVar :: Double -> TaffyIO MemoryInfoChanVar
+getMemoryInfoChanVar interval = getStateDefault $ do
+  wakeupChan <- getWakeupChannelForDelay $ max 0.000001 interval
+  ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
+  liftIO $ do
+    initialInfo <- parseMeminfo
+    chan <- newBroadcastTChanIO
+    var <- newMVar initialInfo
+    void $ forkIO $ forever $ do
+      void $ atomically $ readTChan ourWakeupChan
+      info <- parseMeminfo
+      old <- swapMVar var info
+      when (info /= old) $ atomically $ writeTChan chan info
+    pure $ MemoryInfoChanVar (chan, var)
