@@ -153,6 +153,7 @@ library
                  , System.Taffybar.Information.Bluetooth
                  , System.Taffybar.Information.CPU2
                  , System.Taffybar.Information.CPUFrequency
+                 , System.Taffybar.Information.CPUPower
                  , System.Taffybar.Information.ChromeWindowInfo
                  , System.Taffybar.Information.Crypto
                  , System.Taffybar.Information.DiskIO
@@ -402,6 +403,7 @@ test-suite unit
                , System.Taffybar.ContextSpec
                , System.Taffybar.Information.ASUSSpec
                , System.Taffybar.Information.CPUFrequencySpec
+               , System.Taffybar.Information.CPUPowerSpec
                , System.Taffybar.Information.CryptoSpec
                , System.Taffybar.Information.LayoutSpec
                , System.Taffybar.Information.NvidiaSpec
