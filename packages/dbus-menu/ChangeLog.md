@@ -1,6 +1,6 @@
 # Changelog for dbus-menu
 
-## Unreleased
+## 0.1.3.4 - 2026-07-20
 
 * Reconcile submenu refreshes by DBusMenu item ID so compatible GTK menu
   widgets survive asynchronous layout updates. This prevents a refresh from
