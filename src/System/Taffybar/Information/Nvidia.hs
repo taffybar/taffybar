@@ -15,6 +15,7 @@ module System.Taffybar.Information.Nvidia
     parseNvidiaGpuInfo,
     readNvidiaGpuInfo,
     readNvidiaGpuInfoWith,
+    shouldQueryNvidiaForRuntimeStatuses,
     getNvidiaGpuInfoChan,
     getNvidiaGpuInfoChanWith,
     getNvidiaGpuInfoState,
@@ -33,10 +34,15 @@ import Control.Exception (IOException, try)
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
+import Data.Char (isHexDigit)
+import Data.Foldable (for_)
 import Data.List (sortOn)
-import Data.Maybe (mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+import System.Directory (listDirectory)
 import System.Exit (ExitCode (ExitSuccess))
+import System.FilePath ((</>))
 import System.Process (readProcessWithExitCode)
 import System.Taffybar.Context (TaffyIO, getStateDefault)
 import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
@@ -112,13 +118,23 @@ readNvidiaGpuInfo :: IO [NvidiaGpuInfo]
 readNvidiaGpuInfo = readNvidiaGpuInfoWith "nvidia-smi"
 
 -- | Read a rich snapshot using the supplied @nvidia-smi@ executable.
--- Returns an empty list when the command is missing or exits unsuccessfully.
+-- Returns an empty list when the command is missing, exits unsuccessfully, or
+-- is skipped because every detected NVIDIA PCI device is runtime-suspended.
 readNvidiaGpuInfoWith :: FilePath -> IO [NvidiaGpuInfo]
-readNvidiaGpuInfoWith command = do
-  result <- runNvidiaSmi command ["-q", "-x"]
-  pure $ case result of
-    Just output -> parseNvidiaGpuInfo $ T.pack output
-    Nothing -> []
+readNvidiaGpuInfoWith command =
+  fromMaybe [] <$> readNvidiaGpuInfoUpdateWith command
+
+-- | Decide whether querying NVIDIA is safe from the runtime power states of
+-- the detected NVIDIA PCI devices. A query is skipped only when at least one
+-- device was detected and every device explicitly reports that it is suspended
+-- or suspending. Missing and unknown states preserve the historical behavior
+-- of running @nvidia-smi@.
+shouldQueryNvidiaForRuntimeStatuses :: [Maybe T.Text] -> Bool
+shouldQueryNvidiaForRuntimeStatuses [] = True
+shouldQueryNvidiaForRuntimeStatuses statuses =
+  any (maybe True ((`notElem` lowPowerStatuses) . T.strip)) statuses
+  where
+    lowPowerStatuses = ["suspended", "suspending"]
 
 newtype NvidiaGpuInfoChanVar
   = NvidiaGpuInfoChanVar (TChan [NvidiaGpuInfo], MVar [NvidiaGpuInfo])
@@ -151,14 +167,15 @@ setupNvidiaGpuInfoChanVar command interval = do
   wakeupChan <- getWakeupChannelForDelay $ max 0.000001 interval
   ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
   getStateDefault $ liftIO $ do
-    initialInfo <- readNvidiaGpuInfoWith command
+    initialInfo <- fromMaybe [] <$> readNvidiaGpuInfoUpdateWith command
     chan <- newBroadcastTChanIO
     var <- newMVar initialInfo
     void $ forkIO $ forever $ do
       void $ atomically $ readTChan ourWakeupChan
-      info <- readNvidiaGpuInfoWith command
-      void $ swapMVar var info
-      atomically $ writeTChan chan info
+      maybeInfo <- readNvidiaGpuInfoUpdateWith command
+      for_ maybeInfo $ \info -> do
+        void $ swapMVar var info
+        atomically $ writeTChan chan info
     pure $ NvidiaGpuInfoChanVar (chan, var)
 
 -- | A temperature reported for one NVIDIA GPU.
@@ -198,16 +215,66 @@ readNvidiaGpuTemperaturesWith command = do
       [ "--query-gpu=index,temperature.gpu",
         "--format=csv,noheader,nounits"
       ]
-  pure $ maybe [] (parseNvidiaGpuTemperatures . T.pack) result
-
-runNvidiaSmi :: FilePath -> [String] -> IO (Maybe String)
-runNvidiaSmi command arguments = do
-  result <-
-    try (readProcessWithExitCode command arguments "") ::
-      IO (Either IOException (ExitCode, String, String))
   pure $ case result of
-    Right (ExitSuccess, output, _) -> Just output
-    _ -> Nothing
+    NvidiaSmiOutput output -> parseNvidiaGpuTemperatures $ T.pack output
+    NvidiaSmiSkipped -> []
+    NvidiaSmiFailed -> []
+
+data NvidiaSmiResult
+  = NvidiaSmiSkipped
+  | NvidiaSmiFailed
+  | NvidiaSmiOutput String
+
+readNvidiaGpuInfoUpdateWith :: FilePath -> IO (Maybe [NvidiaGpuInfo])
+readNvidiaGpuInfoUpdateWith command = do
+  result <- runNvidiaSmi command ["-q", "-x"]
+  pure $ case result of
+    NvidiaSmiSkipped -> Nothing
+    NvidiaSmiFailed -> Just []
+    NvidiaSmiOutput output -> Just $ parseNvidiaGpuInfo $ T.pack output
+
+runNvidiaSmi :: FilePath -> [String] -> IO NvidiaSmiResult
+runNvidiaSmi command arguments = do
+  statuses <- nvidiaPciRuntimeStatuses
+  if shouldQueryNvidiaForRuntimeStatuses statuses
+    then do
+      result <-
+        try (readProcessWithExitCode command arguments "") ::
+          IO (Either IOException (ExitCode, String, String))
+      pure $ case result of
+        Right (ExitSuccess, output, _) -> NvidiaSmiOutput output
+        _ -> NvidiaSmiFailed
+    else pure NvidiaSmiSkipped
+
+nvidiaPciRuntimeStatuses :: IO [Maybe T.Text]
+nvidiaPciRuntimeStatuses = do
+  let driverPath = "/sys/bus/pci/drivers/nvidia"
+  entriesResult <- try (listDirectory driverPath) :: IO (Either IOException [FilePath])
+  case entriesResult of
+    Left _ -> pure []
+    Right entries ->
+      traverse (readRuntimeStatus . (driverPath </>)) $
+        filter isPciAddress entries
+
+readRuntimeStatus :: FilePath -> IO (Maybe T.Text)
+readRuntimeStatus devicePath = do
+  result <-
+    try (T.strip <$> TIO.readFile (devicePath </> "power/runtime_status")) ::
+      IO (Either IOException T.Text)
+  pure $ either (const Nothing) Just result
+
+isPciAddress :: FilePath -> Bool
+isPciAddress entry =
+  case T.split (\character -> character == ':' || character == '.') $ T.pack entry of
+    [domain, bus, device, function] ->
+      and
+        [ T.length domain == 4,
+          T.length bus == 2,
+          T.length device == 2,
+          T.length function == 1,
+          all (all isHexDigit . T.unpack) [domain, bus, device, function]
+        ]
+    _ -> False
 
 elementAt :: [String] -> Element -> Maybe Element
 elementAt [] element = Just element

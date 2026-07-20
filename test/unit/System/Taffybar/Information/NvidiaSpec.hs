@@ -28,6 +28,28 @@ spec = do
     it "rejects malformed XML" $
       parseNvidiaGpuInfo "not xml" `shouldBe` []
 
+  describe "NVIDIA runtime power states" $ do
+    it "preserves querying when no NVIDIA PCI devices are detected" $
+      shouldQueryNvidiaForRuntimeStatuses [] `shouldBe` True
+
+    it "skips querying when every device is suspended or suspending" $
+      shouldQueryNvidiaForRuntimeStatuses
+        [Just "suspended", Just "suspending"]
+        `shouldBe` False
+
+    it "preserves querying when any device is active" $
+      shouldQueryNvidiaForRuntimeStatuses
+        [Just "suspended", Just "active"]
+        `shouldBe` True
+
+    it "preserves querying when any runtime status is missing" $
+      shouldQueryNvidiaForRuntimeStatuses
+        [Just "suspended", Nothing]
+        `shouldBe` True
+
+    it "preserves querying for unknown runtime states" $
+      shouldQueryNvidiaForRuntimeStatuses [Just "unsupported"] `shouldBe` True
+
   describe "NVIDIA temperature parsing" $ do
     it "parses and sorts nvidia-smi temperature rows" $
       parseNvidiaGpuTemperatures "2, 73\n0, 56\n"
