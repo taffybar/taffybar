@@ -65,7 +65,7 @@ data BacklightWidgetConfig = BacklightWidgetConfig
 defaultBacklightWidgetConfig :: BacklightWidgetConfig
 defaultBacklightWidgetConfig =
   BacklightWidgetConfig
-    { backlightPollingInterval = 2,
+    { backlightPollingInterval = 30,
       backlightDevice = Nothing,
       backlightFormat = "bl: $percent$%",
       backlightUnknownFormat = "bl: n/a",

@@ -32,7 +32,7 @@ import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, bracket, catch, try)
-import Control.Monad (forever, void)
+import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Data.List (sort, sortBy)
@@ -60,7 +60,7 @@ backlightBasePath :: FilePath
 backlightBasePath = "/sys/class/backlight"
 
 defaultBacklightRefreshIntervalSeconds :: Double
-defaultBacklightRefreshIntervalSeconds = 2
+defaultBacklightRefreshIntervalSeconds = 30
 
 -- | Information about a backlight device.
 data BacklightInfo = BacklightInfo
@@ -175,8 +175,8 @@ monitorBacklightInfo deviceOverride intervalSeconds wakeupChan chan var = do
       intervalMicros = max 1 (floor (intervalSeconds * 1000000))
 
       writeInfo info = do
-        _ <- swapMVar var info
-        atomically $ writeTChan chan info
+        old <- swapMVar var info
+        when (info /= old) $ atomically $ writeTChan chan info
 
       refresh = getBacklightInfo deviceOverride >>= writeInfo
 

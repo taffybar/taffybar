@@ -31,9 +31,10 @@ import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (SomeException, try)
-import Control.Monad (forM, forever, void)
+import Control.Monad (forM, forever, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
+import qualified Data.ByteString.Char8 as BS8
 import Data.List (sortOn)
 import Data.Maybe (catMaybes, fromMaybe)
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
@@ -162,10 +163,10 @@ readFileSafe path = do
   if not exists
     then return Nothing
     else do
-      result <- try $ readFile path :: IO (Either SomeException String)
+      result <- try $ BS8.readFile path :: IO (Either SomeException BS8.ByteString)
       case result of
         Left _ -> return Nothing
-        Right content -> return $ Just $ strip content
+        Right content -> return $ Just $ strip $ BS8.unpack content
   where
     strip = dropWhile (== ' ') . reverse . dropWhile (== '\n') . reverse . dropWhile (== ' ')
 
@@ -173,11 +174,11 @@ readFileSafe path = do
 -- Returns Nothing if the sensor cannot be read
 readSensorTemperature :: ThermalSensor -> IO (Maybe TemperatureInfo)
 readSensorTemperature sensor = do
-  result <- try $ readFile (sensorPath sensor) :: IO (Either SomeException String)
+  result <- try $ BS8.readFile (sensorPath sensor) :: IO (Either SomeException BS8.ByteString)
   case result of
     Left _ -> return Nothing
     Right content ->
-      case readMaybe (strip content) :: Maybe Integer of
+      case readMaybe (strip $ BS8.unpack content) :: Maybe Integer of
         Nothing -> return Nothing
         Just milliDegrees ->
           return $
@@ -221,16 +222,26 @@ getTemperatureInfoState interval = do
   liftIO $ readMVar var
 
 setupTemperatureInfoChanVar :: Double -> TaffyIO TemperatureInfoChanVar
-setupTemperatureInfoChanVar interval = do
+setupTemperatureInfoChanVar interval = getStateDefault $ do
   wakeupChan <- getWakeupChannelForDelay $ max 0.000001 interval
   ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
-  getStateDefault $ liftIO $ do
-    initialInfo <- readAllTemperatures
+  liftIO $ do
+    sensors <- discoverSensors
+    initialInfo <- sortOn (negate . tempCelsius) <$> readTemperaturesFrom sensors
     chan <- newBroadcastTChanIO
     var <- newMVar initialInfo
+    sensorsVar <- newMVar sensors
     void $ forkIO $ forever $ do
       void $ atomically $ readTChan ourWakeupChan
-      info <- readAllTemperatures
-      void $ swapMVar var info
-      atomically $ writeTChan chan info
+      currentSensors <- readMVar sensorsVar
+      sampled <- sortOn (negate . tempCelsius) <$> readTemperaturesFrom currentSensors
+      info <-
+        if null sampled
+          then do
+            refreshedSensors <- discoverSensors
+            void $ swapMVar sensorsVar refreshedSensors
+            sortOn (negate . tempCelsius) <$> readTemperaturesFrom refreshedSensors
+          else pure sampled
+      old <- swapMVar var info
+      when (info /= old) $ atomically $ writeTChan chan info
     pure $ TemperatureInfoChanVar (chan, var)

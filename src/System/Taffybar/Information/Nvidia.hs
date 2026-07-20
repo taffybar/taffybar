@@ -31,7 +31,7 @@ import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception (IOException, try)
-import Control.Monad (forever, void)
+import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Data.Char (isHexDigit)
@@ -174,8 +174,8 @@ setupNvidiaGpuInfoChanVar command interval = do
       void $ atomically $ readTChan ourWakeupChan
       maybeInfo <- readNvidiaGpuInfoUpdateWith command
       for_ maybeInfo $ \info -> do
-        void $ swapMVar var info
-        atomically $ writeTChan chan info
+        old <- swapMVar var info
+        when (info /= old) $ atomically $ writeTChan chan info
     pure $ NvidiaGpuInfoChanVar (chan, var)
 
 -- | A temperature reported for one NVIDIA GPU.

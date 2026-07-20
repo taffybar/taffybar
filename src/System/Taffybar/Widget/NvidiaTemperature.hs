@@ -34,9 +34,10 @@ module System.Taffybar.Widget.NvidiaTemperature
   )
 where
 
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Default (Default (..))
+import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.List (find, intercalate, maximumBy)
 import Data.Maybe (catMaybes, mapMaybe)
 import Data.Ord (comparing)
@@ -70,7 +71,7 @@ data NvidiaTemperatureConfig = NvidiaTemperatureConfig
 instance Default NvidiaTemperatureConfig where
   def = defaultNvidiaTemperatureConfig
 
--- | Default to GPU 0, refreshed every ten seconds.
+-- | Default to GPU 0, refreshed every thirty seconds.
 defaultNvidiaTemperatureConfig :: NvidiaTemperatureConfig
 defaultNvidiaTemperatureConfig =
   NvidiaTemperatureConfig
@@ -78,7 +79,7 @@ defaultNvidiaTemperatureConfig =
       nvidiaTemperatureGpuIndex = Just 0,
       nvidiaTemperatureFormat = "GPU $tempC$\176C",
       nvidiaTemperatureFallback = "GPU N/A",
-      nvidiaTemperaturePollInterval = 10,
+      nvidiaTemperaturePollInterval = 30,
       nvidiaTemperatureIcon = "\xF2C9"
     }
 
@@ -146,11 +147,16 @@ nvidiaTemperatureLabelNewChanWith config = do
   liftIO $ do
     label <- Gtk.labelNew Nothing
     _ <- widgetSetClassGI label "nvidia-temperature-label"
+    renderedRef <- newIORef Nothing
 
-    let updateLabel info = postGUIASync $ do
-          let (labelText, tooltipText) = formatWidget config info
-          Gtk.labelSetText label labelText
-          Gtk.widgetSetTooltipText label tooltipText
+    let updateLabel info = do
+          let rendered@(labelText, tooltipText) = formatWidget config info
+          previous <- readIORef renderedRef
+          when (previous /= Just rendered) $ do
+            writeIORef renderedRef (Just rendered)
+            postGUIASync $ do
+              Gtk.labelSetText label labelText
+              Gtk.widgetSetTooltipText label tooltipText
 
     void $ Gtk.onWidgetRealize label $ updateLabel initialInfo
     Gtk.widgetShowAll label

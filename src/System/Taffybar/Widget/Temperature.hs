@@ -40,9 +40,10 @@ module System.Taffybar.Widget.Temperature
   )
 where
 
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Default (Default (..))
+import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.List (intercalate)
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
@@ -65,7 +66,7 @@ data TemperatureConfig = TemperatureConfig
     tempWarningThreshold :: Double,
     -- | Temperature (in Celsius) at which to show critical style (default: 85)
     tempCriticalThreshold :: Double,
-    -- | How often to poll for temperature updates, in seconds (default: 10)
+    -- | How often to poll for temperature updates, in seconds (default: 30)
     tempPollInterval :: Double,
     -- | Filter function to select which sensors to monitor (default: all)
     tempSensorFilter :: ThermalSensor -> Bool,
@@ -89,7 +90,7 @@ defaultTemperatureConfig =
       tempUnit = Celsius,
       tempWarningThreshold = 70,
       tempCriticalThreshold = 85,
-      tempPollInterval = 10,
+      tempPollInterval = 30,
       tempSensorFilter = const True,
       tempTooltipSensorFilter = const False,
       tempAggregation = \temps ->
@@ -162,11 +163,16 @@ temperatureLabelNewChanWith config = do
   liftIO $ do
     label <- Gtk.labelNew Nothing
     _ <- widgetSetClassGI label "temperature-label"
+    renderedRef <- newIORef Nothing
 
-    let updateLabel info = postGUIASync $ do
-          let (labelText, tooltipText) = formatTemperatureInfo config info
-          Gtk.labelSetText label labelText
-          Gtk.widgetSetTooltipText label tooltipText
+    let updateLabel info = do
+          let rendered@(labelText, tooltipText) = formatTemperatureInfo config info
+          previous <- readIORef renderedRef
+          when (previous /= Just rendered) $ do
+            writeIORef renderedRef (Just rendered)
+            postGUIASync $ do
+              Gtk.labelSetText label labelText
+              Gtk.widgetSetTooltipText label tooltipText
 
     void $ Gtk.onWidgetRealize label $ updateLabel initialInfo
     Gtk.widgetShowAll label
