@@ -132,7 +132,7 @@ readNvidiaGpuInfoWith command =
 shouldQueryNvidiaForRuntimeStatuses :: [Maybe T.Text] -> Bool
 shouldQueryNvidiaForRuntimeStatuses [] = True
 shouldQueryNvidiaForRuntimeStatuses statuses =
-  any (maybe True (`notElem` lowPowerStatuses) . fmap T.strip) statuses
+  any (maybe True ((`notElem` lowPowerStatuses) . T.strip)) statuses
   where
     lowPowerStatuses = ["suspended", "suspending"]
 
