@@ -26,10 +26,12 @@ module System.Taffybar.Information.Wakeup
   ( WakeupEvent (..),
     WakeupSchedulerEvent (..),
     WakeupChannel (..),
+    WakeupSubscription (..),
     taffyForeverWithDelay,
     getWakeupChannelNanoseconds,
     getWakeupChannelSeconds,
     getWakeupChannelForDelay,
+    subscribeWakeupChannelForDelay,
     getWakeupChannel,
     getWakeupSchedulerEvents,
     getRegisteredWakeupIntervalsNanoseconds,
@@ -56,12 +58,14 @@ import System.Taffybar.Information.Wakeup.Manager
   ( WakeupEvent (..),
     WakeupManager,
     WakeupSchedulerEvent (..),
+    WakeupSubscription (..),
     intervalDueAtStepNs,
     intervalSecondsToNanoseconds,
     nextAlignedWakeupNs,
     nextWallAlignedWakeupNs,
     registerWakeupInterval,
     secondsToNanoseconds,
+    subscribeWakeupInterval,
     subscribeWakeupSchedulerEvents,
   )
 import qualified System.Taffybar.Information.Wakeup.Manager as WakeupManager
@@ -123,6 +127,16 @@ getWakeupChannelForDelay seconds =
   case intervalSecondsToNanoseconds seconds of
     Left err -> fail err
     Right intervalNs -> getWakeupChannelNanoseconds intervalNs
+
+-- | Temporarily subscribe to a coordinated interval. Releasing the returned
+-- subscription removes an otherwise-unused interval from the scheduler, so a
+-- short-lived high-frequency consumer does not increase idle wakeups later.
+subscribeWakeupChannelForDelay :: (RealFrac d) => d -> TaffyIO WakeupSubscription
+subscribeWakeupChannelForDelay seconds = do
+  manager <- getWakeupManager
+  case intervalSecondsToNanoseconds seconds of
+    Left err -> fail err
+    Right intervalNs -> liftIO $ subscribeWakeupInterval manager intervalNs
 
 -- | Type-driven variant of 'getWakeupChannelSeconds'.
 --

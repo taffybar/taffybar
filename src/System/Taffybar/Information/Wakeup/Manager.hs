@@ -12,8 +12,10 @@ module System.Taffybar.Information.Wakeup.Manager
   ( WakeupEvent (..),
     WakeupSchedulerEvent (..),
     WakeupManager,
+    WakeupSubscription (..),
     newWakeupManager,
     registerWakeupInterval,
+    subscribeWakeupInterval,
     subscribeWakeupSchedulerEvents,
     getRegisteredWakeupIntervalsNanoseconds,
     secondsToNanoseconds,
@@ -47,6 +49,8 @@ import Control.Concurrent.STM.TChan
     writeTChan,
   )
 import Control.Exception.Enclosed (catchAny)
+import Control.Monad (when)
+import Data.IORef (atomicModifyIORef', newIORef)
 import qualified Data.List as List
 import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
@@ -77,7 +81,17 @@ data IntervalRegistration = IntervalRegistration
   { intervalNanoseconds :: !Word64,
     intervalChannel :: TChan WakeupEvent,
     intervalNextDueNs :: !Word64,
-    intervalTickCount :: !Word64
+    intervalTickCount :: !Word64,
+    intervalPermanent :: !Bool,
+    intervalLeaseCount :: !Int
+  }
+
+-- | A temporary coordinated wakeup registration. Releasing the final lease
+-- removes its interval from the scheduler unless a permanent registration for
+-- the same interval also exists. The release action is idempotent.
+data WakeupSubscription = WakeupSubscription
+  { wakeupSubscriptionChannel :: TChan WakeupEvent,
+    releaseWakeupSubscription :: IO ()
   }
 
 -- Shared wakeup manager state.
@@ -114,7 +128,11 @@ registerWakeupInterval manager intervalNs =
       atomically $ do
         registrations <- readTVar (wakeupIntervals manager)
         case M.lookup validIntervalNs registrations of
-          Just registration -> pure (intervalChannel registration)
+          Just registration -> do
+            writeTVar
+              (wakeupIntervals manager)
+              (M.insert validIntervalNs registration {intervalPermanent = True} registrations)
+            pure (intervalChannel registration)
           Nothing -> do
             channel <- newBroadcastTChan
             let registration =
@@ -126,7 +144,9 @@ registerWakeupInterval manager intervalNs =
                           (wakeupRealtimeOffsetNs manager)
                           validIntervalNs
                           now,
-                      intervalTickCount = 0
+                      intervalTickCount = 0,
+                      intervalPermanent = True,
+                      intervalLeaseCount = 0
                     }
             writeTVar
               (wakeupIntervals manager)
@@ -135,6 +155,70 @@ registerWakeupInterval manager intervalNs =
             -- intervals are not blocked behind an older long sleep.
             writeTChan (wakeupRescheduleChan manager) ()
             pure channel
+
+-- | Acquire a temporary lease for a coordinated interval. Unlike
+-- 'registerWakeupInterval', the interval stops waking the scheduler after the
+-- final lease is released (unless it was also registered permanently).
+subscribeWakeupInterval :: WakeupManager -> Word64 -> IO WakeupSubscription
+subscribeWakeupInterval manager intervalNs =
+  case validateIntervalNanoseconds intervalNs of
+    Left err -> ioError (userError err)
+    Right validIntervalNs -> do
+      now <- getMonotonicTimeNSec
+      channel <- atomically $ do
+        registrations <- readTVar (wakeupIntervals manager)
+        case M.lookup validIntervalNs registrations of
+          Just registration -> do
+            let updated = registration {intervalLeaseCount = intervalLeaseCount registration + 1}
+            writeTVar (wakeupIntervals manager) (M.insert validIntervalNs updated registrations)
+            pure (intervalChannel registration)
+          Nothing -> do
+            newChannel <- newBroadcastTChan
+            let registration =
+                  IntervalRegistration
+                    { intervalNanoseconds = validIntervalNs,
+                      intervalChannel = newChannel,
+                      intervalNextDueNs =
+                        nextWallAlignedWakeupNs
+                          (wakeupRealtimeOffsetNs manager)
+                          validIntervalNs
+                          now,
+                      intervalTickCount = 0,
+                      intervalPermanent = False,
+                      intervalLeaseCount = 1
+                    }
+            writeTVar
+              (wakeupIntervals manager)
+              (M.insert validIntervalNs registration registrations)
+            writeTChan (wakeupRescheduleChan manager) ()
+            pure newChannel
+      releasedRef <- newIORef False
+      let release = do
+            shouldRelease <- atomicModifyIORef' releasedRef $ \released -> (True, not released)
+            when shouldRelease $ atomically $ releaseIntervalLease manager validIntervalNs
+      pure
+        WakeupSubscription
+          { wakeupSubscriptionChannel = channel,
+            releaseWakeupSubscription = release
+          }
+
+releaseIntervalLease :: WakeupManager -> Word64 -> STM ()
+releaseIntervalLease manager intervalNs = do
+  registrations <- readTVar (wakeupIntervals manager)
+  case M.lookup intervalNs registrations of
+    Nothing -> pure ()
+    Just registration -> do
+      let remainingLeases = max 0 (intervalLeaseCount registration - 1)
+          shouldRemove = remainingLeases == 0 && not (intervalPermanent registration)
+          updatedRegistrations
+            | shouldRemove = M.delete intervalNs registrations
+            | otherwise =
+                M.insert
+                  intervalNs
+                  registration {intervalLeaseCount = remainingLeases}
+                  registrations
+      writeTVar (wakeupIntervals manager) updatedRegistrations
+      when shouldRemove $ writeTChan (wakeupRescheduleChan manager) ()
 
 subscribeWakeupSchedulerEvents :: WakeupManager -> IO (TChan WakeupSchedulerEvent)
 subscribeWakeupSchedulerEvents manager =
