@@ -20,20 +20,34 @@
 -- (Now supports only physical cpu).
 module System.Taffybar.Information.CPU2 where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (ThreadId, forkIO, killThread)
+import Control.Concurrent.MVar (MVar, modifyMVar, modifyMVar_, newMVar)
+import Control.Concurrent.STM (STM, orElse)
 import Control.Concurrent.STM.TChan
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
+import Control.Monad.Trans.Reader (asks)
 import Data.IORef
 import Data.List
+import qualified Data.Map.Strict as M
 import Data.Maybe
+import Data.Word (Word64)
 import Safe
 import System.Directory
 import System.FilePath
-import System.Taffybar.Context (TaffyIO)
+import System.Log.Logger (Priority (DEBUG), logM)
+import System.Taffybar.Context (TaffyIO, getStateDefault, wakeupManager)
 import System.Taffybar.Information.StreamInfo
-import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
+import System.Taffybar.Information.Wakeup
+  ( WakeupSubscription (..),
+    intervalSecondsToNanoseconds,
+  )
+import System.Taffybar.Information.Wakeup.Manager
+  ( WakeupManager,
+    registerWakeupInterval,
+    subscribeWakeupInterval,
+  )
 import Text.Read (readMaybe)
 
 -- | Relative CPU load values, expressed as ratios in [0,1].
@@ -75,26 +89,132 @@ getCPULoad cpu = do
 sampleCPULoad :: Double -> String -> IO CPULoad
 sampleCPULoad interval cpu = toCPULoad <$> getLoad interval (getCPUInfo cpu)
 
--- | Build a broadcast channel that is fed by a polling thread.
+-- | A shared CPU information producer with an optional temporary fast cadence.
+-- The fast cadence still comes from the coordinated wakeup scheduler and is
+-- removed entirely when its final lease is released.
+data CPULoadSource = CPULoadSource
+  { cpuLoadSourceChannel :: TChan CPULoad,
+    forceCPULoadRefresh :: IO (),
+    acquireCPULoadFastRefresh :: IO (IO ())
+  }
+
+type CPULoadSourceKey = (String, Word64, Word64)
+
+newtype CPULoadSources
+  = CPULoadSources (MVar (M.Map CPULoadSourceKey CPULoadSource))
+
+data FastRefreshState
+  = FastRefreshInactive
+  | FastRefreshActive !Int !ThreadId !WakeupSubscription
+
+cpuLoadLogPath :: String
+cpuLoadLogPath = "System.Taffybar.Information.CPU2"
+
+defaultCPUFastRefreshInterval :: Double -> Double
+defaultCPUFastRefreshInterval baseInterval = min baseInterval 0.5
+
+-- | Return a process-wide CPU source keyed by CPU name and both cadences. The
+-- normal cadence is permanently registered; the fast cadence is only active
+-- while at least one caller holds a lease from 'acquireCPULoadFastRefresh'.
+getCPULoadSource :: String -> Double -> Double -> TaffyIO CPULoadSource
+getCPULoadSource cpu baseInterval fastInterval = do
+  baseNs <- intervalNanosecondsOrFail baseInterval
+  fastNs <- intervalNanosecondsOrFail fastInterval
+  manager <- asks wakeupManager
+  CPULoadSources sourcesVar <-
+    getStateDefault $ liftIO $ CPULoadSources <$> newMVar M.empty
+  liftIO $
+    modifyMVar sourcesVar $ \sources ->
+      case M.lookup (cpu, baseNs, fastNs) sources of
+        Just source -> pure (sources, source)
+        Nothing -> do
+          source <- createCPULoadSource manager cpu baseNs fastNs
+          pure (M.insert (cpu, baseNs, fastNs) source sources, source)
+
+intervalNanosecondsOrFail :: Double -> TaffyIO Word64
+intervalNanosecondsOrFail interval =
+  case intervalSecondsToNanoseconds (max 0.000001 interval) of
+    Left err -> fail err
+    Right intervalNs -> pure intervalNs
+
+createCPULoadSource :: WakeupManager -> String -> Word64 -> Word64 -> IO CPULoadSource
+createCPULoadSource manager cpu baseIntervalNs fastIntervalNs = do
+  baseChannel <- registerWakeupInterval manager baseIntervalNs
+  ourBaseChannel <- atomically $ dupTChan baseChannel
+  refreshChannel <- newTChanIO
+  outputChannel <- newBroadcastTChanIO
+  initial <- getCPUInfo cpu
+  sampleRef <- newIORef initial
+  fastStateVar <- newMVar FastRefreshInactive
+  void $ forkIO $ forever $ do
+    atomically $ do
+      void (readTChan ourBaseChannel) `orElse` void (readTChan refreshChannel)
+      drainTChan ourBaseChannel
+      drainTChan refreshChannel
+    load <- toCPULoad <$> getAccLoad sampleRef (getCPUInfo cpu)
+    atomically $ writeTChan outputChannel load
+  let forceRefresh = atomically $ writeTChan refreshChannel ()
+  pure
+    CPULoadSource
+      { cpuLoadSourceChannel = outputChannel,
+        forceCPULoadRefresh = forceRefresh,
+        acquireCPULoadFastRefresh = do
+          release <-
+            if fastIntervalNs >= baseIntervalNs
+              then pure $ pure ()
+              else acquireFastRefresh manager fastIntervalNs refreshChannel fastStateVar
+          forceRefresh
+          pure release
+      }
+
+acquireFastRefresh :: WakeupManager -> Word64 -> TChan () -> MVar FastRefreshState -> IO (IO ())
+acquireFastRefresh manager intervalNs refreshChannel stateVar = do
+  modifyMVar_ stateVar $ \state ->
+    case state of
+      FastRefreshActive count threadId subscription ->
+        pure $ FastRefreshActive (count + 1) threadId subscription
+      FastRefreshInactive -> do
+        logM cpuLoadLogPath DEBUG $ "Acquiring fast CPU refresh lease at " <> show intervalNs <> "ns"
+        subscription <- subscribeWakeupInterval manager intervalNs
+        ourChannel <- atomically $ dupTChan $ wakeupSubscriptionChannel subscription
+        threadId <-
+          forkIO $
+            forever $
+              atomically (readTChan ourChannel)
+                >> atomically (writeTChan refreshChannel ())
+        pure $ FastRefreshActive 1 threadId subscription
+  releasedRef <- newIORef False
+  pure $ do
+    shouldRelease <- atomicModifyIORef' releasedRef $ \released -> (True, not released)
+    when shouldRelease $
+      modifyMVar_ stateVar $ \state ->
+        case state of
+          FastRefreshInactive -> pure FastRefreshInactive
+          FastRefreshActive count threadId subscription
+            | count > 1 -> pure $ FastRefreshActive (count - 1) threadId subscription
+            | otherwise -> do
+                logM cpuLoadLogPath DEBUG $ "Releasing fast CPU refresh lease at " <> show intervalNs <> "ns"
+                killThread threadId
+                releaseWakeupSubscription subscription
+                pure FastRefreshInactive
+
+drainTChan :: TChan a -> STM ()
+drainTChan chan = do
+  next <- tryReadTChan chan
+  case next of
+    Nothing -> pure ()
+    Just _ -> drainTChan chan
+
+-- | Build a broadcast channel that is fed by a shared polling producer.
 --
 -- The polling thread is paced by the coordinated wakeup scheduler so CPU
 -- sampling aligns with other interval-driven widgets.
 --
--- Each channel has its own sampling thread; if multiple widgets should share a
--- data source, create once and reuse the returned channel.
+-- Repeated calls with the same CPU and interval reuse one producer.
 getCPULoadChan :: String -> Double -> TaffyIO (TChan CPULoad)
 getCPULoadChan cpu interval = do
-  wakeupChan <- getWakeupChannelForDelay (max 0.000001 interval)
-  ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
-  liftIO $ do
-    chan <- newBroadcastTChanIO
-    initial <- getCPUInfo cpu
-    sample <- newIORef initial
-    _ <- forkIO $ forever $ do
-      load <- toCPULoad <$> getAccLoad sample (getCPUInfo cpu)
-      atomically $ writeTChan chan load
-      void $ atomically $ readTChan ourWakeupChan
-    return chan
+  source <- getCPULoadSource cpu interval (defaultCPUFastRefreshInterval interval)
+  pure $ cpuLoadSourceChannel source
 
 toCPULoad :: [Double] -> CPULoad
 toCPULoad load =
