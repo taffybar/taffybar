@@ -24,22 +24,24 @@
 -- directly with 'pollingLabelNew'.
 module System.Taffybar.Information.DiskUsage
   ( DiskUsageInfo (..),
+    forceDiskUsageRefresh,
     getDiskUsageInfo,
     getDiskUsageInfoChan,
     getDiskUsageInfoState,
   )
 where
 
+import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 import Control.Exception.Enclosed (catchAny)
-import Control.Monad (void)
+import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.STM (atomically)
+import Control.Monad.STM (atomically, orElse)
 import System.DiskSpace (diskAvail, diskFree, diskTotal, getDiskUsage)
 import System.Log.Logger (Priority (..))
 import System.Taffybar.Context (TaffyIO, getStateDefault)
-import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
+import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
 import System.Taffybar.Util (logPrintF)
 
 -- | Disk usage statistics for a single filesystem.
@@ -89,37 +91,62 @@ getDiskUsageInfo path = do
 -- Shared polling channel
 
 newtype DiskUsageChanVar
-  = DiskUsageChanVar (TChan DiskUsageInfo, MVar DiskUsageInfo)
+  = DiskUsageChanVar
+      ( TChan DiskUsageInfo,
+        MVar DiskUsageInfo,
+        TChan ()
+      )
 
 -- | Get a broadcast channel that is updated by a shared polling thread.
 -- The first call starts the poller; subsequent calls return the same channel.
 getDiskUsageInfoChan :: Double -> FilePath -> TaffyIO (TChan DiskUsageInfo)
 getDiskUsageInfoChan interval path = do
-  DiskUsageChanVar (chan, _) <- setupDiskUsageChanVar interval path
+  DiskUsageChanVar (chan, _, _) <- setupDiskUsageChanVar interval path
   pure chan
 
 -- | Read the latest cached 'DiskUsageInfo' from the shared poller.
 getDiskUsageInfoState :: Double -> FilePath -> TaffyIO DiskUsageInfo
 getDiskUsageInfoState interval path = do
-  DiskUsageChanVar (_, var) <- setupDiskUsageChanVar interval path
+  DiskUsageChanVar (_, var, _) <- setupDiskUsageChanVar interval path
   liftIO $ readMVar var
+
+-- | Request an immediate disk usage refresh.
+forceDiskUsageRefresh :: Double -> FilePath -> TaffyIO ()
+forceDiskUsageRefresh interval path = do
+  DiskUsageChanVar (_, _, refreshChan) <- setupDiskUsageChanVar interval path
+  liftIO $ atomically $ writeTChan refreshChan ()
 
 setupDiskUsageChanVar :: Double -> FilePath -> TaffyIO DiskUsageChanVar
 setupDiskUsageChanVar interval path = getStateDefault $ do
   chan <- liftIO newBroadcastTChanIO
+  refreshChan <- liftIO newTChanIO
   info <- liftIO $ getDiskUsageInfo path
   var <- liftIO $ newMVar info
+  wakeupChan <- getWakeupChannelForDelay interval
+  ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
   void $
-    taffyForeverWithDelay interval $
-      liftIO $
-        catchAny
-          ( do
-              newInfo <- getDiskUsageInfo path
-              void $ swapMVar var newInfo
-              atomically $ writeTChan chan newInfo
-          )
-          (logPrintF logName WARNING "DiskUsage poll failed: %s")
-  pure $ DiskUsageChanVar (chan, var)
+    liftIO $
+      forkIO $
+        forever $ do
+          atomically $
+            void (readTChan refreshChan)
+              `orElse` void (readTChan ourWakeupChan)
+          refreshDiskUsageState path chan var
+  pure $ DiskUsageChanVar (chan, var, refreshChan)
+
+refreshDiskUsageState ::
+  FilePath ->
+  TChan DiskUsageInfo ->
+  MVar DiskUsageInfo ->
+  IO ()
+refreshDiskUsageState path chan var =
+  catchAny
+    ( do
+        newInfo <- getDiskUsageInfo path
+        void $ swapMVar var newInfo
+        atomically $ writeTChan chan newInfo
+    )
+    (logPrintF logName WARNING "DiskUsage poll failed: %s")
 
 logName :: String
 logName = "System.Taffybar.Information.DiskUsage"

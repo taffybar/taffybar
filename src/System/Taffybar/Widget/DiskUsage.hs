@@ -34,8 +34,10 @@ module System.Taffybar.Widget.DiskUsage
   )
 where
 
+import Control.Concurrent (forkIO)
 import Control.Monad (void)
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader (ask, runReaderT)
 import Data.Default (Default (..))
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
@@ -83,24 +85,35 @@ diskUsageLabelNew = diskUsageLabelNewWith defaultDiskUsageWidgetConfig
 -- | Create a disk usage label with the given configuration.
 diskUsageLabelNewWith :: DiskUsageWidgetConfig -> TaffyIO Gtk.Widget
 diskUsageLabelNewWith config = do
+  (labelWidget, refreshNow) <- diskUsageLabelNewWithRefresh config
+  liftIO $ wrapDiskUsageRefresh "disk-usage-label" labelWidget refreshNow
+
+diskUsageLabelNewWithRefresh ::
+  DiskUsageWidgetConfig ->
+  TaffyIO (Gtk.Widget, IO ())
+diskUsageLabelNewWithRefresh config = do
   let path = diskUsagePath config
       interval = diskUsagePollInterval config
   chan <- getDiskUsageInfoChan interval path
   initialInfo <- getDiskUsageInfoState interval path
+  ctx <- ask
 
   liftIO $ do
     label <- Gtk.labelNew Nothing
     _ <- widgetSetClassGI label "disk-usage-label"
 
-    let updateLabel info = postGUIASync $ do
+    let refreshNow = runReaderT (forceDiskUsageRefresh interval path) ctx
+        updateLabel info = postGUIASync $ do
           let (labelText, tooltipText) = formatDiskUsage config info
           Gtk.labelSetText label labelText
           Gtk.widgetSetTooltipText label tooltipText
 
     void $ Gtk.onWidgetRealize label $ updateLabel initialInfo
     Gtk.widgetShowAll label
-    (Gtk.toWidget =<< channelWidgetNew label chan updateLabel)
-      >>= (`widgetSetClassGI` "disk-usage-label")
+    labelWidget <-
+      (Gtk.toWidget =<< channelWidgetNew label chan updateLabel)
+        >>= (`widgetSetClassGI` "disk-usage-label")
+    pure (labelWidget, refreshNow)
 
 -- | Create a disk usage icon widget with default configuration.
 diskUsageIconNew :: TaffyIO Gtk.Widget
@@ -122,10 +135,28 @@ diskUsageNew = diskUsageNewWith defaultDiskUsageWidgetConfig
 diskUsageNewWith :: DiskUsageWidgetConfig -> TaffyIO Gtk.Widget
 diskUsageNewWith config = do
   iconWidget <- diskUsageIconNewWith config
-  labelWidget <- diskUsageLabelNewWith config
-  liftIO $
-    buildIconLabelBox iconWidget labelWidget
-      >>= (`widgetSetClassGI` "disk-usage")
+  (labelWidget, refreshNow) <- diskUsageLabelNewWithRefresh config
+  liftIO $ do
+    widget <-
+      buildIconLabelBox iconWidget labelWidget
+        >>= (`widgetSetClassGI` "disk-usage")
+    wrapDiskUsageRefresh "disk-usage" widget refreshNow
+
+wrapDiskUsageRefresh ::
+  T.Text ->
+  Gtk.Widget ->
+  IO () ->
+  IO Gtk.Widget
+wrapDiskUsageRefresh klass child refreshNow = do
+  eventBox <- Gtk.eventBoxNew
+  _ <- widgetSetClassGI eventBox klass
+  Gtk.containerAdd eventBox child
+  void $
+    Gtk.onWidgetButtonPressEvent eventBox $ \_event -> do
+      void $ forkIO refreshNow
+      pure True
+  Gtk.widgetShowAll eventBox
+  Gtk.toWidget eventBox
 
 -- --------------------------------------------------------------------------
 -- Formatting
