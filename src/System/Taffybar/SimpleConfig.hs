@@ -18,6 +18,7 @@
 -- offered in "System.Taffybar.Context".
 module System.Taffybar.SimpleConfig
   ( SimpleTaffyConfig (..),
+    SimpleMonitorConfig (..),
     BarLevelConfig (..),
     Position (..),
     defaultSimpleTaffyConfig,
@@ -25,6 +26,7 @@ module System.Taffybar.SimpleConfig
     simpleTaffybar,
     toTaffyConfig,
     toTaffybarConfig,
+    toTaffybarConfigPerMonitor,
     useAllMonitors,
     usePrimaryMonitor,
     withPriority,
@@ -41,6 +43,7 @@ import Control.Monad.Trans.Class
 import Data.Default (Default (..))
 import Data.List
 import Data.Maybe
+import qualified Data.Text as T
 import Data.Unique
 import GI.Gdk
 import qualified GI.Gtk as Gtk
@@ -49,7 +52,6 @@ import qualified Graphics.UI.GIGtkStrut as GIGtkStrut
 import System.Taffybar
 import System.Taffybar.Context hiding (BarConfig (..), TaffybarConfig (..))
 import qualified System.Taffybar.Context as BC (BarConfig (..), TaffybarConfig (..))
-import System.Taffybar.Util
 import System.Taffybar.WidgetPriority (setWidgetPriority, withPriority)
 
 -- | Size of a bar strut reservation. This is an alias for
@@ -79,6 +81,8 @@ data Position = Top | Bottom
 data SimpleTaffyConfig = SimpleTaffyConfig
   { -- | The monitor number to put the bar on (default: 'usePrimaryMonitor')
     monitorsAction :: TaffyIO [Int],
+    -- | CSS classes applied to each bar window.
+    barCssClasses :: [T.Text],
     -- | Number of pixels to reserve for the bar (default: 30)
     barHeight :: StrutSize,
     -- | Number of additional pixels to reserve for the bar strut (default: 0)
@@ -109,6 +113,7 @@ defaultSimpleTaffyConfig :: SimpleTaffyConfig
 defaultSimpleTaffyConfig =
   SimpleTaffyConfig
     { monitorsAction = useAllMonitors,
+      barCssClasses = [],
       barHeight = ScreenRatio $ 1 / 27,
       barPadding = 0,
       barPosition = Top,
@@ -153,6 +158,7 @@ toBarConfig config monitor = do
   return
     BC.BarConfig
       { BC.strutConfig = strutConfig,
+        BC.barCssClasses = barCssClasses config,
         BC.widgetSpacing = fromIntegral $ widgetSpacing config,
         BC.startWidgets = startWidgets config,
         BC.centerWidgets = centerWidgets config,
@@ -161,7 +167,21 @@ toBarConfig config monitor = do
         BC.barId = barId
       }
 
-newtype SimpleBarConfigs = SimpleBarConfigs (MV.MVar [(Int, BC.BarConfig)])
+-- | A monitor-specific simple configuration and the key that identifies it.
+-- Returning the same key lets Taffybar reuse the existing bar. Changing the
+-- key causes that monitor's bar to be rebuilt.
+data SimpleMonitorConfig = SimpleMonitorConfig
+  { simpleMonitorConfigKey :: T.Text,
+    simpleMonitorConfig :: SimpleTaffyConfig
+  }
+
+data SimpleBarConfigEntry = SimpleBarConfigEntry
+  { simpleBarConfigMonitor :: Int,
+    simpleBarConfigKey :: T.Text,
+    simpleBarConfigValue :: BC.BarConfig
+  }
+
+newtype SimpleBarConfigs = SimpleBarConfigs (MV.MVar [SimpleBarConfigEntry])
 
 {-# DEPRECATED toTaffyConfig "Use toTaffybarConfig instead" #-}
 
@@ -173,6 +193,19 @@ toTaffyConfig = toTaffybarConfig
 -- with 'startTaffybar' or 'dyreTaffybar'.
 toTaffybarConfig :: SimpleTaffyConfig -> BC.TaffybarConfig
 toTaffybarConfig conf =
+  toTaffybarConfigPerMonitor conf $ \_ ->
+    pure $ SimpleMonitorConfig T.empty conf
+
+-- | Convert a simple configuration using a monitor-specific configuration
+-- builder. The base configuration supplies monitor selection, CSS paths, and
+-- the startup hook. Per-monitor configurations supply bar geometry, classes,
+-- and widgets. Bars are reused while their key is unchanged and rebuilt when
+-- it changes.
+toTaffybarConfigPerMonitor ::
+  SimpleTaffyConfig ->
+  (Int -> TaffyIO SimpleMonitorConfig) ->
+  BC.TaffybarConfig
+toTaffybarConfigPerMonitor conf configForMonitor =
   def
     { BC.getBarConfigsParam = configGetter,
       BC.cssPaths = cssPaths conf,
@@ -181,22 +214,32 @@ toTaffybarConfig conf =
   where
     configGetter = do
       SimpleBarConfigs configsVar <-
-        getStateDefault $ lift (SimpleBarConfigs <$> MV.newMVar [])
+        getStateDefault $ lift $ SimpleBarConfigs <$> MV.newMVar []
       monitorNumbers <- monitorsAction conf
+      requestedConfigs <-
+        forM monitorNumbers $ \monitorNumber -> do
+          monitorConfig <- configForMonitor monitorNumber
+          pure (monitorNumber, monitorConfig)
 
-      let lookupWithIndex barConfigs monitorNumber =
-            (monitorNumber, lookup monitorNumber barConfigs)
-
-          lookupAndUpdate barConfigs = do
-            let (alreadyPresent, toCreate) =
-                  partition (isJust . snd) $
-                    map (lookupWithIndex barConfigs) monitorNumbers
-                alreadyPresentConfigs = mapMaybe snd alreadyPresent
-
-            newlyCreated <-
-              mapM (forkM return (toBarConfig conf) . fst) toCreate
-            let result = map snd newlyCreated ++ alreadyPresentConfigs
-            return (barConfigs ++ newlyCreated, result)
+      let lookupAndUpdate existingEntries = do
+            activeEntries <-
+              forM requestedConfigs $ \(monitorNumber, monitorConfig) ->
+                case find
+                  ( \entry ->
+                      simpleBarConfigMonitor entry == monitorNumber
+                        && simpleBarConfigKey entry == simpleMonitorConfigKey monitorConfig
+                  )
+                  existingEntries of
+                  Just entry -> pure entry
+                  Nothing -> do
+                    barConfig <- toBarConfig (simpleMonitorConfig monitorConfig) monitorNumber
+                    pure $
+                      SimpleBarConfigEntry
+                        { simpleBarConfigMonitor = monitorNumber,
+                          simpleBarConfigKey = simpleMonitorConfigKey monitorConfig,
+                          simpleBarConfigValue = barConfig
+                        }
+            pure (activeEntries, map simpleBarConfigValue activeEntries)
 
       lift $ MV.modifyMVar configsVar lookupAndUpdate
 

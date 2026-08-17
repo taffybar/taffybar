@@ -186,6 +186,8 @@ data BarLevelConfig = BarLevelConfig
 data BarConfig = BarConfig
   { -- | The strut configuration to use for the bar
     strutConfig :: StrutConfig,
+    -- | CSS classes applied to the bar window.
+    barCssClasses :: [T.Text],
     -- | The amount of spacing in pixels between bar widgets
     widgetSpacing :: Int32,
     -- | Constructors for widgets that should be placed at the beginning of the bar.
@@ -678,6 +680,8 @@ buildBarWindow context barConfig = do
       (show $ strutConfig barConfig)
 
   window <- Gtk.windowNew Gtk.WindowTypeToplevel
+
+  mapM_ (widgetSetClassGI window) $ barCssClasses barConfig
 
   void $ Gtk.onWidgetDestroy window $ do
     let bId = showBarId barConfig

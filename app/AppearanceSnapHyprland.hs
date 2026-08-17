@@ -176,6 +176,7 @@ buildBarConfig barUnique mode =
     LayoutSingleRow ->
       BarConfig
         { strutConfig = baseStrutConfig 40,
+          barCssClasses = [],
           widgetSpacing = 8,
           startWidgets = [startWidget],
           centerWidgets = [testBoxWidget "test-center-box" 200 20],
@@ -190,6 +191,7 @@ buildBarConfig barUnique mode =
     LayoutLevels ->
       BarConfig
         { strutConfig = baseStrutConfig 72,
+          barCssClasses = [],
           widgetSpacing = 8,
           startWidgets = [testBoxWidget "test-ignored-old-left" 40 16],
           centerWidgets = [testBoxWidget "test-ignored-old-center" 120 16],

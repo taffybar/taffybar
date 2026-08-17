@@ -429,6 +429,7 @@ test-suite unit
                , filepath
                , text
                , gi-gtk3
+               , gtk-strut
                , hspec
                , hspec-core
                , hspec-golden

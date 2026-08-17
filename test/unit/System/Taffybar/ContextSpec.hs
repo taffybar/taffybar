@@ -283,6 +283,7 @@ toSimpleConfig :: GenSimpleConfig -> SimpleTaffyConfig
 toSimpleConfig GenSimpleConfig {..} =
   SimpleTaffyConfig
     { monitorsAction = toMonitorsAction monitors,
+      barCssClasses = [],
       barHeight = size,
       barPadding = unGenSpace padding,
       barPosition = position,

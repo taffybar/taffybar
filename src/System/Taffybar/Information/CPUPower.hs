@@ -178,7 +178,7 @@ getCPUPowerInfoState interval = do
 
 setupCPUPowerInfoChanVar :: Double -> TaffyIO CPUPowerInfoChanVar
 setupCPUPowerInfoChanVar interval = getStateDefault $ do
-  wakeupChan <- getWakeupChannelForDelay $ max 0.000001 interval
+  wakeupChan <- getWakeupChannelForDelay $ max 0.000_001 interval
   ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
   liftIO $ do
     domain <- discoverCPUPowerDomain
