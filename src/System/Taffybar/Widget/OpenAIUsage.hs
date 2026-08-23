@@ -25,7 +25,7 @@ module System.Taffybar.Widget.OpenAIUsage
   )
 where
 
-import Control.Concurrent (ThreadId, forkIO, killThread)
+import Control.Concurrent (ThreadId, forkIO)
 import Control.Concurrent.MVar (MVar, newMVar, readMVar, swapMVar)
 import Control.Concurrent.STM (atomically, newTVarIO, readTVarIO, swapTVar)
 import Control.Concurrent.STM.TChan (TChan, dupTChan, newBroadcastTChanIO, readTChan, writeTChan)
@@ -44,6 +44,7 @@ import System.Taffybar.Widget.Util
   ( UsageWindowLabelParts (..),
     UsageWindowPosition (..),
     buildIconLabelBox,
+    manageWidgetThreads,
     widgetSetClassGI,
   )
 import Text.Printf (printf)
@@ -205,12 +206,10 @@ openAIUsageLabelPartsNewWith config = do
     _ <- widgetSetClassGI label (openAIUsageLabelClass config)
     updateLabelFromState config label displayState initialSnapshot
 
-    void $ Gtk.onWidgetRealize label $ do
+    manageWidgetThreads label $ do
       usageThread <- forkUsageListener config label displayState snapshotVar usageChan
       modeThread <- forkDisplayModeListener config label displayState snapshotVar
-      void $ Gtk.onWidgetUnrealize label $ do
-        killThread usageThread
-        killThread modeThread
+      return [usageThread, modeThread]
 
     Gtk.widgetShowAll label
     widget <- Gtk.toWidget label
@@ -262,13 +261,13 @@ wrapOpenAIUsageMenu klass child config parts = do
         -- every usage snapshot.
         Gtk.widgetDestroy oldMenu
 
-  void $ Gtk.onWidgetRealize ebox $ do
+  manageWidgetThreads ebox $ do
     menuThread <-
       forkCachedMenuUpdater
         rebuildMenu
         (openAIUsageLabelSnapshotVar parts)
         (openAIUsageLabelUsageChan parts)
-    void $ Gtk.onWidgetUnrealize ebox $ killThread menuThread
+    return [menuThread]
 
   void $
     Gtk.onWidgetButtonPressEvent ebox $ \_event -> do

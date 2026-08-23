@@ -14,9 +14,7 @@ module System.Taffybar.Widget.Generic.PollingGraph
   )
 where
 
-import Control.Concurrent
 import qualified Control.Exception.Enclosed as E
-import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask, runReaderT)
 import qualified Data.Text as T
@@ -24,6 +22,7 @@ import GI.Gtk
 import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 import System.Taffybar.Widget.Generic.Graph
+import System.Taffybar.Widget.Util (manageWidgetThreads)
 
 -- | Construct a polling graph whose callback also supplies tooltip text.
 pollingGraphNewWithTooltip ::
@@ -32,8 +31,8 @@ pollingGraphNewWithTooltip cfg pollSeconds action = do
   context <- ask
   (graphWidget, graphHandle) <- graphNew cfg
 
-  liftIO $ do
-    _ <- onWidgetRealize graphWidget $ do
+  liftIO $
+    manageWidgetThreads graphWidget $ do
       sampleThread <-
         runReaderT
           ( taffyForeverWithDelay pollSeconds $
@@ -46,8 +45,7 @@ pollingGraphNewWithTooltip cfg pollSeconds action = do
                     widgetSetTooltipMarkup graphWidget tooltipStr
           )
           context
-      void $ onWidgetUnrealize graphWidget $ killThread sampleThread
-    return ()
+      return [sampleThread]
 
   return graphWidget
 

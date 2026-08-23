@@ -51,7 +51,7 @@ where
 
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM.TChan
-import Control.Monad (void, when)
+import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
 import Data.Default (Default (..))
@@ -71,7 +71,7 @@ import System.Taffybar.Information.Privacy
     getPrivacyInfoState,
   )
 import System.Taffybar.Util (postGUIASync)
-import System.Taffybar.Widget.Util (widgetSetClassGI)
+import System.Taffybar.Widget.Util (manageWidgetThreads, widgetSetClassGI)
 
 -- | Configuration for the privacy widget.
 data PrivacyWidgetConfig = PrivacyWidgetConfig
@@ -165,16 +165,14 @@ privacyNewWith config = do
     updateWidget initialInfo
 
     -- Connect to channel updates
-    void $ Gtk.onWidgetRealize revealer $ do
+    manageWidgetThreads revealer $ do
       ourChan <- atomically $ dupTChan chan
-      void $ Gtk.onWidgetUnrealize revealer $ return ()
-      -- Start update thread
       let loop = do
             info <- atomically $ readTChan ourChan
             updateWidget info
             loop
-      _ <- forkIO loop
-      return ()
+      listenerThread <- forkIO loop
+      return [listenerThread]
 
     Gtk.widgetShowAll revealer
     Gtk.toWidget revealer

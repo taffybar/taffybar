@@ -11,7 +11,7 @@ module System.Taffybar.Widget.CoordinatedClock
   )
 where
 
-import Control.Concurrent (forkIO, killThread)
+import Control.Concurrent (forkIO)
 import Control.Concurrent.STM (atomically)
 import Control.Concurrent.STM.TChan (dupTChan, readTChan)
 import Control.Exception.Enclosed (catchAny)
@@ -94,12 +94,12 @@ coordinatedTextClockNewWith cfg@ClockConfig {clockUpdateStrategy = updateStrateg
         _ <- widgetSetClassGI label "text-clock-label"
         void $ refreshClockLabel label
 
-        _ <- onWidgetRealize label $ do
+        manageWidgetThreads label $ do
           ourWakeupChan <- atomically $ dupTChan wakeupChan
           threadId <- forkIO $ forever $ do
             void $ atomically $ readTChan ourWakeupChan
             void $ refreshClockLabel label
-          void $ onWidgetUnrealize label $ killThread threadId
+          return [threadId]
 
         ebox <- eventBoxNew
         _ <- widgetSetClassGI ebox "text-clock"

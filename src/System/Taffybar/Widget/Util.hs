@@ -18,7 +18,7 @@
 -- Utility functions to facilitate building GTK interfaces.
 module System.Taffybar.Widget.Util where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (ThreadId, forkIO, killThread)
 import qualified Control.Concurrent.MVar as MV
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad
@@ -248,6 +248,35 @@ colorize fg bg = printf "<span%s%s>%s</span>" (attr ("fg" :: String) fg :: Strin
 -- | Run an action forever on a background thread.
 backgroundLoop :: IO a -> IO ()
 backgroundLoop = void . forkIO . forever
+
+-- | Acquire a resource whenever a widget is realized and release it when the
+-- widget is unrealized or destroyed. At most one resource is retained.
+manageWidgetResource ::
+  (Gtk.IsWidget widget) =>
+  widget ->
+  IO resource ->
+  (resource -> IO ()) ->
+  IO ()
+manageWidgetResource widget acquire release = do
+  resourceVar <- MV.newMVar Nothing
+  let releaseCurrent =
+        MV.swapMVar resourceVar Nothing >>= mapM_ release
+      acquireCurrent = do
+        releaseCurrent
+        resource <- acquire
+        MV.swapMVar resourceVar (Just resource) >>= mapM_ release
+  void $ Gtk.onWidgetRealize widget acquireCurrent
+  void $ Gtk.onWidgetUnrealize widget releaseCurrent
+  void $ Gtk.onWidgetDestroy widget releaseCurrent
+
+-- | Keep worker threads scoped to a widget's realized lifetime.
+manageWidgetThreads ::
+  (Gtk.IsWidget widget) =>
+  widget ->
+  IO [ThreadId] ->
+  IO ()
+manageWidgetThreads widget startThreads =
+  manageWidgetResource widget startThreads (mapM_ killThread)
 
 -- | Register an action on widget realization and return the widget.
 drawOn :: (Gtk.IsWidget object) => object -> IO () -> IO object

@@ -15,7 +15,7 @@ where
 
 import Control.Concurrent
 import Control.Exception.Enclosed (tryAny)
-import Control.Monad (void)
+import Control.Monad (forever)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Reader (ask, runReaderT)
 import Data.Foldable (traverse_)
@@ -23,7 +23,7 @@ import qualified GI.Gtk
 import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 import System.Taffybar.Widget.Generic.VerticalBar
-import System.Taffybar.Widget.Util (backgroundLoop)
+import System.Taffybar.Widget.Util (manageWidgetThreads)
 
 -- | Construct a bar widget driven directly by a sample callback.
 verticalBarFromCallback ::
@@ -31,9 +31,11 @@ verticalBarFromCallback ::
   BarConfig -> IO Double -> m GI.Gtk.Widget
 verticalBarFromCallback cfg action = liftIO $ do
   (drawArea, h) <- verticalBarNew cfg
-  _ <- GI.Gtk.onWidgetRealize drawArea $ backgroundLoop $ do
-    esample <- tryAny action
-    traverse (verticalBarSetPercent h) esample
+  manageWidgetThreads drawArea $ do
+    sampleThread <- forkIO $ forever $ do
+      esample <- tryAny action
+      traverse (verticalBarSetPercent h) esample
+    return [sampleThread]
   return drawArea
 
 -- | Construct a polling bar with a fixed polling interval (seconds).
@@ -43,8 +45,8 @@ pollingBarNew cfg pollSeconds action = do
   context <- ask
   (drawArea, h) <- verticalBarNew cfg
 
-  liftIO $ do
-    _ <- GI.Gtk.onWidgetRealize drawArea $ do
+  liftIO $
+    manageWidgetThreads drawArea $ do
       sampleThread <-
         runReaderT
           ( taffyForeverWithDelay pollSeconds $
@@ -53,7 +55,6 @@ pollingBarNew cfg pollSeconds action = do
                 traverse_ (verticalBarSetPercent h) esample
           )
           context
-      void $ GI.Gtk.onWidgetUnrealize drawArea $ killThread sampleThread
-    return ()
+      return [sampleThread]
 
   return drawArea

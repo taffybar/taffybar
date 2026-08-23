@@ -8,6 +8,7 @@ import Control.Monad.IO.Class
 import Control.Monad.STM (atomically)
 import GI.Gtk
 import System.Taffybar.Widget.Generic.Graph
+import System.Taffybar.Widget.Util (manageWidgetThreads)
 
 -- | Given a broadcast 'TChan' and an action to consume that broadcast chan and
 -- turn it into graphable values, build a graph that will update as values are
@@ -17,12 +18,12 @@ channelGraphNew ::
   GraphConfig -> TChan a -> (a -> IO [Double]) -> m GI.Gtk.Widget
 channelGraphNew config chan sampleBuilder = do
   (graphWidget, graphHandle) <- graphNew config
-  _ <- onWidgetRealize graphWidget $ do
+  liftIO $ manageWidgetThreads graphWidget $ do
     ourChan <- atomically $ dupTChan chan
     sampleThread <-
       forkIO $
         forever $
           atomically (readTChan ourChan)
             >>= (graphAddSample graphHandle <=< sampleBuilder)
-    void $ onWidgetUnrealize graphWidget $ killThread sampleThread
+    return [sampleThread]
   return graphWidget

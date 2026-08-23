@@ -8,7 +8,6 @@ module System.Taffybar.Widget.Generic.Icon
   )
 where
 
-import Control.Concurrent (killThread)
 import Control.Exception as E
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -18,6 +17,7 @@ import qualified Data.Text as T
 import GI.Gtk
 import System.Taffybar.Context (TaffyIO)
 import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
+import System.Taffybar.Widget.Util (manageWidgetThreads)
 
 -- | Create a new widget that displays a static image
 --
@@ -106,8 +106,8 @@ pollingIcon ::
 pollingIcon interval doUpdateName doInitImage doSetImage = do
   context <- ask
   image <- liftIO doInitImage
-  liftIO $ do
-    _ <- onWidgetRealize image $ do
+  liftIO $
+    manageWidgetThreads image $ do
       sampleThread <-
         runReaderT
           ( taffyForeverWithDelay interval $
@@ -120,8 +120,7 @@ pollingIcon interval doUpdateName doInitImage doSetImage = do
                   ignoreIOException
           )
           context
-      void $ onWidgetUnrealize image $ killThread sampleThread
-    return ()
+      return [sampleThread]
   liftIO $ putInBox image
 
 putInBox :: (IsWidget child) => child -> IO Widget

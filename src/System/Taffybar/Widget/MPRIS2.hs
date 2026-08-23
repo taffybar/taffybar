@@ -476,15 +476,17 @@ mpris2NewWithConfig config =
             busName <- parseBusName name
             when (busName `M.member` playerWidgets) doUpdate
 
-      _ <- Gtk.onWidgetRealize grid $ do
-        updateHandler <-
-          DBus.registerForPropertiesChanged client propMatcher signalCallback
-        nameHandler <-
-          DBus.registerForNameOwnerChanged client matchAny handleNameOwnerChanged
-        doUpdate
-        void $
-          Gtk.onWidgetUnrealize grid $
-            removeMatch client updateHandler >> removeMatch client nameHandler
+      manageWidgetResource
+        grid
+        ( do
+            updateHandler <-
+              DBus.registerForPropertiesChanged client propMatcher signalCallback
+            nameHandler <-
+              DBus.registerForNameOwnerChanged client matchAny handleNameOwnerChanged
+            doUpdate
+            return (updateHandler, nameHandler)
+        )
+        (\(updateHandler, nameHandler) -> removeMatch client updateHandler >> removeMatch client nameHandler)
 
       Gtk.widgetShow grid
       setPlayingClass

@@ -123,12 +123,12 @@ pollingLabelWithVariableDelayWithConfig config action =
         updateLabelHandlingErrors =
           E.tryAny action >>= either (const $ return 1) updateLabel
 
-    _ <- onWidgetRealize label $ do
+    manageWidgetThreads label $ do
       sampleThread <-
         foreverWithVariableDelayWithConfig
           (pollingLabelVariableDelayConfig config)
           updateLabelHandlingErrors
-      void $ onWidgetUnrealize label $ killThread sampleThread
+      return [sampleThread]
 
     vFillCenter label
     vFillCenter grid

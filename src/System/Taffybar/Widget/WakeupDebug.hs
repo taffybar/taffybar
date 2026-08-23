@@ -9,10 +9,10 @@ module System.Taffybar.Widget.WakeupDebug
   )
 where
 
-import Control.Concurrent (forkIO, killThread, threadDelay)
+import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM (atomically)
 import Control.Concurrent.STM.TChan (TChan, readTChan)
-import Control.Monad (forever, void, when)
+import Control.Monad (forever, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask, runReaderT)
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
@@ -30,7 +30,7 @@ import System.Taffybar.Information.Wakeup
     getWakeupSchedulerEvents,
   )
 import System.Taffybar.Util (postGUIASync)
-import System.Taffybar.Widget.Util (onClick, widgetSetClassGI)
+import System.Taffybar.Widget.Util (manageWidgetThreads, onClick, widgetSetClassGI)
 
 -- | Configuration for 'wakeupDebugWidgetNewWithConfig'.
 data WakeupDebugWidgetConfig = WakeupDebugWidgetConfig
@@ -96,9 +96,9 @@ wakeupDebugWidgetNewWithConfig config = do
                in (nextState, nextState)
           refreshWidget stateRef label eventBox
 
-    _ <- Gtk.onWidgetRealize eventBox $ do
+    manageWidgetThreads eventBox $ do
       listenerThread <- forkIO $ wakeupDebugLoop schedulerEvents refreshRegisteredIntervals stateRef label eventBox flashTokenRef config
-      void $ Gtk.onWidgetUnrealize eventBox $ killThread listenerThread
+      return [listenerThread]
 
     Gtk.widgetShowAll eventBox
     Gtk.toWidget eventBox

@@ -44,6 +44,7 @@ import System.Taffybar.Widget.Util
   ( UsageWindowLabelParts (..),
     UsageWindowPosition (..),
     buildIconLabelBox,
+    manageWidgetThreads,
     widgetSetClassGI,
   )
 import Text.Printf (printf)
@@ -213,7 +214,7 @@ anthropicUsageLabelPartsNewWith config = do
     _ <- widgetSetClassGI label (anthropicUsageLabelClass config)
     updateLabelFromState config label displayState initialSnapshot
 
-    void $ Gtk.onWidgetRealize label $ do
+    manageWidgetThreads label $ do
       -- The usage listener only runs while the label is realized (e.g. the
       -- visible page of a GtkStack), so broadcasts that arrived while the
       -- widget was hidden were missed. Re-sync from the shared state before
@@ -223,9 +224,7 @@ anthropicUsageLabelPartsNewWith config = do
       updateLabelFromState config label displayState currentSnapshot
       usageThread <- forkUsageListener config label displayState snapshotVar usageChan
       modeThread <- forkDisplayModeListener config label displayState snapshotVar
-      void $ Gtk.onWidgetUnrealize label $ do
-        killThread usageThread
-        killThread modeThread
+      return [usageThread, modeThread]
 
     Gtk.widgetShowAll label
     widget <- Gtk.toWidget label
