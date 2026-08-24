@@ -45,7 +45,7 @@ import System.Taffybar.Context
 import qualified System.Taffybar.DBus.Client.MPRIS2 as MPRIS2DBus
 import System.Taffybar.Information.MPRIS2
 import System.Taffybar.Util
-import System.Taffybar.Widget.Generic.AutoSizeImage
+import System.Taffybar.Widget.Generic.ScalingImage (scalingImage)
 import System.Taffybar.Widget.Util
 import System.Taffybar.WindowIcon
 import Text.Printf
@@ -250,9 +250,12 @@ simplePlayerWidget
   np@(Just NowPlaying {npBusName = busName}) = do
     ctx <- ask
     client <- asks sessionDBusClient
+    (image, _) <-
+      scalingImage
+        (fmap Just . loadIconAtSize client busName)
+        Gtk.OrientationHorizontal
     lift $ do
       mprisLog DEBUG "Building widget for %s" busName
-      image <- autoSizeImageNew (loadIconAtSize client busName) Gtk.OrientationHorizontal
       playerBox <- Gtk.gridNew
       label <- Gtk.labelNew Nothing
       setupPlayerLabel c label
@@ -316,9 +319,12 @@ simplePlayerWidgetWithControls
   np@(Just nowPlaying@NowPlaying {npBusName = busName}) = do
     ctx <- ask
     client <- asks sessionDBusClient
+    (image, _) <-
+      scalingImage
+        (fmap Just . loadIconAtSize client busName)
+        Gtk.OrientationHorizontal
     lift $ do
       mprisLog DEBUG "Building widget for %s" busName
-      image <- autoSizeImageNew (loadIconAtSize client busName) Gtk.OrientationHorizontal
       playerBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
       clickArea <- Gtk.boxNew Gtk.OrientationHorizontal 0
       controlsBox <- Gtk.boxNew Gtk.OrientationHorizontal 0
