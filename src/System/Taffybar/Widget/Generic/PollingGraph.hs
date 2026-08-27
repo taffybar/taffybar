@@ -20,8 +20,8 @@ import Control.Monad.Trans.Reader (ask, runReaderT)
 import qualified Data.Text as T
 import GI.Gtk
 import System.Taffybar.Context (TaffyIO)
-import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
+import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Generic.Graph
 import System.Taffybar.Widget.Util (manageWidgetThreads)
 
