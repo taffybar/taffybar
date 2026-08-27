@@ -1,3 +1,46 @@
+# 7.3.0
+
+## Breaking changes
+
+* `BarConfig` and `SimpleTaffyConfig` gained a `barCssClasses` field. Record
+  updates against `defaultSimpleTaffyConfig` are unaffected, but positional
+  construction and exhaustive pattern matches need updating.
+
+## Features
+
+* Add per-monitor simple bar configuration. `toTaffybarConfigPerMonitor` takes
+  a `SimpleMonitorConfig` per monitor, whose key identifies the bar: reusing a
+  key reuses the existing bar, and changing it rebuilds only that monitor's bar.
+* Apply user-specified CSS classes to bar windows via the new `barCssClasses`
+  field, so per-monitor bars can be styled independently.
+* Add channel-based CPU package power telemetry in the new
+  `System.Taffybar.Information.CPUPower` module, along with
+  `cpuMonitorNewWithHoverAndPower` for a CPU monitor that reports package
+  wattage in its label and tooltip.
+* Refresh the disk usage widget on click via `diskUsageLabelNewWithRefresh` and
+  `forceDiskUsageRefresh`, so a stale reading can be updated on demand rather
+  than only on the poll interval.
+* Add `manageWidgetResource` and `manageWidgetThreads` to
+  `System.Taffybar.Widget.Util`, which scope a widget's acquired resources and
+  worker threads to its realized lifetime, releasing them on unrealize or
+  destroy.
+
+## Fixes
+
+* Fix a segfault in `pollingGraphNew`. The tooltip was set directly from the
+  sampling thread, which races GTK's tooltip bookkeeping in
+  `gtk_widget_queue_tooltip_query` and eventually corrupts the tooltip window
+  list. The update now goes through `postGUIASync` like its sibling widgets.
+  Thanks to Isaac Shapira for the diagnosis and fix.
+* Stop the MPRIS2 player icon from driving a resize feedback loop. The icon
+  used the `ImageResize` path, so a player whose icon lookup fell back
+  repeatedly (e.g. Chromium) re-entered size-allocate on every fallback pixbuf
+  swap, growing the bar and pegging the CPU. It now routes through the
+  strategy-aware `scalingImage`, which renders via a `DrawingArea` and cannot
+  retrigger allocation.
+* Populate backlight state before starting the monitoring thread, so the widget
+  shows a real value immediately instead of waiting for the first sample.
+
 # 7.2.7
 
 ## Features
