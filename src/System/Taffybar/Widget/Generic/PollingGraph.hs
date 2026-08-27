@@ -22,6 +22,7 @@ import Control.Monad.Trans.Reader (ask, runReaderT)
 import qualified Data.Text as T
 import GI.Gtk
 import System.Taffybar.Context (TaffyIO)
+import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Information.Wakeup (taffyForeverWithDelay)
 import System.Taffybar.Widget.Generic.Graph
 
@@ -43,7 +44,7 @@ pollingGraphNewWithTooltip cfg pollSeconds action = do
                   Left _ -> return ()
                   Right (sample, tooltipStr) -> do
                     graphAddSample graphHandle sample
-                    widgetSetTooltipMarkup graphWidget tooltipStr
+                    postGUIASync $ widgetSetTooltipMarkup graphWidget tooltipStr
           )
           context
       void $ onWidgetUnrealize graphWidget $ killThread sampleThread
