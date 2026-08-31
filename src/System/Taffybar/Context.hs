@@ -610,10 +610,16 @@ getActiveWindowCenterPoint = runX11 $ do
     Nothing -> return Nothing
     Just activeWindow -> do
       display <- getDisplay
-      (_, x, y, width, height, _, _) <- lift $ safeGetGeometry display activeWindow
-      let centerX = fromIntegral x + fromIntegral width `div` 2
-          centerY = fromIntegral y + fromIntegral height `div` 2
-      return $ Just (centerX, centerY)
+      maybeGeometry <-
+        lift $
+          (Just <$> safeGetGeometry display activeWindow)
+            `catchAny` const (return Nothing)
+      case maybeGeometry of
+        Nothing -> return Nothing
+        Just (_, x, y, width, height, _, _) -> do
+          let centerX = fromIntegral x + fromIntegral width `div` 2
+              centerY = fromIntegral y + fromIntegral height `div` 2
+          return $ Just (centerX, centerY)
   where
     guardElem value values =
       if value `elem` values
