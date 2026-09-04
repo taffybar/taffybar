@@ -1,3 +1,19 @@
+# Unreleased
+
+## Fixes
+
+* Stop `autoSizeImage` (the `ImageResize` scaling strategy and
+  `imageMenuItemNew`) from growing without bound. Padding and border are now
+  read at allocation time instead of once at construction, and an allocation
+  that grows as a direct result of the pixbuf the widget just set is no longer
+  answered with a larger pixbuf. Previously a stale border reading made every
+  `size-allocate` request a slightly larger image, which pegged the CPU and
+  leaked memory until the process was killed.
+* Require `xdg-desktop-entry` with the fixed parser, so desktop files with
+  localised keys such as `GenericName[de]` resolve again. Before this, the
+  MPRIS2 player icon (and any other desktop-entry based icon lookup) fell back
+  to the default icon for most real-world desktop files.
+
 # 7.3.0
 
 ## Breaking changes

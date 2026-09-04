@@ -72,13 +72,16 @@ autoSizeImage image getPixbuf orientation = liftIO $ do
   _ <- widgetSetClassGI image "auto-size-image"
 
   lastAllocation <- MV.newMVar 0
-  -- XXX: Gtk seems to report information about padding etc inconsistently,
-  -- which is why we look it up once, at startup. This means that we won't
-  -- properly react to changes to these values, which could be a pretty nasty
-  -- gotcha for someone down the line. :(
-  borderInfo <- getBorderInfo image
+  -- Set just before we swap the pixbuf, so the size-allocate GTK runs in
+  -- response can be told apart from one the parent initiated.
+  selfAllocation <- MV.newMVar False
 
   let setPixbuf force allocation = do
+        -- Padding and border are read at allocation time. Before the widget
+        -- is parented and styled they come back as zero, and a stale value
+        -- here makes every pixbuf we set request a larger allocation than
+        -- the one it was scaled for.
+        borderInfo <- getBorderInfo image
         _width <- Gdk.getRectangleWidth allocation
         _height <- Gdk.getRectangleHeight allocation
 
@@ -90,9 +93,23 @@ autoSizeImage image getPixbuf orientation = liftIO $ do
                 _ -> width
 
         previousSize <- MV.readMVar lastAllocation
+        selfTriggered <- MV.swapMVar selfAllocation False
 
-        when (size /= previousSize || force) $ do
-          MV.modifyMVar_ lastAllocation $ const $ return size
+        -- The allocation grew as a direct result of the pixbuf we just set,
+        -- so the widget has chrome that borderInfo does not account for.
+        -- Loading a pixbuf for the new size would repeat the growth forever.
+        let runaway = not force && selfTriggered && size > previousSize
+
+        when runaway $ do
+          void $ MV.swapMVar lastAllocation size
+          imageLog DEBUG $
+            printf
+              "Ignoring self-triggered growth of auto-size image from %s to %s"
+              (show previousSize)
+              (show size)
+
+        when ((size /= previousSize && not runaway) || force) $ do
+          void $ MV.swapMVar lastAllocation size
 
           pixbuf <- getPixbuf size
           pbWidth <- fromMaybe 0 <$> traverse Gdk.getPixbufWidth pixbuf
@@ -114,6 +131,7 @@ autoSizeImage image getPixbuf orientation = liftIO $ do
               (show pbWidth)
               (show pbHeight)
 
+          void $ MV.swapMVar selfAllocation True
           Gtk.imageSetFromPixbuf image pixbuf
           postGUIASync $ Gtk.widgetQueueResize image
 
