@@ -1056,7 +1056,7 @@ setupBarWindow context config window =
 unsubscribe :: Unique -> Taffy IO ()
 unsubscribe identifier = do
   listenersVar <- asks listeners
-  lift $ MV.modifyMVar_ listenersVar $ return . filter ((== identifier) . fst)
+  lift $ MV.modifyMVar_ listenersVar $ return . filter ((/= identifier) . fst)
 
 -- | Subscribe to all incoming events on the X11 event loop. The returned
 -- "Unique" value can be used to unregister the listener using "unsuscribe".
