@@ -39,16 +39,16 @@ where
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Except
-import Data.Bifunctor (bimap)
+import qualified Data.ByteString as BS
 import Data.Char
 import Data.Either
 import Data.Either.Combinators
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Ini as Ini
 import Data.List
 import Data.Maybe
 import qualified Data.MultiMap as MM
-import Data.Text (pack, unpack)
+import Data.Text (unpack)
+import Data.Text.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
 import Safe
 import System.Directory
 import System.FilePath.Posix
@@ -193,19 +193,46 @@ getDirectoryEntriesDefault =
 -- | Read a desktop entry from a file.
 readDesktopEntry :: FilePath -> IO (Either String DesktopEntry)
 readDesktopEntry filePath = runExceptT $ do
-  -- let foo1 = join . fmap except . liftIO $ Ini.readIniFile filePath
-  -- let bar :: ExceptT String IO (HM.HashMap Text [(Text, Text)]) = map Ini.iniSections . liftIO $ Ini.readIniFile filePath
-  -- sections <- fmap Ini.iniSections . join . fmap except . liftIO $ Ini.readIniFile filePath
-  sections <- liftIO (Ini.readIniFile filePath) >>= fmap Ini.iniSections . except
+  contents <- liftIO $ unpack . decodeUtf8With lenientDecode <$> BS.readFile filePath
+  groups <- except $ parseDesktopEntryGroups contents
   result <-
-    maybe (throwE "Section [Desktop Entry] not found") (pure . fmap (bimap unpack unpack)) $
-      HM.lookup (pack "Desktop Entry") sections
+    maybe (throwE "Section [Desktop Entry] not found") pure $
+      lookup "Desktop Entry" groups
   return
     DesktopEntry
       { deType = fromMaybe Application $ lookup "Type" result >>= readMaybe,
         deFilename = filePath,
         deAttributes = result
       }
+
+-- | Parse the groups of a desktop entry file into association lists, in file
+-- order. Keys keep their locale suffix (e.g. @Name[de]@), whitespace around
+-- @=@ is ignored, and blank and @#@ comment lines are skipped.
+parseDesktopEntryGroups :: String -> Either String [(String, [(String, String)])]
+parseDesktopEntryGroups = go Nothing [] . zip [1 :: Int ..] . lines
+  where
+    go current done [] = Right $ reverse $ finish current done
+    go current done ((lineNo, rawLine) : rest)
+      | null line || "#" `isPrefixOf` line = go current done rest
+      | "[" `isPrefixOf` line && "]" `isSuffixOf` line =
+          go (Just (takeWhile (/= ']') $ drop 1 line, [])) (finish current done) rest
+      | otherwise =
+          case break (== '=') line of
+            (rawKey, '=' : rawValue)
+              | not (null key) ->
+                  case current of
+                    Nothing ->
+                      Left $ printf "line %d: entry before any group header" lineNo
+                    Just (name, entries) ->
+                      go (Just (name, (key, trim rawValue) : entries)) done rest
+              where
+                key = trim rawKey
+            _ -> Left $ printf "line %d: expected a group header or key=value" lineNo
+      where
+        line = trim rawLine
+    finish Nothing done = done
+    finish (Just (name, entries)) done = (name, reverse entries) : done
+    trim = dropWhileEnd isSpace . dropWhile isSpace
 
 -- | Construct a 'MM.Multimap' where each 'DesktopEntry' in the provided
 -- foldable is indexed by the keys returned from the provided indexing function.

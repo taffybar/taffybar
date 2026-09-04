@@ -1,5 +1,13 @@
 # Revision history for xdg-desktop-entry
 
+## Unreleased
+
+* Replace the `ini` based parser with one that follows the desktop entry
+  specification. Localised keys such as `Name[de]` and `GenericName[ar]` no
+  longer make `readDesktopEntry` fail, so nearly every real-world desktop file
+  now parses. Files are decoded as UTF-8 regardless of the process locale.
+* Drop the `ini` and `unordered-containers` dependencies.
+
 ## 0.1.1.5 -- 2026-05-13
 
 * Clean up parser and test warnings for newer GHC releases.
