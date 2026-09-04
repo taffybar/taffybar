@@ -2,6 +2,10 @@
 
 ## Fixes
 
+* Fix `unsubscribe` removing every X11 event listener *except* the one it was
+  asked to remove. Unsubscribed listeners kept firing while live ones were
+  dropped, which is why the workspaces widget could stop updating after a
+  display configuration change (#465). Thanks to @sgrb (#694).
 * Stop `autoSizeImage` (the `ImageResize` scaling strategy and
   `imageMenuItemNew`) from growing without bound. Padding and border are now
   read at allocation time instead of once at construction, and an allocation

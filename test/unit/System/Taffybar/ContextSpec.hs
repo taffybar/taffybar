@@ -24,10 +24,13 @@ module System.Taffybar.ContextSpec
   )
 where
 
+import Control.Concurrent.MVar qualified as MV
 import Control.Exception (SomeException, bracket, catch)
-import Control.Monad.Trans.Reader (runReaderT)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Reader (asks, runReaderT)
 import Data.Default (def)
 import Data.Ratio ((%))
+import Data.Unique (hashUnique, newUnique)
 import GHC.Generics (Generic)
 import GI.Gtk (Widget)
 import Network.Socket qualified as Socket
@@ -240,6 +243,22 @@ spec = logSetup $ sequential $ aroundAll_ withTestDBus $ aroundAll_ (withXdummy 
           lookupEnv "HYPRLAND_INSTANCE_SIGNATURE" `shouldReturn` Just liveSig
       removePathForcibly runtime `catch` (\(_ :: SomeException) -> pure ())
 
+  describe "unsubscribe" $ do
+    it "removes only the listener with the given identifier" $ runTaffyNoX11 $ do
+      idA <- subscribeToAll (const $ return ())
+      idB <- subscribeToAll (const $ return ())
+      idC <- subscribeToAll (const $ return ())
+      unsubscribe idB
+      remaining <- listenerIds
+      liftIO $ remaining `shouldMatchList` map hashUnique [idA, idC]
+
+    it "leaves the listeners alone when the identifier is unknown" $ runTaffyNoX11 $ do
+      idA <- subscribeToAll (const $ return ())
+      unknown <- liftIO newUnique
+      unsubscribe unknown
+      remaining <- listenerIds
+      liftIO $ remaining `shouldMatchList` [hashUnique idA]
+
   describe "Fuzz tests" $ do
     prop "eval generators" prop_genSimpleConfig
     xprop "TaffybarConfig" prop_taffybarConfig
@@ -260,6 +279,19 @@ withUnixSocket path action =
 
 runTaffyDefault :: TaffyIO a -> IO a
 runTaffyDefault f = buildContext def >>= runReaderT f
+
+-- | Run a 'TaffyIO' action in a context that has no X11 event loop attached.
+-- The loop opens its own X11 connection and is never shut down, which makes
+-- Xlib abort the whole test process once the test X server goes away.
+runTaffyNoX11 :: TaffyIO a -> IO a
+runTaffyNoX11 f = buildContextWithBackend BackendWayland def >>= runReaderT f
+
+-- | Hashes of the identifiers of the currently registered X11 event listeners.
+-- 'Unique' has no 'Show' instance, so hspec list matchers need the hash.
+listenerIds :: TaffyIO [Int]
+listenerIds = do
+  listenersVar <- asks listeners
+  map (hashUnique . fst) <$> liftIO (MV.readMVar listenersVar)
 
 ------------------------------------------------------------------------
 
