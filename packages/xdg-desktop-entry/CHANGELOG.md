@@ -1,6 +1,6 @@
 # Revision history for xdg-desktop-entry
 
-## Unreleased
+## 0.1.1.6 -- 2026-09-04
 
 * Replace the `ini` based parser with one that follows the desktop entry
   specification. Localised keys such as `Name[de]` and `GenericName[ar]` no
