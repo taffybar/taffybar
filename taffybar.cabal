@@ -401,6 +401,7 @@ test-suite unit
                , System.Taffybar.AuthSpec
                , System.Taffybar.AppearanceSpec
                , System.Taffybar.ContextSpec
+               , System.Taffybar.ContextStateSpec
                , System.Taffybar.Information.ASUSSpec
                , System.Taffybar.Information.CPUFrequencySpec
                , System.Taffybar.Information.CPUPowerSpec
