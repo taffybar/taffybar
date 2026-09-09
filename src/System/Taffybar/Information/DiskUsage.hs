@@ -15,13 +15,8 @@
 -- @disk-free-space@ package).
 --
 -- The shared-channel API ('getDiskUsageInfoChan', 'getDiskUsageInfoState')
--- uses a single polling thread per process (via 'getStateDefault') so that
--- multiple bar instances do not each spawn their own poller.
---
--- Because the channel is keyed by the 'DiskUsageChanVar' newtype, only one
--- monitored path is supported through the shared API.  If you need to
--- monitor several mount points independently, call 'getDiskUsageInfo'
--- directly with 'pollingLabelNew'.
+-- shares polling threads by canonical path and interval, so multiple bar
+-- instances can reuse a poller while monitoring different filesystems.
 module System.Taffybar.Information.DiskUsage
   ( DiskUsageInfo (..),
     forceDiskUsageRefresh,
@@ -38,10 +33,14 @@ import Control.Exception.Enclosed (catchAny)
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically, orElse)
+import Control.Monad.Trans.Reader (ask, runReaderT)
+import qualified Data.Map.Strict as Map
+import Data.Word (Word64)
+import System.Directory (canonicalizePath)
 import System.DiskSpace (diskAvail, diskFree, diskTotal, getDiskUsage)
 import System.Log.Logger (Priority (..))
 import System.Taffybar.Context (TaffyIO, getStateDefault)
-import System.Taffybar.Information.Wakeup (getWakeupChannelForDelay)
+import System.Taffybar.Information.Wakeup (getWakeupChannelNanoseconds, intervalSecondsToNanoseconds)
 import System.Taffybar.Util (logPrintF)
 
 -- | Disk usage statistics for a single filesystem.
@@ -97,8 +96,11 @@ newtype DiskUsageChanVar
         TChan ()
       )
 
+newtype DiskUsageSources
+  = DiskUsageSources (MVar (Map.Map (FilePath, Word64) DiskUsageChanVar))
+
 -- | Get a broadcast channel that is updated by a shared polling thread.
--- The first call starts the poller; subsequent calls return the same channel.
+-- Calls with the same path and interval reuse the same poller.
 getDiskUsageInfoChan :: Double -> FilePath -> TaffyIO (TChan DiskUsageInfo)
 getDiskUsageInfoChan interval path = do
   DiskUsageChanVar (chan, _, _) <- setupDiskUsageChanVar interval path
@@ -117,12 +119,26 @@ forceDiskUsageRefresh interval path = do
   liftIO $ atomically $ writeTChan refreshChan ()
 
 setupDiskUsageChanVar :: Double -> FilePath -> TaffyIO DiskUsageChanVar
-setupDiskUsageChanVar interval path = getStateDefault $ do
+setupDiskUsageChanVar interval path = do
+  intervalNs <- either fail pure $ intervalSecondsToNanoseconds interval
+  canonicalPath <- liftIO $ canonicalizePath path
+  DiskUsageSources sources <- getStateDefault $ liftIO $ DiskUsageSources <$> newMVar Map.empty
+  context <- ask
+  liftIO $ modifyMVar sources $ \current -> do
+    let key = (canonicalPath, intervalNs)
+    case Map.lookup key current of
+      Just source -> pure (current, source)
+      Nothing -> do
+        source <- runReaderT (buildDiskUsageSource intervalNs canonicalPath) context
+        pure (Map.insert key source current, source)
+
+buildDiskUsageSource :: Word64 -> FilePath -> TaffyIO DiskUsageChanVar
+buildDiskUsageSource intervalNs path = do
   chan <- liftIO newBroadcastTChanIO
   refreshChan <- liftIO newTChanIO
   info <- liftIO $ getDiskUsageInfo path
   var <- liftIO $ newMVar info
-  wakeupChan <- getWakeupChannelForDelay interval
+  wakeupChan <- getWakeupChannelNanoseconds intervalNs
   ourWakeupChan <- liftIO $ atomically $ dupTChan wakeupChan
   void $
     liftIO $

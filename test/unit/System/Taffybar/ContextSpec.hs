@@ -39,6 +39,7 @@ import System.Environment (lookupEnv)
 import System.FilePath ((</>))
 import System.Taffybar.Context
 import System.Taffybar.Context.Backend (prepareBackendEnvironment)
+import System.Taffybar.Information.DiskUsage (getDiskUsageInfoChan)
 import System.Taffybar.SimpleConfig
 import System.Taffybar.Test.DBusSpec (withTestDBus)
 import System.Taffybar.Test.UtilSpec (logSetup, withEnv, withSetEnv)
@@ -258,6 +259,18 @@ spec = logSetup $ sequential $ aroundAll_ withTestDBus $ aroundAll_ (withXdummy 
       unsubscribe unknown
       remaining <- listenerIds
       liftIO $ remaining `shouldMatchList` [hashUnique idA]
+
+  describe "Disk usage source keys" $ do
+    it "shares a source only when both path and interval match" $ runTaffyNoX11 $ do
+      tmp <- liftIO getTemporaryDirectory
+      root <- getDiskUsageInfoChan 3600 "/"
+      rootAgain <- getDiskUsageInfoChan 3600 "/."
+      temporary <- getDiskUsageInfoChan 3600 tmp
+      fasterRoot <- getDiskUsageInfoChan 1800 "/"
+      liftIO $ do
+        (rootAgain == root) `shouldBe` True
+        (temporary /= root) `shouldBe` True
+        (fasterRoot /= root) `shouldBe` True
 
   describe "Fuzz tests" $ do
     prop "eval generators" prop_genSimpleConfig
