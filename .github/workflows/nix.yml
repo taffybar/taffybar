@@ -12,7 +12,6 @@ jobs:
   lints:
     name: Build and Check with default GHC on ${{ matrix.nixpkgs }}
     runs-on: ubuntu-latest
-    continue-on-error: true
     strategy:
       matrix:
         # Temporarily restrict CI to nixos-unstable while nixos-25.05 is broken.
@@ -29,35 +28,7 @@ jobs:
       - name: Run hlint early (short-circuit on lint failures)
         run: nix build --print-build-logs --option substituters "https://cache.nixos.org/" .#checks.x86_64-linux.hlint
       - name: Nix build dependencies
-        run: nix develop --print-build-logs $drv --command ghc-pkg list
+        run: nix develop --print-build-logs "$drv" --command ghc-pkg list
       - name: Nix build
-        run: nix build --print-build-logs $drv
+        run: nix build --print-build-logs "$drv"
       - run: nix flake check --print-build-logs
-      - name: Run `nix-build` using overlay on ${{ matrix.nixpkgs }}
-        if: false  # TODO: needs overlays from gtk-strut, gtk-sni-tray, etc.
-        run: nix-build -I nixpkgs=flake:github:NixOS/nixpkgs/${{ matrix.nixpkgs }} '<nixpkgs>' --arg overlays '[(import ./nix/overlay.nix)]' -A pkgs.haskellPackages.taffybar
-
-  build:
-    # Temporarily disabled to reduce CI load/noise while we stabilize the
-    # nixos-unstable build.
-    if: false
-    name: Build with ${{ matrix.compiler }}
-    runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.experimental }}
-    strategy:
-      fail-fast: false
-      matrix:
-        compiler: [ghc98]
-        experimental: [false]
-        # include:
-        #   - compiler: ghc912
-        #     experimental: true
-    env:
-      drv: .#packages.x86_64-linux.${{ matrix.compiler }}-taffybar
-    steps:
-      - uses: actions/checkout@main
-      - uses: DeterminateSystems/nix-installer-action@main
-      - name: Nix build dependencies for ${{ matrix.compiler }}
-        run: nix develop -L $drv --command ghc-pkg list
-      - name: Nix build for ${{ matrix.compiler }}
-        run: nix build -L $drv
