@@ -168,6 +168,7 @@ library
                  , System.Taffybar.Information.Memory
                  , System.Taffybar.Information.Network
                  , System.Taffybar.Information.Nvidia
+                 , System.Taffybar.Information.Notifications
                  , System.Taffybar.Information.Temperature
                  , System.Taffybar.Information.NetworkManager
                  , System.Taffybar.Information.OpenAIUsage
@@ -408,6 +409,7 @@ test-suite unit
                , System.Taffybar.Information.CryptoSpec
                , System.Taffybar.Information.LayoutSpec
                , System.Taffybar.Information.NvidiaSpec
+               , System.Taffybar.Information.NotificationsSpec
                , System.Taffybar.Information.PrivacySpec
                , System.Taffybar.Information.SafeX11Spec
                , System.Taffybar.Information.Workspaces.EWMHSpec
