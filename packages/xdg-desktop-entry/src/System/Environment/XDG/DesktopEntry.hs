@@ -17,6 +17,7 @@
 module System.Environment.XDG.DesktopEntry
   ( DesktopEntry (..),
     deCommand,
+    deCommandArgs,
     deComment,
     deHasCategory,
     deIcon,
@@ -138,11 +139,70 @@ deComment ::
   Maybe String
 deComment langs de = deLocalisedAtt langs de "Comment"
 
--- | Return the command that should be executed when running this desktop entry.
+-- | Return a shell-quoted command for launching this entry without files.
 deCommand :: DesktopEntry -> Maybe String
-deCommand de =
-  reverse . dropWhile (== ' ') . reverse . takeWhile (/= '%')
-    <$> lookup "Exec" (deAttributes de)
+deCommand = fmap (unwords . map shellQuote) . deCommandArgs
+
+-- | Parse and expand Exec arguments without invoking a shell. File and URL
+-- placeholders are omitted because no files are being opened.
+deCommandArgs :: DesktopEntry -> Maybe [String]
+deCommandArgs de = do
+  command <- lookup "Exec" (deAttributes de)
+  args <- splitExecArgs $ unescapeExecValue command
+  expanded <- concat <$> traverse expandArg args
+  case expanded of
+    program : _ | not (null program) && '=' `notElem` program -> Just expanded
+    _ -> Nothing
+  where
+    expandArg "%i" = pure $ maybe [] (\icon -> if null icon then [] else ["--icon", icon]) (deIcon de)
+    expandArg "%F" = Just []
+    expandArg "%U" = Just []
+    expandArg arg = do
+      result <- expandCodes arg
+      pure [result | not (null result) || null arg]
+
+    expandCodes [] = Just []
+    expandCodes ('%' : '%' : rest) = ('%' :) <$> expandCodes rest
+    expandCodes ('%' : code : rest)
+      | code `elem` "fudDnNvm" = expandCodes rest
+      | code == 'c' = (deName [] de ++) <$> expandCodes rest
+      | code == 'k' = (deFilename de ++) <$> expandCodes rest
+      | otherwise = Nothing
+    expandCodes ['%'] = Nothing
+    expandCodes (c : rest) = (c :) <$> expandCodes rest
+
+unescapeExecValue :: String -> String
+unescapeExecValue ('\\' : c : rest) =
+  case lookup c [('s', ' '), ('n', '\n'), ('t', '\t'), ('r', '\r'), ('\\', '\\')] of
+    Just decoded -> decoded : unescapeExecValue rest
+    Nothing -> '\\' : c : unescapeExecValue rest
+unescapeExecValue (c : rest) = c : unescapeExecValue rest
+unescapeExecValue [] = []
+
+splitExecArgs :: String -> Maybe [String]
+splitExecArgs = go False False [] []
+  where
+    go quoted started current args []
+      | quoted = Nothing
+      | otherwise = Just $ reverse $ if started then reverse current : args else args
+    go quoted _ current args ('"' : rest) = go (not quoted) True current args rest
+    go _ _ _ _ ['\\'] = Nothing
+    go quoted _ current args ('\\' : c : rest)
+      | quoted && c `notElem` "\"`$\\" = go quoted True (c : '\\' : current) args rest
+      | otherwise = go quoted True (c : current) args rest
+    go quoted started current args (c : rest)
+      | isSpace c && not quoted =
+          go False False [] (if started then reverse current : args else args) rest
+      | otherwise = go quoted True (c : current) args rest
+
+shellQuote :: String -> String
+shellQuote arg
+  | not (null arg) && all safeChar arg = arg
+  | otherwise = "'" ++ concatMap escape arg ++ "'"
+  where
+    safeChar c = isAscii c && (isAlphaNum c || c `elem` "_./:@%+=,-")
+    escape '\'' = "'\\''"
+    escape c = [c]
 
 -- | Return a list of all desktop entries in the given directory.
 listDesktopEntries ::

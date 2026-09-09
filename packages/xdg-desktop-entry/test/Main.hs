@@ -3,6 +3,7 @@ import Data.Foldable (for_)
 import System.Environment.XDG.DesktopEntry
 import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
+import System.Process (readProcess)
 import Test.Hspec
 
 fileContent :: [String]
@@ -43,6 +44,33 @@ main = withSystemTempDirectory "xdg-desktop-entry" $ \dir -> do
     print i
     writeFile (filepath i) content
   hspec $ do
+    describe "Exec arguments" $ do
+      let entry command =
+            DesktopEntry
+              (read "Application")
+              "/tmp/Review App.desktop"
+              [("Exec", command), ("Name", "Review App"), ("Icon", "review-icon")]
+      it "preserves arguments following file placeholders" $
+        deCommandArgs (entry "viewer %U --incognito") `shouldBe` Just ["viewer", "--incognito"]
+      it "preserves escaped percentages and later flags" $
+        deCommandArgs (entry "viewer --title=100%% --new-window")
+          `shouldBe` Just ["viewer", "--title=100%", "--new-window"]
+      it "expands metadata without splitting arguments" $
+        deCommandArgs (entry "viewer %c %k %i")
+          `shouldBe` Just ["viewer", "Review App", "/tmp/Review App.desktop", "--icon", "review-icon"]
+      it "removes absent icons and deprecated placeholders" $
+        deCommandArgs (DesktopEntry (read "Application") "app.desktop" [("Exec", "viewer %i %d --flag")])
+          `shouldBe` Just ["viewer", "--flag"]
+      it "preserves quoted and empty arguments" $
+        deCommandArgs (entry "viewer \"two words\" \"\"") `shouldBe` Just ["viewer", "two words", ""]
+      it "rejects unknown field codes, unterminated quotes, and empty commands" $
+        map (deCommandArgs . entry) ["viewer %z", "viewer \"unterminated", "", "%U"]
+          `shouldBe` replicate 4 Nothing
+      it "does not treat desktop arguments as shell expressions" $ do
+        let command = deCommand $ entry "printf %%s \"$(printf injected);'\""
+        case command of
+          Nothing -> expectationFailure "Expected a valid command"
+          Just value -> readProcess "sh" ["-c", value] "" `shouldReturn` "$(printf injected);'"
     describe "deAtt" $ do
       it "content0 should work" $ do
         deResultE <- readDesktopEntry $ filepath 0
