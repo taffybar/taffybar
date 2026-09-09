@@ -16,7 +16,8 @@
 -- Privacy indicator widget for taffybar.
 --
 -- Shows icons when microphone, camera, or screen sharing is active.
--- The widget is hidden when no privacy-relevant streams are active.
+-- The widget is hidden when monitoring confirms that no streams are active.
+-- A warning remains visible when monitoring is unavailable.
 --
 -- Example usage:
 --
@@ -57,7 +58,7 @@ import Control.Monad.STM (atomically)
 import Data.Default (Default (..))
 import Data.Int (Int32)
 import Data.List (intercalate)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, isJust)
 import qualified Data.Text as T
 import qualified GI.Gtk as Gtk
 import System.Taffybar.Context (TaffyIO)
@@ -69,6 +70,7 @@ import System.Taffybar.Information.Privacy
     defaultPrivacyConfig,
     getPrivacyInfoChan,
     getPrivacyInfoState,
+    privacyInfoError,
   )
 import System.Taffybar.Util (postGUIASync)
 import System.Taffybar.Widget.Util (manageWidgetThreads, widgetSetClassGI)
@@ -124,6 +126,8 @@ privacyNewWith config = do
     audioInImage <- createIcon (audioInputIcon config) (privacyIconSize config)
     audioOutImage <- createIcon (audioOutputIcon config) (privacyIconSize config)
     videoInImage <- createIcon (videoInputIcon config) (privacyIconSize config)
+    unavailableImage <- createIcon "dialog-warning-symbolic" (privacyIconSize config)
+    _ <- widgetSetClassGI unavailableImage "privacy-unavailable"
 
     _ <- widgetSetClassGI audioInImage "privacy-audio-input"
     _ <- widgetSetClassGI audioOutImage "privacy-audio-output"
@@ -133,6 +137,7 @@ privacyNewWith config = do
     Gtk.containerAdd box audioInImage
     Gtk.containerAdd box audioOutImage
     Gtk.containerAdd box videoInImage
+    Gtk.containerAdd box unavailableImage
 
     -- Create a revealer to control visibility with animation
     revealer <- Gtk.revealerNew
@@ -146,19 +151,26 @@ privacyNewWith config = do
               hasAudioIn = any ((== AudioInput) . nodeType) nodes
               hasAudioOut = any ((== AudioOutput) . nodeType) nodes
               hasVideoIn = any ((== VideoInput) . nodeType) nodes
-              hasAny = hasAudioIn || hasAudioOut || hasVideoIn
+              monitorError = privacyInfoError info
+              hasAny = hasAudioIn || hasAudioOut || hasVideoIn || isJust monitorError
 
           -- Show/hide individual icons
           Gtk.widgetSetVisible audioInImage hasAudioIn
           Gtk.widgetSetVisible audioOutImage hasAudioOut
           Gtk.widgetSetVisible videoInImage hasVideoIn
+          Gtk.widgetSetVisible unavailableImage (isJust monitorError)
 
           -- Show/hide the whole widget
           Gtk.revealerSetRevealChild revealer hasAny
 
           -- Update tooltip
           when hasAny $ do
-            let tooltipText = buildTooltip nodes
+            let tooltipText = case monitorError of
+                  Nothing -> buildTooltip nodes
+                  Just err ->
+                    "Privacy monitoring unavailable: "
+                      ++ T.unpack err
+                      ++ if null nodes then "" else "\nLast known activity:\n" ++ buildTooltip nodes
             Gtk.widgetSetTooltipText box (Just $ T.pack tooltipText)
 
     -- Initial update
