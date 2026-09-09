@@ -72,14 +72,20 @@ networkGraphNew config interfaces =
 networkGraphNewWith :: NetworkGraphConfig -> TaffyIO GI.Gtk.Widget
 networkGraphNewWith config = do
   NetworkInfoChan chan <- getNetworkChan
-  let getUpDown = sumSpeeds . map snd . filter (interfacesFilter config . fst)
-      toSample (up, down) = map (networkGraphScale config . fromRational) [up, down]
-      sampleBuilder = return . toSample . getUpDown
+  let toSample (up, down) = map (networkGraphScale config . fromRational) [up, down]
+      sampleBuilder = return . toSample . networkGraphSpeeds config
   widget <- channelGraphNew (networkGraphGraphConfig config) chan sampleBuilder
   _ <- widgetSetClassGI widget (T.pack "network-graph")
-  for_ (networkGraphTooltipFormat config) $ \(format, precision) ->
+  for_ (networkGraphTooltipFormat config) $ \_ ->
     channelWidgetNew widget chan $ \speedInfo ->
-      let (up, down) = sumSpeeds $ map snd speedInfo
-          tooltip = showInfo format precision (fromRational down, fromRational up)
-       in postGUIASync $ widgetSetTooltipMarkup widget $ Just tooltip
+      postGUIASync $ widgetSetTooltipMarkup widget $ networkGraphTooltip config speedInfo
   return widget
+
+networkGraphSpeeds :: NetworkGraphConfig -> [(String, (Rational, Rational))] -> (Rational, Rational)
+networkGraphSpeeds config = sumSpeeds . map snd . filter (interfacesFilter config . fst)
+
+networkGraphTooltip :: NetworkGraphConfig -> [(String, (Rational, Rational))] -> Maybe T.Text
+networkGraphTooltip config speedInfo = do
+  (format, precision) <- networkGraphTooltipFormat config
+  let (up, down) = networkGraphSpeeds config speedInfo
+  pure $ showInfo format precision (fromRational down, fromRational up)
