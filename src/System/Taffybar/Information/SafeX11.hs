@@ -83,27 +83,26 @@ rawGetWindowPropertyBytes ::
   (Storable a) =>
   Int -> Display -> Atom -> Window -> IO (Maybe (ForeignPtr a, Int))
 rawGetWindowPropertyBytes bits d atom w =
-  alloca $ \actual_type_return ->
+  postX11RequestSyncDef Nothing $ alloca $ \actual_type_return ->
     alloca $ \actual_format_return ->
       alloca $ \nitems_return ->
         alloca $ \bytes_after_return ->
           alloca $ \prop_return -> do
             ret <-
-              postX11RequestSync $
-                safeXGetWindowProperty
-                  d
-                  w
-                  atom
-                  0
-                  0xFFFFFFFF
-                  False
-                  anyPropertyType
-                  actual_type_return
-                  actual_format_return
-                  nitems_return
-                  bytes_after_return
-                  prop_return
-            if fromRight (-1) ret /= 0
+              safeXGetWindowProperty
+                d
+                w
+                atom
+                0
+                0xFFFFFFFF
+                False
+                anyPropertyType
+                actual_type_return
+                actual_format_return
+                nitems_return
+                bytes_after_return
+                prop_return
+            if ret /= 0
               then return Nothing
               else do
                 prop_ptr <- peek prop_return
@@ -137,11 +136,10 @@ x11Thread = unsafePerformIO $ forkIO startHandlingX11Requests
 
 withErrorHandler :: XErrorHandler -> IO a -> IO a
 withErrorHandler new_handler action = do
-  handler <- mkXErrorHandler (\d e -> new_handler d e >> return 0)
-  original <- _xSetErrorHandler handler
-  res <- action
-  _ <- _xSetErrorHandler original
-  return res
+  bracket
+    (mkXErrorHandler (\d e -> new_handler d e >> return 0))
+    freeHaskellFunPtr
+    (\handler -> bracket (_xSetErrorHandler handler) _xSetErrorHandler (const action))
 
 deriving instance Show ErrorEvent
 
@@ -156,21 +154,19 @@ startHandlingX11Requests =
           show ee
 
 handleX11Requests :: IO ()
-handleX11Requests = do
+handleX11Requests = forever $ mask $ \restore -> do
   IORequest {ioAction = action, ioResponse = responseChannel} <-
     readChan requestQueue
-  res <-
-    catch
-      (maybe (Left SafeX11Exception) Right <$> timeout 500000 action)
-      ( \e -> do
-          logHere WARNING $
-            printf "Handling X11 error with catch: %s" $
-              show (e :: IOException)
-          return $ Left SafeX11Exception
-      )
-  writeChan responseChannel res
-  handleX11Requests
-  return ()
+  outcome <- try $ restore $ timeout 500000 (action >>= evaluate)
+  let response = case outcome of
+        Right value -> maybe (Left SafeX11Exception) Right value
+        Left (_ :: SomeException) -> Left SafeX11Exception
+  writeChan responseChannel response
+  case outcome of
+    Left err -> case fromException err :: Maybe SomeAsyncException of
+      Just _ -> throwIO err
+      Nothing -> logHere WARNING $ printf "X11 request failed: %s" (show err)
+    Right _ -> pure ()
 
 postX11RequestSync :: IO a -> IO (Either SafeX11Exception a)
 postX11RequestSync action = do

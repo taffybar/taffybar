@@ -168,6 +168,7 @@ library
                  , System.Taffybar.Information.Memory
                  , System.Taffybar.Information.Network
                  , System.Taffybar.Information.Nvidia
+                 , System.Taffybar.Information.Notifications
                  , System.Taffybar.Information.Temperature
                  , System.Taffybar.Information.NetworkManager
                  , System.Taffybar.Information.OpenAIUsage
@@ -401,12 +402,16 @@ test-suite unit
                , System.Taffybar.AuthSpec
                , System.Taffybar.AppearanceSpec
                , System.Taffybar.ContextSpec
+               , System.Taffybar.ContextStateSpec
                , System.Taffybar.Information.ASUSSpec
                , System.Taffybar.Information.CPUFrequencySpec
                , System.Taffybar.Information.CPUPowerSpec
                , System.Taffybar.Information.CryptoSpec
                , System.Taffybar.Information.LayoutSpec
                , System.Taffybar.Information.NvidiaSpec
+               , System.Taffybar.Information.NotificationsSpec
+               , System.Taffybar.Information.PrivacySpec
+               , System.Taffybar.Information.SafeX11Spec
                , System.Taffybar.Information.Workspaces.EWMHSpec
                , System.Taffybar.Information.Workspaces.HyprlandSpec
                , System.Taffybar.Information.X11DesktopInfoSpec
@@ -415,6 +420,7 @@ test-suite unit
                , System.Taffybar.WidgetPrioritySpec
                , System.Taffybar.Widget.AnthropicUsageSpec
                , System.Taffybar.Widget.BatterySpec
+               , System.Taffybar.Widget.NetworkGraphSpec
                , System.Taffybar.Widget.OpenAIUsageSpec
                , System.Taffybar.Widget.SNITray.PrioritizedCollapsibleSpec
                , System.Taffybar.Widget.Workspaces.ChannelSpec

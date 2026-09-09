@@ -27,6 +27,8 @@ module System.Taffybar.Information.Privacy
 
     -- * Query functions
     getPrivacyInfo,
+    parsePrivacyInfo,
+    privacyInfoError,
 
     -- * Channel-based monitoring
     getPrivacyInfoChan,
@@ -41,7 +43,7 @@ where
 import Control.Applicative ((<|>))
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
-import Control.Exception (SomeException, catch)
+import Control.Exception.Enclosed (catchAny)
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.STM (atomically)
@@ -86,10 +88,17 @@ data PrivacyNode = PrivacyNode
   deriving (Eq, Show, Generic)
 
 -- | Aggregated privacy information.
-newtype PrivacyInfo = PrivacyInfo
-  { activeNodes :: [PrivacyNode]
-  }
+data PrivacyInfo
+  = PrivacyInfo {activeNodes :: [PrivacyNode]}
+  | PrivacyUnavailable
+      { activeNodes :: [PrivacyNode],
+        privacyError :: Text
+      }
   deriving (Eq, Show, Generic)
+
+privacyInfoError :: PrivacyInfo -> Maybe Text
+privacyInfoError PrivacyInfo {} = Nothing
+privacyInfoError PrivacyUnavailable {privacyError = err} = Just err
 
 -- | Configuration for the privacy monitor.
 data PrivacyConfig = PrivacyConfig
@@ -174,24 +183,26 @@ instance FromJSON PwProps where
 
 -- | Get current privacy information by running pw-dump.
 getPrivacyInfo :: PrivacyConfig -> IO PrivacyInfo
-getPrivacyInfo config = do
-  result <- runCommand (privacyPwDumpPath config) []
-  case result of
-    Left err -> do
-      privacyLogF WARNING "pw-dump failed: %s" err
-      return $ PrivacyInfo []
-    Right output -> do
-      let parsed = Aeson.decode (BL.fromStrict $ TE.encodeUtf8 $ T.pack output) :: Maybe [PwObject]
-      case parsed of
-        Nothing -> do
-          privacyLogF WARNING "Failed to parse pw-dump output" ("" :: String)
-          return $ PrivacyInfo []
-        Just objects -> do
-          let nodes = mapMaybe (toPrivacyNode config) objects
-              filtered = filterNodes config nodes
-              -- Remove duplicates based on app name and node type
-              unique = nubBy (\a b -> appName a == appName b && nodeType a == nodeType b) filtered
-          return $ PrivacyInfo unique
+getPrivacyInfo config =
+  catchAny
+    ( do
+        result <- runCommand (privacyPwDumpPath config) []
+        either unavailable pure $ result >>= parsePrivacyInfo config
+    )
+    (unavailable . show)
+  where
+    unavailable err = do
+      privacyLogF WARNING "Privacy monitoring unavailable: %s" err
+      pure $ PrivacyUnavailable [] (T.pack err)
+
+-- | Decode a complete pw-dump snapshot, preserving errors as unknown state.
+parsePrivacyInfo :: PrivacyConfig -> String -> Either String PrivacyInfo
+parsePrivacyInfo config output = do
+  objects <- Aeson.eitherDecode (BL.fromStrict $ TE.encodeUtf8 $ T.pack output)
+  let nodes = mapMaybe (toPrivacyNode config) objects
+      filtered = filterNodes config nodes
+      unique = nubBy (\a b -> appName a == appName b && nodeType a == nodeType b) filtered
+  pure $ PrivacyInfo unique
 
 -- | Convert a PipeWire object to a PrivacyNode if relevant.
 toPrivacyNode :: PrivacyConfig -> PwObject -> Maybe PrivacyNode
@@ -286,7 +297,7 @@ getPrivacyInfoChanVar :: PrivacyConfig -> TaffyIO PrivacyInfoChanVar
 getPrivacyInfoChanVar config =
   getStateDefault $ do
     chan <- liftIO newBroadcastTChanIO
-    var <- liftIO $ newMVar (PrivacyInfo [])
+    var <- liftIO $ newMVar (PrivacyUnavailable [] "Waiting for privacy monitoring")
     let intervalSeconds :: Double
         intervalSeconds = max 0.1 (privacyPollingInterval config)
     liftIO $ refreshPrivacyInfo config chan var
@@ -299,8 +310,10 @@ refreshPrivacyInfo ::
   MVar PrivacyInfo ->
   IO ()
 refreshPrivacyInfo config chan var = do
-  info <- catch (getPrivacyInfo config) $ \(e :: SomeException) -> do
-    privacyLogF WARNING "Privacy info refresh failed: %s" e
-    return $ PrivacyInfo []
-  _ <- swapMVar var info
+  current <- getPrivacyInfo config
+  info <- modifyMVar var $ \previous -> do
+    let next = case current of
+          PrivacyUnavailable _ err -> PrivacyUnavailable (activeNodes previous) err
+          _ -> current
+    pure (next, next)
   atomically $ writeTChan chan info

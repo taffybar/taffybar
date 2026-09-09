@@ -75,10 +75,10 @@ module System.Taffybar.Context
 where
 
 import Control.Arrow ((&&&), (***))
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (ThreadId, forkIO, myThreadId, threadDelay)
 import qualified Control.Concurrent.MVar as MV
 import Control.Concurrent.STM.TChan (TChan, readTChan)
-import Control.Exception (SomeException, catch, try)
+import Control.Exception (SomeException, catch, mask, throwIO, try, uninterruptibleMask_)
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad
 import Control.Monad.IO.Class
@@ -167,10 +167,20 @@ type Listener = Event -> Taffy IO ()
 
 type SubscriptionList = [(Unique, Listener)]
 
-data Value = forall t. (Typeable t) => Value t
+data Value
+  = forall t. (Typeable t) => Value t
+  | Initializing ThreadId (MV.MVar (Either SomeException Value))
 
 fromValue :: forall t. (Typeable t) => Value -> Maybe t
 fromValue (Value v) = cast v
+fromValue (Initializing _ _) = Nothing
+
+awaitValue :: Value -> IO Value
+awaitValue value@(Value _) = pure value
+awaitValue (Initializing owner result) = do
+  current <- myThreadId
+  when (current == owner) $ fail "Recursive context state initialization"
+  MV.readMVar result >>= either throwIO pure
 
 -- | 'BarConfig' specifies the configuration for a single taffybar window.
 data BarLevelConfig = BarLevelConfig
@@ -989,10 +999,10 @@ getState :: forall t. (Typeable t) => Taffy IO (Maybe t)
 getState = do
   stateMap <- asksContextVar contextState
   let maybeValue = M.lookup (typeRep (Proxy :: Proxy t)) stateMap
-  return $ maybeValue >>= fromValue
+  resolved <- liftIO $ traverse awaitValue maybeValue
+  return $ resolved >>= fromValue
 
--- | Like "putState", but avoids aquiring a lock if the value is already in the
--- map.
+-- | Return existing state, initializing it once when absent.
 getStateDefault :: (Typeable t) => Taffy IO t -> Taffy IO t
 getStateDefault defaultGetter =
   getState >>= maybe (putState defaultGetter) return
@@ -1000,20 +1010,37 @@ getStateDefault defaultGetter =
 -- | Get a value of the type returned by the provided action from the the
 -- current taffybar state, unless the state does not exist, in which case the
 -- action will be called to populate the state map.
+-- Initializers run outside the registry lock and may access other state types.
+-- Concurrent callers share the result; a failed initializer may be retried.
 putState :: forall t. (Typeable t) => Taffy IO t -> Taffy IO t
 putState getValue = do
   contextVar <- asks contextState
   ctx <- ask
-  lift $ MV.modifyMVar contextVar $ \contextStateMap ->
+  liftIO $ mask $ \restore -> do
+    owner <- myThreadId
+    result <- MV.newEmptyMVar
     let theType = typeRep (Proxy :: Proxy t)
-        currentValue = M.lookup theType contextStateMap
-        insertAndReturn value =
-          (M.insert theType (Value value) contextStateMap, value)
-     in flip runReaderT ctx $
-          maybe
-            (insertAndReturn <$> getValue)
-            (return . (contextStateMap,))
-            (currentValue >>= fromValue)
+        initializing = Initializing owner result
+        unpack value = maybe (fail "Invalid context state type") pure (fromValue value)
+    existing <- MV.modifyMVar contextVar $ \values ->
+      case M.lookup theType values of
+        Just value -> pure (values, Just value)
+        Nothing -> pure (M.insert theType initializing values, Nothing)
+    case existing of
+      Just value -> restore (awaitValue value) >>= unpack
+      Nothing -> do
+        outcome <- try $ restore $ Value <$> runReaderT getValue ctx
+        -- Publishing must finish even if cancellation arrives while taking the lock.
+        uninterruptibleMask_ $ MV.modifyMVar_ contextVar $ \values -> do
+          void $ MV.tryPutMVar result outcome
+          pure $ case M.lookup theType values of
+            Just (Initializing _ current)
+              | current == result ->
+                  either (const $ M.delete theType values) (\value -> M.insert theType value values) outcome
+            _ -> values
+        case outcome of
+          Left err -> throwIO (err :: SomeException)
+          Right _ -> MV.readMVar result >>= either throwIO unpack
 
 -- | Overwrite a state value by type in the 'contextState' field of 'Context'.
 -- 'putState'/'getStateDefault' are intentionally "set-once" helpers; widgets
@@ -1022,7 +1049,10 @@ setState :: forall t. (Typeable t) => t -> Taffy IO t
 setState value = do
   contextVar <- asks contextState
   let theType = typeRep (Proxy :: Proxy t)
-  lift $ MV.modifyMVar_ contextVar $ \contextStateMap ->
+  lift $ MV.modifyMVar_ contextVar $ \contextStateMap -> do
+    case M.lookup theType contextStateMap of
+      Just (Initializing _ result) -> void $ MV.tryPutMVar result (Right $ Value value)
+      _ -> pure ()
     return $ M.insert theType (Value value) contextStateMap
   return value
 
