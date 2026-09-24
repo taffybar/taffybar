@@ -6,11 +6,12 @@ import DBus (toVariant)
 import DBusMenu
   ( LayoutNode (..),
     MenuItemShape,
+    menuItemLabel,
     menuItemShape,
   )
 import DBusMenu.Reconcile
   ( ReconcileAction (..),
-    planReconciliation,
+    planLabeledReconciliation,
   )
 import Data.Int (Int32)
 import Data.Map.Strict qualified as Map
@@ -22,32 +23,44 @@ spec = do
     it "reuses IDs whose GTK shape is unchanged" $ do
       let original = leaf 1 "Before" True
           updated = leaf 1 "After" False
-          existing :: Map.Map Int32 MenuItemShape
-          existing = Map.singleton 1 (menuItemShape original)
-      planReconciliation existing [(1, menuItemShape updated)]
+      planLabeledReconciliation (existing [original]) (desired [updated])
         `shouldBe` [ReuseItem 1]
 
     it "reuses stable IDs across additions, removals, and reordering" $ do
-      let shape = menuItemShape (leaf 0 "" True)
-          existing :: Map.Map Int32 MenuItemShape
-          existing = Map.fromList [(1, shape), (2, shape), (3, shape)]
-      planReconciliation existing [(3, shape), (2, shape), (4, shape)]
+      let old = [leaf 1 "A" True, leaf 2 "B" True, leaf 3 "C" True]
+          new = [leaf 3 "C" True, leaf 2 "B" True, leaf 4 "D" True]
+      planLabeledReconciliation (existing old) (desired new)
         `shouldBe` [ReuseItem 3, ReuseItem 2, BuildItem 4]
+
+    it "reuses items by shape and label when the service renumbers everything" $ do
+      let old = [leaf 1 "Wi-Fi" True, separator 2, submenu 3 "VPN", leaf 4 "Quit" True]
+          new = [leaf 41 "Wi-Fi" False, separator 42, submenu 43 "VPN", leaf 44 "Quit" True]
+      planLabeledReconciliation (existing old) (desired new)
+        `shouldBe` [ReuseItem 1, ReuseItem 2, ReuseItem 3, ReuseItem 4]
+
+    it "prefers exact ID matches over label matches" $ do
+      let old = [leaf 1 "Same" True, leaf 2 "Same" True]
+          new = [leaf 9 "Same" True, leaf 1 "Same" True]
+      planLabeledReconciliation (existing old) (desired new)
+        `shouldBe` [ReuseItem 2, ReuseItem 1]
 
     it "builds a replacement when an item's GTK shape changes" $ do
       let original = leaf 1 "Leaf" True
-          updated = submenu 1 "Submenu"
-          existing :: Map.Map Int32 MenuItemShape
-          existing = Map.singleton 1 (menuItemShape original)
-      planReconciliation existing [(1, menuItemShape updated)]
+          updated = submenu 1 "Leaf"
+      planLabeledReconciliation (existing [original]) (desired [updated])
         `shouldBe` [BuildItem 1]
 
     it "does not reuse the same widget for a duplicate desired ID" $ do
-      let shape = menuItemShape (leaf 1 "Leaf" True)
-          existing :: Map.Map Int32 MenuItemShape
-          existing = Map.singleton 1 shape
-      planReconciliation existing [(1, shape), (1, shape)]
+      let item = leaf 1 "Leaf" True
+      planLabeledReconciliation (existing [item]) (desired [item, item])
         `shouldBe` [ReuseItem 1, BuildItem 1]
+
+existing :: [LayoutNode] -> Map.Map Int32 (MenuItemShape, String)
+existing nodes =
+  Map.fromList [(lnId node, (menuItemShape node, menuItemLabel node)) | node <- nodes]
+
+desired :: [LayoutNode] -> [(Int32, MenuItemShape, String)]
+desired nodes = [(lnId node, menuItemShape node, menuItemLabel node) | node <- nodes]
 
 leaf :: Int -> String -> Bool -> LayoutNode
 leaf itemId label enabled =
@@ -58,6 +71,14 @@ leaf itemId label enabled =
           [ ("label", toVariant label),
             ("enabled", toVariant enabled)
           ],
+      lnChildren = []
+    }
+
+separator :: Int -> LayoutNode
+separator itemId =
+  LayoutNode
+    { lnId = fromIntegral itemId,
+      lnProps = Map.singleton "type" (toVariant ("separator" :: String)),
       lnChildren = []
     }
 

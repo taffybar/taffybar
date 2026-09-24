@@ -1,5 +1,20 @@
 # Changelog for dbus-menu
 
+## 0.1.4.0 - 2026-09-24
+
+* Subscribe root menus to `LayoutUpdated` and `ItemsPropertiesUpdated` and
+  reconcile the GTK menu tree in place while it is open. Previously a menu
+  showed the layout snapshot taken when it was opened; nm-applet rebuilds its
+  menu with fresh item IDs every few seconds, so its Wi-Fi network list was
+  missing or stale and clicks on stale IDs were rejected by the service.
+* Fall back to matching items by shape and label when a service renumbers
+  its IDs, re-keying the retained widget so hovered items and open submenus
+  survive the update. Adds `DBusMenu.Reconcile.planLabeledReconciliation`.
+* Recurse into retained submenu items so their contents are updated too.
+* Refresh submenus when they are actually popped up (`map`) rather than on the
+  one-time `show` emitted by the root menu's show-all, and fetch the full
+  subtree when doing so.
+
 ## 0.1.3.4 - 2026-07-20
 
 * Reconcile submenu refreshes by DBusMenu item ID so compatible GTK menu
