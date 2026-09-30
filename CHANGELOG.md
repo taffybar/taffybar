@@ -1,10 +1,48 @@
-# Unreleased
+# 7.4.0
+
+## Compatibility
+
+* `PrivacyInfo` gains a `PrivacyUnavailable` constructor. Custom exhaustive
+  pattern matches should handle unavailable monitoring; `privacyInfoError`
+  provides a total accessor for the error. Existing `activeNodes` accessors
+  continue to work.
 
 ## Fixes
 
 * Restore workspace labels before window icons in the default widget layout
   (#696). The bottom-left overlay remains available by setting
   `widgetBuilder = labelOverlayWidgetBuilder`.
+* Initialize shared context state outside the registry lock, preventing
+  deadlocks when an initializer accesses another state type. Concurrent
+  callers share the result, and failed or cancelled initialization can be
+  retried (#695).
+* Keep the X11 request worker running after a synchronous request fails, while
+  preserving cancellation. Property buffers now stay inside the worker's
+  lifetime, and temporary error handlers are restored and released (#695).
+* Show a warning when privacy monitoring fails instead of implying that no
+  streams are active. Keep the last known activity visible and include the
+  collection error in the tooltip (#695).
+* Parse and safely quote desktop-entry command arguments, preserving quoted
+  arguments, field-code expansion, and literal percent signs without
+  interpreting arguments as shell expressions (#695).
+* Prevent an expired notification from removing its replacement. Each
+  notification generation has its own expiry, and formatted notification
+  markup is preserved instead of being truncated mid-tag (#695).
+* Apply the network graph's interface filter to its tooltip as well as its
+  samples, so both report traffic for the same interfaces (#695).
+* Share disk-usage polling by canonical path and polling interval, allowing
+  multiple filesystems and cadences without reusing the first widget's
+  settings (#695).
+* Keep open tray menus synchronized with layout and property updates, fixing
+  stale Wi-Fi lists and rejected clicks in nm-applet. Preserve hovered items
+  and open submenus when services renumber menu item IDs.
+
+## Packaging
+
+* Require `xdg-desktop-entry >= 0.1.1.7` and `dbus-menu >= 0.1.4.0` so Hackage
+  builds include the command-expansion and live-menu fixes.
+* Propagate Nix build and check failures in CI instead of reporting a successful
+  workflow after a failed build (#695).
 
 # 7.3.1
 
