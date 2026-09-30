@@ -29,7 +29,7 @@ window.taffy-window,
 .workspace-label {
   color: #f0f0f0;
   font-size: 12px;
-  padding: 0px 6px 0px 0px;
+  padding: 0px;
 }
 
 .window-icon-container {
