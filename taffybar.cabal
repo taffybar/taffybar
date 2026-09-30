@@ -424,6 +424,7 @@ test-suite unit
                , System.Taffybar.Widget.OpenAIUsageSpec
                , System.Taffybar.Widget.SNITray.PrioritizedCollapsibleSpec
                , System.Taffybar.Widget.Workspaces.ChannelSpec
+               , System.Taffybar.Widget.Workspaces.LayoutSpec
                , System.Taffybar.Widget.WindowsSpec
   build-depends: data-default
                , bytestring
@@ -436,6 +437,7 @@ test-suite unit
                , text
                , gi-gtk3
                , gtk-strut
+               , haskell-gi-base
                , hspec
                , hspec-core
                , hspec-golden

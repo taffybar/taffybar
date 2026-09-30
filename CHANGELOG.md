@@ -1,3 +1,11 @@
+# Unreleased
+
+## Fixes
+
+* Restore workspace labels before window icons in the default widget layout
+  (#696). The bottom-left overlay remains available by setting
+  `widgetBuilder = labelOverlayWidgetBuilder`.
+
 # 7.3.1
 
 ## Fixes
