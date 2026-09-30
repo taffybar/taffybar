@@ -1,5 +1,12 @@
 # Revision history for xdg-desktop-entry
 
+## 0.1.1.7 -- 2026-09-30
+
+* Parse quoted and escaped `Exec` arguments before expanding desktop-entry
+  field codes, preserving argument boundaries and literal percent signs.
+* Quote expanded arguments safely for shell consumers, including embedded
+  apostrophes, dollar signs, and command substitutions (#695).
+
 ## 0.1.1.6 -- 2026-09-04
 
 * Replace the `ini` based parser with one that follows the desktop entry
