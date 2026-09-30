@@ -19,6 +19,7 @@ module System.Taffybar.Widget.Workspaces
     WorkspaceWidgetController (..),
     ControllerConstructor,
     defaultWidgetBuilder,
+    labelOverlayWidgetBuilder,
     WindowIconPixbufGetter,
     defaultWorkspacesConfig,
     defaultEWMHWorkspacesConfig,
@@ -270,8 +271,22 @@ defaultWorkspacesConfig =
 defaultEWMHWorkspacesConfig :: WorkspacesConfig
 defaultEWMHWorkspacesConfig = defaultWorkspacesConfig
 
+-- | Place the workspace label before the window icons in a horizontal box.
 defaultWidgetBuilder :: ControllerConstructor
-defaultWidgetBuilder cfg wsInfo = do
+defaultWidgetBuilder = widgetBuilderWithLayout $ \iconsWidget labelWidget -> do
+  contents <- liftIO $ Gtk.boxNew Gtk.OrientationHorizontal 0
+  liftIO $ Gtk.containerAdd contents labelWidget
+  liftIO $ Gtk.containerAdd contents iconsWidget
+  Gtk.toWidget contents >>= buildContentsBox
+
+-- | Overlay the workspace label in the bottom-left corner of the window icons.
+-- Select this layout with @widgetBuilder = labelOverlayWidgetBuilder@.
+labelOverlayWidgetBuilder :: ControllerConstructor
+labelOverlayWidgetBuilder = widgetBuilderWithLayout buildWorkspaceIconLabelOverlay
+
+widgetBuilderWithLayout ::
+  (Gtk.Widget -> Gtk.Widget -> TaffyIO Gtk.Widget) -> ControllerConstructor
+widgetBuilderWithLayout buildLayout cfg wsInfo = do
   wsRef <- liftIO $ newIORef wsInfo
   lastWorkspaceRef <- liftIO $ newIORef wsInfo
   iconsRef <- liftIO $ newIORef []
@@ -280,7 +295,7 @@ defaultWidgetBuilder cfg wsInfo = do
   _ <- widgetSetClassGI label "workspace-label"
   iconsWidget <- Gtk.toWidget iconsBox
   labelWidget <- Gtk.toWidget label
-  contents <- buildWorkspaceIconLabelOverlay iconsWidget labelWidget
+  contents <- buildLayout iconsWidget labelWidget
   let updateController forceIcons newWs = do
         oldWs <- liftIO $ readIORef lastWorkspaceRef
         liftIO $ writeIORef wsRef newWs

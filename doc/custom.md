@@ -28,6 +28,22 @@ Be aware that the `TaffybarConfig` value required by `dyreTaffybar`/`startTaffyb
 Appearance of Taffybar widgets can be controlled with CSS rules. These
 are by default loaded from `$XDG_CONFIG_HOME/taffybar/taffybar.css`.
 
+### Workspace labels and icons
+
+`workspacesNew defaultWorkspacesConfig` places the workspace label before its
+window icons. To overlay the label in the bottom-left corner of the icons,
+select the overlay builder:
+
+```haskell
+workspacesNew defaultWorkspacesConfig
+  { widgetBuilder = labelOverlayWidgetBuilder }
+```
+
+Both builders are exported by `System.Taffybar.Widget.Workspaces`. CSS controls
+spacing and appearance through `.workspace-label`, `.window-icon-container`,
+and `.contents`. The overlay builder also exposes `.overlay-box` for styling
+the label's container.
+
 ### GTK Documentation
 
 CSS styling is a feature of GTK. It uses a limited version of CSS, so
