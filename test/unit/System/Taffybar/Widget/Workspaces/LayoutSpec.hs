@@ -24,7 +24,16 @@ import System.Timeout (timeout)
 import Test.Hspec
 
 spec :: Spec
-spec = aroundAll withXvfb $
+spec = do
+  it "shows empty workspaces but hides special ones by default" $ do
+    let shown = showWorkspaceFn defaultWorkspacesConfig
+        empty = (workspace "5" []) {workspaceState = WorkspaceEmpty}
+    shown empty `shouldBe` True
+    shown empty {workspaceIsSpecial = True} `shouldBe` False
+  layoutSpec
+
+layoutSpec :: Spec
+layoutSpec = aroundAll withXvfb $
   describe "workspace label layout" $
     it "reserves label space and preserves the opt-in overlay" $ \display ->
       setDefaultDisplay_ display $
