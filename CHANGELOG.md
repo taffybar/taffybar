@@ -1,3 +1,13 @@
+# Unreleased
+
+## Fixes
+
+* Show empty workspaces in the default workspaces widget again, as before
+  5.2.0 (#698). Special workspaces remain hidden. Set
+  `showWorkspaceFn = \ws -> hideEmpty ws && not (workspaceIsSpecial ws)` to
+  hide empty workspaces.
+* Hidden workspaces no longer reserve `widgetGap` spacing or wrapper padding.
+
 # 7.4.0
 
 ## Compatibility

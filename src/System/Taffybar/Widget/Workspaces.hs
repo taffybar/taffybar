@@ -218,7 +218,6 @@ mkWorkspaceIconWidget strategy mSize transparentOnNone getPixbufFor mkTransparen
 
 data WorkspaceEntry = WorkspaceEntry
   { entryWrapper :: Gtk.Widget,
-    entryButton :: Gtk.EventBox,
     entryController :: WorkspaceWidgetController,
     entryWorkspaceRef :: IORef WorkspaceInfo,
     entryLastWorkspace :: WorkspaceInfo
@@ -260,7 +259,7 @@ defaultWorkspacesConfig =
       minIcons = 0,
       getWindowIconPixbuf = defaultGetWindowIconPixbuf,
       labelSetter = return . T.unpack . workspaceName . workspaceIdentity,
-      showWorkspaceFn = \ws -> hideEmpty ws && not (workspaceIsSpecial ws),
+      showWorkspaceFn = not . workspaceIsSpecial,
       iconSort = pure . sortWindowsByPosition,
       hyprlandWorkspaceProviderConfig = defaultHyprlandWorkspaceProviderConfig,
       urgentWorkspaceState = False,
@@ -386,8 +385,8 @@ updateCache cfg cont cacheVar snapshot oldCache = do
           && snapshotRevision snapshot /= cacheLastRevision oldCache
       applyVisibility wsInfo entry =
         if showWorkspaceFn cfg wsInfo
-          then liftIO $ Gtk.widgetShow (entryButton entry)
-          else liftIO $ Gtk.widgetHide (entryButton entry)
+          then liftIO $ Gtk.widgetShow (entryWrapper entry)
+          else liftIO $ Gtk.widgetHide (entryWrapper entry)
   if workspaces == cacheLastWorkspaces oldCache && not forceIconRefresh
     then do
       forM_ (M.elems $ cacheEntries oldCache) $ \entry ->
@@ -473,7 +472,6 @@ buildWorkspaceEntry cfg cacheVar wsInfo = do
   return
     WorkspaceEntry
       { entryWrapper = wrapper,
-        entryButton = button,
         entryController = controller,
         entryWorkspaceRef = wsRef,
         entryLastWorkspace = wsInfo
