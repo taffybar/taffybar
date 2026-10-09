@@ -1,3 +1,10 @@
+# 7.4.2
+
+## Packaging
+
+* Widen dependency bounds to allow `aeson 2.3`, `containers 0.8`, and
+  `template-haskell 2.24` (#700). Thanks to @Vekhir.
+
 # 7.4.1
 
 ## Fixes
