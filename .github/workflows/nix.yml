@@ -29,6 +29,10 @@ jobs:
         run: nix build --print-build-logs --option substituters "https://cache.nixos.org/" .#checks.x86_64-linux.hlint
       - name: Nix build dependencies
         run: nix develop --print-build-logs "$drv" --command ghc-pkg list
+      - name: Check Cabal installation without WirePlumber
+        run: |
+          nix develop --command cabal update
+          nix develop --command bash .github/scripts/check-cabal-no-wireplumber.sh
       - name: Nix build
         run: nix build --print-build-logs "$drv"
       - run: nix flake check --print-build-logs

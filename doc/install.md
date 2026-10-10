@@ -75,3 +75,14 @@ Once the prerequisites are in place, Cabal installation is a simple matter of in
 ```
 cabal install taffybar
 ```
+
+To install from a checkout without WirePlumber/PipeWire audio support, disable
+the `wireplumber` flag:
+
+```sh
+cabal install -f -wireplumber
+```
+
+This does not require the WirePlumber development libraries. With the flag
+enabled (the default), Cabal obtains `gi-wireplumber` from Hackage and requires
+the `wireplumber-0.5` system library.
