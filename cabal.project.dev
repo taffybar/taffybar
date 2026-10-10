@@ -1,0 +1,3 @@
+import: cabal.project
+
+packages: ./packages/gi-wireplumber
