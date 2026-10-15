@@ -43,6 +43,7 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Word
 import System.Log.Logger
 import System.Taffybar.Context
@@ -120,8 +121,9 @@ dummyMethodError = methodError (Serial 1) $ errorName_ "org.ClientTypeMismatch"
 -- If some fields are not actually present, they may have bogus values
 -- here.  Don't bet anything critical on it.
 getBatteryInfo :: ObjectPath -> TaffyIO (Either MethodError BatteryInfo)
-getBatteryInfo battPath =
-  asks systemDBusClient >>= \client -> lift $ runExceptT $ do
+getBatteryInfo battPath = do
+  client <- asks systemDBusClient
+  result <- lift $ runExceptT $ do
     reply <-
       ExceptT $
         getAllProperties client $
@@ -134,6 +136,85 @@ getBatteryInfo battPath =
           maybeToEither dummyMethodError $
             listToMaybe (methodReturnBody reply) >>= fromVariant
     return $ infoMapToBatteryInfo dict
+  traverse (reconcileBatteryInfo battPath) result
+
+-- | Latest raw sample and the most recently observed direction of energy flow.
+data BatteryEnergyHistory = BatteryEnergyHistory
+  { energyHistorySample :: BatteryInfo,
+    energyHistoryDirection :: Maybe (Word64, BatteryState)
+  }
+
+newtype BatteryEnergyHistoryVar
+  = BatteryEnergyHistoryVar (MVar (Map ObjectPath BatteryEnergyHistory))
+
+reconcileBatteryInfo :: ObjectPath -> BatteryInfo -> TaffyIO BatteryInfo
+reconcileBatteryInfo path info = do
+  BatteryEnergyHistoryVar historyVar <-
+    getStateDefault $ liftIO $ BatteryEnergyHistoryVar <$> newMVar M.empty
+  liftIO $ modifyMVar historyVar $ \histories -> do
+    let (history, corrected) = reconcileBatteryEnergy (M.lookup path histories) info
+    return (M.insert path history histories, corrected)
+
+-- | Prefer recent measured energy flow to firmware charging flags. Some USB-PD
+-- controllers report charging even when the battery supplies a power deficit.
+-- Unchanged (quantized) readings retain the last direction for up to two minutes;
+-- state changes and sampling gaps discard it so old evidence cannot cross them.
+reconcileBatteryEnergy ::
+  Maybe BatteryEnergyHistory -> BatteryInfo -> (BatteryEnergyHistory, BatteryInfo)
+reconcileBatteryEnergy previous info =
+  let timestamp = batteryUpdateTime info
+      active sample =
+        batteryIsPresent sample
+          && batteryState sample `elem` [BatteryStateCharging, BatteryStateDischarging]
+          && batteryEnergyFull sample > 0
+          && batteryEnergyRate sample > 0
+          && batteryEnergy sample >= 0
+          && not (isNaN (batteryEnergy sample) || isInfinite (batteryEnergy sample))
+      history = case previous of
+        Just old
+          | let sample = energyHistorySample old,
+            active info && active sample,
+            batteryState info == batteryState sample,
+            batteryEnergyFull info == batteryEnergyFull sample,
+            timestamp >= batteryUpdateTime sample,
+            timestamp - batteryUpdateTime sample <= 120 ->
+              if timestamp == batteryUpdateTime sample
+                then old
+                else BatteryEnergyHistory info $ case compare (batteryEnergy info) (batteryEnergy sample) of
+                  LT -> Just (timestamp, BatteryStateDischarging)
+                  GT -> Just (timestamp, BatteryStateCharging)
+                  EQ -> energyHistoryDirection old
+        _ -> BatteryEnergyHistory info Nothing
+      direction = do
+        (observedAt, state) <- energyHistoryDirection history
+        guard $ timestamp >= observedAt && timestamp - observedAt <= 120
+        return state
+      corrected = case direction of
+        Just state | state /= batteryState info -> setBatteryFlowState state info
+        _ -> info
+   in (history, corrected)
+
+setBatteryFlowState :: BatteryState -> BatteryInfo -> BatteryInfo
+setBatteryFlowState state info =
+  let rate = abs $ batteryEnergyRate info
+      duration energy
+        | rate > 0 && not (isNaN rate || isInfinite rate) =
+            round $ 3600 * max 0 energy / rate
+        | otherwise = 0
+      icon = T.replace "-charging" "" $ T.pack $ batteryIconName info
+      chargingIcon = case T.stripSuffix "-symbolic" icon of
+        Just name -> name <> "-charging-symbolic"
+        Nothing -> if T.null icon then icon else icon <> "-charging"
+   in info
+        { batteryState = state,
+          batteryTimeToEmpty =
+            if state == BatteryStateDischarging then duration (batteryEnergy info) else 0,
+          batteryTimeToFull =
+            if state == BatteryStateCharging
+              then duration (batteryEnergyFull info - batteryEnergy info)
+              else 0,
+          batteryIconName = T.unpack $ if state == BatteryStateCharging then chargingIcon else icon
+        }
 
 -- | Decode a UPower property map into a 'BatteryInfo' record.
 infoMapToBatteryInfo :: Map Text Variant -> BatteryInfo
@@ -199,7 +280,7 @@ getDisplayBatteryInfo = do
 -- | Default set of UPower properties that trigger display-battery refreshes.
 defaultMonitorDisplayBatteryProperties :: [String]
 defaultMonitorDisplayBatteryProperties =
-  ["IconName", "State", "Percentage", "EnergyRate", "UpdateTime"]
+  ["IconName", "State", "Percentage", "Energy", "EnergyRate", "UpdateTime"]
 
 -- | Start the monitoring of the display battery, and setup the associated
 -- channel and mvar for the current state.
