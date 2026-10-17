@@ -22,6 +22,7 @@ module System.Taffybar.Util
 
     -- * GLib
     catchGErrorsAsLeft,
+    catchGErrorsAsNothing,
 
     -- * Logging
     logPrintF,
