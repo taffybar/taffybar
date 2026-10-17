@@ -1,3 +1,15 @@
+# 7.4.3
+
+## Fixes
+
+* Load icons that live only in `share/pixmaps` (for example VS Code and
+  Joplin) by name. GTK's `iconThemeHasIcon` ignores these unthemed icons, so
+  they previously missed the theme lookup, logged
+  `Failed to load icon from filepath ...` on every workspace refresh, and
+  showed no icon on Hyprland (#607).
+* Icon names from desktop entries are only loaded as files when they are
+  absolute paths.
+
 # 7.4.2
 
 ## Packaging
