@@ -307,21 +307,21 @@ getImageForMaybeIconName mIconName size =
 
 -- | Resolve and load an icon by theme name or filesystem path.
 getImageForIconName :: T.Text -> Int32 -> IO (Maybe GI.Pixbuf)
-getImageForIconName iconName size =
-  maybeTCombine
-    (loadPixbufByName size iconName)
-    ( getPixbufFromFilePath (T.unpack iconName)
+getImageForIconName iconName size
+  | isAbsolute iconPath =
+      getPixbufFromFilePath iconPath
         >>= traverse (scalePixbufToSize size Gtk.OrientationHorizontal)
-    )
+  | otherwise = loadPixbufByName size iconName
+  where
+    iconPath = T.unpack iconName
 
 -- | Load an icon pixbuf from the current icon theme by symbolic name.
 loadPixbufByName :: Int32 -> T.Text -> IO (Maybe GI.Pixbuf)
 loadPixbufByName size name = do
   iconTheme <- Gtk.iconThemeGetDefault
-  hasIcon <- Gtk.iconThemeHasIcon iconTheme name
-  if hasIcon
-    then Gtk.iconThemeLoadIcon iconTheme name size themeLoadFlags
-    else return Nothing
+  -- iconThemeHasIcon ignores unthemed icons (e.g. share/pixmaps); lookup does not.
+  Gtk.iconThemeLookupIcon iconTheme name size themeLoadFlags
+    >>= fmap join . traverse (catchGErrorsAsNothing . Gtk.iconInfoLoadIcon)
 
 -- | Center a widget in both axes.
 alignCenter :: (Gtk.IsWidget o, MonadIO m) => o -> m ()
