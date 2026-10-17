@@ -1,5 +1,5 @@
 # status-notifier-item
-![Build Status](https://github.com/taffybar/status-notifier-item/actions/workflows/build.yml/badge.svg)
+[![Build Status](https://github.com/taffybar/taffybar/actions/workflows/nix.yml/badge.svg)](https://github.com/taffybar/taffybar/actions/workflows/nix.yml)
 [![Hackage](https://img.shields.io/hackage/v/status-notifier-item.svg?logo=haskell&label=status-notifier-item)](https://hackage.haskell.org/package/status-notifier-item) [![Stackage LTS](http://stackage.org/package/status-notifier-item/badge/lts)](http://stackage.org/lts/package/status-notifier-item) [![Stackage Nightly](http://stackage.org/package/status-notifier-item/badge/nightly)](http://stackage.org/nightly/package/status-notifier-item)
 
 The status-notifier-item package provides a haskell implementation of the [status-notifier-item](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/)/[app-indicator](https://github.com/ubuntu/gnome-shell-extension-appindicator/blob/master/interfaces-xml/StatusNotifierItem.xml) protocol.
