@@ -68,6 +68,19 @@ global ghc environment.
 
 ### `startTaffybar` (not Dyre)
 
+Compile standalone configurations with `-threaded -rtsopts -with-rtsopts=-I0`.
+For example, in the executable's Cabal stanza:
+
+```cabal
+ghc-options: -threaded -rtsopts "-with-rtsopts=-N2 -I0"
+```
+
+`-I0` disables idle garbage collections, matching the Dyre launcher. GTK
+callbacks can repeatedly wake the runtime and trigger full heap collections
+even when the bar has little work to do. With a large live heap, these
+collections can dominate CPU time. Allocation-triggered collections still run.
+Pass `+RTS -I0.3 -RTS` at startup to restore GHC's usual idle-GC interval.
+
 Not using Dyre, you can compile your Taffybar configuration the same
 way you compile other Haskell projects that you work on.
 

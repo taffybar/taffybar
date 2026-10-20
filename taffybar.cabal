@@ -58,7 +58,7 @@ common haskell
   ghc-options: -Wall
 
 common exe
-  ghc-options: -rtsopts -threaded
+  ghc-options: -rtsopts -threaded -with-rtsopts=-I0
 
 library
   import: haskell
