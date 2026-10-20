@@ -1,3 +1,12 @@
+# 7.4.4
+
+## Fixes
+
+* Disable idle garbage collections for the packaged executable and standalone
+  Taffybar example, matching the Dyre launcher. This avoids repeated full heap
+  collections and excessive CPU use when the bar has little work to do.
+* Document the runtime setting for custom compiled configurations.
+
 # 7.4.3
 
 ## Fixes
