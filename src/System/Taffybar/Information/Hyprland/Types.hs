@@ -28,9 +28,10 @@ module System.Taffybar.Information.Hyprland.Types
 where
 
 import Control.Applicative ((<|>))
-import Data.Aeson (FromJSON (..), withObject, (.!=), (.:), (.:?))
+import Data.Aeson (FromJSON (..), Object, withObject, (.!=), (.:), (.:?))
 import Data.Aeson.Types (Parser)
 import Data.Text (Text)
+import qualified Data.Text as T
 
 parseOptionalAt :: Maybe [Int] -> Parser (Maybe (Int, Int))
 parseOptionalAt mAt =
@@ -39,21 +40,32 @@ parseOptionalAt mAt =
     Just [x, y] -> pure $ Just (x, y)
     Just _ -> fail "Expected \"at\" to be a 2-element array"
 
+-- | Hyprland 0.57+ identifies workspaces by @address@ and only reports @id@
+-- for numbered workspaces. Older versions report only @id@, so fall back to it.
+parseWorkspaceAddress :: Object -> Maybe Int -> Parser Text
+parseWorkspaceAddress v wsId = do
+  address <- v .:? "address"
+  case address <|> (T.pack . show <$> wsId) of
+    Just a -> pure a
+    Nothing -> fail "Expected workspace \"address\" or \"id\""
+
 data HyprlandWorkspaceRef = HyprlandWorkspaceRef
-  { hyprWorkspaceRefId :: Int,
+  { hyprWorkspaceRefAddress :: Text,
+    hyprWorkspaceRefId :: Maybe Int,
     hyprWorkspaceRefName :: Text
   }
   deriving (Show, Eq)
 
 instance FromJSON HyprlandWorkspaceRef where
-  parseJSON = withObject "HyprlandWorkspaceRef" $ \v ->
-    HyprlandWorkspaceRef
-      <$> v .: "id"
-      <*> v .: "name"
+  parseJSON = withObject "HyprlandWorkspaceRef" $ \v -> do
+    wsId <- v .:? "id"
+    address <- parseWorkspaceAddress v wsId
+    HyprlandWorkspaceRef address wsId <$> v .: "name"
 
 -- | Entry from @hyprctl -j workspaces@.
 data HyprlandWorkspaceInfo = HyprlandWorkspaceInfo
-  { hyprWorkspaceId :: Int,
+  { hyprWorkspaceAddress :: Text,
+    hyprWorkspaceId :: Maybe Int,
     hyprWorkspaceName :: Text,
     hyprWorkspaceMonitor :: Maybe Text,
     hyprWorkspaceWindows :: Maybe Int
@@ -61,10 +73,11 @@ data HyprlandWorkspaceInfo = HyprlandWorkspaceInfo
   deriving (Show, Eq)
 
 instance FromJSON HyprlandWorkspaceInfo where
-  parseJSON = withObject "HyprlandWorkspaceInfo" $ \v ->
-    HyprlandWorkspaceInfo
-      <$> v .: "id"
-      <*> v .: "name"
+  parseJSON = withObject "HyprlandWorkspaceInfo" $ \v -> do
+    wsId <- v .:? "id"
+    address <- parseWorkspaceAddress v wsId
+    HyprlandWorkspaceInfo address wsId
+      <$> v .: "name"
       <*> v .:? "monitor"
       <*> v .:? "windows"
 
@@ -132,7 +145,8 @@ instance FromJSON HyprlandClientInfo where
 -- Hyprland has used multiple field spellings for the layout; we normalize those
 -- into 'hawLayout'.
 data HyprlandActiveWorkspaceInfo = HyprlandActiveWorkspaceInfo
-  { hyprActiveWorkspaceId :: Maybe Int,
+  { hyprActiveWorkspaceAddress :: Maybe Text,
+    hyprActiveWorkspaceId :: Maybe Int,
     hyprActiveWorkspaceName :: Maybe Text,
     hyprActiveWorkspaceLayout :: Maybe Text
   }
@@ -141,9 +155,10 @@ data HyprlandActiveWorkspaceInfo = HyprlandActiveWorkspaceInfo
 instance FromJSON HyprlandActiveWorkspaceInfo where
   parseJSON = withObject "HyprlandActiveWorkspaceInfo" $ \v -> do
     layout <- v .:? "layout" <|> v .:? "layoutName" <|> v .:? "layoutname"
-    HyprlandActiveWorkspaceInfo
-      <$> v .:? "id"
-      <*> v .:? "name"
+    wsId <- v .:? "id"
+    address <- v .:? "address"
+    HyprlandActiveWorkspaceInfo (address <|> (T.pack . show <$> wsId)) wsId
+      <$> v .:? "name"
       <*> pure layout
 
 -- | Result from @hyprctl -j activewindow@.
