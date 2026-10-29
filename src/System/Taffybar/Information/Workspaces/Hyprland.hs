@@ -278,9 +278,9 @@ buildHyprlandWorkspaceSnapshot = do
     Left err -> wLog WARNING ("hyprctl monitors failed: " <> show err) >> return []
     Right ms -> return ms
 
-  activeWorkspaceId <- case activeWorkspaceResult of
+  activeWorkspaceAddress <- case activeWorkspaceResult of
     Left err -> wLog WARNING ("hyprctl activeworkspace failed: " <> show err) >> return Nothing
-    Right ws -> return $ HyprTypes.hyprActiveWorkspaceId ws
+    Right ws -> return $ HyprTypes.hyprActiveWorkspaceAddress ws
 
   activeWindowAddress <- case activeWindowResult of
     Left err -> wLog WARNING ("hyprctl activewindow failed: " <> show err) >> return Nothing
@@ -289,36 +289,37 @@ buildHyprlandWorkspaceSnapshot = do
        in return $ if T.null address then Nothing else Just address
 
   let windowsByWorkspace = collectWorkspaceWindows activeWindowAddress clients
-      visibleWorkspaceIds =
-        [ HyprTypes.hyprWorkspaceRefId wsRef
+      visibleWorkspaceAddresses =
+        [ HyprTypes.hyprWorkspaceRefAddress wsRef
         | monitor <- monitors,
           Just wsRef <- [HyprTypes.hyprMonitorActiveWorkspace monitor]
         ]
-      focusedWorkspaceId =
+      focusedWorkspaceAddress =
         listToMaybe
-          [ HyprTypes.hyprWorkspaceRefId wsRef
+          [ HyprTypes.hyprWorkspaceRefAddress wsRef
           | monitor <- monitors,
             HyprTypes.hyprMonitorFocused monitor,
             Just wsRef <- [HyprTypes.hyprMonitorActiveWorkspace monitor]
           ]
-      activeWorkspaceId' = focusedWorkspaceId <|> activeWorkspaceId
+      activeWorkspaceAddress' = focusedWorkspaceAddress <|> activeWorkspaceAddress
       clientsOk = isRight clientsResult
       toWorkspace wsInfo =
-        let wsId = HyprTypes.hyprWorkspaceId wsInfo
+        let wsAddress = HyprTypes.hyprWorkspaceAddress wsInfo
+            wsId = HyprTypes.hyprWorkspaceId wsInfo
             wsName = HyprTypes.hyprWorkspaceName wsInfo
-            wsWindows = M.findWithDefault [] wsId windowsByWorkspace
+            wsWindows = M.findWithDefault [] wsAddress windowsByWorkspace
             hasWindows =
               not (null wsWindows)
                 || fromMaybe 0 (HyprTypes.hyprWorkspaceWindows wsInfo) > 0
             wsState
-              | Just wsId == activeWorkspaceId' = WorkspaceActive
-              | wsId `elem` visibleWorkspaceIds = WorkspaceVisible
+              | Just wsAddress == activeWorkspaceAddress' = WorkspaceActive
+              | wsAddress `elem` visibleWorkspaceAddresses = WorkspaceVisible
               | not hasWindows && clientsOk = WorkspaceEmpty
               | otherwise = WorkspaceHidden
          in WorkspaceInfo
               { workspaceIdentity =
                   WorkspaceIdentity
-                    { workspaceNumericId = Just wsId,
+                    { workspaceNumericId = wsId,
                       workspaceName = wsName
                     },
                 workspaceUpdateRevision = 0,
@@ -329,10 +330,11 @@ buildHyprlandWorkspaceSnapshot = do
               }
   return (clientsOk, sortWorkspaceInfos $ map toWorkspace workspaces)
 
-isSpecialWorkspace :: Int -> T.Text -> Bool
+-- | Named workspaces have negative ids before Hyprland 0.57 and no id after.
+isSpecialWorkspace :: Maybe Int -> T.Text -> Bool
 isSpecialWorkspace wsId wsName =
   let lowered = T.toLower wsName
-   in wsId < 0 || T.isPrefixOf "special" lowered
+   in maybe True (< 0) wsId || T.isPrefixOf "special" lowered
 
 sortWorkspaceInfos :: [WorkspaceInfo] -> [WorkspaceInfo]
 sortWorkspaceInfos =
@@ -452,14 +454,14 @@ applySpecialWorkspaceWindowTargets targetForWorkspace workspaces =
 collectWorkspaceWindows ::
   Maybe T.Text ->
   [HyprTypes.HyprlandClientInfo] ->
-  M.Map Int [WindowInfo]
+  M.Map T.Text [WindowInfo]
 collectWorkspaceWindows activeWindowAddress =
   F.foldl' (addWindow activeWindowAddress) M.empty
   where
     addWindow activeAddr windowsMap client =
-      let wsId = HyprTypes.hyprWorkspaceRefId $ HyprTypes.hyprClientWorkspace client
+      let wsAddress = HyprTypes.hyprWorkspaceRefAddress $ HyprTypes.hyprClientWorkspace client
           windowData = windowFromClient activeAddr client
-       in M.insertWith (++) wsId [windowData] windowsMap
+       in M.insertWith (++) wsAddress [windowData] windowsMap
 
 clientIsOnMinimizedWorkspace :: HyprTypes.HyprlandClientInfo -> Bool
 clientIsOnMinimizedWorkspace =
