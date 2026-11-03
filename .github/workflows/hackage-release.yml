@@ -23,6 +23,7 @@ jobs:
   publish:
     name: Publish ${{ inputs.tag || github.ref_name }} to Hackage
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     env:
       NIX_CONFIG: |
         accept-flake-config = true
@@ -32,6 +33,9 @@ jobs:
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
 
       - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            max-silent-time = 900
 
       - name: Resolve release tag
         id: release
@@ -42,12 +46,12 @@ jobs:
       - name: Build selected package
         env:
           PACKAGE: ${{ steps.release.outputs.package }}
-        run: nix build --print-build-logs ".#$PACKAGE"
+        run: .github/scripts/nix-retry-on-hang.sh nix build --print-build-logs ".#$PACKAGE"
 
       - name: Check package metadata
         env:
           PACKAGE_DIR: ${{ steps.release.outputs.package_dir }}
-        run: nix develop --command bash -euo pipefail -c "cd \"$PACKAGE_DIR\" && cabal check"
+        run: .github/scripts/nix-retry-on-hang.sh nix develop --command bash -euo pipefail -c "cd \"$PACKAGE_DIR\" && cabal check"
 
       - name: Build source distribution
         env:

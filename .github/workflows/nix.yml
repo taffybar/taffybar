@@ -12,6 +12,7 @@ jobs:
   lints:
     name: Build and Check with default GHC on ${{ matrix.nixpkgs }}
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       matrix:
         # Temporarily restrict CI to nixos-unstable while nixos-25.05 is broken.
@@ -22,17 +23,20 @@ jobs:
       - uses: actions/checkout@main
       - uses: DeterminateSystems/flake-checker-action@main
       - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            max-silent-time = 900
       - name: Use ${{ matrix.nixpkgs }}
         if: matrix.nixpkgs != 'nixos-unstable'
         run: nix flake update nixpkgs --override-input nixpkgs github:NixOS/nixpkgs/${{ matrix.nixpkgs }}
       - name: Run hlint early (short-circuit on lint failures)
-        run: nix build --print-build-logs --option substituters "https://cache.nixos.org/" .#checks.x86_64-linux.hlint
+        run: .github/scripts/nix-retry-on-hang.sh nix build --print-build-logs --option substituters "https://cache.nixos.org/" .#checks.x86_64-linux.hlint
       - name: Nix build dependencies
-        run: nix develop --print-build-logs "$drv" --command ghc-pkg list
+        run: .github/scripts/nix-retry-on-hang.sh nix develop --print-build-logs "$drv" --command ghc-pkg list
       - name: Check Cabal installation without WirePlumber
         run: |
           nix develop --command cabal update
           nix develop --command bash .github/scripts/check-cabal-no-wireplumber.sh
       - name: Nix build
-        run: nix build --print-build-logs "$drv"
-      - run: nix flake check --print-build-logs
+        run: .github/scripts/nix-retry-on-hang.sh nix build --print-build-logs "$drv"
+      - run: .github/scripts/nix-retry-on-hang.sh nix flake check --print-build-logs
