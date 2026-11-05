@@ -60,7 +60,7 @@ spec = do
         watts = map (`formatBatteryInfo` "$signedWatts$W") . reconcile
 
     it "shows net discharge while USB firmware reports charging" $ do
-      let [_, corrected] = reconcile [sample 100 54.074, sample 130 53.406]
+      let corrected = last $ reconcile [sample 100 54.074, sample 130 53.406]
       formatBatteryInfo corrected "$signedWatts$W" `shouldBe` "-40.0W"
       batteryState corrected `shouldBe` BatteryStateDischarging
       batteryIconName corrected `shouldBe` "battery-full-symbolic"
