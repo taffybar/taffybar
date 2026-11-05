@@ -1,3 +1,14 @@
+# 7.4.5
+
+## Fixes
+
+* Support Hyprland 0.57, which identifies workspaces by `address` and only
+  reports `id` for numbered workspaces. A single named workspace previously
+  failed to decode and emptied the workspaces widget (#705).
+* Correct the battery charging/discharging state using observed energy
+  changes. Some USB-PD controllers report charging while the battery is
+  actually supplying a power deficit.
+
 # 7.4.4
 
 ## Fixes
