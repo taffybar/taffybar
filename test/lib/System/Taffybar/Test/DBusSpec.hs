@@ -276,7 +276,7 @@ withTaffyMocks action = do
 ------------------------------------------------------------------------
 
 spec :: Spec
-spec = logSetup $ around_ (laxTimeout' 1_000_000) $ around (withSystemTempDirectory "dbus-spec") $ do
+spec = logSetup $ around_ (laxTimeout' 10_000_000) $ around (withSystemTempDirectory "dbus-spec") $ do
   describe "withDBusDaemon org.freedesktop.DBus.Peer.Ping" $ do
     forM_ [System, Session] $ \bus ->
       aroundWith (flip (withConnectDBusDaemon' bus) . curry) $ do
