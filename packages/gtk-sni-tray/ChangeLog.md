@@ -1,6 +1,8 @@
 # Changelog for gtk-sni-tray
 
-## Unreleased
+## 0.2.1.5 - 2026-11-14
+
+* Allow haskell-gi 0.27 (Stackage issue #8171).
 
 ## 0.2.1.4 - 2026-07-15
 - Require `status-notifier-item >= 0.3.2.16` so tray consumers collapse

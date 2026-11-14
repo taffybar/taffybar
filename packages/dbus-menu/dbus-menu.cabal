@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           dbus-menu
-version:        0.1.4.0
+version:        0.1.4.1
 synopsis:       A Haskell implementation of the DBusMenu protocol
 description:    Haskell client for the com.canonical.dbusmenu DBus interface, providing GTK3 menu construction from DBusMenu services.
 category:       System
@@ -47,7 +47,7 @@ library
     , gi-glib ==2.0.*
     , gi-gobject ==2.0.*
     , gi-gtk3 ==3.0.*
-    , haskell-gi >=0.21.2 && <0.27
+    , haskell-gi >=0.21.2 && <0.28
     , haskell-gi-base >=0.21.1 && <0.27
     , hslogger >=1.2 && <1.4
     , template-haskell >=2.10 && <2.24

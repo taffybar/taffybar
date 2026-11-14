@@ -1,5 +1,9 @@
 # Changelog for dbus-menu
 
+## 0.1.4.1 - 2026-11-14
+
+* Allow haskell-gi 0.27 (Stackage issue #8171).
+
 ## 0.1.4.0 - 2026-09-24
 
 * Subscribe root menus to `LayoutUpdated` and `ItemsPropertiesUpdated` and

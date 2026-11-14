@@ -1,5 +1,5 @@
 name:                dbus-menu
-version:             0.1.4.0
+version:             0.1.4.1
 github:              "taffybar/dbus-menu"
 license:             BSD3
 author:              "Ivan Malison"
@@ -30,7 +30,7 @@ library:
     - gi-glib >= 2.0 && < 2.1
     - gi-gobject >= 2.0 && < 2.1
     - gi-gtk3 >= 3.0 && < 3.1
-    - haskell-gi >= 0.21.2 && < 0.27
+    - haskell-gi >= 0.21.2 && < 0.28
     - haskell-gi-base >= 0.21.1 && < 0.27
     - hslogger >= 1.2 && < 1.4
     - template-haskell >= 2.10 && < 2.24
